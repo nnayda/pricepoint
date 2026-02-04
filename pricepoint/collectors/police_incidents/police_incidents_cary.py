@@ -1,9 +1,12 @@
-import sys
-from pricepoint.utils.logger import setup_logger
+"""Cary police incident collector."""
+
 import os
-import pandas as pd
-from sqlalchemy import create_engine, text
+
 from odsclient import ODSClient
+from sqlalchemy import create_engine
+
+from pricepoint.utils.logger import setup_logger
+
 """
 test:
 # src/pricepoint/collectors/police_incidents/police_incidents_cary.py
@@ -17,15 +20,16 @@ def collect_cary_data():
 logger = setup_logger(__name__)
 
 # Read config from Environment Variables
-DB_CONNECTION = os.getenv('DB_CONNECTION')
+DB_CONNECTION = os.getenv("DB_CONNECTION")
 
 # Settings
 TABLE_NAME = "staging_police_incidents_cary"
 ODS_BASE_URL = "https://data.townofcary.org/"
 ODS_DATASET_ID = "cpd-incidents"
 
+
 def download_and_extract_incidents():
-    
+    """Load Cary police incidents."""
     # Download the data
     logger.info("Downloading the data...")
     ods_client = ODSClient(base_url=ODS_BASE_URL)
@@ -37,15 +41,10 @@ def download_and_extract_incidents():
     engine = create_engine(DB_CONNECTION)
 
     logger.info(f"Dropping and recreating table '{TABLE_NAME}'...")
-    df.to_sql(
-        name=TABLE_NAME,
-        con=engine,
-        if_exists="replace",
-        index=False,
-        chunksize=10000
-    )
+    df.to_sql(name=TABLE_NAME, con=engine, if_exists="replace", index=False, chunksize=10000)
 
     logger.info("✅ Full reload complete.")
+
 
 if __name__ == "__main__":
     download_and_extract_incidents()
