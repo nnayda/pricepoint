@@ -1,0 +1,37 @@
+"""Application settings loaded from environment variables."""
+
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Central configuration for the Home Value Forecast application.
+
+    All values are read from environment variables (or a .env file).
+    """
+
+    # Database
+    database_url: str = "postgresql://pricepoint:pricepoint@localhost:5432/pricepoint"
+
+    # S3-compatible object storage
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_access_key: str = "minioadmin"
+    s3_secret_key: str = "minioadmin"
+    s3_bucket: str = "pricepoint-data"
+
+    # MLflow
+    mlflow_tracking_uri: str = "http://localhost:5000"
+
+    # API
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_cors_origins: list[str] = ["http://localhost:3000"]
+
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return cached application settings singleton."""
+    return Settings()

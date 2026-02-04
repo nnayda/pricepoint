@@ -1,0 +1,55 @@
+# Production environment overrides — use external infrastructure
+
+api:
+  replicaCount: 3
+  image:
+    tag: stable
+
+frontend:
+  replicaCount: 2
+  image:
+    tag: stable
+
+mlflow:
+  replicaCount: 1
+  image:
+    tag: stable
+
+ingress:
+  hosts:
+    - host: pricepoint.example.com
+      paths:
+        - path: /api
+          service: api
+          port: 8000
+        - path: /health
+          service: api
+          port: 8000
+        - path: /ready
+          service: api
+          port: 8000
+        - path: /mlflow
+          service: mlflow
+          port: 5000
+        - path: /
+          service: frontend
+          port: 80
+
+# Disable bundled infra in production — use external services
+postgresql:
+  enabled: false
+
+externalDatabase:
+  url: "postgresql://pricepoint:CHANGEME@prod-postgres.example.com:5432/pricepoint"
+
+minio:
+  enabled: false
+
+externalS3:
+  endpoint: "https://s3.example.com"
+  accessKey: "CHANGEME"
+  secretKey: "CHANGEME"
+  bucket: "pricepoint-data"
+
+airflow:
+  enabled: false

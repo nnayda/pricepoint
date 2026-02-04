@@ -1,0 +1,18 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-webserver
+spec:
+  type: {{ .Values.airflow.webserver.service.type }}
+  ports:
+    - port: {{ .Values.airflow.webserver.service.port }}
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    {{- include "pricepoint.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-webserver
+{{- end }}

@@ -1,39 +1,40 @@
-.PHONY: docs test dev
-package_name = pricepoint
+.PHONY: up up-all down lint test migrate migration build frontend-install frontend-lint
 
-docs:
-	( \
-		source .venv/bin/activate && \
-		cd docs && \
-		$(MAKE) html && \
-		open _build/html/index.html \
-	)
+# --- Docker Compose -----------------------------------------------------------
 
-clean:
-	( \
-		source .venv/bin/activate && \
-		cd docs && \
-		$(MAKE) clean \
-	)
+up: ## Start app services (api, frontend, mlflow)
+	docker compose up -d
 
-format:
-	uv run ruff format
-	uv run ruff check --fix
+up-all: ## Start app services + bundled infrastructure
+	docker compose --profile infra up -d
 
-lint:
-	uv run ruff format --check
-	uv run ruff check
-	uv run mypy $(package_name)
+down: ## Stop all services
+	docker compose --profile infra down
 
-test:
+# --- Python -------------------------------------------------------------------
+
+lint: ## Run ruff linter and formatter check
+	uv run ruff check src/ dags/ tests/
+	uv run ruff format --check src/ dags/ tests/
+
+test: ## Run pytest
 	uv run pytest
 
-coverage:
-	uv run coverage run -m pytest
-	uv run coverage html --omit="tests/*"
-	open htmlcov/index.html
+migrate: ## Run alembic migrations
+	uv run alembic upgrade head
 
-dev:
-	$(MAKE) format
-	$(MAKE) lint
-	$(MAKE) test
+migration: ## Create a new alembic migration (usage: make migration MSG="add foo table")
+	uv run alembic revision --autogenerate -m "$(MSG)"
+
+# --- Docker Build -------------------------------------------------------------
+
+build: ## Build all Docker images
+	docker compose build
+
+# --- Frontend -----------------------------------------------------------------
+
+frontend-install: ## Install frontend dependencies
+	cd frontend && npm install
+
+frontend-lint: ## Run eslint and prettier check on frontend
+	cd frontend && npm run lint && npm run format:check

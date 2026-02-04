@@ -1,0 +1,162 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Always-on application services (no profile required)
+  # ---------------------------------------------------------------------------
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+    env_file: .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+    depends_on: []
+    networks:
+      - pricepoint
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - pricepoint
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=${MLFLOW_BACKEND_STORE_URI:-sqlite:///mlflow.db}
+      - MLFLOW_ARTIFACT_ROOT=${MLFLOW_ARTIFACT_ROOT:-s3://mlflow-artifacts}
+      - AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${S3_SECRET_KEY:-minioadmin}
+      - MLFLOW_S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+    networks:
+      - pricepoint
+
+  # ---------------------------------------------------------------------------
+  # Optional infrastructure (use with: docker compose --profile infra up)
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    profiles: [infra]
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=pricepoint
+      - POSTGRES_PASSWORD=pricepoint
+      - POSTGRES_DB=pricepoint
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - pricepoint
+
+  minio:
+    image: minio/minio
+    profiles: [infra]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - pricepoint
+
+  minio-init:
+    image: minio/mc
+    profiles: [infra]
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb --ignore-existing local/pricepoint-data;
+      mc mb --ignore-existing local/mlflow-artifacts;
+      exit 0;
+      "
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY:-minioadmin}
+    networks:
+      - pricepoint
+
+  airflow-init:
+    image: apache/airflow:2.9-python3.12
+    profiles: [infra]
+    entrypoint: >
+      /bin/bash -c "
+      airflow db migrate &&
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true
+      "
+    environment:
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    volumes:
+      - airflow-db:/opt/airflow
+    networks:
+      - pricepoint
+
+  airflow-webserver:
+    image: apache/airflow:2.9-python3.12
+    profiles: [infra]
+    ports:
+      - "8080:8080"
+    command: airflow webserver
+    environment:
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=true
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - airflow-db:/opt/airflow
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - pricepoint
+
+  airflow-scheduler:
+    image: apache/airflow:2.9-python3.12
+    profiles: [infra]
+    command: airflow scheduler
+    environment:
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - airflow-db:/opt/airflow
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    networks:
+      - pricepoint
+
+volumes:
+  pgdata:
+  miniodata:
+  airflow-db:
+
+networks:
+  pricepoint:
+    driver: bridge

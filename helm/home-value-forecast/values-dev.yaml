@@ -1,0 +1,49 @@
+# Dev environment overrides
+
+api:
+  replicaCount: 1
+  image:
+    tag: dev
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: dev
+
+mlflow:
+  replicaCount: 1
+  image:
+    tag: dev
+
+ingress:
+  hosts:
+    - host: pricepoint-dev.local
+      paths:
+        - path: /api
+          service: api
+          port: 8000
+        - path: /health
+          service: api
+          port: 8000
+        - path: /ready
+          service: api
+          port: 8000
+        - path: /mlflow
+          service: mlflow
+          port: 5000
+        - path: /
+          service: frontend
+          port: 80
+
+postgresql:
+  enabled: true
+  storage:
+    size: 5Gi
+
+minio:
+  enabled: true
+  storage:
+    size: 10Gi
+
+airflow:
+  enabled: true

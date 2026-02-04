@@ -1,1 +1,0 @@
-"""Collectors for Police Incidents."""
