@@ -86,6 +86,41 @@ class StagingCaryPoliceIncident(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class StagingRaleighPoliceIncident(Base):
+    """Raw police incident records from the City of Raleigh ArcGIS Feature Service.
+
+    Historical (NIBRS) data loaded via full refresh; daily incremental via
+    the Daily_Police_Incidents endpoint.
+    """
+
+    __tablename__ = "staging_raleigh_police_incidents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(String, nullable=True)
+    global_id = Column(String, nullable=True)
+    case_number = Column(String, nullable=True, index=True)
+    crime_category = Column(String, nullable=True)
+    crime_code = Column(String, nullable=True)
+    crime_description = Column(String, nullable=True)
+    crime_type = Column(String, nullable=True)
+    reported_block_address = Column(String, nullable=True)
+    city_of_incident = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    district = Column(String, nullable=True)
+    reported_date = Column(DateTime(timezone=True), nullable=True)
+    reported_year = Column(Integer, nullable=True)
+    reported_month = Column(Integer, nullable=True)
+    reported_day = Column(Integer, nullable=True)
+    reported_hour = Column(Integer, nullable=True)
+    reported_dayofwk = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    agency = Column(String, nullable=True)
+    updated_date = Column(DateTime(timezone=True), nullable=True)
+    location = Column(Geometry("POINT", srid=4326), nullable=True)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class School(Base):
     """School location and rating data."""
 
