@@ -10,6 +10,7 @@ def test_all_orm_tables_exist(db_engine):
     assert "properties" in tables
     assert "police_incidents" in tables
     assert "schools" in tables
+    assert "staging_cary_police_incidents" in tables
 
 
 def test_properties_has_location_column(db_engine):

@@ -119,3 +119,25 @@ class TestModelTrainingDag:
         tree = _parse_dag(dags_dir, "dag_model_training.py")
         assert _has_external_task_sensor(tree)
         assert _get_sensor_external_dag_id(tree) == "feature_engineering"
+
+
+class TestCaryPoliceCollectionDag:
+    """Validate the cary_police_collection DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_cary_police_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "cary_police_collection"
+
+    def test_schedule(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_cary_police_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["schedule"] == "@weekly"
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_cary_police_collection.py")
+        assert _count_task_decorators(tree) == 2
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_cary_police_collection.py")
+        assert not _has_external_task_sensor(tree)
