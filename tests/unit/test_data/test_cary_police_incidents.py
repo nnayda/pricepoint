@@ -3,9 +3,7 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
-import respx
 
 from pricepoint.data.geospatial.police_incidents import (
     _build_geometry,
@@ -15,12 +13,30 @@ from pricepoint.data.geospatial.police_incidents import (
 
 # -- Fixtures / helpers -------------------------------------------------------
 
-_API_URL = "https://data.townofcary.org/api/explore/v2.1/catalog/datasets/cpd-incidents/records"
+_CSV_HEADERS = (
+    "id;incident_number;crime_category;crime_type;ucr;map_reference;"
+    "date_from;from_time;date_to;to_time;crimeday;geocode;"
+    "location_category;district;beat_number;neighborhd_id;"
+    "apartment_complex;residential_subdivision;subdivisn_id;"
+    "activity_date;phxrecordstatus;phxcommunity;phxstatus;"
+    "record;offensecategory;violentproperty;timeframe;domestic;"
+    "total_incidents;year;older_than_five_years_from_now;chrgcnt;"
+    "lon;lat"
+)
 
 
-def _make_record(**overrides):
-    """Return a minimal API record dict with optional overrides."""
-    base = {
+def _make_csv(*rows: dict[str, str]) -> str:
+    """Build a semicolon-delimited CSV string with the standard headers."""
+    lines = [_CSV_HEADERS]
+    for row in rows:
+        fields = _CSV_HEADERS.split(";")
+        lines.append(";".join(row.get(f, "") for f in fields))
+    return "\n".join(lines)
+
+
+def _make_record(**overrides: str) -> dict[str, str]:
+    """Return a minimal CSV-style record dict with optional overrides."""
+    base: dict[str, str] = {
         "id": "24001001",
         "incident_number": "24001001",
         "crime_category": "LARCENY",
@@ -35,27 +51,26 @@ def _make_record(**overrides):
         "geocode": "KILDAIRE FARM RD",
         "location_category": "RESIDENTIAL",
         "district": "CPDS",
-        "beat_number": 50,
+        "beat_number": "050",
         "neighborhd_id": "0024",
-        "apartment_complex": None,
+        "apartment_complex": "",
         "residential_subdivision": "LOCHMERE",
         "subdivisn_id": "0173",
         "activity_date": "2024-01-15",
         "phxrecordstatus": "Active",
         "phxcommunity": "Yes",
         "phxstatus": "Active",
-        "record": 114109,
+        "record": "114109",
         "offensecategory": "Larceny/Theft",
         "violentproperty": "Part I",
         "timeframe": "Day",
         "domestic": "N",
-        "total_incidents": 1,
+        "total_incidents": "1",
         "year": "2024",
         "older_than_five_years_from_now": "False",
-        "chrgcnt": None,
-        "lon": -78.748,
-        "lat": 35.766,
-        "location": {"lon": -78.748, "lat": 35.766},
+        "chrgcnt": "",
+        "lon": "-78.748",
+        "lat": "35.766",
     }
     base.update(overrides)
     return base
@@ -94,7 +109,7 @@ class TestBuildGeometry:
 
 
 class TestMapRecord:
-    def test_all_api_fields_mapped(self):
+    def test_all_csv_fields_mapped(self):
         record = _make_record()
         obj = _map_record(record)
 
@@ -112,7 +127,7 @@ class TestMapRecord:
         assert obj.geocode == "KILDAIRE FARM RD"
         assert obj.location_category == "RESIDENTIAL"
         assert obj.district == "CPDS"
-        assert obj.beat_number == "50"
+        assert obj.beat_number == "050"
         assert obj.neighborhd_id == "0024"
         assert obj.apartment_complex is None
         assert obj.residential_subdivision == "LOCHMERE"
@@ -135,7 +150,7 @@ class TestMapRecord:
         assert obj.location is not None
 
     def test_missing_coordinates_sets_null_geometry(self):
-        record = _make_record(lon=None, lat=None)
+        record = _make_record(lon="", lat="")
         obj = _map_record(record)
         assert obj.location is None
         assert obj.lon is None
@@ -146,19 +161,24 @@ class TestMapRecord:
 
 
 class TestFetchCaryPoliceIncidents:
-    @respx.mock
+    @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_single_page_fetch(self, mock_session_cls):
+    def test_single_page_fetch(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        records = [_make_record(id="R1"), _make_record(id="R2")]
-        respx.get(_API_URL).mock(
-            return_value=httpx.Response(200, json={"total_count": 2, "results": records})
+        csv_text = _make_csv(
+            _make_record(id="R1"),
+            _make_record(id="R2"),
         )
+        mock_get_dataset.return_value = csv_text
 
         fetch_cary_police_incidents(full_refresh=True)
 
+        mock_get_dataset.assert_called_once_with(
+            "cpd-incidents",
+            platform_id="data.townofcary.org",
+        )
         # Should have called delete (truncate) then add_all
         session.execute.assert_called_once()
         session.add_all.assert_called_once()
@@ -168,67 +188,40 @@ class TestFetchCaryPoliceIncidents:
         assert added[1].api_id == "R2"
         session.close.assert_called_once()
 
-    @respx.mock
+    @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_pagination_multiple_pages(self, mock_session_cls):
+    def test_empty_dataset(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        page1 = [_make_record(id=f"R{i}") for i in range(100)]
-        page2 = [_make_record(id=f"R{i}") for i in range(100, 150)]
-
-        route = respx.get(_API_URL)
-        route.side_effect = [
-            httpx.Response(200, json={"total_count": 150, "results": page1}),
-            httpx.Response(200, json={"total_count": 150, "results": page2}),
-        ]
-
-        fetch_cary_police_incidents(full_refresh=True)
-
-        assert session.add_all.call_count == 2
-        first_batch = session.add_all.call_args_list[0][0][0]
-        second_batch = session.add_all.call_args_list[1][0][0]
-        assert len(first_batch) == 100
-        assert len(second_batch) == 50
-
-    @respx.mock
-    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_empty_dataset(self, mock_session_cls):
-        session = _mock_session()
-        mock_session_cls.return_value = session
-
-        respx.get(_API_URL).mock(
-            return_value=httpx.Response(200, json={"total_count": 0, "results": []})
-        )
+        mock_get_dataset.return_value = _make_csv()  # headers only
 
         fetch_cary_police_incidents(full_refresh=True)
 
         session.add_all.assert_not_called()
         session.close.assert_called_once()
 
-    @respx.mock
+    @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_http_error_raises_and_rolls_back(self, mock_session_cls):
+    def test_exception_raises_and_rolls_back(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        respx.get(_API_URL).mock(return_value=httpx.Response(500))
+        mock_get_dataset.side_effect = Exception("network error")
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(Exception, match="network error"):
             fetch_cary_police_incidents(full_refresh=True)
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()
 
-    @respx.mock
+    @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_full_refresh_false_skips_truncate(self, mock_session_cls):
+    def test_full_refresh_false_skips_truncate(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        respx.get(_API_URL).mock(
-            return_value=httpx.Response(200, json={"total_count": 1, "results": [_make_record()]})
-        )
+        mock_get_dataset.return_value = _make_csv(_make_record())
 
         fetch_cary_police_incidents(full_refresh=False)
 

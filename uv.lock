@@ -1476,6 +1476,18 @@ wheels = [
 ]
 
 [[package]]
+name = "odsclient"
+version = "0.8.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1c/bc/45e34b26f593b8921074aab6a86cee29352244c7f80e9f1a61a78a62bdd2/odsclient-0.8.4.tar.gz", hash = "sha256:3281bb71f004064589fb030b4aa9af3859416b065e375c1764c01264ea89457d", size = 309925, upload-time = "2021-11-09T16:11:40.484Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/32/783b3aa98a698707b1773e787d6aa2ff4e054c066c6e845114b4d0b2e729/odsclient-0.8.4-py2.py3-none-any.whl", hash = "sha256:2a596b3302f5908a3b045082b197b06b7989824ca32ca4a8cff0a498c8daf87a", size = 23046, upload-time = "2021-11-09T16:11:39.625Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.39.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1694,6 +1706,7 @@ dependencies = [
     { name = "geoalchemy2" },
     { name = "httpx" },
     { name = "mlflow" },
+    { name = "odsclient" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -1706,7 +1719,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "respx" },
     { name = "ruff" },
     { name = "shapely" },
     { name = "testcontainers", extra = ["minio"] },
@@ -1721,12 +1733,12 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "mlflow", specifier = ">=2.14,<3" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10,<2" },
+    { name = "odsclient", specifier = ">=0.8,<1" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
     { name = "pydantic-settings", specifier = ">=2.3,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2,<9" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23,<1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0,<6" },
-    { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21,<1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5,<1" },
     { name = "shapely", marker = "extra == 'dev'", specifier = ">=2.0,<3" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
@@ -2199,18 +2211,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c9/74/b3ff8e6c8446842c3f5c837e9c3dfcfe2018ea6ecef224c710c85ef728f4/requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf", size = 134517, upload-time = "2025-08-18T20:46:02.573Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/db/4254e3eabe8020b458f1a747140d32277ec7a271daf1d235b70dc0b4e6e3/requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6", size = 64738, upload-time = "2025-08-18T20:46:00.542Z" },
-]
-
-[[package]]
-name = "respx"
-version = "0.22.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/7c/96bd0bc759cf009675ad1ee1f96535edcb11e9666b985717eb8c87192a95/respx-0.22.0.tar.gz", hash = "sha256:3c8924caa2a50bd71aefc07aa812f2466ff489f1848c96e954a5362d17095d91", size = 28439, upload-time = "2024-12-19T22:33:59.374Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/67/afbb0978d5399bc9ea200f1d4489a23c9a1dad4eee6376242b8182389c79/respx-0.22.0-py2.py3-none-any.whl", hash = "sha256:631128d4c9aba15e56903fb5f66fb1eff412ce28dd387ca3a81339e52dbd3ad0", size = 25127, upload-time = "2024-12-19T22:33:57.837Z" },
 ]
 
 [[package]]

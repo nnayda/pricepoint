@@ -24,8 +24,7 @@ class Settings(BaseSettings):
     mlflow_tracking_uri: str = "http://localhost:5000"
 
     # Town of Cary Open Data
-    cary_opendata_base_url: str = "https://data.townofcary.org/api/explore/v2.1"
-    cary_police_page_size: int = 100
+    cary_opendata_platform_id: str = "data.townofcary.org"
 
     # API
     api_host: str = "0.0.0.0"

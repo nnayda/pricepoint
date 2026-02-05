@@ -1,12 +1,14 @@
 """Collect police incident data with geographic coordinates.
 
-Sources: municipal open-data portals (e.g., Socrata SODA API).
+Sources: municipal open-data portals (e.g., Opendatasoft).
 """
 
+import csv
+import io
 import logging
 
-import httpx
 from geoalchemy2.shape import from_shape
+from odsclient import get_whole_dataset
 from shapely.geometry import Point
 from sqlalchemy import delete
 
@@ -25,6 +27,21 @@ def fetch_police_incidents(*, city: str, start_date: str, end_date: str) -> None
     raise NotImplementedError
 
 
+def _csv_val(value: str) -> str | None:
+    """Return None for empty CSV strings, otherwise the value as-is."""
+    return value if value else None
+
+
+def _csv_float(value: str) -> float | None:
+    """Parse a CSV string as float, returning None for empty or invalid values."""
+    if not value:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _build_geometry(lon: object, lat: object) -> object | None:
     """Create a WKB geometry from lon/lat values, returning None on failure."""
     if lon is None or lat is None:
@@ -37,60 +54,59 @@ def _build_geometry(lon: object, lat: object) -> object | None:
 
 
 def _map_record(record: dict) -> StagingCaryPoliceIncident:
-    """Map a single API result dict to a staging model instance."""
+    """Map a single CSV row dict to a staging model instance."""
+    lon = _csv_float(record.get("lon", ""))
+    lat = _csv_float(record.get("lat", ""))
+
     return StagingCaryPoliceIncident(
-        api_id=record.get("id"),
-        incident_number=record.get("incident_number"),
-        crime_category=record.get("crime_category"),
-        crime_type=record.get("crime_type"),
-        ucr=record.get("ucr"),
-        map_reference=record.get("map_reference"),
-        date_from=record.get("date_from"),
-        from_time=record.get("from_time"),
-        date_to=record.get("date_to"),
-        to_time=record.get("to_time"),
-        crimeday=record.get("crimeday"),
-        geocode=record.get("geocode"),
-        location_category=record.get("location_category"),
-        district=record.get("district"),
-        beat_number=str(record["beat_number"]) if record.get("beat_number") is not None else None,
-        neighborhd_id=record.get("neighborhd_id"),
-        apartment_complex=record.get("apartment_complex"),
-        residential_subdivision=record.get("residential_subdivision"),
-        subdivisn_id=record.get("subdivisn_id"),
-        activity_date=record.get("activity_date"),
-        phxrecordstatus=record.get("phxrecordstatus"),
-        phxcommunity=record.get("phxcommunity"),
-        phxstatus=record.get("phxstatus"),
-        record=str(record["record"]) if record.get("record") is not None else None,
-        offensecategory=record.get("offensecategory"),
-        violentproperty=record.get("violentproperty"),
-        timeframe=record.get("timeframe"),
-        domestic=record.get("domestic"),
-        total_incidents=(
-            str(record["total_incidents"]) if record.get("total_incidents") is not None else None
-        ),
-        year=record.get("year"),
-        older_than_five_years_from_now=record.get("older_than_five_years_from_now"),
-        chrgcnt=str(record["chrgcnt"]) if record.get("chrgcnt") is not None else None,
-        lon=float(record["lon"]) if record.get("lon") is not None else None,
-        lat=float(record["lat"]) if record.get("lat") is not None else None,
-        location=_build_geometry(record.get("lon"), record.get("lat")),
+        api_id=_csv_val(record.get("id", "")),
+        incident_number=_csv_val(record.get("incident_number", "")),
+        crime_category=_csv_val(record.get("crime_category", "")),
+        crime_type=_csv_val(record.get("crime_type", "")),
+        ucr=_csv_val(record.get("ucr", "")),
+        map_reference=_csv_val(record.get("map_reference", "")),
+        date_from=_csv_val(record.get("date_from", "")),
+        from_time=_csv_val(record.get("from_time", "")),
+        date_to=_csv_val(record.get("date_to", "")),
+        to_time=_csv_val(record.get("to_time", "")),
+        crimeday=_csv_val(record.get("crimeday", "")),
+        geocode=_csv_val(record.get("geocode", "")),
+        location_category=_csv_val(record.get("location_category", "")),
+        district=_csv_val(record.get("district", "")),
+        beat_number=_csv_val(record.get("beat_number", "")),
+        neighborhd_id=_csv_val(record.get("neighborhd_id", "")),
+        apartment_complex=_csv_val(record.get("apartment_complex", "")),
+        residential_subdivision=_csv_val(record.get("residential_subdivision", "")),
+        subdivisn_id=_csv_val(record.get("subdivisn_id", "")),
+        activity_date=_csv_val(record.get("activity_date", "")),
+        phxrecordstatus=_csv_val(record.get("phxrecordstatus", "")),
+        phxcommunity=_csv_val(record.get("phxcommunity", "")),
+        phxstatus=_csv_val(record.get("phxstatus", "")),
+        record=_csv_val(record.get("record", "")),
+        offensecategory=_csv_val(record.get("offensecategory", "")),
+        violentproperty=_csv_val(record.get("violentproperty", "")),
+        timeframe=_csv_val(record.get("timeframe", "")),
+        domestic=_csv_val(record.get("domestic", "")),
+        total_incidents=_csv_val(record.get("total_incidents", "")),
+        year=_csv_val(record.get("year", "")),
+        older_than_five_years_from_now=_csv_val(record.get("older_than_five_years_from_now", "")),
+        chrgcnt=_csv_val(record.get("chrgcnt", "")),
+        lon=lon,
+        lat=lat,
+        location=_build_geometry(lon, lat),
     )
 
 
 def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
     """Fetch all police incident records from the Town of Cary Open Data Portal.
 
-    Downloads records from the Opendatasoft API v2.1 and loads them into the
-    ``staging_cary_police_incidents`` table. Uses offset-based pagination.
+    Downloads the full ``cpd-incidents`` dataset via ``odsclient`` and loads
+    records into the ``staging_cary_police_incidents`` table.
 
     Args:
         full_refresh: If True (default), truncate the staging table before loading.
     """
     settings = get_settings()
-    url = f"{settings.cary_opendata_base_url}/catalog/datasets/cpd-incidents/records"
-    page_size = settings.cary_police_page_size
 
     session = SessionLocal()
     try:
@@ -98,34 +114,19 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
             session.execute(delete(StagingCaryPoliceIncident))
             session.commit()
 
-        offset = 0
-        total_count: int | None = None
+        csv_text = get_whole_dataset(
+            "cpd-incidents",
+            platform_id=settings.cary_opendata_platform_id,
+        )
 
-        with httpx.Client(timeout=30.0) as client:
-            while True:
-                response = client.get(url, params={"limit": page_size, "offset": offset})
-                response.raise_for_status()
-                data = response.json()
+        reader = csv.DictReader(io.StringIO(csv_text), delimiter=";")
+        records = [_map_record(row) for row in reader]
 
-                if total_count is None:
-                    total_count = data["total_count"]
-                    logger.info("Total records to fetch: %d", total_count)
+        if records:
+            session.add_all(records)
+            session.commit()
 
-                results = data.get("results", [])
-                if not results:
-                    break
-
-                records = [_map_record(r) for r in results]
-                session.add_all(records)
-                session.commit()
-
-                offset += len(results)
-                logger.info("Fetched %d / %d records", offset, total_count)
-
-                if offset >= total_count:
-                    break
-
-        logger.info("Cary police incidents load complete: %d records", offset)
+        logger.info("Cary police incidents load complete: %d records", len(records))
     except Exception:
         session.rollback()
         raise
