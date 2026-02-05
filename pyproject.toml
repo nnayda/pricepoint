@@ -31,9 +31,8 @@ dev = [
     "mypy>=1.10,<2",
 ]
 
-# NOTE: Airflow (apache-airflow>=2.9,<3) requires SQLAlchemy <2.0 which
-# conflicts with core deps. Install it separately in the Airflow Dockerfile
-# via: pip install apache-airflow>=2.9,<3
+# NOTE: Airflow is installed separately in the Airflow Dockerfile
+# via: pip install apache-airflow>=3.0,<4
 
 [tool.ruff]
 line-length = 100

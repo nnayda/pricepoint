@@ -100,7 +100,7 @@ services:
       - pricepoint
 
   airflow-init:
-    image: apache/airflow:2.9-python3.12
+    image: apache/airflow:3.0.2-python3.12
     profiles: [infra]
     entrypoint: >
       /bin/bash -c "
@@ -108,23 +108,23 @@ services:
       airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true
       "
     environment:
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     volumes:
       - airflow-db:/opt/airflow
     networks:
       - pricepoint
 
-  airflow-webserver:
-    image: apache/airflow:2.9-python3.12
+  airflow-api-server:
+    image: apache/airflow:3.0.2-python3.12
     profiles: [infra]
     ports:
       - "8080:8080"
-    command: airflow webserver
+    command: airflow api-server
     environment:
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=true
+      - AIRFLOW__API__EXPOSE_CONFIG=true
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -136,11 +136,11 @@ services:
       - pricepoint
 
   airflow-scheduler:
-    image: apache/airflow:2.9-python3.12
+    image: apache/airflow:3.0.2-python3.12
     profiles: [infra]
     command: airflow scheduler
     environment:
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=${AIRFLOW__CORE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
     volumes:
       - ./dags:/opt/airflow/dags
