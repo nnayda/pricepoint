@@ -16,7 +16,11 @@ from sqlalchemy import delete, select
 
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
-from pricepoint.db.models import StagingCaryPoliceIncident, StagingRaleighPoliceIncident
+from pricepoint.db.models import (
+    StagingCaryPoliceIncident,
+    StagingMorrisvillePoliceIncident,
+    StagingRaleighPoliceIncident,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +300,91 @@ def fetch_daily_raleigh_police_incidents() -> None:
             "Raleigh daily police incidents: %d new of %d total",
             len(new_records),
             len(features),
+        )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+# -- Morrisville Opendatasoft helpers ------------------------------------------
+
+
+def _parse_area_coords(area: str) -> tuple[float | None, float | None]:
+    """Parse an Opendatasoft ``area`` value ("lat, lon") into (lat, lon).
+
+    Returns ``(None, None)`` on any failure.
+    """
+    if not area:
+        return None, None
+    try:
+        parts = area.split(",")
+        return float(parts[0].strip()), float(parts[1].strip())
+    except (IndexError, ValueError):
+        return None, None
+
+
+def _map_morrisville_record(record: dict) -> StagingMorrisvillePoliceIncident:
+    """Map a single CSV row dict to a Morrisville staging model instance."""
+    lat, lon = _parse_area_coords(record.get("area", ""))
+
+    return StagingMorrisvillePoliceIncident(
+        inci_id=_csv_val(record.get("inci_id", "")),
+        offense=_csv_val(record.get("offense", "")),
+        date_rept=_csv_val(record.get("date_rept", "")),
+        date_occu=_csv_val(record.get("date_occu", "")),
+        dow1=_csv_val(record.get("dow1", "")),
+        monthstamp=_csv_val(record.get("monthstamp", "")),
+        yearstamp=_csv_val(record.get("yearstamp", "")),
+        street=_csv_val(record.get("street", "")),
+        city=_csv_val(record.get("city", "")),
+        state=_csv_val(record.get("state", "")),
+        zip=_csv_val(record.get("zip", "")),
+        neighborhd=_csv_val(record.get("neighborhd", "")),
+        subdivisn=_csv_val(record.get("subdivisn", "")),
+        tract=_csv_val(record.get("tract", "")),
+        zone=_csv_val(record.get("zone", "")),
+        district=_csv_val(record.get("district", "")),
+        asst_offcr=_csv_val(record.get("asst_offcr", "")),
+        lat=lat,
+        lon=lon,
+        location=_build_geometry(lon, lat),
+    )
+
+
+def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
+    """Fetch all police incident records from the Town of Morrisville Open Data Portal.
+
+    Downloads the full ``pd_incident_report`` dataset via ``odsclient`` and loads
+    records into the ``staging_morrisville_police_incidents`` table.
+
+    Args:
+        full_refresh: If True (default), truncate the staging table before loading.
+    """
+    settings = get_settings()
+
+    session = SessionLocal()
+    try:
+        if full_refresh:
+            session.execute(delete(StagingMorrisvillePoliceIncident))
+            session.commit()
+
+        csv_text = get_whole_dataset(
+            "pd_incident_report",
+            platform_id=settings.morrisville_opendata_platform_id,
+        )
+
+        reader = csv.DictReader(io.StringIO(csv_text), delimiter=";")
+        records = [_map_morrisville_record(row) for row in reader]
+
+        if records:
+            session.add_all(records)
+            session.commit()
+
+        logger.info(
+            "Morrisville police incidents load complete: %d records",
+            len(records),
         )
     except Exception:
         session.rollback()

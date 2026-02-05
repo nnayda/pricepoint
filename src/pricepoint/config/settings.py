@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # City of Raleigh ArcGIS
     raleigh_arcgis_base_url: str = "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services"
 
+    # Town of Morrisville Open Data
+    morrisville_opendata_platform_id: str = "opendata.townofmorrisville.org"
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000

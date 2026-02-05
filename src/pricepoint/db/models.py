@@ -121,6 +121,38 @@ class StagingRaleighPoliceIncident(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class StagingMorrisvillePoliceIncident(Base):
+    """Raw police incident records from the Town of Morrisville Open Data Portal.
+
+    All fields stored as-is from the API. Weekly full refresh (truncate + reload).
+    """
+
+    __tablename__ = "staging_morrisville_police_incidents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inci_id = Column(String, nullable=True, index=True)
+    offense = Column(String, nullable=True)
+    date_rept = Column(String, nullable=True)
+    date_occu = Column(String, nullable=True)
+    dow1 = Column(String, nullable=True)
+    monthstamp = Column(String, nullable=True)
+    yearstamp = Column(String, nullable=True)
+    street = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    zip = Column(String, nullable=True)
+    neighborhd = Column(String, nullable=True)
+    subdivisn = Column(String, nullable=True)
+    tract = Column(String, nullable=True)
+    zone = Column(String, nullable=True)
+    district = Column(String, nullable=True)
+    asst_offcr = Column(String, nullable=True)
+    lat = Column(Float, nullable=True)
+    lon = Column(Float, nullable=True)
+    location = Column(Geometry("POINT", srid=4326), nullable=True)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class School(Base):
     """School location and rating data."""
 
