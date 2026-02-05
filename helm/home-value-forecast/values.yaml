@@ -82,7 +82,7 @@ postgresql:
   enabled: true
   image:
     repository: postgis/postgis
-    tag: "16-3.4"
+    tag: "17-3.5"
   auth:
     username: pricepoint
     password: pricepoint

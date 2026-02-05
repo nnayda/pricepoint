@@ -29,7 +29,7 @@ def postgis_container():
     """Start a PostGIS container for the test session."""
     try:
         container = PostgresContainer(
-            image="postgis/postgis:16-3.4",
+            image="postgis/postgis:17-3.5",
             username="test",
             password="test",
             dbname="test",
