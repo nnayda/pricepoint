@@ -53,6 +53,7 @@ services:
 
   postgres:
     image: postgis/postgis:17-3.5
+    platform: linux/amd64
     profiles: [infra]
     ports:
       - "5432:5432"
