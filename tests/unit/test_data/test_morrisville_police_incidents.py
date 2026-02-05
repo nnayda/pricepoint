@@ -177,9 +177,7 @@ class TestFetchMorrisvillePoliceIncidents:
 
     @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_exception_raises_and_rolls_back(
-        self, mock_session_cls, mock_get_dataset
-    ):
+    def test_exception_raises_and_rolls_back(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 
@@ -193,9 +191,7 @@ class TestFetchMorrisvillePoliceIncidents:
 
     @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_full_refresh_false_skips_truncate(
-        self, mock_session_cls, mock_get_dataset
-    ):
+    def test_full_refresh_false_skips_truncate(self, mock_session_cls, mock_get_dataset):
         session = _mock_session()
         mock_session_cls.return_value = session
 

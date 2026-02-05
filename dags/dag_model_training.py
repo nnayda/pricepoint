@@ -5,8 +5,8 @@ Runs after feature engineering completes.
 
 from datetime import datetime, timedelta
 
-from airflow.sdk import dag, task
 from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
+from airflow.sdk import dag, task
 
 
 @dag(

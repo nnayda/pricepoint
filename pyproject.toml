@@ -64,5 +64,13 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "odsclient.*"
+follow_imports = "skip"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/pricepoint"]

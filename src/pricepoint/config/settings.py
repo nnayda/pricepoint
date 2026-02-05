@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     cary_opendata_platform_id: str = "data.townofcary.org"
 
     # City of Raleigh ArcGIS
-    raleigh_arcgis_base_url: str = "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services"
+    raleigh_arcgis_base_url: str = (
+        "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services"
+    )
 
     # Town of Morrisville Open Data
     morrisville_opendata_platform_id: str = "opendata.townofmorrisville.org"
@@ -37,7 +39,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_cors_origins: list[str] = ["http://localhost:3000"]
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 @lru_cache

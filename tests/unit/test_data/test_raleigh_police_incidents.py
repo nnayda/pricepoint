@@ -45,9 +45,7 @@ def _make_feature(**overrides: object) -> dict:
     return {"attributes": attrs}
 
 
-def _make_arcgis_response(
-    features: list[dict], *, exceeded: bool = False
-) -> MagicMock:
+def _make_arcgis_response(features: list[dict], *, exceeded: bool = False) -> MagicMock:
     """Create a mock httpx response with ArcGIS JSON structure."""
     resp = MagicMock()
     resp.raise_for_status = MagicMock()

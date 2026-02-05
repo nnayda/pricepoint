@@ -56,9 +56,7 @@ def _make_record(**overrides: str) -> dict[str, str]:
 
 @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_records_persist_to_staging_table(
-    mock_session_cls, mock_get_dataset, db_session
-):
+def test_records_persist_to_staging_table(mock_session_cls, mock_get_dataset, db_session):
     """Records should be persisted to the staging table with correct field values."""
     mock_session_cls.return_value = db_session
 
@@ -67,9 +65,7 @@ def test_records_persist_to_staging_table(
 
     fetch_morrisville_police_incidents(full_refresh=True)
 
-    rows = (
-        db_session.execute(select(StagingMorrisvillePoliceIncident)).scalars().all()
-    )
+    rows = db_session.execute(select(StagingMorrisvillePoliceIncident)).scalars().all()
     assert len(rows) == 1
     row = rows[0]
     assert row.inci_id == "INT_M1"
@@ -83,9 +79,7 @@ def test_records_persist_to_staging_table(
 
 @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_full_refresh_truncates_before_load(
-    mock_session_cls, mock_get_dataset, db_session
-):
+def test_full_refresh_truncates_before_load(mock_session_cls, mock_get_dataset, db_session):
     """Full refresh should remove old records and only keep new ones."""
     mock_session_cls.return_value = db_session
 
@@ -100,9 +94,7 @@ def test_full_refresh_truncates_before_load(
 
     fetch_morrisville_police_incidents(full_refresh=True)
 
-    rows = (
-        db_session.execute(select(StagingMorrisvillePoliceIncident)).scalars().all()
-    )
+    rows = db_session.execute(select(StagingMorrisvillePoliceIncident)).scalars().all()
     inci_ids = {r.inci_id for r in rows}
     assert "OLD_1" not in inci_ids
     assert "NEW_1" in inci_ids
@@ -111,15 +103,11 @@ def test_full_refresh_truncates_before_load(
 
 @patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_geometry_column_is_queryable(
-    mock_session_cls, mock_get_dataset, db_session
-):
+def test_geometry_column_is_queryable(mock_session_cls, mock_get_dataset, db_session):
     """The geometry column should support spatial queries."""
     mock_session_cls.return_value = db_session
 
-    csv_text = _make_csv(
-        _make_record(inci_id="GEO_1", area="35.812711, -78.819843")
-    )
+    csv_text = _make_csv(_make_record(inci_id="GEO_1", area="35.812711, -78.819843"))
     mock_get_dataset.return_value = csv_text
 
     fetch_morrisville_police_incidents(full_refresh=True)

@@ -48,7 +48,7 @@ def _csv_float(value: str) -> float | None:
         return None
 
 
-def _build_geometry(lon: object, lat: object) -> object | None:
+def _build_geometry(lon: float | None, lat: float | None) -> object | None:
     """Create a WKB geometry from lon/lat values, returning None on failure."""
     if lon is None or lat is None:
         return None
@@ -145,7 +145,7 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
 _ARCGIS_PAGE_SIZE = 5000
 
 
-def _parse_arcgis_timestamp(value: object) -> datetime | None:
+def _parse_arcgis_timestamp(value: int | str | None) -> datetime | None:
     """Convert an ArcGIS epoch-millisecond timestamp to a Python datetime."""
     if value is None:
         return None
@@ -168,7 +168,7 @@ def _query_arcgis_features(
     Returns the ``features`` list from the JSON response.
     """
     url = f"{base_url}/{service_name}/FeatureServer/0/query"
-    params = {
+    params: dict[str, str | int] = {
         "where": where,
         "outFields": "*",
         "returnGeometry": "false",
@@ -281,9 +281,7 @@ def fetch_daily_raleigh_police_incidents() -> None:
             return
 
         existing = set(
-            session.execute(
-                select(StagingRaleighPoliceIncident.case_number)
-            ).scalars().all()
+            session.execute(select(StagingRaleighPoliceIncident.case_number)).scalars().all()
         )
 
         new_records = [
