@@ -2,25 +2,42 @@
 
 Residential home value forecasting system. Predicts property values by combining geospatial data (police incidents, schools, POIs), housing data (Redfin listings, county assessments), and economic indicators (FRED/mortgage rates) through an ML pipeline.
 
+**Status:** Fully scaffolded. Infrastructure, API, frontend, and Airflow DAGs are wired up. Core business logic (data collectors, feature engineering, model training) are stubs raising `NotImplementedError`.
+
 ## Tech Stack
 
 | Layer          | Technologies                                                    |
 |----------------|-----------------------------------------------------------------|
 | Backend        | Python 3.12, FastAPI, Uvicorn                                   |
 | Database       | PostgreSQL + PostGIS, SQLAlchemy 2.0, GeoAlchemy2, Alembic      |
-| Frontend       | React 18, TypeScript 5.5, Vite 5.3, Leaflet, Axios              |
+| Frontend       | React 18, TypeScript 5.5, Vite 5.3, Leaflet, Axios             |
 | ML             | MLflow 2.14+ (tracking, model registry)                         |
 | Orchestration  | Apache Airflow 2.9 (3 DAGs: collection -> features -> training) |
 | Storage        | MinIO (S3-compatible)                                           |
 | Infra          | Docker Compose, Kubernetes/Helm, GitLab CI/CD                   |
 | Dev Tools      | uv (packages), Ruff (lint/format), mypy, pytest                 |
 
-## Workflow
-- Run `uv sync` first to ensure the python environment is the same
-- Use `uv add` to install python dependencies that are not installed
-- Be sure to typecheck when you're done making a series of code changes
-- Ensure to run linting and tests when done, and fix the code to ensure all tests pass. Address the route issues and don't ignore errors.
-- You are running in a container so you will not be able to run integration tests, you can ignore those.
+## Project Structure
+
+```
+src/pricepoint/
+  api/              # FastAPI app, routes, schemas, dependencies
+  config/           # Pydantic Settings (env-based configuration)
+  db/               # SQLAlchemy models, engine, Alembic migrations
+  data/
+    geospatial/     # Police incidents, schools, nearby features, capital projects
+    housing/        # Redfin listings, county assessments, property photos
+    economic/       # Macroeconomic indicators (FRED)
+  features/         # Feature engineering (geospatial, housing, economic, assembly)
+  models/           # ML training, validation, evaluation, MLflow registry
+frontend/           # React SPA (pages, components, hooks, services)
+dags/               # Airflow DAGs + common task helpers
+tests/
+  unit/             # API and config tests (no external deps)
+  integration/      # DB connectivity tests (skip if DB unavailable)
+docker/             # Dockerfiles (api, frontend, mlflow, airflow)
+helm/               # Kubernetes Helm chart with dev/prod values
+```
 
 ## Commands
 
@@ -30,6 +47,7 @@ Residential home value forecasting system. Predicts property values by combining
 uv sync --frozen          # Install dependencies
 make test                 # Run pytest
 make lint                 # Ruff check + format check
+uv run mypy src/          # Type checking
 ```
 
 ### Database
@@ -55,3 +73,10 @@ make up                   # Start app services (api, frontend, mlflow)
 make up-all               # Start with infrastructure (postgres, minio, airflow)
 make down                 # Stop all services
 make build                # Build all Docker images
+```
+
+## Additional Documentation
+
+Check these files for detailed conventions when working in specific areas:
+
+- [Architectural Patterns](.claude/docs/architectural_patterns.md) — dependency injection, API design, DB conventions, data pipeline interfaces, Airflow DAG structure, frontend patterns, and testing conventions with file:line references
