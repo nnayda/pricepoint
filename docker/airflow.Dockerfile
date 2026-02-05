@@ -10,6 +10,6 @@ COPY pyproject.toml /opt/airflow/
 COPY src/ /opt/airflow/src/
 
 RUN pip install --no-cache-dir apache-airflow-providers-fab && \
-    pip install --no-cache-dir -e "/opt/airflow"
+    pip install --no-cache-dir --no-deps -e "/opt/airflow"
 
 COPY dags/ /opt/airflow/dags/
