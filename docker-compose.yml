@@ -101,7 +101,9 @@ services:
       - pricepoint
 
   airflow-init:
-    image: apache/airflow:3.0.2-python3.12
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
     profiles: [infra]
     entrypoint: >
       /bin/bash -c "
@@ -111,13 +113,16 @@ services:
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     volumes:
       - airflow-db:/opt/airflow
     networks:
       - pricepoint
 
   airflow-api-server:
-    image: apache/airflow:3.0.2-python3.12
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
     profiles: [infra]
     ports:
       - "8080:8080"
@@ -125,6 +130,7 @@ services:
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
     volumes:
       - ./dags:/opt/airflow/dags
@@ -137,12 +143,15 @@ services:
       - pricepoint
 
   airflow-scheduler:
-    image: apache/airflow:3.0.2-python3.12
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
     profiles: [infra]
     command: airflow scheduler
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
