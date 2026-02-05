@@ -1,6 +1,6 @@
 """Tests for application configuration."""
 
-from home_value_forecast.config.settings import Settings
+from pricepoint.config.settings import Settings
 
 
 def test_settings_defaults():
