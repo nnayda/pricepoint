@@ -108,6 +108,7 @@ services:
     entrypoint: >
       /bin/bash -c "
       airflow db migrate &&
+      airflow fab-db migrate &&
       airflow fab-auth-manager create-login --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true
       "
     environment:
