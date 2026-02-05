@@ -1,11 +1,9 @@
-FROM ghcr.io/astral-sh/uv:0.6 AS uv
-
 FROM python:3.12-slim
 
 WORKDIR /app
 
 # Install uv
-COPY --from=uv /uv /usr/local/bin/uv
+RUN pip install --no-cache-dir uv
 
 # Copy project files
 COPY pyproject.toml uv.lock* ./
