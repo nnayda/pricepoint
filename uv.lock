@@ -1476,6 +1476,18 @@ wheels = [
 ]
 
 [[package]]
+name = "odsclient"
+version = "0.8.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1c/bc/45e34b26f593b8921074aab6a86cee29352244c7f80e9f1a61a78a62bdd2/odsclient-0.8.4.tar.gz", hash = "sha256:3281bb71f004064589fb030b4aa9af3859416b065e375c1764c01264ea89457d", size = 309925, upload-time = "2021-11-09T16:11:40.484Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/32/783b3aa98a698707b1773e787d6aa2ff4e054c066c6e845114b4d0b2e729/odsclient-0.8.4-py2.py3-none-any.whl", hash = "sha256:2a596b3302f5908a3b045082b197b06b7989824ca32ca4a8cff0a498c8daf87a", size = 23046, upload-time = "2021-11-09T16:11:39.625Z" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.39.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1694,6 +1706,7 @@ dependencies = [
     { name = "geoalchemy2" },
     { name = "httpx" },
     { name = "mlflow" },
+    { name = "odsclient" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -1720,6 +1733,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "mlflow", specifier = ">=2.14,<3" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10,<2" },
+    { name = "odsclient", specifier = ">=0.8,<1" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
     { name = "pydantic-settings", specifier = ">=2.3,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2,<9" },
