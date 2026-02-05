@@ -9,7 +9,8 @@ USER airflow
 COPY pyproject.toml /opt/airflow/
 COPY src/ /opt/airflow/src/
 
-RUN pip install --no-cache-dir apache-airflow-providers-fab && \
+ARG AIRFLOW_CONSTRAINTS=https://raw.githubusercontent.com/apache/airflow/constraints-3.0.2/constraints-3.12.txt
+RUN pip install --no-cache-dir "apache-airflow-providers-fab" --constraint "${AIRFLOW_CONSTRAINTS}" && \
     pip install --no-cache-dir --no-deps -e "/opt/airflow"
 
 COPY dags/ /opt/airflow/dags/
