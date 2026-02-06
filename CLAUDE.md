@@ -1,6 +1,6 @@
 # PricePoint
 
-Residential home value forecasting system. Predicts property values by combining geospatial data (police incidents, schools, POIs), housing data (Redfin listings, county assessments), and economic indicators (FRED/mortgage rates) through an ML pipeline.
+Residential home search tool system. Allows for viewing property data and important metrics to evaluate when considering to buy a property. The key feature of this app is the home value prediction system. Predicts property values by combining geospatial data (police incidents, schools, POIs), housing data (Redfin listings, county assessments), and economic indicators (FRED/mortgage rates) through an ML pipeline.
 
 ## Tech Stack
 
