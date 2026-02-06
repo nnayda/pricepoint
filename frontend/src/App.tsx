@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/Layout/AppLayout";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -27,6 +27,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/forecast" element={<ForecastPage />} />
           <Route path="/results" element={<ResultsPage />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </AppLayout>

@@ -61,6 +61,11 @@ describe("App", () => {
     }
   });
 
+  it("redirects /dashboard to /", async () => {
+    renderApp("/dashboard");
+    expect(await screen.findByTestId("landing-page")).toBeInTheDocument();
+  });
+
   it("renders nothing meaningful for unknown routes", async () => {
     renderApp("/unknown-route");
     // Wait for lazy load to settle
