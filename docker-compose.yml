@@ -9,8 +9,6 @@ services:
       dockerfile: docker/api.Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./src:/app/src
     env_file: .env
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
@@ -26,9 +24,6 @@ services:
       dockerfile: docker/frontend.Dockerfile
     ports:
       - "3000:80"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     networks:
       - pricepoint
 
@@ -109,7 +104,7 @@ services:
       /bin/bash -c "
       airflow db migrate &&
       airflow fab-db migrate &&
-      airflow fab-auth-manager create-login --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true
       "
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-sqlite:////opt/airflow/airflow.db}
@@ -134,8 +129,6 @@ services:
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
       - airflow-db:/opt/airflow
     depends_on:
       airflow-init:
@@ -154,8 +147,6 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
       - airflow-db:/opt/airflow
     depends_on:
       airflow-init:
