@@ -20,6 +20,15 @@ describe("Tailwind CSS setup", () => {
     expect(config).toMatch(/tailwindcss\(\)/);
   });
 
+  it("vitest.config.ts includes @tailwindcss/vite plugin", () => {
+    const config = readFileSync(
+      resolve(__dirname, "../../../vitest.config.ts"),
+      "utf-8",
+    );
+    expect(config).toContain('@tailwindcss/vite');
+    expect(config).toMatch(/tailwindcss\(\)/);
+  });
+
   it("main.tsx imports index.css", () => {
     const main = readFileSync(
       resolve(__dirname, "../../main.tsx"),
