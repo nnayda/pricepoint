@@ -1,7 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AppLayout from "../AppLayout";
+import type { GeocodeResult } from "../../../types";
+
+vi.mock("../../../hooks/useGeocode", () => ({
+  useGeocode: () => ({
+    results: [] as GeocodeResult[],
+    loading: false,
+    error: null,
+  }),
+}));
 
 function renderLayout(children = <p>Page content</p>) {
   return render(
@@ -12,9 +21,9 @@ function renderLayout(children = <p>Page content</p>) {
 }
 
 describe("AppLayout", () => {
-  it("renders the brand name", () => {
+  it("renders the NavBar with PricePoint brand link", () => {
     renderLayout();
-    expect(screen.getByText("PricePoint")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PricePoint" })).toBeInTheDocument();
   });
 
   it("renders the NavBar", () => {
@@ -28,23 +37,16 @@ describe("AppLayout", () => {
     expect(main).toHaveTextContent("Test child");
   });
 
-  it("has a sticky header with backdrop blur", () => {
+  it("has a sticky header", () => {
     renderLayout();
     const header = screen.getByRole("banner");
     expect(header.className).toContain("sticky");
-    expect(header.className).toContain("backdrop-blur-md");
   });
 
   it("uses the design-system background color", () => {
     renderLayout();
     const wrapper = screen.getByRole("banner").parentElement!;
     expect(wrapper.className).toContain("bg-bg-main");
-  });
-
-  it("header places brand and nav with space-between", () => {
-    renderLayout();
-    const header = screen.getByRole("banner");
-    expect(header.className).toContain("justify-between");
   });
 
   it("main area fills remaining vertical space", () => {

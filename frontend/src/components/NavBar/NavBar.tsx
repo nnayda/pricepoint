@@ -1,39 +1,26 @@
-import { Link, useLocation } from "react-router-dom";
-
-interface NavItem {
-  label: string;
-  to: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Home", to: "/" },
-  { label: "Forecast", to: "/forecast" },
-];
+import { Link, useNavigate } from "react-router-dom";
+import SearchBar from "../SearchBar/SearchBar";
+import type { GeocodeResult } from "../../types";
 
 function NavBar() {
-  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  function handleSelect(result: GeocodeResult) {
+    navigate(`/forecast?address=${encodeURIComponent(result.display_name)}`);
+  }
 
   return (
     <nav
       aria-label="Main navigation"
-      className="flex items-center gap-1 rounded-pill bg-bg-card/80 px-2 py-1.5 shadow-card backdrop-blur-md"
+      className="flex items-center gap-2 rounded-pill bg-bg-card/80 px-3 py-1.5 shadow-card backdrop-blur-md sm:gap-4 sm:px-6"
     >
-      {NAV_ITEMS.map(({ label, to }) => {
-        const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
-
-        return (
-          <Link
-            key={to}
-            to={to}
-            aria-current={isActive ? "page" : undefined}
-            className={`rounded-pill px-4 py-1.5 text-sm font-semibold transition-colors ${
-              isActive ? "bg-brand-blue text-white" : "text-text-sec hover:text-text-pri"
-            }`}
-          >
-            {label}
-          </Link>
-        );
-      })}
+      <Link
+        to="/"
+        className="whitespace-nowrap text-lg font-bold tracking-tight text-text-pri transition-colors hover:text-brand-blue"
+      >
+        PricePoint
+      </Link>
+      <SearchBar onSelect={handleSelect} placeholder="Search address..." />
     </nav>
   );
 }

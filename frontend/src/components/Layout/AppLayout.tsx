@@ -8,8 +8,7 @@ interface AppLayoutProps {
 function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-bg-main">
-      <header className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 backdrop-blur-md">
-        <span className="text-xl font-bold tracking-tight text-text-pri">PricePoint</span>
+      <header className="sticky top-0 z-50 flex items-center justify-center px-8 py-4">
         <NavBar />
       </header>
       <main className="flex flex-1 flex-col px-8 py-6">{children}</main>

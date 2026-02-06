@@ -1,9 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { axe } from "vitest-axe";
 import NavBar from "../NavBar";
+import type { GeocodeResult } from "../../../types";
 
-function renderWithRouter(initialPath = "/") {
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+const mockUseGeocode = vi.fn(() => ({
+  results: [] as GeocodeResult[],
+  loading: false,
+  error: null as string | null,
+}));
+
+vi.mock("../../../hooks/useGeocode", () => ({
+  useGeocode: (...args: unknown[]) => mockUseGeocode(...(args as [])),
+}));
+
+function renderNavBar(initialPath = "/") {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <NavBar />
@@ -12,58 +30,60 @@ function renderWithRouter(initialPath = "/") {
 }
 
 describe("NavBar", () => {
-  it("renders a navigation element with accessible label", () => {
-    renderWithRouter();
+  beforeEach(() => {
+    mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+    mockNavigate.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // -- Nav landmark --
+
+  it("renders a nav element with accessible label", () => {
+    renderNavBar();
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
   });
 
-  it("renders Home and Forecast links", () => {
-    renderWithRouter();
-    expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Forecast" })).toBeInTheDocument();
-  });
-
-  it("links point to correct routes", () => {
-    renderWithRouter();
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Forecast" })).toHaveAttribute("href", "/forecast");
-  });
-
-  it("marks Home as current page on root path", () => {
-    renderWithRouter("/");
-    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Forecast" })).not.toHaveAttribute("aria-current");
-  });
-
-  it("marks Forecast as current page on /forecast path", () => {
-    renderWithRouter("/forecast");
-    expect(screen.getByRole("link", { name: "Forecast" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
-  });
-
-  it("applies active styles to the current page link", () => {
-    renderWithRouter("/");
-    const homeLink = screen.getByRole("link", { name: "Home" });
-    expect(homeLink.className).toContain("bg-brand-blue");
-    expect(homeLink.className).toContain("text-white");
-  });
-
-  it("applies inactive styles to non-current links", () => {
-    renderWithRouter("/");
-    const forecastLink = screen.getByRole("link", { name: "Forecast" });
-    expect(forecastLink.className).toContain("text-text-sec");
-    expect(forecastLink.className).not.toContain("bg-brand-blue");
-  });
-
-  it("has pill-shaped border radius on the nav container", () => {
-    renderWithRouter();
+  it("has glassmorphism styles on the nav container", () => {
+    renderNavBar();
     const nav = screen.getByRole("navigation");
     expect(nav.className).toContain("rounded-pill");
+    expect(nav.className).toContain("backdrop-blur-md");
   });
 
-  it("has glassmorphism backdrop blur", () => {
-    renderWithRouter();
-    const nav = screen.getByRole("navigation");
-    expect(nav.className).toContain("backdrop-blur-md");
+  // -- Home link --
+
+  it("renders PricePoint home link", () => {
+    renderNavBar();
+    expect(screen.getByRole("link", { name: "PricePoint" })).toBeInTheDocument();
+  });
+
+  it("home link points to /", () => {
+    renderNavBar();
+    expect(screen.getByRole("link", { name: "PricePoint" })).toHaveAttribute("href", "/");
+  });
+
+  // -- Compact SearchBar --
+
+  it("renders a compact SearchBar with combobox role", () => {
+    renderNavBar();
+    expect(screen.getByRole("combobox", { name: "Search address" })).toBeInTheDocument();
+  });
+
+  it("compact SearchBar has the navbar placeholder", () => {
+    renderNavBar();
+    expect(screen.getByPlaceholderText("Search address...")).toBeInTheDocument();
+  });
+
+  // -- Accessibility (axe) --
+
+  describe("accessibility (axe)", () => {
+    it("has no a11y violations", async () => {
+      const { container } = renderNavBar();
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
   });
 });
