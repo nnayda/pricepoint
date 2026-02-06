@@ -20,7 +20,6 @@ Residential home value forecasting system. Predicts property values by combining
 - Use `uv add` to install python dependencies that are not installed
 - Be sure to typecheck when you're done making a series of code changes
 - Ensure to run linting and tests when done, and fix the code to ensure all tests pass. Address the route issues and don't ignore errors.
-- You are running in a container so you will not be able to run integration tests, you can ignore those.
 
 ## Commands
 
