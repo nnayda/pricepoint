@@ -1,12 +1,16 @@
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../SearchBar/SearchBar";
+import { startViewTransition } from "../../utils/viewTransition";
 import type { GeocodeResult } from "../../types";
 
 function NavBar() {
   const navigate = useNavigate();
 
   function handleSelect(result: GeocodeResult) {
-    navigate(`/forecast?address=${encodeURIComponent(result.display_name)}`);
+    const url = `/results?address=${encodeURIComponent(result.display_name)}&lat=${result.lat}&lon=${result.lon}`;
+    startViewTransition(() => {
+      navigate(url);
+    });
   }
 
   return (

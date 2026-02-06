@@ -77,6 +77,35 @@ describe("NavBar", () => {
     expect(screen.getByPlaceholderText("Search address...")).toBeInTheDocument();
   });
 
+  // -- Navigation --
+
+  it("navigates to /results with lat/lon on address selection", async () => {
+    const mockResults: GeocodeResult[] = [
+      {
+        display_name: "123 Main St, Philadelphia, PA",
+        lat: 39.9526,
+        lon: -75.1652,
+        place_id: 1001,
+        osm_type: "way",
+        osm_id: 5001,
+        boundingbox: [39.95, 39.96, -75.17, -75.16],
+      },
+    ];
+    mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
+
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    renderNavBar();
+
+    const input = screen.getByRole("combobox");
+    await user.type(input, "123 Main");
+    await user.click(screen.getByText("123 Main St, Philadelphia, PA"));
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      `/results?address=${encodeURIComponent("123 Main St, Philadelphia, PA")}&lat=39.9526&lon=-75.1652`,
+    );
+  });
+
   // -- Accessibility (axe) --
 
   describe("accessibility (axe)", () => {

@@ -79,14 +79,14 @@ describe("LandingPage", () => {
     expect(screen.getByText("Data sources")).toBeInTheDocument();
   });
 
-  it("navigates to forecast page on address selection", async () => {
+  it("navigates to results page with lat/lon on address selection", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
     renderLandingPage();
     const searchBar = screen.getByTestId("search-bar");
     await user.type(searchBar, "a");
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/forecast?address=${encodeURIComponent("123 Main St")}`,
+      `/results?address=${encodeURIComponent("123 Main St")}&lat=39.95&lon=-75.16`,
     );
   });
 

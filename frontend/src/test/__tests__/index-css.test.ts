@@ -82,6 +82,26 @@ describe("index.css design system", () => {
     });
   });
 
+  describe("page cross-fade transition", () => {
+    it("defines fade-in keyframes", () => {
+      expect(css).toContain("@keyframes fade-in");
+    });
+
+    it("defines fade-out keyframes", () => {
+      expect(css).toContain("@keyframes fade-out");
+    });
+
+    it("applies fade-out to ::view-transition-old(root)", () => {
+      expect(css).toContain("::view-transition-old(root)");
+      expect(css).toContain("animation: fade-out");
+    });
+
+    it("applies fade-in to ::view-transition-new(root)", () => {
+      expect(css).toContain("::view-transition-new(root)");
+      expect(css).toContain("animation: fade-in");
+    });
+  });
+
   describe("base layer styles", () => {
     it("includes a @layer base block", () => {
       expect(css).toContain("@layer base");
