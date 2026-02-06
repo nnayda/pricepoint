@@ -158,7 +158,7 @@ describe("ResultsPage", () => {
     expect(link).toHaveAttribute("href", "/");
   });
 
-  it("applies design system styles to value card", () => {
+  it("applies glassmorphism styles to value card", () => {
     mockUseApi.mockReturnValue({
       data: {
         address: "123 Main St, Philadelphia, PA",
@@ -174,12 +174,13 @@ describe("ResultsPage", () => {
     renderResultsPage("123 Main St");
 
     const valueCard = screen.getByText("$350,000").closest("div");
-    expect(valueCard?.className).toContain("rounded-md");
-    expect(valueCard?.className).toContain("bg-bg-card");
+    expect(valueCard?.className).toContain("rounded-lg");
+    expect(valueCard?.className).toContain("bg-bg-card/80");
     expect(valueCard?.className).toContain("shadow-soft");
+    expect(valueCard?.className).toContain("backdrop-blur-md");
   });
 
-  it("applies design system styles to detail cards", () => {
+  it("applies glassmorphism styles to detail cards", () => {
     mockUseApi.mockReturnValue({
       data: {
         address: "123 Main St, Philadelphia, PA",
@@ -195,9 +196,46 @@ describe("ResultsPage", () => {
     renderResultsPage("123 Main St");
 
     const confidenceCard = screen.getByText("Confidence Range").closest("div");
-    expect(confidenceCard?.className).toContain("rounded-md");
-    expect(confidenceCard?.className).toContain("bg-bg-card");
+    expect(confidenceCard?.className).toContain("rounded-lg");
+    expect(confidenceCard?.className).toContain("bg-bg-card/80");
     expect(confidenceCard?.className).toContain("shadow-soft");
+    expect(confidenceCard?.className).toContain("backdrop-blur-md");
+  });
+
+  it("applies glassmorphism styles to error card", () => {
+    mockUseApi.mockReturnValue({
+      data: null,
+      loading: false,
+      error: "Network error",
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const errorCard = screen.getByText("Something went wrong").closest("div");
+    expect(errorCard?.className).toContain("rounded-lg");
+    expect(errorCard?.className).toContain("bg-bg-card/80");
+    expect(errorCard?.className).toContain("backdrop-blur-md");
+  });
+
+  it("applies glassmorphism styles to model version card", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const modelCard = screen.getByText("Model Version").closest("div");
+    expect(modelCard?.className).toContain("rounded-lg");
+    expect(modelCard?.className).toContain("bg-bg-card/80");
+    expect(modelCard?.className).toContain("backdrop-blur-md");
   });
 
   it("renders map when lat and lon params are provided", () => {

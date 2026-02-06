@@ -38,4 +38,11 @@ describe("MapView", () => {
     render(<MapView />);
     expect(screen.getByText("Home Value Forecast")).toBeInTheDocument();
   });
+
+  it("applies rounded-lg styling to map wrapper", () => {
+    render(<MapView />);
+    const wrapper = screen.getByTestId("map-container").parentElement!;
+    expect(wrapper.className).toContain("rounded-lg");
+    expect(wrapper.className).toContain("shadow-soft");
+  });
 });

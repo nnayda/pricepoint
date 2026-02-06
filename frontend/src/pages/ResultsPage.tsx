@@ -61,7 +61,7 @@ function ResultsPage() {
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-4">
-        <div className="flex max-w-md flex-col items-center gap-4 rounded-md bg-bg-card p-8 text-center shadow-soft">
+        <div className="flex max-w-md flex-col items-center gap-4 rounded-lg bg-bg-card/80 p-8 text-center shadow-soft backdrop-blur-md">
           <h1 className="text-2xl font-bold text-text-pri">Something went wrong</h1>
           <p className="text-base font-medium text-status-rented">{error}</p>
           <Link
@@ -91,7 +91,7 @@ function ResultsPage() {
         </div>
 
         {/* Predicted Value Card */}
-        <div className="rounded-md bg-bg-card p-8 shadow-soft">
+        <div className="rounded-lg bg-bg-card/80 p-8 shadow-soft backdrop-blur-md">
           <p className="text-sm font-medium text-text-sec">Estimated Value</p>
           <p className="mt-2 text-4xl font-bold tracking-tight text-brand-blue">
             {currencyFormatter.format(data.predicted_value)}
@@ -100,14 +100,14 @@ function ResultsPage() {
 
         {/* Detail Cards */}
         <div className="grid grid-cols-1 gap-grid sm:grid-cols-2">
-          <div className="rounded-md bg-bg-card p-6 shadow-soft">
+          <div className="rounded-lg bg-bg-card/80 p-6 shadow-soft backdrop-blur-md">
             <p className="text-sm font-medium text-text-sec">Confidence Range</p>
             <p className="mt-2 text-xl font-bold text-text-pri">
               {currencyFormatter.format(data.confidence_interval_low)} &ndash;{" "}
               {currencyFormatter.format(data.confidence_interval_high)}
             </p>
           </div>
-          <div className="rounded-md bg-bg-card p-6 shadow-soft">
+          <div className="rounded-lg bg-bg-card/80 p-6 shadow-soft backdrop-blur-md">
             <p className="text-sm font-medium text-text-sec">Model Version</p>
             <p className="mt-2 text-xl font-bold text-text-pri">{data.model_version}</p>
           </div>
