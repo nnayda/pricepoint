@@ -211,7 +211,7 @@ describe("SearchBar", () => {
       expect(handleSelect).toHaveBeenCalledWith(mockResults[0]);
     });
 
-    it("does not call onSelect on Enter when no result is active", async () => {
+    it("auto-selects first result on Enter when no result is highlighted", async () => {
       mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
       const handleSelect = vi.fn();
       const user = userEvent.setup();
@@ -223,7 +223,7 @@ describe("SearchBar", () => {
       // Press Enter without navigating to any option
       await user.keyboard("{Enter}");
 
-      expect(handleSelect).not.toHaveBeenCalled();
+      expect(handleSelect).toHaveBeenCalledWith(mockResults[0]);
     });
 
     it("closes dropdown and blurs input on Escape", async () => {
@@ -296,6 +296,129 @@ describe("SearchBar", () => {
       options.forEach((option) => {
         expect(option).toHaveAttribute("aria-selected", "false");
       });
+    });
+  });
+
+  // -- Enter key submission --
+
+  describe("Enter key submission", () => {
+    it("selects highlighted result on Enter", async () => {
+      mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
+      const handleSelect = vi.fn();
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={handleSelect} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "123 Main");
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+      expect(handleSelect).toHaveBeenCalledWith(mockResults[1]);
+    });
+
+    it("auto-selects first result on Enter when dropdown is closed but results exist", async () => {
+      mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
+      const handleSelect = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <div>
+          <button>Outside</button>
+          <SearchBar onSelect={handleSelect} />
+        </div>,
+      );
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "123 Main");
+      // Close dropdown by clicking outside
+      await user.click(screen.getByText("Outside"));
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+      // Focus input and press Enter
+      await user.click(input);
+      await user.keyboard("{Enter}");
+
+      expect(handleSelect).toHaveBeenCalledWith(mockResults[0]);
+    });
+
+    it("shows not-found error on Enter with no results", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+      const handleSelect = vi.fn();
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={handleSelect} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "xyznonexistent");
+      await user.keyboard("{Enter}");
+
+      expect(handleSelect).not.toHaveBeenCalled();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Address not found. Try a different search.",
+      );
+    });
+
+    it("does not show not-found error on Enter with query shorter than 3 characters", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "ab");
+      await user.keyboard("{Enter}");
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("does not show not-found error on Enter while loading", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: true, error: null });
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "123 Main");
+      await user.keyboard("{Enter}");
+
+      expect(
+        screen.queryByText("Address not found. Try a different search."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("clears not-found error when user types again", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "xyznonexistent");
+      await user.keyboard("{Enter}");
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+
+      await user.type(input, "a");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("clears not-found error when new results arrive", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+      const user = userEvent.setup();
+
+      const { rerender } = render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "xyznonexistent");
+      await user.keyboard("{Enter}");
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+
+      // Simulate new results arriving
+      mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
+      rerender(<SearchBar onSelect={vi.fn()} />);
+
+      expect(
+        screen.queryByText("Address not found. Try a different search."),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -548,6 +671,20 @@ describe("SearchBar", () => {
       const input = screen.getByRole("combobox");
       await user.type(input, "123 Main");
 
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("has no a11y violations in not-found state", async () => {
+      mockUseGeocode.mockReturnValue({ results: [], loading: false, error: null });
+      const user = userEvent.setup();
+
+      const { container } = render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+      await user.type(input, "xyznonexistent");
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });

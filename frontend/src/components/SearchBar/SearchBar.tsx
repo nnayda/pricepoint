@@ -11,6 +11,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [notFound, setNotFound] = useState(false);
   const { results, loading, error } = useGeocode(query);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +22,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
   useEffect(() => {
     if (results.length > 0) {
       setIsOpen(true);
+      setNotFound(false);
     }
     setActiveIndex(-1);
   }, [results]);
@@ -40,12 +42,32 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
       setQuery(result.display_name);
       setIsOpen(false);
       setActiveIndex(-1);
+      setNotFound(false);
       onSelect(result);
     },
     [onSelect],
   );
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case "Enter":
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < results.length) {
+          selectResult(results[activeIndex]);
+        } else if (results.length > 0) {
+          selectResult(results[0]);
+        } else if (query.length >= 3 && !loading) {
+          setNotFound(true);
+          setIsOpen(false);
+        }
+        return;
+      case "Escape":
+        setIsOpen(false);
+        setActiveIndex(-1);
+        inputRef.current?.blur();
+        return;
+    }
+
     if (!showDropdown) return;
 
     switch (e.key) {
@@ -56,17 +78,6 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
       case "ArrowUp":
         e.preventDefault();
         setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (activeIndex >= 0 && activeIndex < results.length) {
-          selectResult(results[activeIndex]);
-        }
-        break;
-      case "Escape":
-        setIsOpen(false);
-        setActiveIndex(-1);
-        inputRef.current?.blur();
         break;
     }
   }
@@ -101,6 +112,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setNotFound(false);
             if (e.target.value.length >= 3) {
               setIsOpen(true);
             }
@@ -122,6 +134,12 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           />
         )}
       </div>
+
+      {notFound && (
+        <p role="alert" className="mt-2 text-sm text-status-rented">
+          Address not found. Try a different search.
+        </p>
+      )}
 
       {showDropdown && (
         <ul
