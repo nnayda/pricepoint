@@ -14,6 +14,22 @@ def test_settings_defaults():
     assert settings.s3_bucket == "pricepoint-data"
 
 
+def test_settings_valkey_url_defaults_to_none():
+    """valkey_url should default to None when not set."""
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql://pricepoint:pricepoint@localhost:5432/pricepoint",
+    )
+    assert settings.valkey_url is None
+
+
+def test_settings_valkey_url_from_env(monkeypatch):
+    """valkey_url should be read from the VALKEY_URL env var."""
+    monkeypatch.setenv("VALKEY_URL", "redis://valkey:6379/0")
+    settings = Settings(_env_file=None)
+    assert settings.valkey_url == "redis://valkey:6379/0"
+
+
 def test_settings_override(monkeypatch):
     """Settings should read from environment variables."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://test:test@db:5432/testdb")

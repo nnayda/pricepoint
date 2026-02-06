@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Town of Morrisville Open Data
     morrisville_opendata_platform_id: str = "opendata.townofmorrisville.org"
 
+    # Valkey (Redis-compatible cache)
+    valkey_url: str | None = None
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000
