@@ -16,7 +16,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
 
-  const showDropdown = isOpen && query.length >= 3 && (results.length > 0 || loading || error);
+  const showDropdown = isOpen && query.length >= 3 && (results.length > 0 || loading || !!error);
 
   useEffect(() => {
     if (results.length > 0) {
@@ -93,7 +93,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           ref={inputRef}
           type="text"
           role="combobox"
-          aria-expanded={showDropdown}
+          aria-expanded={showDropdown || false}
           aria-controls="searchbar-listbox"
           aria-activedescendant={activeIndex >= 0 ? `searchbar-option-${activeIndex}` : undefined}
           aria-autocomplete="list"

@@ -5,7 +5,7 @@
  */
 export function startViewTransition(callback: () => Promise<void> | void): ViewTransition {
   if (document.startViewTransition) {
-    return document.startViewTransition(callback);
+    return document.startViewTransition(callback) as ViewTransition;
   }
 
   // Fallback: run callback immediately, return a resolved pseudo-transition
@@ -21,5 +21,6 @@ export function startViewTransition(callback: () => Promise<void> | void): ViewT
     ready: Promise.resolve(),
     updateCallbackDone: done,
     skipTransition: () => {},
+    types: new Set<string>(),
   };
 }
