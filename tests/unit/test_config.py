@@ -14,8 +14,9 @@ def test_settings_defaults():
     assert settings.s3_bucket == "pricepoint-data"
 
 
-def test_settings_valkey_url_defaults_to_none():
+def test_settings_valkey_url_defaults_to_none(monkeypatch):
     """valkey_url should default to None when not set."""
+    monkeypatch.delenv("VALKEY_URL", raising=False)
     settings = Settings(
         _env_file=None,
         database_url="postgresql://pricepoint:pricepoint@localhost:5432/pricepoint",
