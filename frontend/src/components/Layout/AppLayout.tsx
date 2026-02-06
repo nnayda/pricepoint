@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import NavBar from "../NavBar/NavBar";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -7,23 +7,12 @@ interface AppLayoutProps {
 
 function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header
-        style={{
-          padding: "1rem 2rem",
-          borderBottom: "1px solid #e0e0e0",
-          display: "flex",
-          gap: "2rem",
-          alignItems: "center",
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: "1.25rem" }}>Home Value Forecast</h1>
-        <nav style={{ display: "flex", gap: "1rem" }}>
-          <Link to="/">Dashboard</Link>
-          <Link to="/forecast">Forecast</Link>
-        </nav>
+    <div className="flex min-h-screen flex-col">
+      <header className="flex items-center gap-6 px-8 py-4">
+        <h1 className="text-xl font-bold text-text-pri">PricePoint</h1>
+        <NavBar />
       </header>
-      <main style={{ flex: 1, padding: "1rem 2rem" }}>{children}</main>
+      <main className="flex-1 px-8 py-4">{children}</main>
     </div>
   );
 }
