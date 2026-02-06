@@ -3,6 +3,7 @@ import AppLayout from "./components/Layout/AppLayout";
 import DashboardPage from "./pages/DashboardPage";
 import ForecastPage from "./pages/ForecastPage";
 import LandingPage from "./pages/LandingPage";
+import ResultsPage from "./pages/ResultsPage";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/forecast" element={<ForecastPage />} />
+        <Route path="/results" element={<ResultsPage />} />
       </Routes>
     </AppLayout>
   );
