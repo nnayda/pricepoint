@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { axe } from "vitest-axe";
 import LandingPage from "../LandingPage";
 
 vi.mock("../../components/SearchBar/SearchBar", () => ({
@@ -93,5 +94,11 @@ describe("LandingPage", () => {
       .closest("div.flex.flex-1");
     expect(container?.className).toContain("justify-center");
     expect(container?.className).toContain("items-center");
+  });
+
+  it("has no axe accessibility violations", async () => {
+    const { container } = renderLandingPage();
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });
