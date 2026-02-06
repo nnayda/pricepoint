@@ -16,3 +16,18 @@ export interface ForecastResponse {
 export interface HealthResponse {
   status: string;
 }
+
+export interface GeocodeResult {
+  display_name: string;
+  lat: number;
+  lon: number;
+  place_id: number;
+  osm_type: string;
+  osm_id: number;
+  boundingbox: number[];
+}
+
+export interface GeocodeResponse {
+  results: GeocodeResult[];
+  cached: boolean;
+}
