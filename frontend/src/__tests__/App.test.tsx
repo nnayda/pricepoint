@@ -24,10 +24,16 @@ function renderApp(initialRoute = "/") {
 }
 
 describe("App", () => {
-  it("renders the AppLayout with header", async () => {
-    renderApp();
-    expect(screen.getByText("PricePoint")).toBeInTheDocument();
+  it("renders the AppLayout with header on non-landing pages", async () => {
+    renderApp("/forecast");
+    expect(await screen.findByText("PricePoint")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
+  });
+
+  it("hides the NavBar on the landing page", async () => {
+    renderApp("/");
+    expect(await screen.findByTestId("landing-page")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
   });
 
   it("renders LandingPage at /", async () => {

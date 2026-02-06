@@ -37,6 +37,17 @@ function renderLandingPage() {
 }
 
 describe("LandingPage", () => {
+  it("renders the PricePoint brand name", () => {
+    renderLandingPage();
+    expect(screen.getByText("PricePoint")).toBeInTheDocument();
+  });
+
+  it("styles the brand name with brand-blue", () => {
+    renderLandingPage();
+    const brand = screen.getByText("PricePoint");
+    expect(brand.className).toContain("text-brand-blue");
+  });
+
   it("renders the headline", () => {
     renderLandingPage();
     expect(

@@ -13,6 +13,7 @@ function LandingPage() {
     <div className="flex flex-1 flex-col items-center justify-center px-4">
       <section className="flex w-full max-w-2xl flex-col items-center gap-8 text-center">
         <div className="flex flex-col gap-3">
+          <p className="text-lg font-bold tracking-tight text-brand-blue">PricePoint</p>
           <h1 className="text-4xl font-bold tracking-tight text-text-pri">
             Know your home&apos;s future value
           </h1>
