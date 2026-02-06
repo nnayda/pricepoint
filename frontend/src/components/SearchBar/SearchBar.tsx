@@ -132,12 +132,24 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           className="absolute z-10 mt-2 w-full overflow-hidden rounded-md bg-bg-card shadow-soft"
         >
           {error && (
-            <li role="alert" className="px-4 py-3 text-sm text-status-rented">
-              {error}
+            <li
+              role="option"
+              aria-disabled="true"
+              aria-selected={false}
+              className="px-4 py-3 text-sm text-status-rented"
+            >
+              <span role="alert">{error}</span>
             </li>
           )}
           {loading && results.length === 0 && (
-            <li className="px-4 py-3 text-sm text-text-sec">Searching...</li>
+            <li
+              role="option"
+              aria-disabled="true"
+              aria-selected={false}
+              className="px-4 py-3 text-sm text-text-sec"
+            >
+              Searching...
+            </li>
           )}
           {results.map((result, index) => (
             <li
