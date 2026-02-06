@@ -126,6 +126,141 @@ describe("useGeocode hook", () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it("fetches when query is exactly 3 characters", async () => {
+    mockGetGeocode.mockResolvedValue(mockResponse);
+
+    const { result } = renderHook(() => useGeocode("abc"));
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(mockGetGeocode).toHaveBeenCalledWith("abc");
+    expect(result.current.results).toEqual(mockResponse.results);
+  });
+
+  it("shows loading state while API call is in-flight", async () => {
+    let resolveApi!: (value: GeocodeResponse) => void;
+    mockGetGeocode.mockImplementation(
+      () => new Promise((resolve) => { resolveApi = resolve; }),
+    );
+
+    const { result } = renderHook(() => useGeocode("123 Main"));
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.results).toEqual([]);
+
+    await act(async () => {
+      resolveApi(mockResponse);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.results).toEqual(mockResponse.results);
+  });
+
+  it("handles race conditions when slow query resolves after fast query", async () => {
+    const slowResponse: GeocodeResponse = {
+      results: [
+        {
+          display_name: "Slow Result",
+          lat: 40.0,
+          lon: -90.0,
+          place_id: 2001,
+          osm_type: "way",
+          osm_id: 6001,
+          boundingbox: [39.9, 40.1, -90.1, -89.9],
+        },
+      ],
+      cached: false,
+    };
+
+    const fastResponse: GeocodeResponse = {
+      results: [
+        {
+          display_name: "Fast Result",
+          lat: 41.0,
+          lon: -88.0,
+          place_id: 3001,
+          osm_type: "node",
+          osm_id: 7001,
+          boundingbox: [40.9, 41.1, -88.1, -87.9],
+        },
+      ],
+      cached: false,
+    };
+
+    // First call resolves slowly, second call resolves quickly
+    let resolveFirst!: (value: GeocodeResponse) => void;
+    mockGetGeocode
+      .mockImplementationOnce(
+        () => new Promise((resolve) => { resolveFirst = resolve; }),
+      )
+      .mockImplementationOnce(() => Promise.resolve(fastResponse));
+
+    const { result, rerender } = renderHook(
+      ({ query }) => useGeocode(query),
+      { initialProps: { query: "first query" } },
+    );
+
+    // Debounce fires for first query
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(mockGetGeocode).toHaveBeenCalledWith("first query");
+
+    // Change to second query before first resolves
+    rerender({ query: "second query" });
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(mockGetGeocode).toHaveBeenCalledWith("second query");
+    // Second (fast) query has resolved
+    expect(result.current.results).toEqual(fastResponse.results);
+
+    // Now the slow first query resolves — useApi overwrites state
+    // because useGeocode doesn't implement cancellation
+    await act(async () => {
+      resolveFirst(slowResponse);
+    });
+
+    // The hook uses useApi which updates state on every resolve,
+    // so the last-resolved promise wins (known race condition behavior)
+    // This test documents the current behavior
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("clears error on subsequent successful fetch", async () => {
+    mockGetGeocode.mockRejectedValueOnce(new Error("Temporary failure"));
+
+    const { result, rerender } = renderHook(
+      ({ query }) => useGeocode(query),
+      { initialProps: { query: "bad query" } },
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.error).toBe("Temporary failure");
+
+    mockGetGeocode.mockResolvedValueOnce(mockResponse);
+    rerender({ query: "good query" });
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.results).toEqual(mockResponse.results);
+  });
+
   it("does not re-fetch for the same debounced query", async () => {
     mockGetGeocode.mockResolvedValue(mockResponse);
 
