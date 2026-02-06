@@ -3,7 +3,6 @@ import { Route, Routes } from "react-router-dom";
 import AppLayout from "./components/Layout/AppLayout";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
-const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const ResultsPage = lazy(() => import("./pages/ResultsPage"));
 
@@ -26,7 +25,6 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/forecast" element={<ForecastPage />} />
           <Route path="/results" element={<ResultsPage />} />
         </Routes>

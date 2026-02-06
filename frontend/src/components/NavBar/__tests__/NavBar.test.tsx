@@ -17,37 +17,28 @@ describe("NavBar", () => {
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
   });
 
-  it("renders Home, Dashboard, and Forecast links", () => {
+  it("renders Home and Forecast links", () => {
     renderWithRouter();
     expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Forecast" })).toBeInTheDocument();
   });
 
   it("links point to correct routes", () => {
     renderWithRouter();
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Forecast" })).toHaveAttribute("href", "/forecast");
   });
 
   it("marks Home as current page on root path", () => {
     renderWithRouter("/");
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Forecast" })).not.toHaveAttribute("aria-current");
-  });
-
-  it("marks Dashboard as current page on /dashboard path", () => {
-    renderWithRouter("/dashboard");
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
   });
 
   it("marks Forecast as current page on /forecast path", () => {
     renderWithRouter("/forecast");
     expect(screen.getByRole("link", { name: "Forecast" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
   });
 
   it("applies active styles to the current page link", () => {

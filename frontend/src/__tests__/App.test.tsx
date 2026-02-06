@@ -7,10 +7,6 @@ vi.mock("../pages/LandingPage", () => ({
   default: () => <div data-testid="landing-page">Landing</div>,
 }));
 
-vi.mock("../pages/DashboardPage", () => ({
-  default: () => <div data-testid="dashboard-page">Dashboard</div>,
-}));
-
 vi.mock("../pages/ForecastPage", () => ({
   default: () => <div data-testid="forecast-page">Forecast</div>,
 }));
@@ -39,11 +35,6 @@ describe("App", () => {
     expect(await screen.findByTestId("landing-page")).toBeInTheDocument();
   });
 
-  it("renders DashboardPage at /dashboard", async () => {
-    renderApp("/dashboard");
-    expect(await screen.findByTestId("dashboard-page")).toBeInTheDocument();
-  });
-
   it("renders ForecastPage at /forecast", async () => {
     renderApp("/forecast");
     expect(await screen.findByTestId("forecast-page")).toBeInTheDocument();
@@ -69,7 +60,6 @@ describe("App", () => {
     // Wait for lazy load to settle
     await screen.findByText("PricePoint");
     expect(screen.queryByTestId("landing-page")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dashboard-page")).not.toBeInTheDocument();
     expect(screen.queryByTestId("forecast-page")).not.toBeInTheDocument();
     expect(screen.queryByTestId("results-page")).not.toBeInTheDocument();
   });
