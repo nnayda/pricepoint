@@ -1,27 +1,40 @@
-import { useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { useApi } from "../hooks/useApi";
-import { postForecast } from "../services/api";
-import MapView from "../components/Map/MapView";
+import { usePropertyData } from "../hooks/usePropertyData";
+import PropertyHeader from "../components/PropertyHeader/PropertyHeader";
+import ValueSection from "../components/ValueSection/ValueSection";
+import PropertyDescription from "../components/PropertyDescription/PropertyDescription";
+import SchoolsSection from "../components/SchoolsSection/SchoolsSection";
+import PropertyDetailsSection from "../components/PropertyDetailsSection/PropertyDetailsSection";
+import SaleTaxHistoryChart from "../components/SaleTaxHistoryChart/SaleTaxHistoryChart";
+import ClimateRiskSection from "../components/ClimateRiskSection/ClimateRiskSection";
+import MortgageCalculator from "../components/MortgageCalculator/MortgageCalculator";
+import PropertyMap from "../components/PropertyMap/PropertyMap";
+import SectionSidebar from "../components/SectionSidebar/SectionSidebar";
+import SkeletonResultsPage from "../components/SkeletonResultsPage/SkeletonResultsPage";
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
+const SIDEBAR_SECTIONS = [
+  { id: "property-header", icon: "\u2302", tooltip: "Property" },
+  { id: "valuation", icon: "$", tooltip: "Valuation" },
+  { id: "description", icon: "\u2261", tooltip: "Description" },
+  { id: "schools", icon: "\u{1F4D6}", tooltip: "Schools" },
+  { id: "details", icon: "\u2630", tooltip: "Details" },
+  { id: "history", icon: "\u{1F4C8}", tooltip: "History" },
+  { id: "climate", icon: "\u2601", tooltip: "Climate" },
+  { id: "mortgage", icon: "\u{1F5A9}", tooltip: "Mortgage" },
+  { id: "map", icon: "\u{1F5FA}", tooltip: "Map" },
+];
 
 function ResultsPage() {
   const [searchParams] = useSearchParams();
   const address = searchParams.get("address") ?? "";
-  const lat = searchParams.get("lat");
-  const lon = searchParams.get("lon");
-  const { data, loading, error, execute } = useApi(postForecast);
+  const lat = searchParams.get("lat") ?? "";
+  const lon = searchParams.get("lon") ?? "";
 
-  useEffect(() => {
-    if (address) {
-      execute({ address });
-    }
-  }, [address, execute]);
+  const { data, loading, error } = usePropertyData(
+    parseFloat(lat) || 0,
+    parseFloat(lon) || 0,
+    address,
+  );
 
   if (!address) {
     return (
@@ -43,19 +56,7 @@ function ResultsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        <div className="flex flex-col items-center gap-3">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-4 border-brand-blue border-t-transparent"
-            role="status"
-          >
-            <span className="sr-only">Loading forecast...</span>
-          </div>
-          <p className="text-base font-medium text-text-sec">Analyzing property data...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonResultsPage />;
   }
 
   if (error) {
@@ -80,44 +81,61 @@ function ResultsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-4 py-4 sm:py-8">
-      <div className="flex w-full max-w-3xl flex-col gap-grid">
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <Link to="/" className="text-sm font-medium text-text-sec hover:text-brand-blue">
-            &larr; Back to search
-          </Link>
-          <h1 className="break-words text-xl font-bold tracking-tight text-text-pri sm:text-2xl">
-            {data.address}
-          </h1>
+    <div className="flex flex-1 px-4 py-4 sm:py-8">
+      <SectionSidebar sections={SIDEBAR_SECTIONS} />
+
+      <main className="mx-auto w-full max-w-4xl space-y-grid lg:ml-16">
+        <Link to="/" className="text-sm font-medium text-text-sec hover:text-brand-blue">
+          &larr; Back to search
+        </Link>
+
+        <div id="property-header">
+          <PropertyHeader property={data.property} />
         </div>
 
-        {/* Predicted Value Card */}
-        <div className="rounded-lg bg-bg-card/80 p-5 shadow-soft backdrop-blur-md sm:p-8">
-          <p className="text-sm font-medium text-text-sec">Estimated Value</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-brand-blue sm:text-4xl">
-            {currencyFormatter.format(data.predicted_value)}
-          </p>
+        <div id="valuation">
+          <ValueSection valuation={data.valuation} />
         </div>
 
-        {/* Detail Cards */}
-        <div className="grid grid-cols-1 gap-grid sm:grid-cols-2">
-          <div className="rounded-lg bg-bg-card/80 p-4 shadow-soft backdrop-blur-md sm:p-6">
-            <p className="text-sm font-medium text-text-sec">Confidence Range</p>
-            <p className="mt-2 text-lg font-bold text-text-pri sm:text-xl">
-              {currencyFormatter.format(data.confidence_interval_low)} &ndash;{" "}
-              {currencyFormatter.format(data.confidence_interval_high)}
-            </p>
-          </div>
-          <div className="rounded-lg bg-bg-card/80 p-4 shadow-soft backdrop-blur-md sm:p-6">
-            <p className="text-sm font-medium text-text-sec">Model Version</p>
-            <p className="mt-2 text-lg font-bold text-text-pri sm:text-xl">{data.model_version}</p>
-          </div>
+        <div id="description">
+          <PropertyDescription
+            highlights={data.property.highlights}
+            description={data.property.description}
+          />
         </div>
 
-        {/* Map */}
-        {lat && lon && <MapView center={[parseFloat(lat), parseFloat(lon)]} />}
-      </div>
+        <div id="schools">
+          <SchoolsSection schools={data.schools} />
+        </div>
+
+        <div id="details">
+          <PropertyDetailsSection
+            interior={data.interior}
+            exterior={data.exterior}
+            financial={data.financial}
+          />
+        </div>
+
+        <div id="history">
+          <SaleTaxHistoryChart saleHistory={data.sale_history} taxHistory={data.tax_history} />
+        </div>
+
+        <div id="climate">
+          <ClimateRiskSection climateRisk={data.climate_risk} />
+        </div>
+
+        <div id="mortgage">
+          <MortgageCalculator
+            listedPrice={data.valuation.listed_price ?? data.valuation.predicted_value}
+            annualTax={data.financial.tax_annual}
+            monthlyHoa={data.financial.hoa_monthly ?? 0}
+          />
+        </div>
+
+        <div id="map">
+          <PropertyMap lat={parseFloat(lat)} lon={parseFloat(lon)} address={address} />
+        </div>
+      </main>
     </div>
   );
 }

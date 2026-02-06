@@ -1,0 +1,127 @@
+"""Pydantic models for the property endpoint."""
+
+from pydantic import BaseModel
+
+
+class PropertyImage(BaseModel):
+    """A single property image."""
+
+    url: str
+    alt: str
+    is_primary: bool = False
+
+
+class PropertyDetails(BaseModel):
+    """Core property details."""
+
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    lat: float
+    lon: float
+    bedrooms: int
+    bathrooms: float
+    sqft: int
+    lot_size_sqft: int
+    year_built: int
+    property_type: str
+    stories: int
+    garage_spaces: int
+    description: str
+    highlights: list[str]
+    images: list[PropertyImage]
+
+
+class ValuationData(BaseModel):
+    """Property valuation and prediction data."""
+
+    listed_price: float | None = None
+    last_sold_price: float | None = None
+    last_sold_date: str | None = None
+    predicted_value: float
+    confidence_interval_low: float
+    confidence_interval_high: float
+    model_version: str
+    prediction_date: str
+
+
+class InteriorFeatures(BaseModel):
+    """Interior feature details."""
+
+    flooring: list[str]
+    appliances: list[str]
+    heating: str
+    cooling: str
+    fireplace: bool
+    basement: str | None = None
+
+
+class ExteriorFeatures(BaseModel):
+    """Exterior feature details."""
+
+    roof: str
+    siding: str
+    foundation: str
+    parking: str
+    pool: bool
+    fence: bool
+
+
+class FinancialDetails(BaseModel):
+    """Financial information about the property."""
+
+    hoa_monthly: float | None = None
+    tax_annual: float
+    tax_year: int
+    assessed_value: float
+
+
+class SchoolNearby(BaseModel):
+    """A nearby school."""
+
+    name: str
+    school_type: str
+    rating: int
+    distance_miles: float
+    drive_minutes: int
+    walk_minutes: int | None = None
+
+
+class SaleHistoryEntry(BaseModel):
+    """A single sale history event."""
+
+    date: str
+    price: float
+    event_type: str
+
+
+class TaxHistoryEntry(BaseModel):
+    """A single tax history record."""
+
+    year: int
+    assessed_value: float
+    tax_amount: float
+
+
+class ClimateRisk(BaseModel):
+    """Climate risk assessment."""
+
+    flood_risk: str
+    flood_score: int
+    fire_risk: str
+    fire_score: int
+
+
+class PropertyResponse(BaseModel):
+    """Response body for property lookup."""
+
+    details: PropertyDetails
+    valuation: ValuationData
+    interior: InteriorFeatures
+    exterior: ExteriorFeatures
+    financial: FinancialDetails
+    schools: list[SchoolNearby]
+    sale_history: list[SaleHistoryEntry]
+    tax_history: list[TaxHistoryEntry]
+    climate_risk: ClimateRisk
