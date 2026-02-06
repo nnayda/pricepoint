@@ -7,12 +7,12 @@ interface AppLayoutProps {
 
 function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center gap-6 px-8 py-4">
-        <h1 className="text-xl font-bold text-text-pri">PricePoint</h1>
+    <div className="flex min-h-screen flex-col bg-bg-main">
+      <header className="sticky top-0 z-50 flex items-center justify-between px-8 py-4 backdrop-blur-md">
+        <span className="text-xl font-bold tracking-tight text-text-pri">PricePoint</span>
         <NavBar />
       </header>
-      <main className="flex-1 px-8 py-4">{children}</main>
+      <main className="flex flex-1 flex-col px-8 py-6">{children}</main>
     </div>
   );
 }
