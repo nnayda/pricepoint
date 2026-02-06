@@ -5,6 +5,7 @@ import AppLayout from "./components/Layout/AppLayout";
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const ResultsPage = lazy(() => import("./pages/ResultsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function PageLoader() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/forecast" element={<ForecastPage />} />
           <Route path="/results" element={<ResultsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

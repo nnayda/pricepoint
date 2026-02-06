@@ -3,50 +3,155 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { axe } from "vitest-axe";
 import ResultsPage from "../ResultsPage";
+import type { PropertyResponse } from "../../types";
 
-const mockExecute = vi.fn();
-const mockUseApi = vi.fn(() => ({
-  data: null,
+// Mock usePropertyData
+const mockUsePropertyData = vi.fn(() => ({
+  data: null as PropertyResponse | null,
   loading: false,
-  error: null,
-  execute: mockExecute,
+  error: null as string | null,
 }));
 
-vi.mock("../../hooks/useApi", () => ({
-  useApi: (...args: unknown[]) => mockUseApi(...args),
+vi.mock("../../hooks/usePropertyData", () => ({
+  usePropertyData: (...args: unknown[]) => mockUsePropertyData(...args),
 }));
 
-vi.mock("../../services/api", () => ({
-  postForecast: vi.fn(),
-}));
-
-vi.mock("react-leaflet", () => ({
-  MapContainer: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode;
-    style?: React.CSSProperties;
-  }) => (
-    <div data-testid="map-container" style={props.style}>
-      {children}
-    </div>
+// Mock section components to isolate ResultsPage logic
+vi.mock("../../components/PropertyHeader/PropertyHeader", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="property-header" data-props={JSON.stringify(props)} />
   ),
-  TileLayer: () => <div data-testid="tile-layer" />,
-  Marker: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="marker">{children}</div>
-  ),
-  Popup: ({ children }: { children: React.ReactNode }) => <div data-testid="popup">{children}</div>,
 }));
 
-function renderResultsPage(address?: string, coords?: { lat: number; lon: number }) {
-  let path = "/results";
-  if (address) {
-    path += `?address=${encodeURIComponent(address)}`;
-    if (coords) {
-      path += `&lat=${coords.lat}&lon=${coords.lon}`;
-    }
-  }
+vi.mock("../../components/ValueSection/ValueSection", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="value-section" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/PropertyDescription/PropertyDescription", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="property-description" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/SchoolsSection/SchoolsSection", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="schools-section" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/PropertyDetailsSection/PropertyDetailsSection", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="property-details-section" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/SaleTaxHistoryChart/SaleTaxHistoryChart", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="sale-tax-history-chart" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/ClimateRiskSection/ClimateRiskSection", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="climate-risk-section" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/MortgageCalculator/MortgageCalculator", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="mortgage-calculator" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/PropertyMap/PropertyMap", () => ({
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="property-map" data-props={JSON.stringify(props)} />
+  ),
+}));
+
+vi.mock("../../components/SectionSidebar/SectionSidebar", () => ({
+  default: () => <nav data-testid="section-sidebar" />,
+}));
+
+vi.mock("../../components/SkeletonResultsPage/SkeletonResultsPage", () => ({
+  default: () => <div data-testid="skeleton-results-page" />,
+}));
+
+const mockPropertyData: PropertyResponse = {
+  property: {
+    address: "123 Main St",
+    city: "Cary",
+    state: "NC",
+    zip_code: "27513",
+    lat: 35.73,
+    lon: -78.78,
+    bedrooms: 4,
+    bathrooms: 2.5,
+    sqft: 2200,
+    lot_size_sqft: 8500,
+    year_built: 2005,
+    property_type: "Single Family",
+    stories: 2,
+    garage_spaces: 2,
+    description: "A beautiful home.",
+    highlights: ["Open floor plan", "Granite countertops"],
+    images: [{ url: "https://example.com/img.jpg", alt: "Front", is_primary: true }],
+  },
+  valuation: {
+    listed_price: 485000,
+    last_sold_price: 310000,
+    last_sold_date: "2018-06-15",
+    predicted_value: 472000,
+    confidence_interval_low: 449000,
+    confidence_interval_high: 495000,
+    model_version: "v2.3.1",
+    prediction_date: "2025-01-15",
+  },
+  interior: {
+    flooring: ["Hardwood", "Tile"],
+    appliances: ["Dishwasher", "Microwave"],
+    heating: "Forced Air",
+    cooling: "Central AC",
+    fireplace: true,
+    basement: "Finished",
+  },
+  exterior: {
+    roof: "Asphalt Shingle",
+    siding: "Vinyl",
+    foundation: "Slab",
+    parking: "Attached Garage",
+    pool: false,
+    fence: "Wood",
+  },
+  financial: {
+    hoa_monthly: 85,
+    tax_annual: 4234,
+    tax_year: 2024,
+    assessed_value: 420000,
+  },
+  schools: [
+    {
+      name: "Cary Elementary",
+      school_type: "Elementary",
+      rating: 8,
+      distance_miles: 0.5,
+      drive_minutes: 3,
+      walk_minutes: 10,
+    },
+  ],
+  sale_history: [{ date: "2018-06-15", price: 310000, event_type: "Sold" }],
+  tax_history: [{ year: 2024, assessed_value: 420000, tax_amount: 4234 }],
+  climate_risk: {
+    flood_risk: "Low",
+    flood_score: 2,
+    fire_risk: "Moderate",
+    fire_score: 5,
+  },
+};
+
+function renderResultsPage(path = "/results?address=123+Main+St&lat=35.73&lon=-78.78") {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <ResultsPage />
@@ -57,340 +162,255 @@ function renderResultsPage(address?: string, coords?: { lat: number; lon: number
 describe("ResultsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseApi.mockReturnValue({
+    mockUsePropertyData.mockReturnValue({
       data: null,
       loading: false,
       error: null,
-      execute: mockExecute,
     });
   });
 
+  // -- No address --
+
   it("renders empty state when no address is provided", () => {
-    renderResultsPage();
+    renderResultsPage("/results");
     expect(screen.getByText("No address provided")).toBeInTheDocument();
-    expect(screen.getByText(/please search for a property/i)).toBeInTheDocument();
   });
 
   it("renders a link back to search in empty state", () => {
-    renderResultsPage();
+    renderResultsPage("/results");
     const link = screen.getByRole("link", { name: /go to search/i });
     expect(link).toHaveAttribute("href", "/");
   });
 
-  it("calls execute with the address from search params", () => {
-    renderResultsPage("123 Main St");
-    expect(mockExecute).toHaveBeenCalledWith({ address: "123 Main St" });
-  });
+  // -- Loading --
 
-  it("renders loading state", () => {
-    mockUseApi.mockReturnValue({
+  it("renders skeleton loading page when loading", () => {
+    mockUsePropertyData.mockReturnValue({
       data: null,
       loading: true,
       error: null,
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
-    expect(screen.getByText("Analyzing property data...")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    renderResultsPage();
+    expect(screen.getByTestId("skeleton-results-page")).toBeInTheDocument();
   });
 
-  it("renders error state", () => {
-    mockUseApi.mockReturnValue({
+  // -- Error --
+
+  it("renders error message", () => {
+    mockUsePropertyData.mockReturnValue({
       data: null,
       loading: false,
       error: "Network error",
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
+    renderResultsPage();
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
     expect(screen.getByText("Network error")).toBeInTheDocument();
   });
 
   it("renders a link to try another address in error state", () => {
-    mockUseApi.mockReturnValue({
+    mockUsePropertyData.mockReturnValue({
       data: null,
       loading: false,
       error: "Network error",
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
+    renderResultsPage();
     const link = screen.getByRole("link", { name: /try another address/i });
     expect(link).toHaveAttribute("href", "/");
   });
 
-  it("renders forecast results", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
+  // -- Success: all sections rendered --
+
+  it("renders all 9 section components", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
       loading: false,
       error: null,
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
+    renderResultsPage();
 
-    expect(screen.getByText("123 Main St, Philadelphia, PA")).toBeInTheDocument();
-    expect(screen.getByText("$350,000")).toBeInTheDocument();
-    expect(screen.getByText(/\$320,000/)).toBeInTheDocument();
-    expect(screen.getByText(/\$380,000/)).toBeInTheDocument();
-    expect(screen.getByText("v1.2.0")).toBeInTheDocument();
+    expect(screen.getByTestId("property-header")).toBeInTheDocument();
+    expect(screen.getByTestId("value-section")).toBeInTheDocument();
+    expect(screen.getByTestId("property-description")).toBeInTheDocument();
+    expect(screen.getByTestId("schools-section")).toBeInTheDocument();
+    expect(screen.getByTestId("property-details-section")).toBeInTheDocument();
+    expect(screen.getByTestId("sale-tax-history-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("climate-risk-section")).toBeInTheDocument();
+    expect(screen.getByTestId("mortgage-calculator")).toBeInTheDocument();
+    expect(screen.getByTestId("property-map")).toBeInTheDocument();
   });
 
-  it("renders back to search link in results view", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
+  // -- SectionSidebar --
+
+  it("renders SectionSidebar", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
       loading: false,
       error: null,
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
+    renderResultsPage();
+    expect(screen.getByTestId("section-sidebar")).toBeInTheDocument();
+  });
+
+  // -- Section IDs for anchor navigation --
+
+  it("has section IDs for anchor navigation", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    const { container } = renderResultsPage();
+
+    const expectedIds = [
+      "property-header",
+      "valuation",
+      "description",
+      "schools",
+      "details",
+      "history",
+      "climate",
+      "mortgage",
+      "map",
+    ];
+    expectedIds.forEach((id) => {
+      expect(container.querySelector(`#${id}`)).not.toBeNull();
+    });
+  });
+
+  // -- Props passed to child components --
+
+  it("passes property data to PropertyHeader", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("property-header");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.property.address).toBe("123 Main St");
+    expect(props.property.bedrooms).toBe(4);
+  });
+
+  it("passes valuation data to ValueSection", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("value-section");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.valuation.predicted_value).toBe(472000);
+  });
+
+  it("passes schools array to SchoolsSection", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("schools-section");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.schools).toHaveLength(1);
+    expect(props.schools[0].name).toBe("Cary Elementary");
+  });
+
+  it("passes lat/lon/address to PropertyMap", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("property-map");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.lat).toBe(35.73);
+    expect(props.lon).toBe(-78.78);
+    expect(props.address).toBe("123 Main St");
+  });
+
+  it("passes price/tax/HOA to MortgageCalculator", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("mortgage-calculator");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.listedPrice).toBe(485000);
+    expect(props.annualTax).toBe(4234);
+    expect(props.monthlyHoa).toBe(85);
+  });
+
+  it("uses predicted_value when listed_price is absent", () => {
+    const noListed = {
+      ...mockPropertyData,
+      valuation: { ...mockPropertyData.valuation, listed_price: undefined },
+    };
+    mockUsePropertyData.mockReturnValue({
+      data: noListed,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
+    const el = screen.getByTestId("mortgage-calculator");
+    const props = JSON.parse(el.getAttribute("data-props")!);
+    expect(props.listedPrice).toBe(472000);
+  });
+
+  // -- Back link --
+
+  it("renders back to search link in success state", () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
+      loading: false,
+      error: null,
+    });
+    renderResultsPage();
     const link = screen.getByRole("link", { name: /back to search/i });
     expect(link).toHaveAttribute("href", "/");
   });
 
-  it("applies glassmorphism styles to value card", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
+  // -- Calls usePropertyData with correct args --
 
-    const valueCard = screen.getByText("$350,000").closest("div");
-    expect(valueCard?.className).toContain("rounded-lg");
-    expect(valueCard?.className).toContain("bg-bg-card/80");
-    expect(valueCard?.className).toContain("shadow-soft");
-    expect(valueCard?.className).toContain("backdrop-blur-md");
+  it("calls usePropertyData with parsed lat, lon, and address", () => {
+    renderResultsPage("/results?address=123+Main+St&lat=35.73&lon=-78.78");
+    expect(mockUsePropertyData).toHaveBeenCalledWith(35.73, -78.78, "123 Main St");
   });
 
-  it("applies glassmorphism styles to detail cards", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
+  // -- null data --
 
-    const confidenceCard = screen.getByText("Confidence Range").closest("div");
-    expect(confidenceCard?.className).toContain("rounded-lg");
-    expect(confidenceCard?.className).toContain("bg-bg-card/80");
-    expect(confidenceCard?.className).toContain("shadow-soft");
-    expect(confidenceCard?.className).toContain("backdrop-blur-md");
-  });
-
-  it("applies glassmorphism styles to error card", () => {
-    mockUseApi.mockReturnValue({
+  it("returns null when data is null and not loading/error", () => {
+    mockUsePropertyData.mockReturnValue({
       data: null,
       loading: false,
-      error: "Network error",
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-
-    const errorCard = screen.getByText("Something went wrong").closest("div");
-    expect(errorCard?.className).toContain("rounded-lg");
-    expect(errorCard?.className).toContain("bg-bg-card/80");
-    expect(errorCard?.className).toContain("backdrop-blur-md");
-  });
-
-  it("applies glassmorphism styles to model version card", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
       error: null,
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
-
-    const modelCard = screen.getByText("Model Version").closest("div");
-    expect(modelCard?.className).toContain("rounded-lg");
-    expect(modelCard?.className).toContain("bg-bg-card/80");
-    expect(modelCard?.className).toContain("backdrop-blur-md");
+    renderResultsPage();
+    // Should not render any section components or error/loading
+    expect(screen.queryByTestId("property-header")).not.toBeInTheDocument();
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("skeleton-results-page")).not.toBeInTheDocument();
   });
 
-  it("renders map when lat and lon params are provided", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St", { lat: 39.9526, lon: -75.1652 });
-    expect(screen.getByTestId("map-container")).toBeInTheDocument();
-    expect(screen.getByTestId("marker")).toBeInTheDocument();
-  });
+  // -- Accessibility --
 
-  it("does not render map when lat and lon params are missing", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-    expect(screen.queryByTestId("map-container")).not.toBeInTheDocument();
-  });
-
-  it("has no axe accessibility violations in empty state", async () => {
-    const { container } = renderResultsPage();
+  it("has no axe violations in empty state", async () => {
+    const { container } = renderResultsPage("/results");
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });
 
-  // -- Mobile responsiveness --
-
-  it("uses responsive text sizes on results page", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
+  it("has no axe violations in success state", async () => {
+    mockUsePropertyData.mockReturnValue({
+      data: mockPropertyData,
       loading: false,
       error: null,
-      execute: mockExecute,
     });
-    renderResultsPage("123 Main St");
-
-    const heading = screen.getByText("123 Main St, Philadelphia, PA");
-    expect(heading.className).toContain("text-xl");
-    expect(heading.className).toContain("sm:text-2xl");
-  });
-
-  it("uses responsive padding on value card", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-
-    const valueCard = screen.getByText("$350,000").closest("div");
-    expect(valueCard?.className).toContain("p-5");
-    expect(valueCard?.className).toContain("sm:p-8");
-  });
-
-  it("uses responsive padding on detail cards", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-
-    const confidenceCard = screen.getByText("Confidence Range").closest("div");
-    expect(confidenceCard?.className).toContain("p-4");
-    expect(confidenceCard?.className).toContain("sm:p-6");
-  });
-
-  it("address heading has break-words for long addresses on mobile", () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-
-    const heading = screen.getByText("123 Main St, Philadelphia, PA");
-    expect(heading.className).toContain("break-words");
-  });
-
-  it("uses responsive padding on error card", () => {
-    mockUseApi.mockReturnValue({
-      data: null,
-      loading: false,
-      error: "Network error",
-      execute: mockExecute,
-    });
-    renderResultsPage("123 Main St");
-
-    const errorCard = screen.getByText("Something went wrong").closest("div");
-    expect(errorCard?.className).toContain("p-5");
-    expect(errorCard?.className).toContain("sm:p-8");
-  });
-
-  it("has no axe accessibility violations in results state", async () => {
-    mockUseApi.mockReturnValue({
-      data: {
-        address: "123 Main St, Philadelphia, PA",
-        predicted_value: 350000,
-        confidence_interval_low: 320000,
-        confidence_interval_high: 380000,
-        model_version: "v1.2.0",
-      },
-      loading: false,
-      error: null,
-      execute: mockExecute,
-    });
-    const { container } = renderResultsPage("123 Main St", {
-      lat: 39.9526,
-      lon: -75.1652,
-    });
+    const { container } = renderResultsPage();
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });
