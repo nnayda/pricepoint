@@ -31,7 +31,7 @@ function NavBar() {
     >
       <Link
         to="/"
-        className="whitespace-nowrap text-lg font-bold tracking-tight text-text-pri transition-colors hover:text-brand-blue"
+        className="whitespace-nowrap text-base font-bold tracking-tight text-text-pri transition-colors hover:text-brand-blue sm:text-lg"
       >
         PricePoint
       </Link>

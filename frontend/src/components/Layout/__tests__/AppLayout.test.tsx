@@ -64,4 +64,24 @@ describe("AppLayout", () => {
     const main = screen.getByRole("main");
     expect(main.className).toContain("flex-1");
   });
+
+  // -- Mobile responsiveness --
+
+  it("uses compact padding on mobile for header", () => {
+    renderLayout(<p>content</p>, "/forecast");
+    const header = screen.getByRole("banner");
+    expect(header.className).toContain("px-4");
+    expect(header.className).toContain("py-3");
+    expect(header.className).toContain("sm:px-8");
+    expect(header.className).toContain("sm:py-4");
+  });
+
+  it("uses compact padding on mobile for main", () => {
+    renderLayout(<p>content</p>, "/forecast");
+    const main = screen.getByRole("main");
+    expect(main.className).toContain("px-4");
+    expect(main.className).toContain("py-4");
+    expect(main.className).toContain("sm:px-8");
+    expect(main.className).toContain("sm:py-6");
+  });
 });

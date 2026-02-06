@@ -152,6 +152,15 @@ describe("NavBar", () => {
     );
   });
 
+  // -- Mobile responsiveness --
+
+  it("uses responsive text size on brand link", () => {
+    renderNavBar();
+    const link = screen.getByRole("link", { name: "PricePoint" });
+    expect(link.className).toContain("text-base");
+    expect(link.className).toContain("sm:text-lg");
+  });
+
   // -- Accessibility (axe) --
 
   describe("accessibility (axe)", () => {

@@ -478,6 +478,33 @@ describe("SearchBar", () => {
     });
   });
 
+  // -- Mobile responsiveness --
+
+  describe("mobile responsiveness", () => {
+    it("uses responsive input padding", () => {
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+      expect(input.className).toContain("py-2.5");
+      expect(input.className).toContain("sm:py-3");
+      expect(input.className).toContain("pl-10");
+      expect(input.className).toContain("sm:pl-11");
+    });
+
+    it("uses responsive text size on input", () => {
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+      expect(input.className).toContain("text-sm");
+      expect(input.className).toContain("sm:text-base");
+    });
+
+    it("uses responsive search icon positioning", () => {
+      render(<SearchBar onSelect={vi.fn()} />);
+      const svg = document.querySelector("svg");
+      expect(svg?.getAttribute("class")).toContain("left-3");
+      expect(svg?.getAttribute("class")).toContain("sm:left-4");
+    });
+  });
+
   // -- vitest-axe accessibility --
 
   describe("accessibility (axe)", () => {

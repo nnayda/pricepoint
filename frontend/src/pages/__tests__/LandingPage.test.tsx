@@ -107,6 +107,29 @@ describe("LandingPage", () => {
     expect(container?.className).toContain("items-center");
   });
 
+  // -- Mobile responsiveness --
+
+  it("uses responsive heading size", () => {
+    renderLandingPage();
+    const heading = screen.getByRole("heading", { name: /know your home/i });
+    expect(heading.className).toContain("text-2xl");
+    expect(heading.className).toContain("sm:text-4xl");
+  });
+
+  it("uses responsive stat card text sizes", () => {
+    renderLandingPage();
+    const stat = screen.getByText("50K+");
+    expect(stat.className).toContain("text-2xl");
+    expect(stat.className).toContain("sm:text-3xl");
+  });
+
+  it("uses responsive stat card padding", () => {
+    renderLandingPage();
+    const statCard = screen.getByText("50K+").closest("div");
+    expect(statCard?.className).toContain("p-4");
+    expect(statCard?.className).toContain("sm:p-6");
+  });
+
   it("has no axe accessibility violations", async () => {
     const { container } = renderLandingPage();
     const results = await axe(container);

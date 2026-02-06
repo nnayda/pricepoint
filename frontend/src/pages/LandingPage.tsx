@@ -15,13 +15,15 @@ function LandingPage() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4">
-      <section className="flex w-full max-w-2xl flex-col items-center gap-8 text-center">
-        <div className="flex flex-col gap-3">
-          <p className="text-lg font-bold tracking-tight text-brand-blue">PricePoint</p>
-          <h1 className="text-4xl font-bold tracking-tight text-text-pri">
+      <section className="flex w-full max-w-2xl flex-col items-center gap-6 text-center sm:gap-8">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <p className="text-base font-bold tracking-tight text-brand-blue sm:text-lg">
+            PricePoint
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-text-pri sm:text-4xl">
             Know your home&apos;s future value
           </h1>
-          <p className="text-lg font-medium text-text-sec">
+          <p className="text-base font-medium text-text-sec sm:text-lg">
             ML-powered forecasts combining neighborhood data, market trends, and economic
             indicators.
           </p>
@@ -30,16 +32,16 @@ function LandingPage() {
         <SearchBar onSelect={handleSelect} placeholder="Enter a property address..." />
 
         <div className="grid w-full grid-cols-1 gap-grid sm:grid-cols-3">
-          <div className="rounded-md bg-bg-card p-6 shadow-soft">
-            <p className="text-3xl font-bold text-brand-blue">50K+</p>
+          <div className="rounded-md bg-bg-card p-4 shadow-soft sm:p-6">
+            <p className="text-2xl font-bold text-brand-blue sm:text-3xl">50K+</p>
             <p className="mt-1 text-sm font-medium text-text-sec">Properties analyzed</p>
           </div>
-          <div className="rounded-md bg-bg-card p-6 shadow-soft">
-            <p className="text-3xl font-bold text-status-maint">94%</p>
+          <div className="rounded-md bg-bg-card p-4 shadow-soft sm:p-6">
+            <p className="text-2xl font-bold text-status-maint sm:text-3xl">94%</p>
             <p className="mt-1 text-sm font-medium text-text-sec">Prediction accuracy</p>
           </div>
-          <div className="rounded-md bg-bg-card p-6 shadow-soft">
-            <p className="text-3xl font-bold text-status-rented">12</p>
+          <div className="rounded-md bg-bg-card p-4 shadow-soft sm:p-6">
+            <p className="text-2xl font-bold text-status-rented sm:text-3xl">12</p>
             <p className="mt-1 text-sm font-medium text-text-sec">Data sources</p>
           </div>
         </div>

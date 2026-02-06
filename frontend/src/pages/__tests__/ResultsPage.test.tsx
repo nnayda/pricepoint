@@ -279,6 +279,101 @@ describe("ResultsPage", () => {
     expect(results).toHaveNoViolations();
   });
 
+  // -- Mobile responsiveness --
+
+  it("uses responsive text sizes on results page", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const heading = screen.getByText("123 Main St, Philadelphia, PA");
+    expect(heading.className).toContain("text-xl");
+    expect(heading.className).toContain("sm:text-2xl");
+  });
+
+  it("uses responsive padding on value card", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const valueCard = screen.getByText("$350,000").closest("div");
+    expect(valueCard?.className).toContain("p-5");
+    expect(valueCard?.className).toContain("sm:p-8");
+  });
+
+  it("uses responsive padding on detail cards", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const confidenceCard = screen.getByText("Confidence Range").closest("div");
+    expect(confidenceCard?.className).toContain("p-4");
+    expect(confidenceCard?.className).toContain("sm:p-6");
+  });
+
+  it("address heading has break-words for long addresses on mobile", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const heading = screen.getByText("123 Main St, Philadelphia, PA");
+    expect(heading.className).toContain("break-words");
+  });
+
+  it("uses responsive padding on error card", () => {
+    mockUseApi.mockReturnValue({
+      data: null,
+      loading: false,
+      error: "Network error",
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+
+    const errorCard = screen.getByText("Something went wrong").closest("div");
+    expect(errorCard?.className).toContain("p-5");
+    expect(errorCard?.className).toContain("sm:p-8");
+  });
+
   it("has no axe accessibility violations in results state", async () => {
     mockUseApi.mockReturnValue({
       data: {
