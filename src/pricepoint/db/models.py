@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models with PostGIS geometry columns."""
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, DateTime, Float, Integer, String, func
+from sqlalchemy import BigInteger, Column, DateTime, Float, Integer, String, func
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -164,3 +164,152 @@ class School(Base):
     rating = Column(Float)
     location = Column(Geometry("POINT", srid=4326))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerCensusBlock(Base):
+    """US Census TIGER/Line census block boundaries (TABBLOCK20)."""
+
+    __tablename__ = "tiger_census_blocks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    statefp20 = Column(String(2))
+    countyfp20 = Column(String(3))
+    tractce20 = Column(String(6))
+    blockce20 = Column(String(4))
+    geoid20 = Column(String(15), index=True)
+    name20 = Column(String)
+    aland20 = Column(BigInteger)
+    awater20 = Column(BigInteger)
+    intptlat20 = Column(String(11))
+    intptlon20 = Column(String(12))
+    funcstat20 = Column(String(1))
+    mtfcc20 = Column(String(5))
+    ur20 = Column(String(1))
+    uace20 = Column(String(5))
+    uatype20 = Column(String(1))
+    housing20 = Column(Integer)
+    pop20 = Column(Integer)
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerBlockGroup(Base):
+    """US Census TIGER/Line block group boundaries (BG)."""
+
+    __tablename__ = "tiger_block_groups"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    statefp = Column(String(2))
+    countyfp = Column(String(3))
+    tractce = Column(String(6))
+    blkgrpce = Column(String(1))
+    geoid = Column(String(12), index=True)
+    namelsad = Column(String(100))
+    aland = Column(BigInteger)
+    awater = Column(BigInteger)
+    intptlat = Column(String(11))
+    intptlon = Column(String(12))
+    funcstat = Column(String(1))
+    mtfcc = Column(String(5))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerTract(Base):
+    """US Census TIGER/Line census tract boundaries (TRACT)."""
+
+    __tablename__ = "tiger_tracts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    statefp = Column(String(2))
+    countyfp = Column(String(3))
+    tractce = Column(String(6))
+    geoid = Column(String(11), index=True)
+    name = Column(String)
+    namelsad = Column(String(100))
+    aland = Column(BigInteger)
+    awater = Column(BigInteger)
+    intptlat = Column(String(11))
+    intptlon = Column(String(12))
+    funcstat = Column(String(1))
+    mtfcc = Column(String(5))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerSchoolDistrict(Base):
+    """US Census TIGER/Line school district boundaries (ELSD/SCSD/UNSD combined)."""
+
+    __tablename__ = "tiger_school_districts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    district_type = Column(String(10), index=True)
+    statefp = Column(String(2))
+    geoid = Column(String(7), index=True)
+    name = Column(String)
+    lsad = Column(String(2))
+    lograde = Column(String(2))
+    higrade = Column(String(2))
+    aland = Column(BigInteger)
+    awater = Column(BigInteger)
+    intptlat = Column(String(11))
+    intptlon = Column(String(12))
+    funcstat = Column(String(1))
+    mtfcc = Column(String(5))
+    sdtyp = Column(String(1))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerCounty(Base):
+    """US Census TIGER/Line county boundaries (COUNTY)."""
+
+    __tablename__ = "tiger_counties"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    statefp = Column(String(2))
+    countyfp = Column(String(3))
+    countyns = Column(String(8))
+    geoid = Column(String(5), index=True)
+    name = Column(String)
+    namelsad = Column(String(100))
+    lsad = Column(String(2))
+    classfp = Column(String(2))
+    aland = Column(BigInteger)
+    awater = Column(BigInteger)
+    intptlat = Column(String(11))
+    intptlon = Column(String(12))
+    funcstat = Column(String(1))
+    mtfcc = Column(String(5))
+    csafp = Column(String(3))
+    cbsafp = Column(String(5))
+    metdivfp = Column(String(5))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class TigerCountySubdivision(Base):
+    """US Census TIGER/Line county subdivision boundaries (COUSUB)."""
+
+    __tablename__ = "tiger_county_subdivisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    statefp = Column(String(2))
+    countyfp = Column(String(3))
+    cousubfp = Column(String(5))
+    cousubns = Column(String(8))
+    geoid = Column(String(10), index=True)
+    name = Column(String)
+    namelsad = Column(String(100))
+    lsad = Column(String(2))
+    classfp = Column(String(2))
+    aland = Column(BigInteger)
+    awater = Column(BigInteger)
+    intptlat = Column(String(11))
+    intptlon = Column(String(12))
+    funcstat = Column(String(1))
+    mtfcc = Column(String(5))
+    cnectafp = Column(String(3))
+    nectafp = Column(String(5))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())

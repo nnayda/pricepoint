@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Town of Morrisville Open Data
     morrisville_opendata_platform_id: str = "opendata.townofmorrisville.org"
 
+    # US Census TIGER/Line Shapefiles
+    tiger_base_url: str = "https://www2.census.gov/geo/tiger"
+    tiger_year: int = 2025
+    tiger_state_fips: str = "37"  # North Carolina
+    tiger_county_fips: str = "183"  # Wake County
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 

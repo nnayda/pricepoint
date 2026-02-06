@@ -185,3 +185,25 @@ class TestMorrisvillePoliceCollectionDag:
     def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_morrisville_police_collection.py")
         assert not _has_external_task_sensor(tree)
+
+
+class TestTigerBoundaryCollectionDag:
+    """Validate the tiger_boundary_collection DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_tiger_boundary_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "tiger_boundary_collection"
+
+    def test_schedule_is_none(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_tiger_boundary_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs.get("schedule") is None
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_tiger_boundary_collection.py")
+        assert _count_task_decorators(tree) == 7
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_tiger_boundary_collection.py")
+        assert not _has_external_task_sensor(tree)

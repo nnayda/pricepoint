@@ -38,3 +38,15 @@ def test_settings_override(monkeypatch):
     settings = Settings(_env_file=None)
     assert settings.database_url == "postgresql://test:test@db:5432/testdb"
     assert settings.api_port == 9000
+
+
+def test_tiger_settings_defaults():
+    """TIGER/Line settings should have correct defaults for NC/Wake County."""
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql://pricepoint:pricepoint@localhost:5432/pricepoint",
+    )
+    assert settings.tiger_base_url == "https://www2.census.gov/geo/tiger"
+    assert settings.tiger_year == 2025
+    assert settings.tiger_state_fips == "37"
+    assert settings.tiger_county_fips == "183"
