@@ -107,4 +107,54 @@ describe("useDebounce hook", () => {
 
     expect(result.current).toBe("world");
   });
+
+  it("clears the timer on unmount", () => {
+    const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
+    const { unmount } = renderHook(() => useDebounce("hello", 300));
+
+    unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("skips intermediate values during rapid changes", () => {
+    const { result, rerender } = renderHook(
+      ({ value, delay }) => useDebounce(value, delay),
+      { initialProps: { value: "a", delay: 300 } },
+    );
+
+    rerender({ value: "ab", delay: 300 });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    rerender({ value: "abc", delay: 300 });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    rerender({ value: "abcd", delay: 300 });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    // Only the final value appears — intermediate values are never emitted
+    expect(result.current).toBe("abcd");
+  });
+
+  it("handles zero delay", () => {
+    const { result, rerender } = renderHook(
+      ({ value, delay }) => useDebounce(value, delay),
+      { initialProps: { value: "hello", delay: 0 } },
+    );
+
+    rerender({ value: "world", delay: 0 });
+
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(result.current).toBe("world");
+  });
 });
