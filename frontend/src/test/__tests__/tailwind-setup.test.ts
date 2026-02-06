@@ -4,36 +4,31 @@ import { resolve } from "path";
 
 describe("Tailwind CSS setup", () => {
   it("index.css imports tailwindcss", () => {
-    const css = readFileSync(
-      resolve(__dirname, "../../index.css"),
-      "utf-8",
-    );
+    const css = readFileSync(resolve(__dirname, "../../index.css"), "utf-8");
     expect(css).toContain('@import "tailwindcss"');
   });
 
   it("vite.config.ts includes @tailwindcss/vite plugin", () => {
-    const config = readFileSync(
-      resolve(__dirname, "../../../vite.config.ts"),
-      "utf-8",
-    );
-    expect(config).toContain('@tailwindcss/vite');
+    const config = readFileSync(resolve(__dirname, "../../../vite.config.ts"), "utf-8");
+    expect(config).toContain("@tailwindcss/vite");
     expect(config).toMatch(/tailwindcss\(\)/);
   });
 
   it("vitest.config.ts includes @tailwindcss/vite plugin", () => {
-    const config = readFileSync(
-      resolve(__dirname, "../../../vitest.config.ts"),
-      "utf-8",
-    );
-    expect(config).toContain('@tailwindcss/vite');
+    const config = readFileSync(resolve(__dirname, "../../../vitest.config.ts"), "utf-8");
+    expect(config).toContain("@tailwindcss/vite");
     expect(config).toMatch(/tailwindcss\(\)/);
   });
 
   it("main.tsx imports index.css", () => {
-    const main = readFileSync(
-      resolve(__dirname, "../../main.tsx"),
-      "utf-8",
-    );
-    expect(main).toContain('./index.css');
+    const main = readFileSync(resolve(__dirname, "../../main.tsx"), "utf-8");
+    expect(main).toContain("./index.css");
+  });
+
+  it("main.tsx imports index.css before App", () => {
+    const main = readFileSync(resolve(__dirname, "../../main.tsx"), "utf-8");
+    const cssIndex = main.indexOf("./index.css");
+    const appIndex = main.indexOf("./App");
+    expect(cssIndex).toBeLessThan(appIndex);
   });
 });
