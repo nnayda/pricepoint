@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
-from pricepoint.api.routes import forecast, health
+from pricepoint.api.routes import forecast, geocode, health
 from pricepoint.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(forecast.router, prefix="/api")
+    app.include_router(geocode.router, prefix="/api")
 
     return app
 
