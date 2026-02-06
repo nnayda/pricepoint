@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { axe } from "vitest-axe";
 import ResultsPage from "../ResultsPage";
 
 const mockExecute = vi.fn();
@@ -19,12 +20,35 @@ vi.mock("../../services/api", () => ({
   postForecast: vi.fn(),
 }));
 
-function renderResultsPage(address?: string) {
-  const initialEntries = address
-    ? [`/results?address=${encodeURIComponent(address)}`]
-    : ["/results"];
+vi.mock("react-leaflet", () => ({
+  MapContainer: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    style?: React.CSSProperties;
+  }) => (
+    <div data-testid="map-container" style={props.style}>
+      {children}
+    </div>
+  ),
+  TileLayer: () => <div data-testid="tile-layer" />,
+  Marker: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="marker">{children}</div>
+  ),
+  Popup: ({ children }: { children: React.ReactNode }) => <div data-testid="popup">{children}</div>,
+}));
+
+function renderResultsPage(address?: string, coords?: { lat: number; lon: number }) {
+  let path = "/results";
+  if (address) {
+    path += `?address=${encodeURIComponent(address)}`;
+    if (coords) {
+      path += `&lat=${coords.lat}&lon=${coords.lon}`;
+    }
+  }
   return render(
-    <MemoryRouter initialEntries={initialEntries}>
+    <MemoryRouter initialEntries={[path]}>
       <ResultsPage />
     </MemoryRouter>,
   );
@@ -174,5 +198,67 @@ describe("ResultsPage", () => {
     expect(confidenceCard?.className).toContain("rounded-md");
     expect(confidenceCard?.className).toContain("bg-bg-card");
     expect(confidenceCard?.className).toContain("shadow-soft");
+  });
+
+  it("renders map when lat and lon params are provided", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St", { lat: 39.9526, lon: -75.1652 });
+    expect(screen.getByTestId("map-container")).toBeInTheDocument();
+    expect(screen.getByTestId("marker")).toBeInTheDocument();
+  });
+
+  it("does not render map when lat and lon params are missing", () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    renderResultsPage("123 Main St");
+    expect(screen.queryByTestId("map-container")).not.toBeInTheDocument();
+  });
+
+  it("has no axe accessibility violations in empty state", async () => {
+    const { container } = renderResultsPage();
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("has no axe accessibility violations in results state", async () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        address: "123 Main St, Philadelphia, PA",
+        predicted_value: 350000,
+        confidence_interval_low: 320000,
+        confidence_interval_high: 380000,
+        model_version: "v1.2.0",
+      },
+      loading: false,
+      error: null,
+      execute: mockExecute,
+    });
+    const { container } = renderResultsPage("123 Main St", {
+      lat: 39.9526,
+      lon: -75.1652,
+    });
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
   });
 });

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useApi } from "../hooks/useApi";
 import { postForecast } from "../services/api";
+import MapView from "../components/Map/MapView";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -12,6 +13,8 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 function ResultsPage() {
   const [searchParams] = useSearchParams();
   const address = searchParams.get("address") ?? "";
+  const lat = searchParams.get("lat");
+  const lon = searchParams.get("lon");
   const { data, loading, error, execute } = useApi(postForecast);
 
   useEffect(() => {
@@ -109,6 +112,9 @@ function ResultsPage() {
             <p className="mt-2 text-xl font-bold text-text-pri">{data.model_version}</p>
           </div>
         </div>
+
+        {/* Map */}
+        {lat && lon && <MapView center={[parseFloat(lat), parseFloat(lon)]} />}
       </div>
     </div>
   );
