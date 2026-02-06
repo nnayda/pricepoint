@@ -1,20 +1,38 @@
 """FastAPI application factory."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from redis.asyncio import Redis
 
-from pricepoint.api.routes import forecast, health
+from pricepoint.api.routes import forecast, geocode, health
 from pricepoint.config.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown hooks."""
-    # Startup: load model, warm caches, etc.
+    settings = get_settings()
+
+    # Startup: initialise Valkey/Redis connection pool
+    if settings.valkey_url:
+        pool = Redis.from_url(settings.valkey_url, decode_responses=True)
+        app.state.valkey_pool = pool
+        logger.info("Valkey connection pool initialised")
+    else:
+        app.state.valkey_pool = None
+        logger.info("Valkey URL not configured; caching disabled")
+
     yield
-    # Shutdown: release resources
+
+    # Shutdown: close Valkey connection pool
+    if app.state.valkey_pool is not None:
+        await app.state.valkey_pool.aclose()
+        logger.info("Valkey connection pool closed")
 
 
 def create_app() -> FastAPI:
@@ -37,6 +55,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(forecast.router, prefix="/api")
+    app.include_router(geocode.router, prefix="/api")
 
     return app
 

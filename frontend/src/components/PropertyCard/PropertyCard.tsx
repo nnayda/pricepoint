@@ -12,25 +12,16 @@ function PropertyCard({ forecast }: PropertyCardProps) {
   });
 
   return (
-    <div
-      style={{
-        border: "1px solid #e0e0e0",
-        borderRadius: "8px",
-        padding: "1.5rem",
-        maxWidth: "400px",
-      }}
-    >
-      <h3 style={{ marginTop: 0 }}>{forecast.address}</h3>
-      <p style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
+    <div className="max-w-md rounded-md bg-bg-card p-6 shadow-soft">
+      <h3 className="mt-0 text-lg font-semibold text-text-pri">{forecast.address}</h3>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-brand-blue">
         {formatter.format(forecast.predicted_value)}
       </p>
-      <p style={{ color: "#666" }}>
+      <p className="mt-1 text-sm font-medium text-text-sec">
         Range: {formatter.format(forecast.confidence_interval_low)} &ndash;{" "}
         {formatter.format(forecast.confidence_interval_high)}
       </p>
-      <p style={{ fontSize: "0.875rem", color: "#999" }}>
-        Model: {forecast.model_version}
-      </p>
+      <p className="mt-1 text-xs text-text-sec">Model: {forecast.model_version}</p>
     </div>
   );
 }

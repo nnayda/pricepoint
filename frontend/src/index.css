@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* ── Plus Jakarta Sans @font-face declarations ── */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/PlusJakartaSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/PlusJakartaSans-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/PlusJakartaSans-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/PlusJakartaSans-Bold.woff2") format("woff2");
+}
+
+/* ── Design System Tokens ── */
+
+@theme {
+  /* Typography */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Colors — Surface */
+  --color-bg-main: #f2f4f7;
+  --color-bg-card: #ffffff;
+
+  /* Colors — Brand */
+  --color-brand-blue: #4f46e5;
+
+  /* Colors — Status */
+  --color-status-rented: #ff5c8e;
+  --color-status-maint: #47d1a0;
+  --color-status-vacant: #c4c4c4;
+
+  /* Colors — Text */
+  --color-text-pri: #1a1a1a;
+  --color-text-sec: #71717a;
+
+  /* Border Radius */
+  --radius-lg: 32px;
+  --radius-md: 20px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-soft: 0px 20px 50px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0px 10px 30px rgba(0, 0, 0, 0.05);
+
+  /* Spacing */
+  --spacing-grid: 24px;
+}
+
+/* ── Base Styles ── */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-main);
+    color: var(--color-text-pri);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+/* ── Page Cross-Fade Transition ── */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-old(root) {
+  animation: fade-out 200ms ease-out;
+}
+
+::view-transition-new(root) {
+  animation: fade-in 200ms ease-in;
+}

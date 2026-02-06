@@ -15,23 +15,30 @@ function ForecastPage() {
   };
 
   return (
-    <div>
-      <h2>Forecast</h2>
-      <form onSubmit={handleSubmit} style={{ marginBottom: "1.5rem" }}>
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Enter property address"
-          style={{ padding: "0.5rem", width: "300px", marginRight: "0.5rem" }}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "Loading..." : "Get Forecast"}
-        </button>
-      </form>
+    <div className="flex flex-1 flex-col items-center px-4 py-8">
+      <div className="flex w-full max-w-2xl flex-col gap-grid">
+        <h2 className="text-2xl font-bold tracking-tight text-text-pri">Forecast</h2>
 
-      {error && <p style={{ color: "red" }}>Error: {error}</p>}
-      {data && <PropertyCard forecast={data} />}
+        <form onSubmit={handleSubmit} className="flex gap-3">
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Enter property address"
+            className="flex-1 rounded-pill bg-bg-card px-5 py-2.5 text-base font-medium text-text-pri shadow-card outline-none placeholder:text-text-sec focus:ring-2 focus:ring-brand-blue"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-pill bg-brand-blue px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Get Forecast"}
+          </button>
+        </form>
+
+        {error && <p className="text-base font-medium text-status-rented">Error: {error}</p>}
+        {data && <PropertyCard forecast={data} />}
+      </div>
     </div>
   );
 }

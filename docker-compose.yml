@@ -46,6 +46,21 @@ services:
   # Optional infrastructure (use with: docker compose --profile infra up)
   # ---------------------------------------------------------------------------
 
+  valkey:
+    image: valkey/valkey:8-alpine
+    profiles: [infra]
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkeydata:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pricepoint
+
   postgres:
     image: postgis/postgis:17-3.5
     platform: linux/amd64
@@ -158,6 +173,7 @@ volumes:
   pgdata:
   miniodata:
   airflow-db:
+  valkeydata:
 
 networks:
   pricepoint:

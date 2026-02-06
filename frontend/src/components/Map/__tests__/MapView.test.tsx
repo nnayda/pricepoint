@@ -3,7 +3,13 @@ import { render, screen } from "@testing-library/react";
 
 // Mock react-leaflet — jsdom lacks canvas APIs needed by Leaflet
 vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children, ...props }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+  MapContainer: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    style?: React.CSSProperties;
+  }) => (
     <div data-testid="map-container" style={props.style}>
       {children}
     </div>
@@ -12,9 +18,7 @@ vi.mock("react-leaflet", () => ({
   Marker: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="marker">{children}</div>
   ),
-  Popup: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="popup">{children}</div>
-  ),
+  Popup: ({ children }: { children: React.ReactNode }) => <div data-testid="popup">{children}</div>,
 }));
 
 import MapView from "../MapView";
@@ -33,5 +37,12 @@ describe("MapView", () => {
   it("renders popup with forecast text", () => {
     render(<MapView />);
     expect(screen.getByText("Home Value Forecast")).toBeInTheDocument();
+  });
+
+  it("applies rounded-lg styling to map wrapper", () => {
+    render(<MapView />);
+    const wrapper = screen.getByTestId("map-container").parentElement!;
+    expect(wrapper.className).toContain("rounded-lg");
+    expect(wrapper.className).toContain("shadow-soft");
   });
 });
