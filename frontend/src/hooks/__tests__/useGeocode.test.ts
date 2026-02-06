@@ -142,7 +142,10 @@ describe("useGeocode hook", () => {
   it("shows loading state while API call is in-flight", async () => {
     let resolveApi!: (value: GeocodeResponse) => void;
     mockGetGeocode.mockImplementation(
-      () => new Promise((resolve) => { resolveApi = resolve; }),
+      () =>
+        new Promise((resolve) => {
+          resolveApi = resolve;
+        }),
     );
 
     const { result } = renderHook(() => useGeocode("123 Main"));
@@ -197,14 +200,16 @@ describe("useGeocode hook", () => {
     let resolveFirst!: (value: GeocodeResponse) => void;
     mockGetGeocode
       .mockImplementationOnce(
-        () => new Promise((resolve) => { resolveFirst = resolve; }),
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
       )
       .mockImplementationOnce(() => Promise.resolve(fastResponse));
 
-    const { result, rerender } = renderHook(
-      ({ query }) => useGeocode(query),
-      { initialProps: { query: "first query" } },
-    );
+    const { result, rerender } = renderHook(({ query }) => useGeocode(query), {
+      initialProps: { query: "first query" },
+    });
 
     // Debounce fires for first query
     await act(async () => {
@@ -239,10 +244,9 @@ describe("useGeocode hook", () => {
   it("clears error on subsequent successful fetch", async () => {
     mockGetGeocode.mockRejectedValueOnce(new Error("Temporary failure"));
 
-    const { result, rerender } = renderHook(
-      ({ query }) => useGeocode(query),
-      { initialProps: { query: "bad query" } },
-    );
+    const { result, rerender } = renderHook(({ query }) => useGeocode(query), {
+      initialProps: { query: "bad query" },
+    });
 
     await act(async () => {
       vi.advanceTimersByTime(300);

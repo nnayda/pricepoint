@@ -36,9 +36,7 @@ function ForecastPage() {
           </button>
         </form>
 
-        {error && (
-          <p className="text-base font-medium text-status-rented">Error: {error}</p>
-        )}
+        {error && <p className="text-base font-medium text-status-rented">Error: {error}</p>}
         {data && <PropertyCard forecast={data} />}
       </div>
     </div>

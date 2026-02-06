@@ -17,10 +17,9 @@ describe("useDebounce hook", () => {
   });
 
   it("does not update the value before the delay", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "hello", delay: 300 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "hello", delay: 300 },
+    });
 
     rerender({ value: "world", delay: 300 });
 
@@ -32,10 +31,9 @@ describe("useDebounce hook", () => {
   });
 
   it("updates the value after the delay", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "hello", delay: 300 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "hello", delay: 300 },
+    });
 
     rerender({ value: "world", delay: 300 });
 
@@ -47,10 +45,9 @@ describe("useDebounce hook", () => {
   });
 
   it("resets the timer when value changes rapidly", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "a", delay: 300 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "a", delay: 300 },
+    });
 
     rerender({ value: "ab", delay: 300 });
     act(() => {
@@ -73,10 +70,9 @@ describe("useDebounce hook", () => {
   });
 
   it("works with numeric values", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: 0, delay: 500 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: 0, delay: 500 },
+    });
 
     rerender({ value: 42, delay: 500 });
 
@@ -88,10 +84,9 @@ describe("useDebounce hook", () => {
   });
 
   it("respects delay changes", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "hello", delay: 300 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "hello", delay: 300 },
+    });
 
     rerender({ value: "world", delay: 1000 });
 
@@ -119,10 +114,9 @@ describe("useDebounce hook", () => {
   });
 
   it("skips intermediate values during rapid changes", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "a", delay: 300 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "a", delay: 300 },
+    });
 
     rerender({ value: "ab", delay: 300 });
     act(() => {
@@ -144,10 +138,9 @@ describe("useDebounce hook", () => {
   });
 
   it("handles zero delay", () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: "hello", delay: 0 } },
-    );
+    const { result, rerender } = renderHook(({ value, delay }) => useDebounce(value, delay), {
+      initialProps: { value: "hello", delay: 0 },
+    });
 
     rerender({ value: "world", delay: 0 });
 

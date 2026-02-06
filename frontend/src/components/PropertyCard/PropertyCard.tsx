@@ -13,9 +13,7 @@ function PropertyCard({ forecast }: PropertyCardProps) {
 
   return (
     <div className="max-w-md rounded-md bg-bg-card p-6 shadow-soft">
-      <h3 className="mt-0 text-lg font-semibold text-text-pri">
-        {forecast.address}
-      </h3>
+      <h3 className="mt-0 text-lg font-semibold text-text-pri">{forecast.address}</h3>
       <p className="mt-2 text-2xl font-bold tracking-tight text-brand-blue">
         {formatter.format(forecast.predicted_value)}
       </p>
@@ -23,9 +21,7 @@ function PropertyCard({ forecast }: PropertyCardProps) {
         Range: {formatter.format(forecast.confidence_interval_low)} &ndash;{" "}
         {formatter.format(forecast.confidence_interval_high)}
       </p>
-      <p className="mt-1 text-xs text-text-sec">
-        Model: {forecast.model_version}
-      </p>
+      <p className="mt-1 text-xs text-text-sec">Model: {forecast.model_version}</p>
     </div>
   );
 }
