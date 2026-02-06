@@ -13,4 +13,6 @@ ARG AIRFLOW_CONSTRAINTS=https://raw.githubusercontent.com/apache/airflow/constra
 RUN pip install --no-cache-dir "apache-airflow-providers-fab" --constraint "${AIRFLOW_CONSTRAINTS}" && \
     pip install --no-cache-dir --no-deps -e "/opt/airflow"
 
+RUN mkdir -p /opt/airflow/airflow-data
+
 COPY dags/ /opt/airflow/dags/
