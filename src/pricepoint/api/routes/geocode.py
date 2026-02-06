@@ -17,7 +17,7 @@ router = APIRouter(tags=["geocode"])
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_TIMEOUT = 5.0
-CACHE_TTL = 86400  # 24 hours
+CACHE_TTL = 2592000  # 30 days
 MAX_LIMIT = 10
 
 
