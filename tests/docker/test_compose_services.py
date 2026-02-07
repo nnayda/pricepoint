@@ -12,6 +12,31 @@ def _load_compose() -> dict:
     return yaml.safe_load(COMPOSE_FILE.read_text())
 
 
+class TestAirflowServices:
+    """Verify the Airflow services mount DAGs and reserialize on init."""
+
+    def test_airflow_init_reserializes_dags(self):
+        compose = _load_compose()
+        init = compose["services"]["airflow-init"]
+        entrypoint = init["entrypoint"]
+        assert "airflow dags reserialize" in entrypoint
+
+    def test_airflow_init_mounts_dags(self):
+        compose = _load_compose()
+        init = compose["services"]["airflow-init"]
+        assert any("./dags:" in v for v in init["volumes"])
+
+    def test_airflow_scheduler_mounts_dags(self):
+        compose = _load_compose()
+        svc = compose["services"]["airflow-scheduler"]
+        assert any("./dags:" in v for v in svc["volumes"])
+
+    def test_airflow_api_server_mounts_dags(self):
+        compose = _load_compose()
+        svc = compose["services"]["airflow-api-server"]
+        assert any("./dags:" in v for v in svc["volumes"])
+
+
 class TestValkeyService:
     """Verify the Valkey service is correctly configured."""
 

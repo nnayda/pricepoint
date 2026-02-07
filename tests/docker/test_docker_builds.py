@@ -89,6 +89,70 @@ class TestDockerBuild:
         assert result.returncode == 0, f"MLflow build failed: {result.stderr}"
 
 
+class TestAirflowDagDiscovery:
+    """Verify Airflow discovers all DAGs inside the container."""
+
+    EXPECTED_DAGS = {
+        "cary_police_collection",
+        "data_collection",
+        "feature_engineering",
+        "model_training",
+        "morrisville_police_collection",
+        "raleigh_police_collection",
+        "tiger_boundary_collection",
+    }
+
+    @pytest.mark.slow
+    def test_airflow_discovers_all_dags(self):
+        """Run airflow dags reserialize + list inside the container and verify all DAGs appear."""
+        build = subprocess.run(
+            [
+                "docker",
+                "build",
+                "-f",
+                "docker/airflow.Dockerfile",
+                "-t",
+                "pricepoint-airflow:dag-test",
+                ".",
+            ],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if build.returncode != 0:
+            pytest.skip("Airflow image failed to build")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-e",
+                "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db",
+                "pricepoint-airflow:dag-test",
+                "bash",
+                "-c",
+                "airflow db migrate > /dev/null 2>&1 && "
+                "airflow dags reserialize > /dev/null 2>&1 && "
+                "airflow dags list --output plain 2>&1",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, f"airflow dags list failed: {result.stderr}"
+
+        found_dags = set()
+        for line in result.stdout.splitlines():
+            for dag_id in self.EXPECTED_DAGS:
+                if dag_id in line:
+                    found_dags.add(dag_id)
+
+        missing = self.EXPECTED_DAGS - found_dags
+        assert not missing, f"DAGs not discovered by Airflow: {missing}"
+
+
 class TestDockerRuntime:
     """Verify containers start and serve correctly."""
 
