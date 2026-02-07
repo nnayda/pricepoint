@@ -13,7 +13,7 @@ def _load_compose() -> dict:
 
 
 class TestAirflowServices:
-    """Verify the Airflow services mount DAGs and reserialize on init."""
+    """Verify the Airflow services are configured correctly."""
 
     def test_airflow_init_reserializes_dags(self):
         compose = _load_compose()
@@ -21,20 +21,11 @@ class TestAirflowServices:
         entrypoint = init["entrypoint"]
         assert "airflow dags reserialize" in entrypoint
 
-    def test_airflow_init_mounts_dags(self):
+    def test_airflow_services_use_same_image(self):
         compose = _load_compose()
-        init = compose["services"]["airflow-init"]
-        assert any("./dags:" in v for v in init["volumes"])
-
-    def test_airflow_scheduler_mounts_dags(self):
-        compose = _load_compose()
-        svc = compose["services"]["airflow-scheduler"]
-        assert any("./dags:" in v for v in svc["volumes"])
-
-    def test_airflow_api_server_mounts_dags(self):
-        compose = _load_compose()
-        svc = compose["services"]["airflow-api-server"]
-        assert any("./dags:" in v for v in svc["volumes"])
+        for svc_name in ("airflow-init", "airflow-api-server", "airflow-scheduler"):
+            svc = compose["services"][svc_name]
+            assert svc["build"]["dockerfile"] == "docker/airflow.Dockerfile"
 
 
 class TestValkeyService:

@@ -125,8 +125,6 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    volumes:
-      - ./dags:/opt/airflow/dags
     depends_on:
       postgres:
         condition: service_started
@@ -146,8 +144,6 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
-    volumes:
-      - ./dags:/opt/airflow/dags
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -164,8 +160,6 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    volumes:
-      - ./dags:/opt/airflow/dags
     depends_on:
       airflow-init:
         condition: service_completed_successfully

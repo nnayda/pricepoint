@@ -98,3 +98,4 @@ Copy `.env.example` to `.env`. Key variables:
 - **Alembic connection:** DB URL set programmatically from `settings.py`, not from `alembic.ini`
 - **Frontend tests:** Must run from `frontend/` directory, not project root
 - **Ruff config:** 100-char line length, target py311
+- **Docker Host** You are running in a container with an attached docker in docker host
