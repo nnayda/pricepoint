@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import httpx
 from geoalchemy2.shape import from_shape
-from odsclient import get_whole_dataset
+from odsclient import ODSClient
 from shapely.geometry import Point
 from sqlalchemy import delete, select
 
@@ -112,7 +112,8 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
     Args:
         full_refresh: If True (default), truncate the staging table before loading.
     """
-    settings = get_settings()
+    CARY_BASE_URL = "https://data.townofcary.org/"
+    CARY_DATASET_ID = "cpd-incidents"
 
     session = SessionLocal()
     try:
@@ -120,13 +121,64 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
             session.execute(delete(StagingCaryPoliceIncident))
             session.commit()
 
-        csv_text = get_whole_dataset(
-            "cpd-incidents",
-            platform_id=settings.cary_opendata_platform_id,
-        )
+        # Use ODSClient with base URL instead of platform_id
+        client = ODSClient(base_url=CARY_BASE_URL)
+        df = client.get_whole_dataframe(dataset_id=CARY_DATASET_ID)
 
-        reader = csv.DictReader(io.StringIO(csv_text), delimiter=";")
-        records = [_map_record(row) for row in reader]
+        if df.empty:
+            logger.warning("Cary police incidents: downloaded dataset is empty")
+            return
+
+        # Normalize column names: lowercase and replace spaces with underscores
+        df.columns = df.columns.str.lower().str.replace(" ", "_")
+
+        # Rename columns to match the expected format
+        column_mapping = {
+            "id": "id",
+            "incident_number": "incident_number",
+            "crime_category": "crime_category",
+            "crime_type": "crime_type",
+            "ucr": "ucr",
+            "map_reference": "map_reference",
+            "begin_date_of_occurrence": "date_from",
+            "begin_time_of_occurrence": "from_time",
+            "end_date_of_occurrence": "date_to",
+            "end_time_of_occurrence": "to_time",
+            "crime_day": "crimeday",
+            "geo_code": "geocode",
+            "location_category": "location_category",
+            "district": "district",
+            "beat_number": "beat_number",
+            "neighborhood_id": "neighborhd_id",
+            "apartment_complex": "apartment_complex",
+            "residential_subdivision": "residential_subdivision",
+            "subdivision_id": "subdivisn_id",
+            "phx_activity_date": "activity_date",
+            "phx_record_status": "phxrecordstatus",
+            "phx_community": "phxcommunity",
+            "phx_status": "phxstatus",
+            "record": "record",
+            "offense_category": "offensecategory",
+            "violent_property": "violentproperty",
+            "timeframe": "timeframe",
+            "domestic": "domestic",
+            "total_incidents": "total_incidents",
+            "year": "year",
+            "older_than_five_years_from_now": "older_than_five_years_from_now",
+            "charge_count": "chrgcnt",
+            "longitude": "lon",
+            "latitude": "lat",
+        }
+        df = df.rename(columns=column_mapping)
+
+        # Convert dataframe to records - iterate through rows
+        records = []
+        for _, row in df.iterrows():
+            # Convert row to dict and map to model
+            row_dict = row.to_dict()
+            # Convert NaN to empty string for CSV compatibility
+            row_dict = {k: (v if not (isinstance(v, float) and str(v) == "nan") else "") for k, v in row_dict.items()}
+            records.append(_map_record(row_dict))
 
         if records:
             session.add_all(records)
@@ -360,7 +412,8 @@ def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
     Args:
         full_refresh: If True (default), truncate the staging table before loading.
     """
-    settings = get_settings()
+    MORRISVILLE_BASE_URL = "https://opendata.townofmorrisville.org/"
+    MORRISVILLE_DATASET_ID = "pd_incident_report"
 
     session = SessionLocal()
     try:
@@ -368,13 +421,50 @@ def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
             session.execute(delete(StagingMorrisvillePoliceIncident))
             session.commit()
 
-        csv_text = get_whole_dataset(
-            "pd_incident_report",
-            platform_id=settings.morrisville_opendata_platform_id,
-        )
+        # Use ODSClient with base URL instead of platform_id
+        client = ODSClient(base_url=MORRISVILLE_BASE_URL)
+        df = client.get_whole_dataframe(dataset_id=MORRISVILLE_DATASET_ID)
 
-        reader = csv.DictReader(io.StringIO(csv_text), delimiter=";")
-        records = [_map_morrisville_record(row) for row in reader]
+        if df.empty:
+            logger.warning("Morrisville police incidents: downloaded dataset is empty")
+            return
+
+        # Normalize column names: lowercase and replace spaces with underscores
+        df.columns = df.columns.str.lower().str.replace(" ", "_")
+
+        # Rename columns to match expected format
+        column_mapping = {
+            "inci_id": "inci_id",
+            "offense": "offense",
+            "date_rept": "date_rept",
+            "date_occu": "date_occu",
+            "dow1": "dow1",
+            "monthstamp": "monthstamp",
+            "yearstamp": "yearstamp",
+            "street": "street",
+            "city": "city",
+            "state": "state",
+            "zip": "zip",
+            "neighborhd": "neighborhd",
+            "subdivisn": "subdivisn",
+            "tract": "tract",
+            "zone": "zone",
+            "district": "district",
+            "asst_offcr": "asst_offcr",
+            "geo_point_2d": "area",  # This contains "lat, lon" format
+        }
+
+        # Only rename columns that exist
+        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+
+        # Convert dataframe to records - iterate through rows
+        records = []
+        for _, row in df.iterrows():
+            # Convert row to dict and map to model
+            row_dict = row.to_dict()
+            # Convert NaN to empty string
+            row_dict = {k: (v if not (isinstance(v, float) and str(v) == "nan") else "") for k, v in row_dict.items()}
+            records.append(_map_morrisville_record(row_dict))
 
         if records:
             session.add_all(records)
