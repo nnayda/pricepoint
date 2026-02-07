@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "PricePoint PostGIS",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "pricepoint",
+      "Username": "pricepoint",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}

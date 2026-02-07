@@ -76,6 +76,31 @@ services:
     networks:
       - pricepoint
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles: [infra]
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@pricepoint.local
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      - PGADMIN_SERVER_JSON_FILE=/pgadmin4/servers.json
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./docker/pgadmin/pgpass:/pgpass:ro
+    depends_on:
+      - postgres
+    networks:
+      - pricepoint
+    entrypoint: >
+      /bin/sh -c "
+      chmod 600 /pgpass;
+      /entrypoint.sh
+      "
+
   minio:
     image: minio/minio
     profiles: [infra]
@@ -168,6 +193,7 @@ services:
 
 volumes:
   pgdata:
+  pgadmindata:
   miniodata:
   valkeydata:
 
