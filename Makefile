@@ -1,15 +1,18 @@
-.PHONY: up up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build frontend-install frontend-lint frontend-test frontend-test-coverage
+.PHONY: up up-infra up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build frontend-install frontend-lint frontend-test frontend-test-coverage
 
 # --- Docker Compose -----------------------------------------------------------
 
-up: ## Start app services (api, frontend, mlflow)
+up: ## Start app services only (api, frontend, mlflow)
 	docker compose up -d
 
-up-all: ## Start app services + bundled infrastructure
+up-infra: ## Start app services + core infrastructure (postgres, minio, valkey) - no Airflow
 	docker compose --profile infra up -d
 
+up-all: ## Start everything including bundled Airflow + its database
+	docker compose --profile infra --profile airflow up -d
+
 down: ## Stop all services
-	docker compose --profile infra down
+	docker compose --profile infra --profile airflow down
 
 # --- Python -------------------------------------------------------------------
 

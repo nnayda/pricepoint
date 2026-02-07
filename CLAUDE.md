@@ -76,8 +76,9 @@ make frontend-test-coverage      # Vitest with coverage
 ### Docker
 
 ```sh
-make up                   # Start app services (api, frontend, mlflow)
-make up-all               # Start with infrastructure (postgres, minio, airflow)
+make up                   # Start app services only (api, frontend, mlflow) - requires external infra
+make up-infra             # Start app + core infra (postgres, minio, valkey) - use external Airflow
+make up-all               # Start everything including bundled Airflow + its database
 make down                 # Stop all services
 make build                # Build all Docker images
 ```
@@ -85,7 +86,8 @@ make build                # Build all Docker images
 ## Environment
 
 Copy `.env.example` to `.env`. Key variables:
-- `DATABASE_URL` — PostgreSQL + PostGIS connection string
+- `DATABASE_URL` — PostgreSQL + PostGIS connection string (app database)
+- `AIRFLOW__DATABASE__SQL_ALCHEMY_CONN` — Airflow metadata database (separate from app)
 - `S3_ENDPOINT_URL`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` — MinIO/S3
 - `MLFLOW_TRACKING_URI` — MLflow server
 - `VALKEY_URL` — Redis-compatible cache (optional)
@@ -93,7 +95,11 @@ Copy `.env.example` to `.env`. Key variables:
 ## Gotchas
 
 - **Airflow deps:** Airflow is installed separately in its Dockerfile to avoid SQLAlchemy version conflicts — don't add it to `pyproject.toml`
-- **Docker profiles:** `make up` starts app services only; infrastructure (Postgres, MinIO, Airflow, Valkey) requires `make up-all` (uses `--profile infra`)
+- **Docker profiles:** Three deployment modes:
+  - `make up` — app only (requires external infrastructure)
+  - `make up-infra` — app + core infra using `--profile infra` (postgres, minio, valkey), use external Airflow
+  - `make up-all` — everything bundled using `--profile infra --profile airflow` (includes postgres-airflow database)
+- **Separate databases:** Application uses `postgres:5432`, bundled Airflow uses `postgres-airflow:5433` (both PostGIS)
 - **Test markers:** Tests auto-tagged by path (`unit/`, `integration/`, `docker/`). Run subsets with `make test-unit` etc.
 - **Alembic connection:** DB URL set programmatically from `settings.py`, not from `alembic.ini`
 - **Frontend tests:** Must run from `frontend/` directory, not project root

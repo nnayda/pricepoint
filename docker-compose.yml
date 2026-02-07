@@ -44,6 +44,8 @@ services:
 
   # ---------------------------------------------------------------------------
   # Optional infrastructure (use with: docker compose --profile infra up)
+  # Core infrastructure: postgres, minio, valkey
+  # Airflow infrastructure: add --profile airflow for bundled Airflow + database
   # ---------------------------------------------------------------------------
 
   valkey:
@@ -73,6 +75,21 @@ services:
       - POSTGRES_DB=pricepoint
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - pricepoint
+
+  postgres-airflow:
+    image: postgis/postgis:17-3.5
+    platform: linux/amd64
+    profiles: [airflow]
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - pgdata-airflow:/var/lib/postgresql/data
     networks:
       - pricepoint
 
@@ -139,7 +156,7 @@ services:
     build:
       context: .
       dockerfile: docker/airflow.Dockerfile
-    profiles: [infra]
+    profiles: [airflow]
     entrypoint: >
       /bin/bash -c "
       airflow db migrate &&
@@ -147,11 +164,11 @@ services:
       airflow dags reserialize
       "
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     depends_on:
-      postgres:
+      postgres-airflow:
         condition: service_started
     networks:
       - pricepoint
@@ -160,12 +177,12 @@ services:
     build:
       context: .
       dockerfile: docker/airflow.Dockerfile
-    profiles: [infra]
+    profiles: [airflow]
     ports:
       - "8080:8080"
     command: airflow api-server
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
@@ -179,10 +196,10 @@ services:
     build:
       context: .
       dockerfile: docker/airflow.Dockerfile
-    profiles: [infra]
+    profiles: [airflow]
     command: airflow scheduler
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     depends_on:
@@ -193,6 +210,7 @@ services:
 
 volumes:
   pgdata:
+  pgdata-airflow:
   pgadmindata:
   miniodata:
   valkeydata:
