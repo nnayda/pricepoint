@@ -11,7 +11,7 @@ services:
       - "8000:8000"
     env_file: .env
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://pricepoint:pricepoint@postgres:5432/pricepoint}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
     depends_on: []
@@ -70,26 +70,33 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=pricepoint
-      - POSTGRES_PASSWORD=pricepoint
-      - POSTGRES_DB=pricepoint
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - pricepoint
 
-  postgres-airflow:
+  postgres-init:
     image: postgis/postgis:17-3.5
-    platform: linux/amd64
-    profiles: [airflow]
-    ports:
-      - "5433:5432"
+    profiles: [infra]
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
-    volumes:
-      - pgdata-airflow:/var/lib/postgresql/data
+      - PGPASSWORD=postgres
+    entrypoint: >
+      /bin/bash -c "
+      psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'pricepoint'\" | grep -q 1 || psql -h postgres -U postgres -c 'CREATE DATABASE pricepoint';
+      psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'airflow'\" | grep -q 1 || psql -h postgres -U postgres -c 'CREATE DATABASE airflow';
+      echo 'Databases created successfully'
+      "
     networks:
       - pricepoint
 
@@ -109,7 +116,8 @@ services:
       - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
       - ./docker/pgadmin/pgpass:/pgpass:ro
     depends_on:
-      - postgres
+      postgres-init:
+        condition: service_completed_successfully
     networks:
       - pricepoint
     entrypoint: >
@@ -164,12 +172,12 @@ services:
       airflow dags reserialize
       "
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     depends_on:
-      postgres-airflow:
-        condition: service_started
+      postgres-init:
+        condition: service_completed_successfully
     networks:
       - pricepoint
 
@@ -182,7 +190,7 @@ services:
       - "8080:8080"
     command: airflow api-server
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
@@ -199,7 +207,7 @@ services:
     profiles: [airflow]
     command: airflow scheduler
     environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://airflow:airflow@postgres-airflow:5432/airflow}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     depends_on:
@@ -210,7 +218,6 @@ services:
 
 volumes:
   pgdata:
-  pgdata-airflow:
   pgadmindata:
   miniodata:
   valkeydata:

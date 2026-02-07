@@ -87,11 +87,11 @@ make up-all
 
 **Services started:**
 - All app services (API, frontend, MLflow)
-- PostgreSQL + PostGIS (port 5432) — **Application database**
-- PostgreSQL + PostGIS (port 5433) — **Airflow metadata database** (separate!)
+- PostgreSQL + PostGIS (port 5432) — Single instance with **two databases**: `pricepoint` and `airflow`
+- postgres-init — One-time initialization container that creates both databases
 - MinIO (ports 9000, 9001)
 - Valkey (port 6379)
-- pgAdmin (port 5050) — Pre-configured with both databases
+- pgAdmin (port 5050) — Pre-configured with access to both databases
 - Airflow webserver/API (port 8080)
 - Airflow scheduler
 - Airflow init
@@ -101,8 +101,8 @@ make up-all
 **Configuration:**
 Use the default `.env` settings (copy from `.env.example`):
 ```env
-DATABASE_URL=postgresql://pricepoint:pricepoint@postgres:5432/pricepoint
-AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres-airflow:5432/airflow
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pricepoint
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://postgres:postgres@postgres:5432/airflow
 S3_ENDPOINT_URL=http://minio:9000
 # ... (see .env.example for full config)
 ```
@@ -111,18 +111,18 @@ S3_ENDPOINT_URL=http://minio:9000
 
 ## Database Separation
 
-PricePoint uses **separate databases** for the application and Airflow:
+PricePoint uses a **single PostgreSQL instance** with **separate databases** for the application and Airflow:
 
-| Database | Service | Port | Credentials | Purpose |
-|----------|---------|------|-------------|---------|
-| **Application** | `postgres` | 5432 | pricepoint/pricepoint | Property data, ML features, predictions |
-| **Airflow** | `postgres-airflow` | 5433 | airflow/airflow | DAG metadata, task history, logs |
+| Database | Instance | Port | User | Purpose |
+|----------|----------|------|------|---------|
+| **pricepoint** | `postgres` | 5432 | postgres | Property data, ML features, predictions |
+| **airflow** | `postgres` | 5432 | postgres | DAG metadata, task history, logs |
 
 **Why separate databases?**
 - Prevents Airflow metadata from interfering with application data
-- Allows independent scaling and backup strategies
+- Allows independent backup and migration strategies per database
 - Enables using external Airflow with bundled app database
-- Simplifies migrations and version management
+- Simplifies database management with single PostgreSQL instance
 
 ---
 

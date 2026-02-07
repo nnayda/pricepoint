@@ -99,7 +99,7 @@ Copy `.env.example` to `.env`. Key variables:
   - `make up` — app only (requires external infrastructure)
   - `make up-infra` — app + core infra using `--profile infra` (postgres, minio, valkey), use external Airflow
   - `make up-all` — everything bundled using `--profile infra --profile airflow` (includes postgres-airflow database)
-- **Separate databases:** Application uses `postgres:5432`, bundled Airflow uses `postgres-airflow:5433` (both PostGIS)
+- **Separate databases:** Single PostgreSQL instance with two databases: `pricepoint` (app data) and `airflow` (metadata)
 - **Test markers:** Tests auto-tagged by path (`unit/`, `integration/`, `docker/`). Run subsets with `make test-unit` etc.
 - **Alembic connection:** DB URL set programmatically from `settings.py`, not from `alembic.ini`
 - **Frontend tests:** Must run from `frontend/` directory, not project root
