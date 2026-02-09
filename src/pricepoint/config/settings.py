@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # Wake County Property Data
     wake_county_data_url: str = "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
 
+    # Redfin listing HTML collector
+    redfin_html_dir: str = "/data/raw/redfin"
+    redfin_s3_archive_prefix: str = "redfin/archive"
+    redfin_s3_photos_prefix: str = "redfin/photos"
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
