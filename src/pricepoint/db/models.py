@@ -1,7 +1,8 @@
 """SQLAlchemy ORM models with PostGIS geometry columns."""
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Column, DateTime, Float, Integer, String, func
+from sqlalchemy import BigInteger, Column, DateTime, Float, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -457,6 +458,68 @@ class StagingWakeCountyPropertyData(Base):
     recycled_units = Column(Integer, nullable=True)
     disqualifying_qualifying_flags = Column(String(1), nullable=True)
     land_disqualify_qualify_flag = Column(String(1), nullable=True)
+
+    # Metadata
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class StagingRedfinListing(Base):
+    """Redfin listing data parsed from SingleFile HTML snapshots.
+
+    Upsert pattern keyed on address. Photos stored in S3, HTML archived after parsing.
+    """
+
+    __tablename__ = "staging_redfin_listings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Address
+    address = Column(String, nullable=True, index=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    zip_code = Column(String, nullable=True)
+
+    # Status
+    listing_status = Column(String, nullable=True)
+    sold_date = Column(String, nullable=True)
+    sold_price = Column(String, nullable=True)
+
+    # Key stats
+    listing_price = Column(String, nullable=True)
+    beds = Column(Integer, nullable=True)
+    baths = Column(Float, nullable=True)
+    sqft = Column(Integer, nullable=True)
+
+    # Description
+    description = Column(Text, nullable=True)
+
+    # Key details
+    year_built = Column(Integer, nullable=True)
+    lot_size = Column(String, nullable=True)
+    price_per_sqft = Column(String, nullable=True)
+
+    # Agent info
+    listing_agent = Column(String, nullable=True)
+    listing_brokerage = Column(String, nullable=True)
+    buying_agent = Column(String, nullable=True)
+    buying_brokerage = Column(String, nullable=True)
+
+    # Redfin estimate
+    redfin_estimate = Column(String, nullable=True)
+
+    # JSON fields
+    sale_history = Column(JSON, nullable=True)
+    tax_history = Column(JSON, nullable=True)
+    property_details = Column(JSON, nullable=True)
+    schools = Column(JSON, nullable=True)
+
+    # Climate risk
+    climate_flood_factor = Column(String, nullable=True)
+    climate_fire_factor = Column(String, nullable=True)
+
+    # Photos and source
+    photo_s3_paths = Column(JSON, nullable=True)
+    source_file = Column(String, nullable=True)
 
     # Metadata
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
