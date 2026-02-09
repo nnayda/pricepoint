@@ -313,3 +313,150 @@ class TigerCountySubdivision(Base):
     nectafp = Column(String(5))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class StagingWakeCountyPropertyData(Base):
+    """Wake County property assessment data staging table.
+
+    Contains all 94 columns from the county's daily extract in fixed-width format.
+    Truncate-and-reload pattern (no historical tracking). Raw coded values only.
+    """
+
+    __tablename__ = "staging_wake_county_property_data"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Ownership and mailing address
+    owner_1 = Column(String(35), nullable=True)
+    owner_2 = Column(String(35), nullable=True)
+    address_1 = Column(String(35), nullable=True)
+    address_2 = Column(String(35), nullable=True)
+    address_3 = Column(String(35), nullable=True)
+
+    # Property identification
+    reid = Column(String(7), nullable=True, index=True)
+    card_num = Column(String(3), nullable=True)
+    num_cards = Column(String(3), nullable=True)
+
+    # Physical address components
+    street_num = Column(String(6), nullable=True)
+    street_prefix = Column(String(2), nullable=True)
+    street_name = Column(String(25), nullable=True)
+    street_type = Column(String(4), nullable=True)
+    street_suffix = Column(String(2), nullable=True)
+    street_misc = Column(String(2), nullable=True)
+
+    # Location and jurisdiction
+    planning_jurisdiction = Column(String(2), nullable=True)
+    township = Column(String(2), nullable=True)
+    fire_district = Column(String(2), nullable=True)
+    physical_city = Column(String(50), nullable=True)
+    physical_zip_code = Column(String(5), nullable=True)
+    city = Column(String(3), nullable=True)
+
+    # Parcel details
+    parcel_identification = Column(String(19), nullable=True)
+    billing_class = Column(String(1), nullable=True)
+    land_classification = Column(String(1), nullable=True)
+    zoning = Column(String(5), nullable=True)
+    deeded_acreage = Column(Float, nullable=True)
+
+    # Special districts
+    special_district_1 = Column(String(3), nullable=True)
+    special_district_2 = Column(String(3), nullable=True)
+    special_district_3 = Column(String(3), nullable=True)
+
+    # Land sales
+    land_sale_price = Column(Float, nullable=True)
+    land_sale_date = Column(String(10), nullable=True)
+
+    # Total sales
+    total_sale_price = Column(Float, nullable=True)
+    total_sale_date = Column(String(10), nullable=True)
+
+    # Assessed values
+    assessed_building_value = Column(Float, nullable=True)
+    assessed_land_value = Column(Float, nullable=True)
+
+    # Deed information
+    deed_book = Column(String(6), nullable=True)
+    deed_page = Column(String(6), nullable=True)
+    deed_date = Column(String(10), nullable=True)
+
+    # Property description and indexing
+    property_description = Column(String(40), nullable=True)
+    vcs = Column(String(7), nullable=True)
+    property_index = Column(String(40), nullable=True)
+    type_use = Column(String(3), nullable=True)
+
+    # Building characteristics
+    year_built = Column(Integer, nullable=True)
+    num_rooms = Column(Integer, nullable=True)
+    units = Column(Integer, nullable=True)
+    heated_area = Column(Float, nullable=True)
+
+    # Utilities and site features
+    utilities = Column(String(3), nullable=True)
+    street_pavement = Column(String(1), nullable=True)
+    topography = Column(String(1), nullable=True)
+
+    # Building years and modifications
+    year_of_addition = Column(Integer, nullable=True)
+    effective_year = Column(Integer, nullable=True)
+    remodeled_year = Column(Integer, nullable=True)
+    unused = Column(String(2), nullable=True)
+    special_write_in = Column(String(8), nullable=True)
+
+    # Building structure
+    story_height = Column(String(1), nullable=True)
+    design_style = Column(String(1), nullable=True)
+    foundation_basement = Column(String(1), nullable=True)
+    foundation_basement_pct = Column(String(2), nullable=True)
+    exterior_wall = Column(String(1), nullable=True)
+    common_wall = Column(String(1), nullable=True)
+    roof = Column(String(1), nullable=True)
+    roof_floor_system = Column(String(1), nullable=True)
+
+    # Interior finishes
+    floor_finish = Column(String(1), nullable=True)
+    interior_finish = Column(String(1), nullable=True)
+    interior_finish_1 = Column(String(1), nullable=True)
+    interior_finish_1_pct = Column(String(2), nullable=True)
+    interior_finish_2 = Column(String(1), nullable=True)
+    interior_finish_2_pct = Column(String(2), nullable=True)
+
+    # HVAC systems
+    heat = Column(String(1), nullable=True)
+    heat_pct = Column(String(2), nullable=True)
+    air = Column(String(1), nullable=True)
+    air_pct = Column(String(2), nullable=True)
+
+    # Bathrooms
+    bath = Column(String(1), nullable=True)
+    bath_fixtures = Column(String(3), nullable=True)
+
+    # Built-in features
+    builtin_1_description = Column(String(15), nullable=True)
+    builtin_2_description = Column(String(15), nullable=True)
+    builtin_3_description = Column(String(15), nullable=True)
+    builtin_4_description = Column(String(15), nullable=True)
+    builtin_5_description = Column(String(15), nullable=True)
+
+    # Quality and condition
+    grade = Column(String(5), nullable=True)
+    assessed_grade_difference = Column(String(3), nullable=True)
+    accrued_assessed_condition_pct = Column(String(3), nullable=True)
+
+    # Deferred values
+    land_deferred_code = Column(String(1), nullable=True)
+    land_deferred_amount = Column(Float, nullable=True)
+    historic_deferred_code = Column(String(1), nullable=True)
+    historic_deferred_amount = Column(Float, nullable=True)
+
+    # Additional flags
+    recycled_units = Column(Integer, nullable=True)
+    disqualifying_qualifying_flags = Column(String(1), nullable=True)
+    land_disqualify_qualify_flag = Column(String(1), nullable=True)
+
+    # Metadata
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())

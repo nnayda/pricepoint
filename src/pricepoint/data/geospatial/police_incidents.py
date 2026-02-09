@@ -3,8 +3,6 @@
 Sources: municipal open-data portals (Opendatasoft, ArcGIS Feature Services).
 """
 
-import csv
-import io
 import logging
 from datetime import UTC, datetime
 

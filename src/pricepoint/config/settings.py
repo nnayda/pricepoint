@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     tiger_state_fips: str = "37"  # North Carolina
     tiger_county_fips: str = "183"  # Wake County
 
+    # Wake County Property Data
+    wake_county_data_url: str = "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
