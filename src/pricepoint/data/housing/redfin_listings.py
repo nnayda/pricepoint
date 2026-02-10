@@ -507,18 +507,19 @@ def _extract_photos(
     soup: BeautifulSoup,
     slug: str,
     s3_client: Any = None,
-) -> list[str]:
+) -> tuple[list[str], int]:
     """Extract base64-encoded photos and upload to S3.
 
-    Returns list of S3 keys for uploaded photos.
+    Returns (list of S3 keys for uploaded photos, number of failed uploads).
     """
     settings = get_settings()
     container = soup.find(class_="InlinePhotoPreviewRedesign")
     if not container:
-        return []
+        return [], 0
 
     imgs = container.find_all("img")
     s3_paths: list[str] = []
+    failed = 0
 
     if s3_client is None:
         s3_client = _get_s3_client()
@@ -541,6 +542,7 @@ def _extract_photos(
             image_bytes = base64.b64decode(b64_data)
         except Exception:
             logger.warning("Failed to decode base64 image %d for %s", i, slug)
+            failed += 1
             continue
 
         s3_key = f"{settings.redfin_s3_photos_prefix}/{slug}/photo_{i}.{ext}"
@@ -555,8 +557,9 @@ def _extract_photos(
             s3_paths.append(s3_key)
         except Exception:
             logger.warning("Failed to upload photo %d to S3 for %s", i, slug)
+            failed += 1
 
-    return s3_paths
+    return s3_paths, failed
 
 
 # ---------------------------------------------------------------------------
@@ -592,11 +595,12 @@ def _parse_html_file(file_path: str, source_filename: str) -> dict:
     data.update(_parse_climate_risks(soup))
 
     # Photos
-    data["photo_s3_paths"] = _extract_photos(soup, slug)
+    photo_paths, photo_failures = _extract_photos(soup, slug)
+    data["photo_s3_paths"] = photo_paths
 
     data["source_file"] = source_filename
 
-    return data
+    return data, photo_failures
 
 
 def _upsert_listing(session, data: dict) -> None:
@@ -622,18 +626,42 @@ def _upsert_listing(session, data: dict) -> None:
         logger.info("Inserted new listing for %s", address)
 
 
-def _archive_to_s3(file_path: str, source_filename: str) -> None:
-    """Upload processed HTML to S3 archive and delete local file."""
+def _archive_to_s3(file_path: str, source_filename: str) -> bool:
+    """Upload processed HTML to S3 archive and delete local file.
+
+    Returns True if the file was successfully archived (or already exists in S3).
+    Returns False if the upload could not be verified — the local file is kept.
+    """
     settings = get_settings()
     s3_key = f"{settings.redfin_s3_archive_prefix}/{source_filename}"
 
     try:
         client = _get_s3_client()
+
+        if not os.path.exists(file_path):
+            # File gone — verify it actually made it to S3 before considering it OK
+            try:
+                client.head_object(Bucket=settings.s3_bucket, Key=s3_key)
+                logger.info("File already archived to S3 by another run: %s", source_filename)
+                return True
+            except Exception:
+                logger.error(
+                    "Local file missing and not found in S3 — data may be lost: %s",
+                    source_filename,
+                )
+                return False
+
         client.upload_file(file_path, settings.s3_bucket, s3_key)
+
+        # Verify the upload landed before deleting the local copy
+        client.head_object(Bucket=settings.s3_bucket, Key=s3_key)
+
         os.remove(file_path)
         logger.info("Archived %s to s3://%s/%s", source_filename, settings.s3_bucket, s3_key)
+        return True
     except Exception:
-        logger.exception("Failed to archive %s to S3", source_filename)
+        logger.exception("Failed to archive %s to S3 — keeping local file", source_filename)
+        return False
 
 
 def _download_from_s3(s3_key: str) -> str:
@@ -695,14 +723,22 @@ def process_listings(
     for path, filename, is_temp in files:
         session = SessionLocal()
         try:
-            data = _parse_html_file(path, filename)
+            data, photo_failures = _parse_html_file(path, filename)
             _upsert_listing(session, data)
             session.commit()
             processed += 1
 
             # Archive to S3 (skip if reprocessing from S3)
             if not reprocess_s3_prefix:
-                _archive_to_s3(path, filename)
+                if photo_failures:
+                    logger.warning(
+                        "Skipping archive for %s — %d photo upload(s) failed, "
+                        "keeping file for retry",
+                        filename,
+                        photo_failures,
+                    )
+                else:
+                    _archive_to_s3(path, filename)
 
         except Exception:
             session.rollback()

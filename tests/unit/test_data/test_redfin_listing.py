@@ -411,10 +411,11 @@ class TestExtractPhotos:
         )
         mock_s3 = MagicMock()
 
-        paths = _extract_photos(sold_soup, "test-slug", s3_client=mock_s3)
+        paths, failed = _extract_photos(sold_soup, "test-slug", s3_client=mock_s3)
 
         # Fixture has 2 base64 images (png + jpeg), 1 non-base64 img
         assert len(paths) == 2
+        assert failed == 0
         assert "redfin/photos/test-slug/photo_0.png" in paths[0]
         assert mock_s3.put_object.call_count == 2
 
@@ -425,11 +426,12 @@ class TestExtractPhotos:
             s3_bucket="test-bucket",
         )
         soup = BeautifulSoup("<html><body></body></html>", "lxml")
-        paths = _extract_photos(soup, "test-slug", s3_client=MagicMock())
+        paths, failed = _extract_photos(soup, "test-slug", s3_client=MagicMock())
         assert paths == []
+        assert failed == 0
 
     @patch("pricepoint.data.housing.redfin_listings.get_settings")
-    def test_s3_upload_failure_continues(self, mock_settings, sold_soup):
+    def test_s3_upload_failure_reports_count(self, mock_settings, sold_soup):
         mock_settings.return_value = MagicMock(
             redfin_s3_photos_prefix="redfin/photos",
             s3_bucket="test-bucket",
@@ -437,10 +439,11 @@ class TestExtractPhotos:
         mock_s3 = MagicMock()
         mock_s3.put_object.side_effect = Exception("S3 error")
 
-        paths = _extract_photos(sold_soup, "test-slug", s3_client=mock_s3)
+        paths, failed = _extract_photos(sold_soup, "test-slug", s3_client=mock_s3)
 
-        # Should return empty list since all uploads failed
+        # Should return empty list since all uploads failed, with failure count
         assert paths == []
+        assert failed == 2
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +511,7 @@ class TestProcessListings:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = None
         mock_session_cls.return_value = mock_session
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
 
         result = process_listings(file_path=SOLD_FIXTURE)
 
@@ -516,6 +519,33 @@ class TestProcessListings:
         assert result["errors"] == 0
         mock_session.commit.assert_called_once()
         mock_archive.assert_called_once()
+
+    @patch("pricepoint.data.housing.redfin_listings._archive_to_s3")
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_photo_failures_skip_archive(
+        self, mock_settings, mock_session_cls, mock_extract_photos, mock_archive
+    ):
+        """When photo uploads fail, file should NOT be archived/deleted."""
+        mock_settings.return_value = MagicMock(
+            s3_endpoint_url="http://localhost:9000",
+            s3_access_key="key",
+            s3_secret_key="secret",
+            s3_bucket="bucket",
+            redfin_s3_photos_prefix="redfin/photos",
+        )
+        mock_session = MagicMock()
+        mock_session.query.return_value.filter.return_value.first.return_value = None
+        mock_session_cls.return_value = mock_session
+        mock_extract_photos.return_value = (["redfin/photos/slug/photo_0.png"], 2)
+
+        result = process_listings(file_path=SOLD_FIXTURE)
+
+        assert result["processed"] == 1
+        assert result["errors"] == 0
+        mock_session.commit.assert_called_once()
+        mock_archive.assert_not_called()
 
     @patch("pricepoint.data.housing.redfin_listings._archive_to_s3")
     @patch("pricepoint.data.housing.redfin_listings._extract_photos")
@@ -534,7 +564,7 @@ class TestProcessListings:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = None
         mock_session_cls.return_value = mock_session
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
 
         result = process_listings(directory=FIXTURES_DIR)
 
@@ -579,7 +609,7 @@ class TestProcessListings:
         mock_session.commit.side_effect = [None, Exception("DB error")]
         mock_session.query.return_value.filter.return_value.first.return_value = None
         mock_session_cls.return_value = mock_session
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
 
         result = process_listings(directory=FIXTURES_DIR)
 
@@ -614,7 +644,7 @@ class TestProcessListings:
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = None
         mock_session_cls.return_value = mock_session
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
 
         # Copy fixture to a temp file so process_listings can safely delete it
         # (reprocess mode marks files as is_temp=True and removes them after processing)
@@ -656,17 +686,18 @@ class TestErrorHandling:
             redfin_s3_photos_prefix="redfin/photos",
             s3_bucket="bucket",
         )
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
         import tempfile
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
             f.write("<html><body>not a valid redfin page</body></html>")
             f.flush()
-            data = _parse_html_file(f.name, "corrupt.html")
+            data, photo_failures = _parse_html_file(f.name, "corrupt.html")
             os.unlink(f.name)
 
         # Should return data dict with None values
         assert data["address"] is None
+        assert photo_failures == 0
         assert data["listing_status"] is None
 
     def test_missing_sections_return_none(self):
@@ -702,9 +733,10 @@ class TestErrorHandling:
         soup = BeautifulSoup(html, "lxml")
         mock_s3 = MagicMock()
 
-        paths = _extract_photos(soup, "test", s3_client=mock_s3)
+        paths, failed = _extract_photos(soup, "test", s3_client=mock_s3)
 
         assert paths == []
+        assert failed == 1
         mock_s3.put_object.assert_not_called()
 
 
@@ -714,10 +746,13 @@ class TestErrorHandling:
 
 
 class TestArchiveToS3:
+    @patch("pricepoint.data.housing.redfin_listings.os.path.exists", return_value=True)
     @patch("pricepoint.data.housing.redfin_listings.os.remove")
     @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
     @patch("pricepoint.data.housing.redfin_listings.get_settings")
-    def test_archive_uploads_and_deletes(self, mock_settings, mock_get_s3, mock_remove):
+    def test_archive_uploads_verifies_and_deletes(
+        self, mock_settings, mock_get_s3, mock_remove, _mock_exists
+    ):
         mock_settings.return_value = MagicMock(
             redfin_s3_archive_prefix="redfin/archive",
             s3_bucket="test-bucket",
@@ -725,16 +760,21 @@ class TestArchiveToS3:
         mock_s3 = MagicMock()
         mock_get_s3.return_value = mock_s3
 
-        _archive_to_s3("/tmp/test.html", "test.html")
+        result = _archive_to_s3("/tmp/test.html", "test.html")
 
+        assert result is True
         mock_s3.upload_file.assert_called_once_with(
             "/tmp/test.html", "test-bucket", "redfin/archive/test.html"
         )
+        mock_s3.head_object.assert_called_once_with(
+            Bucket="test-bucket", Key="redfin/archive/test.html"
+        )
         mock_remove.assert_called_once_with("/tmp/test.html")
 
+    @patch("pricepoint.data.housing.redfin_listings.os.path.exists", return_value=True)
     @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
     @patch("pricepoint.data.housing.redfin_listings.get_settings")
-    def test_archive_handles_s3_error(self, mock_settings, mock_get_s3):
+    def test_archive_keeps_file_on_s3_error(self, mock_settings, mock_get_s3, _mock_exists):
         mock_settings.return_value = MagicMock(
             redfin_s3_archive_prefix="redfin/archive",
             s3_bucket="test-bucket",
@@ -743,8 +783,60 @@ class TestArchiveToS3:
         mock_s3.upload_file.side_effect = Exception("S3 error")
         mock_get_s3.return_value = mock_s3
 
-        # Should not raise
-        _archive_to_s3("/tmp/test.html", "test.html")
+        result = _archive_to_s3("/tmp/test.html", "test.html")
+
+        assert result is False
+
+    @patch("pricepoint.data.housing.redfin_listings.os.path.exists", return_value=True)
+    @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_archive_keeps_file_on_verify_failure(
+        self, mock_settings, mock_get_s3, _mock_exists
+    ):
+        """If head_object fails after upload, do not delete local file."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_archive_prefix="redfin/archive",
+            s3_bucket="test-bucket",
+        )
+        mock_s3 = MagicMock()
+        mock_s3.head_object.side_effect = Exception("Verify failed")
+        mock_get_s3.return_value = mock_s3
+
+        result = _archive_to_s3("/tmp/test.html", "test.html")
+
+        assert result is False
+
+    @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_missing_file_confirmed_in_s3(self, mock_settings, mock_get_s3):
+        """File gone locally but confirmed in S3 — returns True."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_archive_prefix="redfin/archive",
+            s3_bucket="test-bucket",
+        )
+        mock_s3 = MagicMock()
+        mock_get_s3.return_value = mock_s3
+
+        result = _archive_to_s3("/tmp/nonexistent.html", "nonexistent.html")
+
+        assert result is True
+        mock_s3.head_object.assert_called_once()
+
+    @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_missing_file_not_in_s3_returns_false(self, mock_settings, mock_get_s3):
+        """File gone locally and not in S3 — data loss, returns False."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_archive_prefix="redfin/archive",
+            s3_bucket="test-bucket",
+        )
+        mock_s3 = MagicMock()
+        mock_s3.head_object.side_effect = Exception("Not found")
+        mock_get_s3.return_value = mock_s3
+
+        result = _archive_to_s3("/tmp/nonexistent.html", "nonexistent.html")
+
+        assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -760,13 +852,14 @@ class TestParseHtmlFile:
             redfin_s3_photos_prefix="redfin/photos",
             s3_bucket="bucket",
         )
-        mock_extract_photos.return_value = ["redfin/photos/test/photo_0.png"]
+        mock_extract_photos.return_value = (["redfin/photos/test/photo_0.png"], 0)
 
-        data = _parse_html_file(
+        data, photo_failures = _parse_html_file(
             SOLD_FIXTURE,
             "100 Fern Berry Ct, Apex, NC 27502 ｜ Redfin (1_26_2026).html",
         )
 
+        assert photo_failures == 0
         assert data["address"] == "100 Fern Berry Ct, Apex, NC 27502"
         assert data["city"] == "Apex"
         assert data["state"] == "NC"
@@ -795,13 +888,14 @@ class TestParseHtmlFile:
             redfin_s3_photos_prefix="redfin/photos",
             s3_bucket="bucket",
         )
-        mock_extract_photos.return_value = []
+        mock_extract_photos.return_value = ([], 0)
 
-        data = _parse_html_file(
+        data, photo_failures = _parse_html_file(
             FOR_SALE_FIXTURE,
             "1010 Castalia Dr, Cary, NC 27513 ｜ MLS# 10144851 ｜ Redfin (2_9_2026).html",
         )
 
+        assert photo_failures == 0
         assert data["address"] == "1010 Castalia Dr, Cary, NC 27513"
         assert data["listing_status"] == "FOR SALE"
         assert data["listing_price"] == "$500,000"

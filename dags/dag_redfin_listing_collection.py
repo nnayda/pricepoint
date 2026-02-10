@@ -20,6 +20,7 @@ STAGING_DATASET = Asset("staging_redfin_listings")
     schedule="@daily",
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    max_active_runs=1,
     default_args={
         "owner": "pricepoint",
         "retries": 2,
