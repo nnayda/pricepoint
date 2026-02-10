@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     tiger_county_fips: str = "183"  # Wake County
 
     # Wake County Property Data
-    wake_county_data_url: str = "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
+    wake_county_data_url: str = (
+        "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
+    )
 
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"

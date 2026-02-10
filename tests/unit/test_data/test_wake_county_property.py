@@ -115,9 +115,7 @@ def test_parse_fwf_data():
         "SMITH JANE                         "
         "123 MAIN ST                        \n"
     )
-    with patch(
-        "pricepoint.data.housing.wake_county_property.COLUMN_MAP", mini_map
-    ):
+    with patch("pricepoint.data.housing.wake_county_property.COLUMN_MAP", mini_map):
         result = _parse_fwf_data(sample_line)
 
     assert len(result) == 1
@@ -244,9 +242,7 @@ def test_map_record():
 def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cls):
     """fetch_wake_county_property_data should truncate and load records."""
     # Setup mocks
-    mock_settings.return_value = MagicMock(
-        wake_county_data_url="http://test.url/data.zip"
-    )
+    mock_settings.return_value = MagicMock(wake_county_data_url="http://test.url/data.zip")
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session
 
@@ -268,9 +264,8 @@ def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cl
                 line += " " * width
         return line + "\n"
 
-    sample_fwf = (
-        make_fwf_line("JOHN DOE", "JANE DOE", "0000101")
-        + make_fwf_line("SMITH LLC", "", "0000202")
+    sample_fwf = make_fwf_line("JOHN DOE", "JANE DOE", "0000101") + make_fwf_line(
+        "SMITH LLC", "", "0000202"
     )
     zip_bytes = _make_test_zip(sample_fwf)
     mock_download.return_value = zip_bytes
@@ -293,9 +288,7 @@ def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cl
 def test_fetch_rolls_back_on_error(mock_settings, mock_download, mock_session_cls):
     """fetch_wake_county_property_data should rollback on error."""
     # Setup mocks
-    mock_settings.return_value = MagicMock(
-        wake_county_data_url="http://test.url/data.zip"
-    )
+    mock_settings.return_value = MagicMock(wake_county_data_url="http://test.url/data.zip")
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session
     mock_download.side_effect = Exception("Download failed")

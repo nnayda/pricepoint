@@ -30,9 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Regex for extracting address from filename (both formats)
 # Handles fullwidth ｜ (U+FF5C) and fullwidth ： (U+FF1A) used by SingleFile
-_FILENAME_RE = re.compile(
-    r"^(.+?)\s*[｜|]\s*(?:MLS#\s*\S+\s*[｜|]\s*)?Redfin\s*\(.*\)\.html$"
-)
+_FILENAME_RE = re.compile(r"^(.+?)\s*[｜|]\s*(?:MLS#\s*\S+\s*[｜|]\s*)?Redfin\s*\(.*\)\.html$")
 
 
 # ---------------------------------------------------------------------------
@@ -454,11 +452,7 @@ def _parse_schools(soup: BeautifulSoup) -> list[dict[str, str | None]]:
         return result
 
     # Each school is a ListItem with col-10 class
-    items = [
-        li
-        for li in table.find_all(class_="ListItem")
-        if "col-10" in (li.get("class") or [])
-    ]
+    items = [li for li in table.find_all(class_="ListItem") if "col-10" in (li.get("class") or [])]
 
     for item in items:
         icon = item.find(class_="ListItem__primaryIcon")
@@ -613,9 +607,7 @@ def _upsert_listing(session, data: dict) -> None:
         return
 
     existing = (
-        session.query(StagingRedfinListing)
-        .filter(StagingRedfinListing.address == address)
-        .first()
+        session.query(StagingRedfinListing).filter(StagingRedfinListing.address == address).first()
     )
 
     if existing:

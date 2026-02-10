@@ -13,11 +13,7 @@ from pricepoint.data.housing.wake_county_property import (
 )
 from pricepoint.db.models import StagingWakeCountyPropertyData
 
-FIXTURE_PATH = (
-    Path(__file__).parent.parent.parent
-    / "fixtures"
-    / "wake_county_property_sample.txt"
-)
+FIXTURE_PATH = Path(__file__).parent.parent.parent / "fixtures" / "wake_county_property_sample.txt"
 
 
 def _make_test_zip_from_fixture() -> bytes:
@@ -86,9 +82,7 @@ def test_end_to_end_with_actual_fixture(mock_download, db_session):
     assert count == 100
 
     # Verify sample record
-    first_record = db_session.execute(
-        select(StagingWakeCountyPropertyData).limit(1)
-    ).scalar_one()
+    first_record = db_session.execute(select(StagingWakeCountyPropertyData).limit(1)).scalar_one()
     assert first_record.reid is not None
     assert first_record.id is not None
     assert first_record.loaded_at is not None
