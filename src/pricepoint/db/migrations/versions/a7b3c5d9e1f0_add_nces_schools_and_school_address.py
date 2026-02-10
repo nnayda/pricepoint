@@ -57,16 +57,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_nces_schools_nces_id", "nces_schools", ["nces_id"], unique=True)
-    op.create_index(
-        "idx_nces_schools_location",
-        "nces_schools",
-        ["location"],
-        postgresql_using="gist",
-    )
+    # Note: GeoAlchemy2 auto-creates idx_nces_schools_location GiST index
 
 
 def downgrade() -> None:
-    op.drop_index("idx_nces_schools_location", table_name="nces_schools")
     op.drop_index("ix_nces_schools_nces_id", table_name="nces_schools")
     op.drop_table("nces_schools")
     op.drop_index("ix_schools_nces_id", table_name="schools")

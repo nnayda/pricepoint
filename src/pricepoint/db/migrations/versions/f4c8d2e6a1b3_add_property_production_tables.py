@@ -20,8 +20,29 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Add grades column to schools table
-    op.add_column("schools", sa.Column("grades", sa.String(), nullable=True))
+    # Create schools table
+    op.create_table(
+        "schools",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
+        sa.Column("school_type", sa.String(), nullable=True),
+        sa.Column("rating", sa.Float(), nullable=True),
+        sa.Column("grades", sa.String(), nullable=True),
+        sa.Column(
+            "location",
+            geoalchemy2.types.Geometry(
+                geometry_type="POINT", srid=4326, from_text="ST_GeomFromEWKT", name="geometry"
+            ),
+            nullable=True,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=True,
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
 
     # Create property_details table
     op.create_table(
@@ -100,12 +121,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_property_details_address", "property_details", ["address"], unique=True)
-    op.create_index(
-        "idx_property_details_location",
-        "property_details",
-        ["location"],
-        postgresql_using="gist",
-    )
+    # Note: GeoAlchemy2 auto-creates idx_property_details_location GiST index
 
     # Create property_valuations table
     op.create_table(
@@ -156,7 +172,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("property_schools")
     op.drop_table("property_valuations")
-    op.drop_index("idx_property_details_location", table_name="property_details")
     op.drop_index("ix_property_details_address", table_name="property_details")
     op.drop_table("property_details")
-    op.drop_column("schools", "grades")
+    op.drop_table("schools")
