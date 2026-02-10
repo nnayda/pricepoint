@@ -4,13 +4,15 @@ Triggered by Dataset update from the redfin_listing_collection DAG
 when new staging records are loaded.
 """
 
+import logging
 from datetime import datetime, timedelta
 
-from airflow.datasets import Dataset
-from airflow.decorators import dag, task
+from airflow.sdk import Asset, dag, task
 from sqlalchemy import func, select
 
-STAGING_DATASET = Dataset("staging_redfin_listings")
+logger = logging.getLogger(__name__)
+
+STAGING_DATASET = Asset("staging_redfin_listings")
 
 
 @dag(
@@ -34,9 +36,11 @@ def redfin_listing_transform():
         from pricepoint.data.housing.redfin_transformer import transform_all_listings
 
         result = transform_all_listings()
-        print(
-            f"Transform complete: {result['transformed']} transformed, "
-            f"{result['skipped']} skipped, {result['errors']} errors"
+        logger.info(
+            "Transform complete: %d transformed, %d skipped, %d errors",
+            result["transformed"],
+            result["skipped"],
+            result["errors"],
         )
         return result
 
@@ -53,7 +57,7 @@ def redfin_listing_transform():
             if not count:
                 raise RuntimeError("No records found in property_details after transform")
 
-            print(f"Verification successful: {count} records in property_details")
+            logger.info("Verification successful: %d records in property_details", count)
         finally:
             session.close()
 

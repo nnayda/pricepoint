@@ -34,21 +34,21 @@ class MockTaskInstance:
         self.task_id = task_id
 
 
-def test_notify_on_failure_prints_alert(capsys):
-    """Should print an alert message with dag and task info."""
+def test_notify_on_failure_logs_alert(caplog):
+    """Should log an alert message with dag and task info."""
     context = {
         "dag": MockDag("test_dag"),
         "task_instance": MockTaskInstance("test_task"),
     }
-    notify_on_failure(context)
-    captured = capsys.readouterr()
-    assert "ALERT" in captured.out
-    assert "test_task" in captured.out
-    assert "test_dag" in captured.out
+    with caplog.at_level("ERROR"):
+        notify_on_failure(context)
+    assert "ALERT" in caplog.text
+    assert "test_task" in caplog.text
+    assert "test_dag" in caplog.text
 
 
-def test_notify_on_failure_handles_missing_context(capsys):
+def test_notify_on_failure_handles_missing_context(caplog):
     """Should handle empty context without raising."""
-    notify_on_failure({})
-    captured = capsys.readouterr()
-    assert "unknown" in captured.out
+    with caplog.at_level("ERROR"):
+        notify_on_failure({})
+    assert "unknown" in caplog.text

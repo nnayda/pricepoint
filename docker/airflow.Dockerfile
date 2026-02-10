@@ -23,7 +23,9 @@ RUN pip install --no-cache-dir \
     "redis[hiredis]>=5.0,<6" \
     "boto3>=1.34,<2" \
     "pydantic-settings>=2.3,<3" \
-    "mlflow>=2.14,<3"
+    "mlflow>=2.14,<3" \
+    "beautifulsoup4>=4.12,<5" \
+    "lxml>=5.0,<6"
 
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/

@@ -5,9 +5,12 @@ block groups, tracts, school districts, counties, and county subdivisions
 into PostGIS tables.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow.sdk import dag, task
+
+logger = logging.getLogger(__name__)
 
 
 @dag(
@@ -97,6 +100,7 @@ def tiger_boundary_collection():
                 count = session.execute(select(func.count()).select_from(model)).scalar()
                 if not count:
                     raise RuntimeError(f"No records found in {table_name} after load")
+                logger.info("Verified %d records in %s", count, table_name)
         finally:
             session.close()
 

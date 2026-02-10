@@ -3,9 +3,12 @@
 Runs weekly to truncate and reload the staging table with all incident records.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow.sdk import dag, task
+
+logger = logging.getLogger(__name__)
 
 
 @dag(
@@ -44,6 +47,7 @@ def cary_police_collection():
             ).scalar()
             if not count:
                 raise RuntimeError("No records found in staging_cary_police_incidents after load")
+            logger.info("Verified %d Cary police incident records", count)
         finally:
             session.close()
 

@@ -1,6 +1,9 @@
 """Shared Airflow task utilities."""
 
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def get_execution_date_str(logical_date: datetime) -> str:
@@ -17,4 +20,4 @@ def notify_on_failure(context: dict) -> None:
     dag_id = dag.dag_id if dag else "unknown"
     ti = context.get("task_instance")
     task_id = ti.task_id if ti else "unknown"
-    print(f"ALERT: Task {task_id} in DAG {dag_id} failed.")
+    logger.error("ALERT: Task %s in DAG %s failed.", task_id, dag_id)

@@ -3,9 +3,12 @@
 Runs daily to fetch the previous day's incidents and append to the staging table.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow.sdk import dag, task
+
+logger = logging.getLogger(__name__)
 
 
 @dag(
@@ -47,6 +50,7 @@ def raleigh_police_collection():
             if not count:
                 msg = "No records found in staging_raleigh_police_incidents after load"
                 raise RuntimeError(msg)
+            logger.info("Verified %d Raleigh police incident records", count)
         finally:
             session.close()
 

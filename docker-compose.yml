@@ -197,6 +197,8 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY:-6SQ8tDPcn97CW3dCzYXt2ihp0AWue-H89v7b3XusxEQo-vKfauvLT_6FOCZMGQBRotlnnyCCLXeuTOo6DyeCBQ}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET:-insecure-local-dev-jwt-secret==}
     depends_on:
       postgres-init:
         condition: service_completed_successfully
@@ -216,6 +218,10 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY:-6SQ8tDPcn97CW3dCzYXt2ihp0AWue-H89v7b3XusxEQo-vKfauvLT_6FOCZMGQBRotlnnyCCLXeuTOo6DyeCBQ}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET:-insecure-local-dev-jwt-secret==}
+      - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
     volumes:
       - airflow-logs:/opt/airflow/logs
@@ -243,6 +249,11 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API_SERVER__API_URL=http://airflow-api-server:8080
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-api-server:8080/execution/
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY:-6SQ8tDPcn97CW3dCzYXt2ihp0AWue-H89v7b3XusxEQo-vKfauvLT_6FOCZMGQBRotlnnyCCLXeuTOo6DyeCBQ}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET:-insecure-local-dev-jwt-secret==}
+      - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
     depends_on:
       airflow-init:
@@ -251,8 +262,6 @@ services:
         condition: service_healthy
     volumes:
       - airflow-logs:/opt/airflow/logs
-      - ./src:/opt/airflow/src
-      - ./dags:/opt/airflow/dags
       - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
     networks:
       - pricepoint

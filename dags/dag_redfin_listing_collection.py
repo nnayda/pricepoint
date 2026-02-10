@@ -4,13 +4,15 @@ Daily DAG processes new HTML files from the configured directory.
 Manual DAG reprocesses archived files from S3 when parsing logic changes.
 """
 
+import logging
 from datetime import datetime, timedelta
 
-from airflow.datasets import Dataset
-from airflow.decorators import dag, task
+from airflow.sdk import Asset, dag, task
 from sqlalchemy import func, select
 
-STAGING_DATASET = Dataset("staging_redfin_listings")
+logger = logging.getLogger(__name__)
+
+STAGING_DATASET = Asset("staging_redfin_listings")
 
 
 @dag(
@@ -34,7 +36,7 @@ def redfin_listing_collection():
         from pricepoint.data.housing.redfin_listings import process_listings
 
         result = process_listings()
-        print(f"Processed {result['processed']} files, {result['errors']} errors")
+        logger.info("Processed %d files, %d errors", result["processed"], result["errors"])
 
     @task()
     def verify_load():
@@ -49,7 +51,7 @@ def redfin_listing_collection():
             if not count:
                 raise RuntimeError("No records found in staging_redfin_listings")
 
-            print(f"Verification successful: {count} records in staging table")
+            logger.info("Verification successful: %d records in staging table", count)
 
         finally:
             session.close()
@@ -85,7 +87,7 @@ def redfin_listing_reprocess():
         result = process_listings(
             reprocess_s3_prefix=settings.redfin_s3_archive_prefix,
         )
-        print(f"Reprocessed {result['processed']} files, {result['errors']} errors")
+        logger.info("Reprocessed %d files, %d errors", result["processed"], result["errors"])
 
     reprocess_from_s3()
 
