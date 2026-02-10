@@ -100,8 +100,9 @@ services:
     entrypoint: >
       /bin/bash -c "
       psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'pricepoint'\" | grep -q 1 || psql -h postgres -U postgres -c 'CREATE DATABASE pricepoint';
+      psql -h postgres -U postgres -d pricepoint -c 'CREATE EXTENSION IF NOT EXISTS postgis;';
       psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'airflow'\" | grep -q 1 || psql -h postgres -U postgres -c 'CREATE DATABASE airflow';
-      echo 'Databases created successfully'
+      echo 'Databases initialized successfully'
       "
     networks:
       - pricepoint
