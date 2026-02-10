@@ -405,9 +405,17 @@ class TestTransformListing:
         session.execute.return_value.scalar_one_or_none.return_value = None
 
         geocode_fn = MagicMock(return_value=(35.79, -78.78))
+        enrich_fn = MagicMock(return_value=0)
 
-        with patch("geoalchemy2.shape.from_shape", return_value="mocked_geom"):
-            result = transform_listing(session, staging, geocode_fn=geocode_fn)
+        with (
+            patch("geoalchemy2.shape.from_shape", return_value="mocked_geom"),
+            patch("geoalchemy2.shape.to_shape") as mock_to_shape,
+        ):
+            mock_point = MagicMock()
+            mock_point.y = 35.79
+            mock_point.x = -78.78
+            mock_to_shape.return_value = mock_point
+            result = transform_listing(session, staging, geocode_fn=geocode_fn, enrich_fn=enrich_fn)
 
         assert result is True
         session.add.assert_called()

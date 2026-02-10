@@ -415,6 +415,7 @@ def transform_listing(
     session: Session,
     staging: StagingRedfinListing,
     geocode_fn: Any = None,
+    enrich_fn: Any = None,
 ) -> bool:
     """Transform a single staging record into production tables.
 
@@ -598,6 +599,18 @@ def transform_listing(
                     distance_miles=distance,
                 )
             )
+
+    # 7. Enrich schools with addresses and travel times
+    if location is not None:
+        if enrich_fn is None:
+            from pricepoint.data.housing.school_enrichment import enrich_property_schools
+
+            enrich_fn = enrich_property_schools
+
+        from geoalchemy2.shape import to_shape
+
+        prop_point = to_shape(location)
+        enrich_fn(session, prop.id, prop_point.y, prop_point.x)
 
     session.flush()
     return True

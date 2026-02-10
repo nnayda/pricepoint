@@ -98,6 +98,7 @@ export interface FinancialDetails {
 
 export interface SchoolNearby {
   name: string;
+  address?: string;
   school_type: string;
   rating: number;
   distance_miles: number;

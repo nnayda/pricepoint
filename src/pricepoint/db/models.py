@@ -1,7 +1,19 @@
 """SQLAlchemy ORM models with PostGIS geometry columns."""
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Column, DateTime, Float, Index, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase
 
@@ -164,6 +176,9 @@ class School(Base):
     school_type = Column(String)
     rating = Column(Float)
     grades = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    nces_id = Column(String, nullable=True, index=True)
+    needs_review = Column(Boolean, default=False, server_default=text("false"))
     location = Column(Geometry("POINT", srid=4326))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -648,3 +663,24 @@ class PropertySchool(Base):
             unique=True,
         ),
     )
+
+
+class NcesSchool(Base):
+    """NCES school directory reference data."""
+
+    __tablename__ = "nces_schools"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nces_id = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    street = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String(2), nullable=True)
+    zip_code = Column(String(10), nullable=True)
+    school_type = Column(String, nullable=True)
+    school_level = Column(String, nullable=True)
+    grades_low = Column(String, nullable=True)
+    grades_high = Column(String, nullable=True)
+    location = Column(Geometry("POINT", srid=4326), nullable=True)
+    extras = Column(JSON, nullable=True)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())

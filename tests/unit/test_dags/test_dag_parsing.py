@@ -13,7 +13,7 @@ def test_all_dag_files_parse(dag_files):
 
 
 def test_expected_dag_files_exist(dag_files):
-    """There should be exactly 10 DAG files."""
+    """There should be exactly 11 DAG files."""
     names = {f.name for f in dag_files}
     assert "dag_data_collection.py" in names
     assert "dag_feature_engineering.py" in names
@@ -25,4 +25,5 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_wake_county_property_collection.py" in names
     assert "dag_redfin_listing_collection.py" in names
     assert "dag_redfin_transform.py" in names
-    assert len(dag_files) == 10
+    assert "dag_nces_school_collection.py" in names
+    assert len(dag_files) == 11

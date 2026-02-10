@@ -58,6 +58,7 @@ def _build_response_from_db(
     schools = [
         SchoolNearby(
             name=school.name,
+            address=school.address,
             school_type=school.school_type or "Unknown",
             rating=int(school.rating) if school.rating else 0,
             distance_miles=link.distance_miles or 0.0,

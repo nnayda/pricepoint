@@ -45,6 +45,16 @@ class Settings(BaseSettings):
         "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
     )
 
+    # NCES School Data (EDGE ArcGIS REST API)
+    nces_edge_base_url: str = (
+        "https://nces.ed.gov/opengis/rest/services/K12_School_Locations"
+        "/EDGE_ADMINDATA_PUBLICSCH_2223/MapServer/0"
+    )
+
+    # OSRM routing
+    osrm_base_url: str = "https://router.project-osrm.org"
+    osrm_rate_limit_seconds: float = 1.0
+
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"
     redfin_s3_archive_prefix: str = "redfin/archive"

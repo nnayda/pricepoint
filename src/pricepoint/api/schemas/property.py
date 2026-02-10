@@ -82,6 +82,7 @@ class SchoolNearby(BaseModel):
     """A nearby school."""
 
     name: str
+    address: str | None = None
     school_type: str
     rating: int
     distance_miles: float
