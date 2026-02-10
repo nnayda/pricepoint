@@ -14,6 +14,8 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+    volumes:
+      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
     depends_on: []
     networks:
       - pricepoint
@@ -196,6 +198,8 @@ services:
       - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - AIRFLOW__API__EXPOSE_CONFIG=true
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
+    volumes:
+      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -222,6 +226,7 @@ services:
     volumes:
       - ./src:/opt/airflow/src
       - ./dags:/opt/airflow/dags
+      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
     networks:
       - pricepoint
 

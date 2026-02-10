@@ -30,6 +30,8 @@ uv.lock
 data/raw/
 data/processed/
 data/models/
+data/redfin/*
+!data/redfin/.gitkeep
 
 # Dev
 /dev
