@@ -1,9 +1,12 @@
-"""Property endpoint — returns property details with stub data."""
+"""Property endpoint — returns property details from DB or stub data."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.property import (
     ClimateRisk,
     ExteriorFeatures,
@@ -17,19 +20,162 @@ from pricepoint.api.schemas.property import (
     TaxHistoryEntry,
     ValuationData,
 )
+from pricepoint.db.models import PropertyDetail, PropertySchool, PropertyValuation, School
 
 router = APIRouter(tags=["property"])
 
 
-@router.get("/property", response_model=PropertyResponse)
-async def get_property(
-    lat: Annotated[float, Query(ge=-90, le=90)],
-    lon: Annotated[float, Query(ge=-180, le=180)],
-    address: Annotated[str, Query(min_length=1)],
+def _build_response_from_db(
+    prop: PropertyDetail,
+    db: Session,
+    lat: float,
+    lon: float,
 ) -> PropertyResponse:
-    """Return property details for the given location."""
+    """Build a PropertyResponse from database records."""
+    # Get Redfin valuation
+    redfin_val = db.execute(
+        select(PropertyValuation).where(
+            PropertyValuation.property_id == prop.id,
+            PropertyValuation.source == "redfin",
+        )
+    ).scalar_one_or_none()
+
+    # Get ML valuation
+    ml_val = db.execute(
+        select(PropertyValuation).where(
+            PropertyValuation.property_id == prop.id,
+            PropertyValuation.source == "ml_model",
+        )
+    ).scalar_one_or_none()
+
+    # Get schools via linkage
+    school_links = db.execute(
+        select(PropertySchool, School)
+        .join(School, PropertySchool.school_id == School.id)
+        .where(PropertySchool.property_id == prop.id)
+    ).all()
+
+    schools = [
+        SchoolNearby(
+            name=school.name,
+            school_type=school.school_type or "Unknown",
+            rating=int(school.rating) if school.rating else 0,
+            distance_miles=link.distance_miles or 0.0,
+            drive_minutes=link.drive_minutes or 0,
+            walk_minutes=link.walk_minutes,
+        )
+        for link, school in school_links
+    ]
+
+    # Build sale history
+    sale_history = []
+    if prop.sale_history:
+        for entry in prop.sale_history:
+            if entry.get("date") and entry.get("price") is not None:
+                sale_history.append(
+                    SaleHistoryEntry(
+                        date=entry["date"],
+                        price=entry["price"],
+                        event_type=entry.get("event_type", "Sold"),
+                    )
+                )
+
+    # Build tax history
+    tax_history = []
+    if prop.tax_history:
+        for entry in prop.tax_history:
+            if entry.get("year") is not None:
+                tax_history.append(
+                    TaxHistoryEntry(
+                        year=entry["year"],
+                        assessed_value=entry.get("assessed_value") or 0.0,
+                        tax_amount=entry.get("tax_amount") or 0.0,
+                    )
+                )
+
+    # Build images from S3 paths
+    images = []
+    if prop.photo_s3_paths:
+        for i, path in enumerate(prop.photo_s3_paths):
+            images.append(
+                PropertyImage(
+                    url=path,
+                    alt=f"Property photo {i + 1}",
+                    is_primary=(i == 0),
+                )
+            )
+
     return PropertyResponse(
-        details=PropertyDetails(
+        property=PropertyDetails(
+            address=prop.address,
+            city=prop.city or "",
+            state=prop.state or "",
+            zip_code=prop.zip_code or "",
+            lat=lat,
+            lon=lon,
+            bedrooms=prop.beds or 0,
+            bathrooms=prop.baths or 0.0,
+            sqft=prop.sqft or 0,
+            lot_size_sqft=int(prop.lot_size_sqft) if prop.lot_size_sqft else 0,
+            year_built=prop.year_built or 0,
+            property_type=prop.property_type or "Single Family",
+            stories=prop.stories or 1,
+            garage_spaces=prop.garage_spaces or 0,
+            description=prop.description or "",
+            highlights=[],
+            images=images,
+        ),
+        valuation=ValuationData(
+            listed_price=prop.listing_price,
+            last_sold_price=prop.sold_price,
+            last_sold_date=prop.sold_date.strftime("%Y-%m-%d") if prop.sold_date else None,
+            redfin_estimate=redfin_val.value if redfin_val else None,
+            predicted_value=ml_val.value if ml_val else None,
+            confidence_interval_low=ml_val.confidence_low if ml_val else None,
+            confidence_interval_high=ml_val.confidence_high if ml_val else None,
+            model_version=ml_val.model_version if ml_val else None,
+            prediction_date=(
+                ml_val.estimated_at.strftime("%Y-%m-%d") if ml_val and ml_val.estimated_at else None
+            ),
+        ),
+        interior=InteriorFeatures(
+            flooring=prop.flooring or [],
+            appliances=prop.appliances or [],
+            heating=prop.heating or "Unknown",
+            cooling=prop.cooling or "Unknown",
+            fireplace=prop.fireplace is not None and prop.fireplace.lower() != "none",
+            basement=prop.basement,
+        ),
+        exterior=ExteriorFeatures(
+            roof=prop.roof or "Unknown",
+            siding=prop.siding or "Unknown",
+            foundation=prop.foundation or "Unknown",
+            parking=prop.parking or "None",
+            pool=prop.pool is not None and prop.pool.lower() not in ("none", "no"),
+            fence=prop.fence or "None",
+        ),
+        financial=FinancialDetails(
+            hoa_monthly=prop.hoa_monthly,
+            tax_annual=prop.tax_annual or 0.0,
+            tax_year=prop.tax_year or 0,
+            assessed_value=prop.assessed_value or 0.0,
+        ),
+        schools=schools,
+        sale_history=sale_history,
+        tax_history=tax_history,
+        climate_risk=ClimateRisk(
+            flood_risk=prop.flood_risk or "Unknown",
+            flood_score=prop.flood_score or 0,
+            fire_risk=prop.fire_risk or "Unknown",
+            fire_score=prop.fire_score or 0,
+        ),
+    )
+
+
+def _build_stub_response(address: str, lat: float, lon: float) -> PropertyResponse:
+    """Return hardcoded stub data for backward compatibility."""
+    return PropertyResponse(
+        property=PropertyDetails(
             address=address,
             city="Cary",
             state="NC",
@@ -113,7 +259,7 @@ async def get_property(
             foundation="Slab",
             parking="2-Car Garage",
             pool=False,
-            fence=True,
+            fence="None",
         ),
         financial=FinancialDetails(
             hoa_monthly=85.0,
@@ -199,3 +345,22 @@ async def get_property(
             fire_score=2,
         ),
     )
+
+
+@router.get("/property", response_model=PropertyResponse)
+async def get_property(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+    address: Annotated[str, Query(min_length=1)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PropertyResponse:
+    """Return property details for the given location."""
+    # Try to find the property in the database
+    prop = db.execute(
+        select(PropertyDetail).where(PropertyDetail.address == address)
+    ).scalar_one_or_none()
+
+    if prop:
+        return _build_response_from_db(prop, db, lat, lon)
+
+    return _build_stub_response(address, lat, lon)

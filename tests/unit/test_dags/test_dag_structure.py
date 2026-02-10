@@ -229,3 +229,20 @@ class TestWakeCountyPropertyCollectionDag:
     def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_wake_county_property_collection.py")
         assert not _has_external_task_sensor(tree)
+
+
+class TestRedfinListingTransformDag:
+    """Validate the redfin_listing_transform DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_redfin_transform.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "redfin_listing_transform"
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_redfin_transform.py")
+        assert _count_task_decorators(tree) == 2
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_redfin_transform.py")
+        assert not _has_external_task_sensor(tree)

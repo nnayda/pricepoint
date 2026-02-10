@@ -62,6 +62,30 @@ describe("ValueSection", () => {
     expect(elements.length).toBeGreaterThan(0);
   });
 
+  it("renders Redfin estimate when present", () => {
+    const withRedfin = { ...mockValuation, redfin_estimate: 468000 };
+    render(<ValueSection valuation={withRedfin} />);
+    expect(screen.getByText("Redfin Estimate")).toBeInTheDocument();
+    expect(screen.getByText("$468,000")).toBeInTheDocument();
+  });
+
+  it("does not render Redfin estimate when undefined", () => {
+    render(<ValueSection valuation={mockValuation} />);
+    expect(screen.queryByText("Redfin Estimate")).not.toBeInTheDocument();
+  });
+
+  it("handles missing predicted_value gracefully", () => {
+    const noPrediction: ValuationData = {
+      listed_price: 485000,
+      last_sold_price: 310000,
+      redfin_estimate: 470000,
+    };
+    render(<ValueSection valuation={noPrediction} />);
+    expect(screen.queryByText("Predicted Value")).not.toBeInTheDocument();
+    expect(screen.getByText("Redfin Estimate")).toBeInTheDocument();
+    expect(screen.queryByText("Good Deal")).not.toBeInTheDocument();
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(<ValueSection valuation={mockValuation} />);
     const results = await axe(container);

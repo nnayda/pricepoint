@@ -29,7 +29,7 @@ class TestPropertyResponseShape:
         )
         data = resp.json()
         expected_keys = [
-            "details",
+            "property",
             "valuation",
             "interior",
             "exterior",
@@ -42,13 +42,13 @@ class TestPropertyResponseShape:
         for key in expected_keys:
             assert key in data, f"Missing key: {key}"
 
-    def test_details_has_required_fields(self, client):
-        """Details section contains all expected fields."""
+    def test_property_has_required_fields(self, client):
+        """Property section contains all expected fields."""
         resp = client.get(
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test Addr"},
         )
-        details = resp.json()["details"]
+        prop = resp.json()["property"]
         for field in [
             "address",
             "city",
@@ -68,7 +68,7 @@ class TestPropertyResponseShape:
             "highlights",
             "images",
         ]:
-            assert field in details, f"Missing details field: {field}"
+            assert field in prop, f"Missing property field: {field}"
 
     def test_valuation_has_required_fields(self, client):
         """Valuation section contains all expected fields."""
@@ -113,22 +113,22 @@ class TestPropertyResponseShape:
 
 class TestPropertyAddressEchoedBack:
     def test_address_echoed_back(self, client):
-        """Address passed as query param is returned in details."""
+        """Address passed as query param is returned in property."""
         resp = client.get(
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "456 Oak Ave"},
         )
-        assert resp.json()["details"]["address"] == "456 Oak Ave"
+        assert resp.json()["property"]["address"] == "456 Oak Ave"
 
     def test_lat_lon_echoed_back(self, client):
-        """Lat/lon passed as query params are returned in details."""
+        """Lat/lon passed as query params are returned in property."""
         resp = client.get(
             "/api/property",
             params={"lat": 35.5, "lon": -78.5, "address": "Test"},
         )
-        details = resp.json()["details"]
-        assert details["lat"] == 35.5
-        assert details["lon"] == -78.5
+        prop = resp.json()["property"]
+        assert prop["lat"] == 35.5
+        assert prop["lon"] == -78.5
 
 
 class TestPropertyDataTypes:
@@ -137,21 +137,21 @@ class TestPropertyDataTypes:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        assert isinstance(resp.json()["details"]["bedrooms"], int)
+        assert isinstance(resp.json()["property"]["bedrooms"], int)
 
     def test_bathrooms_is_number(self, client):
         resp = client.get(
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        assert isinstance(resp.json()["details"]["bathrooms"], (int, float))
+        assert isinstance(resp.json()["property"]["bathrooms"], (int, float))
 
     def test_sqft_is_int(self, client):
         resp = client.get(
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        assert isinstance(resp.json()["details"]["sqft"], int)
+        assert isinstance(resp.json()["property"]["sqft"], int)
 
     def test_predicted_value_is_float(self, client):
         resp = client.get(
@@ -165,7 +165,7 @@ class TestPropertyDataTypes:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        highlights = resp.json()["details"]["highlights"]
+        highlights = resp.json()["property"]["highlights"]
         assert isinstance(highlights, list)
         assert all(isinstance(h, str) for h in highlights)
 
@@ -174,7 +174,7 @@ class TestPropertyDataTypes:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        images = resp.json()["details"]["images"]
+        images = resp.json()["property"]["images"]
         assert len(images) > 0
         for img in images:
             assert "url" in img
@@ -227,6 +227,24 @@ class TestPropertyDataTypes:
         risk = resp.json()["climate_risk"]
         for field in ["flood_risk", "flood_score", "fire_risk", "fire_score"]:
             assert field in risk
+
+    def test_fence_is_string(self, client):
+        """Fence field should be a string, not a boolean."""
+        resp = client.get(
+            "/api/property",
+            params={"lat": 35.79, "lon": -78.78, "address": "Test"},
+        )
+        fence = resp.json()["exterior"]["fence"]
+        assert isinstance(fence, str)
+
+    def test_valuation_has_redfin_estimate_field(self, client):
+        """Valuation should include redfin_estimate field."""
+        resp = client.get(
+            "/api/property",
+            params={"lat": 35.79, "lon": -78.78, "address": "Test"},
+        )
+        valuation = resp.json()["valuation"]
+        assert "redfin_estimate" in valuation
 
 
 class TestPropertyMissingParams:
@@ -299,7 +317,7 @@ class TestPropertyRealisticData:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        bedrooms = resp.json()["details"]["bedrooms"]
+        bedrooms = resp.json()["property"]["bedrooms"]
         assert 0 < bedrooms < 20
 
     def test_sqft_in_realistic_range(self, client):
@@ -307,7 +325,7 @@ class TestPropertyRealisticData:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        sqft = resp.json()["details"]["sqft"]
+        sqft = resp.json()["property"]["sqft"]
         assert 100 < sqft < 50000
 
     def test_predicted_value_is_positive(self, client):
@@ -363,5 +381,5 @@ class TestPropertyRealisticData:
             "/api/property",
             params={"lat": 35.79, "lon": -78.78, "address": "Test"},
         )
-        images = resp.json()["details"]["images"]
+        images = resp.json()["property"]["images"]
         assert any(img.get("is_primary") for img in images)

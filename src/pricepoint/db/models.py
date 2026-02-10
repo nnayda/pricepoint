@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models with PostGIS geometry columns."""
 
 from geoalchemy2 import Geometry
-from sqlalchemy import BigInteger, Column, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import BigInteger, Column, DateTime, Float, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase
 
@@ -163,6 +163,7 @@ class School(Base):
     name = Column(String, nullable=False)
     school_type = Column(String)
     rating = Column(Float)
+    grades = Column(String, nullable=True)
     location = Column(Geometry("POINT", srid=4326))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -523,3 +524,127 @@ class StagingRedfinListing(Base):
 
     # Metadata
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PropertyDetail(Base):
+    """Production property record transformed from staging data."""
+
+    __tablename__ = "property_details"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Location
+    address = Column(String, nullable=False, unique=True, index=True)
+    city = Column(String, nullable=True)
+    state = Column(String(2), nullable=True)
+    zip_code = Column(String(10), nullable=True)
+    location = Column(Geometry("POINT", srid=4326), nullable=True)
+
+    # Listing
+    listing_status = Column(String, nullable=True)
+    sold_date = Column(DateTime, nullable=True)
+    sold_price = Column(Float, nullable=True)
+    listing_price = Column(Float, nullable=True)
+    price_per_sqft = Column(Float, nullable=True)
+
+    # Stats
+    beds = Column(Integer, nullable=True)
+    baths = Column(Float, nullable=True)
+    sqft = Column(Integer, nullable=True)
+    lot_size_sqft = Column(Float, nullable=True)
+    year_built = Column(Integer, nullable=True)
+    property_type = Column(String, nullable=True)
+    stories = Column(Integer, nullable=True)
+
+    # Description
+    description = Column(Text, nullable=True)
+
+    # Interior (extracted from JSON)
+    flooring = Column(JSON, nullable=True)
+    appliances = Column(JSON, nullable=True)
+    heating = Column(String, nullable=True)
+    cooling = Column(String, nullable=True)
+    fireplace = Column(String, nullable=True)
+    basement = Column(String, nullable=True)
+
+    # Exterior (extracted from JSON)
+    roof = Column(String, nullable=True)
+    siding = Column(String, nullable=True)
+    foundation = Column(String, nullable=True)
+    parking = Column(String, nullable=True)
+    garage_spaces = Column(Integer, nullable=True)
+    pool = Column(String, nullable=True)
+    fence = Column(String, nullable=True)
+
+    # Financial
+    hoa_monthly = Column(Float, nullable=True)
+    tax_annual = Column(Float, nullable=True)
+    tax_year = Column(Integer, nullable=True)
+    assessed_value = Column(Float, nullable=True)
+
+    # Agents
+    listing_agent = Column(String, nullable=True)
+    listing_brokerage = Column(String, nullable=True)
+    buying_agent = Column(String, nullable=True)
+    buying_brokerage = Column(String, nullable=True)
+
+    # Climate
+    flood_risk = Column(String, nullable=True)
+    flood_score = Column(Integer, nullable=True)
+    fire_risk = Column(String, nullable=True)
+    fire_score = Column(Integer, nullable=True)
+
+    # History
+    sale_history = Column(JSON, nullable=True)
+    tax_history = Column(JSON, nullable=True)
+
+    # Photos
+    photo_s3_paths = Column(JSON, nullable=True)
+
+    # Change detection
+    staging_hash = Column(String(64), nullable=True)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (Index("idx_property_details_location", "location", postgresql_using="gist"),)
+
+
+class PropertyValuation(Base):
+    """Property valuation from various sources (Redfin, ML model, etc.)."""
+
+    __tablename__ = "property_valuations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(Integer, nullable=False, index=True)
+    source = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+    model_version = Column(String, nullable=True)
+    confidence_low = Column(Float, nullable=True)
+    confidence_high = Column(Float, nullable=True)
+    estimated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("idx_property_valuations_property_source", "property_id", "source"),)
+
+
+class PropertySchool(Base):
+    """Linkage between properties and nearby schools."""
+
+    __tablename__ = "property_schools"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(Integer, nullable=False, index=True)
+    school_id = Column(Integer, nullable=False, index=True)
+    distance_miles = Column(Float, nullable=True)
+    drive_minutes = Column(Integer, nullable=True)
+    walk_minutes = Column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index(
+            "uq_property_school",
+            "property_id",
+            "school_id",
+            unique=True,
+        ),
+    )

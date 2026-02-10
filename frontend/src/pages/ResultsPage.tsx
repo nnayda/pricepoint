@@ -126,7 +126,7 @@ function ResultsPage() {
 
         <div id="mortgage">
           <MortgageCalculator
-            listedPrice={data.valuation.listed_price ?? data.valuation.predicted_value}
+            listedPrice={data.valuation.listed_price ?? data.valuation.predicted_value ?? 0}
             annualTax={data.financial.tax_annual}
             monthlyHoa={data.financial.hoa_monthly ?? 0}
           />

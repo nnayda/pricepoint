@@ -6,8 +6,11 @@ Manual DAG reprocesses archived files from S3 when parsing logic changes.
 
 from datetime import datetime, timedelta
 
+from airflow.datasets import Dataset
 from airflow.decorators import dag, task
 from sqlalchemy import func, select
+
+STAGING_DATASET = Dataset("staging_redfin_listings")
 
 
 @dag(
@@ -25,7 +28,7 @@ from sqlalchemy import func, select
 def redfin_listing_collection():
     """Process new Redfin HTML listing snapshots (daily schedule)."""
 
-    @task()
+    @task(outlets=[STAGING_DATASET])
     def process_listings_task():
         """Parse HTML files, extract data, upload photos, archive to S3."""
         from pricepoint.data.housing.redfin_listings import process_listings
@@ -41,9 +44,7 @@ def redfin_listing_collection():
 
         session = SessionLocal()
         try:
-            count = session.execute(
-                select(func.count()).select_from(StagingRedfinListing)
-            ).scalar()
+            count = session.execute(select(func.count()).select_from(StagingRedfinListing)).scalar()
 
             if not count:
                 raise RuntimeError("No records found in staging_redfin_listings")

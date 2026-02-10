@@ -15,12 +15,12 @@ function ValueSection({ valuation }: ValueSectionProps) {
   const referenceLabel = valuation.listed_price != null ? "Listed Price" : "Last Sold Price";
   const predicted = valuation.predicted_value;
 
-  const delta = referencePrice != null ? referencePrice - predicted : null;
+  const delta = referencePrice != null && predicted != null ? referencePrice - predicted : null;
   const isGoodDeal = delta != null && delta > 0;
 
-  const maxVal = Math.max(referencePrice ?? 0, predicted);
+  const maxVal = Math.max(referencePrice ?? 0, predicted ?? 0);
   const refPct = referencePrice != null && maxVal > 0 ? (referencePrice / maxVal) * 100 : 0;
-  const predPct = maxVal > 0 ? (predicted / maxVal) * 100 : 0;
+  const predPct = predicted != null && maxVal > 0 ? (predicted / maxVal) * 100 : 0;
 
   return (
     <section
@@ -36,10 +36,20 @@ function ValueSection({ valuation }: ValueSectionProps) {
             <p className="text-xl font-bold text-text-pri">{currency.format(referencePrice)}</p>
           </div>
         )}
-        <div>
-          <p className="text-xs font-medium text-text-sec">Predicted Value</p>
-          <p className="text-xl font-bold text-brand-blue">{currency.format(predicted)}</p>
-        </div>
+        {predicted != null && (
+          <div>
+            <p className="text-xs font-medium text-text-sec">Predicted Value</p>
+            <p className="text-xl font-bold text-brand-blue">{currency.format(predicted)}</p>
+          </div>
+        )}
+        {valuation.redfin_estimate != null && (
+          <div>
+            <p className="text-xs font-medium text-text-sec">Redfin Estimate</p>
+            <p className="text-xl font-bold text-text-pri">
+              {currency.format(valuation.redfin_estimate)}
+            </p>
+          </div>
+        )}
         {delta != null && (
           <span
             className={`inline-block rounded-full px-3 py-1 text-xs font-bold text-white ${isGoodDeal ? "bg-status-maint" : "bg-status-rented"}`}
@@ -58,7 +68,7 @@ function ValueSection({ valuation }: ValueSectionProps) {
         </p>
       )}
 
-      {referencePrice != null && (
+      {referencePrice != null && predicted != null && (
         <div className="mt-4 space-y-2" aria-label="Price comparison bars">
           <div>
             <p className="mb-1 text-xs font-medium text-text-sec">{referenceLabel}</p>
@@ -75,14 +85,19 @@ function ValueSection({ valuation }: ValueSectionProps) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-sec">
-        <p>
-          Confidence: {currency.format(valuation.confidence_interval_low)} &ndash;{" "}
-          {currency.format(valuation.confidence_interval_high)}
-        </p>
-        <p>Model: {valuation.model_version}</p>
-        <p>Predicted: {valuation.prediction_date}</p>
-      </div>
+      {(predicted != null || valuation.redfin_estimate != null) && (
+        <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-sec">
+          {valuation.confidence_interval_low != null &&
+            valuation.confidence_interval_high != null && (
+              <p>
+                Confidence: {currency.format(valuation.confidence_interval_low)} &ndash;{" "}
+                {currency.format(valuation.confidence_interval_high)}
+              </p>
+            )}
+          {valuation.model_version != null && <p>Model: {valuation.model_version}</p>}
+          {valuation.prediction_date != null && <p>Predicted: {valuation.prediction_date}</p>}
+        </div>
+      )}
     </section>
   );
 }

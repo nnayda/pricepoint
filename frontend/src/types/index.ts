@@ -63,11 +63,12 @@ export interface ValuationData {
   listed_price?: number;
   last_sold_price?: number;
   last_sold_date?: string;
-  predicted_value: number;
-  confidence_interval_low: number;
-  confidence_interval_high: number;
-  model_version: string;
-  prediction_date: string;
+  redfin_estimate?: number;
+  predicted_value?: number;
+  confidence_interval_low?: number;
+  confidence_interval_high?: number;
+  model_version?: string;
+  prediction_date?: string;
 }
 
 export interface InteriorFeatures {

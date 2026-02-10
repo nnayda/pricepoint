@@ -39,11 +39,12 @@ class ValuationData(BaseModel):
     listed_price: float | None = None
     last_sold_price: float | None = None
     last_sold_date: str | None = None
-    predicted_value: float
-    confidence_interval_low: float
-    confidence_interval_high: float
-    model_version: str
-    prediction_date: str
+    redfin_estimate: float | None = None
+    predicted_value: float | None = None
+    confidence_interval_low: float | None = None
+    confidence_interval_high: float | None = None
+    model_version: str | None = None
+    prediction_date: str | None = None
 
 
 class InteriorFeatures(BaseModel):
@@ -65,7 +66,7 @@ class ExteriorFeatures(BaseModel):
     foundation: str
     parking: str
     pool: bool
-    fence: bool
+    fence: str
 
 
 class FinancialDetails(BaseModel):
@@ -116,7 +117,7 @@ class ClimateRisk(BaseModel):
 class PropertyResponse(BaseModel):
     """Response body for property lookup."""
 
-    details: PropertyDetails
+    property: PropertyDetails
     valuation: ValuationData
     interior: InteriorFeatures
     exterior: ExteriorFeatures
