@@ -47,7 +47,7 @@ migration: ## Create a new alembic migration (usage: make migration MSG="add foo
 # --- Docker Build -------------------------------------------------------------
 
 build: ## Build all Docker images
-	docker compose build
+	docker compose --profile infra --profile airflow build
 
 # --- Frontend -----------------------------------------------------------------
 
