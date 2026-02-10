@@ -218,7 +218,14 @@ services:
       - AIRFLOW__API__EXPOSE_CONFIG=true
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
     volumes:
+      - airflow-logs:/opt/airflow/logs
       - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v2/monitor/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -241,8 +248,9 @@ services:
       airflow-init:
         condition: service_completed_successfully
       airflow-api-server:
-        condition: service_started
+        condition: service_healthy
     volumes:
+      - airflow-logs:/opt/airflow/logs
       - ./src:/opt/airflow/src
       - ./dags:/opt/airflow/dags
       - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
@@ -254,6 +262,7 @@ volumes:
   pgadmindata:
   miniodata:
   valkeydata:
+  airflow-logs:
 
 networks:
   pricepoint:
