@@ -231,7 +231,7 @@ class TestGeocodeCachesResults:
         mock_valkey.set.assert_called_once()
         set_args = mock_valkey.set.call_args
         assert set_args.args[0] == "geocode:raleigh:5"
-        assert set_args.kwargs["ex"] == 86400
+        assert set_args.kwargs["ex"] == 2592000
 
     @pytest.mark.usefixtures("_with_valkey")
     def test_cache_hit_skips_nominatim(self, client, mock_valkey):
@@ -310,12 +310,12 @@ class TestGeocodeCachesResults:
         mock_valkey.set.assert_not_called()
 
     @pytest.mark.usefixtures("_with_valkey")
-    def test_cache_ttl_is_24_hours(self, client, mock_valkey):
-        """Cache TTL is 86400 seconds (24 hours)."""
+    def test_cache_ttl_is_30_days(self, client, mock_valkey):
+        """Cache TTL is 2592000 seconds (30 days)."""
         with _patch_nominatim():
             client.get("/api/geocode", params={"q": "Raleigh"})
 
-        assert mock_valkey.set.call_args.kwargs["ex"] == 86400
+        assert mock_valkey.set.call_args.kwargs["ex"] == 2592000
 
 
 class TestGeocodeCacheKeyNormalization:

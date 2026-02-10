@@ -175,7 +175,10 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
             # Convert row to dict and map to model
             row_dict = row.to_dict()
             # Convert NaN to empty string for CSV compatibility
-            row_dict = {k: (v if not (isinstance(v, float) and str(v) == "nan") else "") for k, v in row_dict.items()}
+            row_dict = {
+                k: (v if not (isinstance(v, float) and str(v) == "nan") else "")
+                for k, v in row_dict.items()
+            }
             records.append(_map_record(row_dict))
 
         if records:
@@ -461,7 +464,10 @@ def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
             # Convert row to dict and map to model
             row_dict = row.to_dict()
             # Convert NaN to empty string
-            row_dict = {k: (v if not (isinstance(v, float) and str(v) == "nan") else "") for k, v in row_dict.items()}
+            row_dict = {
+                k: (v if not (isinstance(v, float) and str(v) == "nan") else "")
+                for k, v in row_dict.items()
+            }
             records.append(_map_morrisville_record(row_dict))
 
         if records:
