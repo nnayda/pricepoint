@@ -11,6 +11,7 @@ from pricepoint.data.housing.wake_county_property import (
     _csv_float,
     _csv_int,
     _csv_val,
+    _discover_zip_url,
     _download_zip,
     _extract_txt_from_zip,
     _map_record,
@@ -64,6 +65,66 @@ def test_download_zip_http_error(mock_client_cls):
 
     with pytest.raises(Exception, match="404 Not Found"):
         _download_zip("http://test.url")
+
+
+# -- _discover_zip_url tests ---------------------------------------------------
+
+
+@patch("pricepoint.data.housing.wake_county_property.httpx.Client")
+def test_discover_zip_url_success(mock_client_cls):
+    """_discover_zip_url should find the RealEstData ZIP link."""
+    mock_response = MagicMock()
+    mock_response.text = (
+        '<html><body><a href="RealEstData02102026.zip">RealEstData02102026.zip</a></body></html>'
+    )
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
+    result = _discover_zip_url("https://services.wake.gov/realdata_extracts/")
+
+    assert result == "https://services.wake.gov/realdata_extracts/RealEstData02102026.zip"
+    mock_response.raise_for_status.assert_called_once()
+
+
+@patch("pricepoint.data.housing.wake_county_property.httpx.Client")
+def test_discover_zip_url_no_match(mock_client_cls):
+    """_discover_zip_url should raise ValueError if no matching link."""
+    mock_response = MagicMock()
+    mock_response.text = "<html><body>No links here</body></html>"
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
+    with pytest.raises(ValueError, match="No RealEstData ZIP link found"):
+        _discover_zip_url("https://services.wake.gov/realdata_extracts/")
+
+
+@patch("pricepoint.data.housing.wake_county_property.httpx.Client")
+def test_discover_zip_url_http_error(mock_client_cls):
+    """_discover_zip_url should raise on HTTP error."""
+    mock_response = MagicMock()
+    mock_response.raise_for_status.side_effect = Exception("503 Service Unavailable")
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
+    with pytest.raises(Exception, match="503 Service Unavailable"):
+        _discover_zip_url("https://services.wake.gov/realdata_extracts/")
+
+
+@patch("pricepoint.data.housing.wake_county_property.httpx.Client")
+def test_discover_zip_url_strips_trailing_slash(mock_client_cls):
+    """_discover_zip_url should handle base URL with or without trailing slash."""
+    mock_response = MagicMock()
+    mock_response.text = '<a href="RealEstData01152026.zip">RealEstData01152026.zip</a>'
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value.__enter__.return_value = mock_client
+
+    result = _discover_zip_url("https://services.wake.gov/realdata_extracts")
+
+    assert result == "https://services.wake.gov/realdata_extracts/RealEstData01152026.zip"
 
 
 # -- _extract_txt_from_zip tests -----------------------------------------------
@@ -238,11 +299,17 @@ def test_map_record():
 
 @patch("pricepoint.data.housing.wake_county_property.SessionLocal")
 @patch("pricepoint.data.housing.wake_county_property._download_zip")
+@patch("pricepoint.data.housing.wake_county_property._discover_zip_url")
 @patch("pricepoint.data.housing.wake_county_property.get_settings")
-def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cls):
+def test_fetch_truncates_and_loads(mock_settings, mock_discover, mock_download, mock_session_cls):
     """fetch_wake_county_property_data should truncate and load records."""
     # Setup mocks
-    mock_settings.return_value = MagicMock(wake_county_data_url="http://test.url/data.zip")
+    mock_settings.return_value = MagicMock(
+        wake_county_extracts_url="https://services.wake.gov/realdata_extracts/"
+    )
+    mock_discover.return_value = (
+        "https://services.wake.gov/realdata_extracts/RealEstData02102026.zip"
+    )
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session
 
@@ -274,7 +341,10 @@ def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cl
     fetch_wake_county_property_data()
 
     # Verify
-    mock_download.assert_called_once_with("http://test.url/data.zip")
+    mock_discover.assert_called_once_with("https://services.wake.gov/realdata_extracts/")
+    mock_download.assert_called_once_with(
+        "https://services.wake.gov/realdata_extracts/RealEstData02102026.zip"
+    )
     mock_session.execute.assert_called()  # Truncate delete
     mock_session.add_all.assert_called_once()
     assert len(mock_session.add_all.call_args[0][0]) == 2  # 2 records
@@ -283,15 +353,17 @@ def test_fetch_truncates_and_loads(mock_settings, mock_download, mock_session_cl
 
 
 @patch("pricepoint.data.housing.wake_county_property.SessionLocal")
-@patch("pricepoint.data.housing.wake_county_property._download_zip")
+@patch("pricepoint.data.housing.wake_county_property._discover_zip_url")
 @patch("pricepoint.data.housing.wake_county_property.get_settings")
-def test_fetch_rolls_back_on_error(mock_settings, mock_download, mock_session_cls):
+def test_fetch_rolls_back_on_error(mock_settings, mock_discover, mock_session_cls):
     """fetch_wake_county_property_data should rollback on error."""
     # Setup mocks
-    mock_settings.return_value = MagicMock(wake_county_data_url="http://test.url/data.zip")
+    mock_settings.return_value = MagicMock(
+        wake_county_extracts_url="https://services.wake.gov/realdata_extracts/"
+    )
+    mock_discover.side_effect = Exception("Download failed")
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session
-    mock_download.side_effect = Exception("Download failed")
 
     # Execute and verify exception
     with pytest.raises(Exception, match="Download failed"):

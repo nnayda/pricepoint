@@ -6,6 +6,7 @@ into staging_wake_county_property_data table. Truncate-and-reload pattern.
 
 import io
 import logging
+import re
 import zipfile
 
 import httpx
@@ -17,6 +18,8 @@ from pricepoint.db import SessionLocal
 from pricepoint.db.models import StagingWakeCountyPropertyData
 
 logger = logging.getLogger(__name__)
+
+_ZIP_LINK_PATTERN = re.compile(r"RealEstData\d{8}\.zip")
 
 # Column specification from read_data_example.py (94 columns, fixed-width format)
 COLUMN_MAP = {
@@ -111,6 +114,36 @@ COLUMN_MAP = {
 }
 
 _DOWNLOAD_TIMEOUT = 300  # 5 minutes for large 318MB file
+
+
+def _discover_zip_url(extracts_url: str) -> str:
+    """Discover the current RealEstData ZIP URL from the extracts page.
+
+    Fetches the directory listing and finds the RealEstDataMMDDYYYY.zip link.
+
+    Args:
+        extracts_url: URL of the Wake County real data extracts page
+
+    Returns:
+        Full URL to the RealEstData ZIP file
+
+    Raises:
+        ValueError: If no matching ZIP link found on the page
+        httpx.HTTPError: If page fetch fails
+    """
+    logger.info("Discovering ZIP URL from %s", extracts_url)
+    with httpx.Client(timeout=30) as client:
+        response = client.get(extracts_url)
+        response.raise_for_status()
+
+    matches = _ZIP_LINK_PATTERN.findall(response.text)
+    if not matches:
+        raise ValueError(f"No RealEstData ZIP link found on {extracts_url}")
+
+    filename = matches[-1]  # Use the last match (most recent)
+    url = extracts_url.rstrip("/") + "/" + filename
+    logger.info("Discovered ZIP URL: %s", url)
+    return url
 
 
 def _download_zip(url: str) -> bytes:
@@ -359,8 +392,9 @@ def fetch_wake_county_property_data() -> None:
     session = SessionLocal()
 
     try:
-        # Download and extract
-        zip_bytes = _download_zip(settings.wake_county_data_url)
+        # Discover current ZIP URL and download
+        zip_url = _discover_zip_url(settings.wake_county_extracts_url)
+        zip_bytes = _download_zip(zip_url)
         txt_content = _extract_txt_from_zip(zip_bytes)
 
         # Parse

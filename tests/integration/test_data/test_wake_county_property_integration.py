@@ -57,7 +57,8 @@ def test_parse_actual_fixture():
 
 
 @patch("pricepoint.data.housing.wake_county_property._download_zip")
-def test_end_to_end_with_actual_fixture(mock_download, db_session):
+@patch("pricepoint.data.housing.wake_county_property._discover_zip_url")
+def test_end_to_end_with_actual_fixture(mock_discover, mock_download, db_session):
     """Test full collection with actual fixture and real database.
 
     Uses testcontainers db_session fixture and actual 100-line fixture.
@@ -68,7 +69,8 @@ def test_end_to_end_with_actual_fixture(mock_download, db_session):
         "pricepoint.data.housing.wake_county_property.SessionLocal",
         return_value=db_session,
     ):
-        # Mock download to return fixture ZIP
+        # Mock discovery and download to return fixture ZIP
+        mock_discover.return_value = "https://services.wake.gov/realdata_extracts/RealEstData.zip"
         zip_bytes = _make_test_zip_from_fixture()
         mock_download.return_value = zip_bytes
 
@@ -89,7 +91,8 @@ def test_end_to_end_with_actual_fixture(mock_download, db_session):
 
 
 @patch("pricepoint.data.housing.wake_county_property._download_zip")
-def test_truncate_and_reload_behavior(mock_download, db_session):
+@patch("pricepoint.data.housing.wake_county_property._discover_zip_url")
+def test_truncate_and_reload_behavior(mock_discover, mock_download, db_session):
     """Test that fetch truncates existing data before reload."""
 
     # Mock SessionLocal to use test database session
@@ -97,7 +100,8 @@ def test_truncate_and_reload_behavior(mock_download, db_session):
         "pricepoint.data.housing.wake_county_property.SessionLocal",
         return_value=db_session,
     ):
-        # Mock download to return fixture ZIP
+        # Mock discovery and download to return fixture ZIP
+        mock_discover.return_value = "https://services.wake.gov/realdata_extracts/RealEstData.zip"
         zip_bytes = _make_test_zip_from_fixture()
         mock_download.return_value = zip_bytes
 

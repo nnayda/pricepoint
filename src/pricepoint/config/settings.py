@@ -41,9 +41,7 @@ class Settings(BaseSettings):
     tiger_county_fips: str = "183"  # Wake County
 
     # Wake County Property Data
-    wake_county_data_url: str = (
-        "https://services.wake.gov/realdata_extracts/RealEstData02082026.zip"
-    )
+    wake_county_extracts_url: str = "https://services.wake.gov/realdata_extracts/"
 
     # NCES School Data (EDGE ArcGIS REST API)
     nces_edge_base_url: str = (
