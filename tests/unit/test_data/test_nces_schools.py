@@ -6,6 +6,7 @@ import pytest
 
 from pricepoint.data.geospatial.nces_schools import (
     _fetch_nces_page,
+    _fips_to_state_abbr,
     _parse_nces_record,
     fetch_nces_schools,
 )
@@ -111,6 +112,20 @@ class TestParseNcesRecord:
 
 
 # ---------------------------------------------------------------------------
+# TestFipsToStateAbbr
+# ---------------------------------------------------------------------------
+class TestFipsToStateAbbr:
+    def test_known_fips(self):
+        assert _fips_to_state_abbr("37") == "NC"
+        assert _fips_to_state_abbr("06") == "CA"
+        assert _fips_to_state_abbr("48") == "TX"
+
+    def test_unknown_fips_raises(self):
+        with pytest.raises(ValueError, match="Unknown state FIPS code"):
+            _fips_to_state_abbr("99")
+
+
+# ---------------------------------------------------------------------------
 # TestFetchNcesPage
 # ---------------------------------------------------------------------------
 class TestFetchNcesPage:
@@ -126,7 +141,7 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = _fetch_nces_page("https://example.com/MapServer/0", "37", 0)
+        result = _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
         assert len(result) == 2
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
@@ -136,7 +151,7 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = _fetch_nces_page("https://example.com/MapServer/0", "37", 0)
+        result = _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
         assert result == []
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
@@ -146,20 +161,20 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_nces_page("https://example.com/MapServer/0", "37", 2000)
+        _fetch_nces_page("https://example.com/MapServer/0", "NC", 2000)
         call_args = mock_get.call_args
         assert call_args[1]["params"]["resultOffset"] == "2000"
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
-    def test_state_fips_in_where(self, mock_get):
+    def test_state_abbr_in_where(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"features": []}
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_nces_page("https://example.com/MapServer/0", "37", 0)
+        _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
         call_args = mock_get.call_args
-        assert "37" in call_args[1]["params"]["where"]
+        assert "STABR='NC'" in call_args[1]["params"]["where"]
 
 
 # ---------------------------------------------------------------------------

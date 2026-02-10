@@ -56,14 +56,82 @@ _EXTRA_FIELDS = [
 _ALL_FIELDS = _CORE_FIELDS + _EXTRA_FIELDS
 _PAGE_SIZE = 1000
 
+# FIPS state code -> USPS abbreviation (used by NCES STABR field)
+_FIPS_TO_ABBR: dict[str, str] = {
+    "01": "AL",
+    "02": "AK",
+    "04": "AZ",
+    "05": "AR",
+    "06": "CA",
+    "08": "CO",
+    "09": "CT",
+    "10": "DE",
+    "11": "DC",
+    "12": "FL",
+    "13": "GA",
+    "15": "HI",
+    "16": "ID",
+    "17": "IL",
+    "18": "IN",
+    "19": "IA",
+    "20": "KS",
+    "21": "KY",
+    "22": "LA",
+    "23": "ME",
+    "24": "MD",
+    "25": "MA",
+    "26": "MI",
+    "27": "MN",
+    "28": "MS",
+    "29": "MO",
+    "30": "MT",
+    "31": "NE",
+    "32": "NV",
+    "33": "NH",
+    "34": "NJ",
+    "35": "NM",
+    "36": "NY",
+    "37": "NC",
+    "38": "ND",
+    "39": "OH",
+    "40": "OK",
+    "41": "OR",
+    "42": "PA",
+    "44": "RI",
+    "45": "SC",
+    "46": "SD",
+    "47": "TN",
+    "48": "TX",
+    "49": "UT",
+    "50": "VT",
+    "51": "VA",
+    "53": "WA",
+    "54": "WV",
+    "55": "WI",
+    "56": "WY",
+    "60": "AS",
+    "66": "GU",
+    "69": "MP",
+    "72": "PR",
+    "78": "VI",
+}
 
-def _fetch_nces_page(base_url: str, state_fips: str, offset: int) -> list[dict[str, Any]]:
+
+def _fips_to_state_abbr(fips: str) -> str:
+    """Convert a FIPS state code to a USPS state abbreviation."""
+    abbr = _FIPS_TO_ABBR.get(fips)
+    if abbr is None:
+        raise ValueError(f"Unknown state FIPS code: {fips!r}")
+    return abbr
+
+
+def _fetch_nces_page(base_url: str, state_abbr: str, offset: int) -> list[dict[str, Any]]:
     """Query NCES EDGE ArcGIS REST API with pagination.
 
     Returns a list of feature attribute dicts for one page.
     """
     params = {
-        "where": f"OPSTFIPS='{state_fips}' AND STATUS='1'",
+        "where": f"STABR='{state_abbr}' AND STATUS='1'",
         "outFields": ",".join(_ALL_FIELDS),
         "resultOffset": str(offset),
         "resultRecordCount": str(_PAGE_SIZE),
@@ -121,7 +189,7 @@ def fetch_nces_schools() -> int:
     """
     settings = get_settings()
     base_url = settings.nces_edge_base_url
-    state_fips = settings.tiger_state_fips
+    state_abbr = _fips_to_state_abbr(settings.tiger_state_fips)
 
     session = SessionLocal()
     try:
@@ -132,7 +200,7 @@ def fetch_nces_schools() -> int:
         total = 0
 
         while True:
-            features = _fetch_nces_page(base_url, state_fips, offset)
+            features = _fetch_nces_page(base_url, state_abbr, offset)
             if not features:
                 break
 
