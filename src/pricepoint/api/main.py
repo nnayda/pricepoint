@@ -15,6 +15,7 @@ from pricepoint.api.routes import (
     health,
     pois,
     property,
+    upload,
     utilities,
 )
 from pricepoint.config.settings import get_settings
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(pois.router, prefix="/api")
     app.include_router(greenspace.router, prefix="/api")
     app.include_router(utilities.router, prefix="/api")
+    app.include_router(upload.router, prefix="/api")
 
     return app
 

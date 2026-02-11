@@ -1,0 +1,66 @@
+"""Tests for the Redfin HTML upload endpoint."""
+
+from io import BytesIO
+from unittest.mock import patch
+
+import pytest
+
+
+@pytest.fixture
+def html_file():
+    """Return a tuple (filename, file-like, content-type) for a .html upload."""
+    return ("listing.html", BytesIO(b"<html></html>"), "text/html")
+
+
+def test_upload_single_file(client, tmp_path):
+    with patch("pricepoint.api.routes.upload.get_settings") as mock:
+        mock.return_value.redfin_html_dir = str(tmp_path)
+        resp = client.post(
+            "/api/upload/redfin",
+            files=[("files", ("listing.html", BytesIO(b"<html></html>"), "text/html"))],
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["saved"] == ["listing.html"]
+    assert data["errors"] == []
+    assert (tmp_path / "listing.html").read_bytes() == b"<html></html>"
+
+
+def test_upload_multiple_files(client, tmp_path):
+    with patch("pricepoint.api.routes.upload.get_settings") as mock:
+        mock.return_value.redfin_html_dir = str(tmp_path)
+        resp = client.post(
+            "/api/upload/redfin",
+            files=[
+                ("files", ("a.html", BytesIO(b"<a>"), "text/html")),
+                ("files", ("b.html", BytesIO(b"<b>"), "text/html")),
+            ],
+        )
+    assert resp.status_code == 200
+    assert set(resp.json()["saved"]) == {"a.html", "b.html"}
+
+
+def test_upload_rejects_non_html(client, tmp_path):
+    with patch("pricepoint.api.routes.upload.get_settings") as mock:
+        mock.return_value.redfin_html_dir = str(tmp_path)
+        resp = client.post(
+            "/api/upload/redfin",
+            files=[("files", ("data.csv", BytesIO(b"a,b"), "text/csv"))],
+        )
+    assert resp.status_code == 400
+    data = resp.json()
+    assert data["saved"] == []
+    assert any("data.csv" in e for e in data["errors"])
+
+
+def test_upload_creates_directory(client, tmp_path):
+    dest = tmp_path / "nested" / "dir"
+    with patch("pricepoint.api.routes.upload.get_settings") as mock:
+        mock.return_value.redfin_html_dir = str(dest)
+        resp = client.post(
+            "/api/upload/redfin",
+            files=[("files", ("test.html", BytesIO(b"<html/>"), "text/html"))],
+        )
+    assert resp.status_code == 200
+    assert dest.is_dir()
+    assert (dest / "test.html").exists()
