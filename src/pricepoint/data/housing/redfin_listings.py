@@ -23,6 +23,7 @@ import boto3
 from bs4 import BeautifulSoup, Tag
 
 from pricepoint.config.settings import get_settings
+from pricepoint.data.housing.known_fields import normalize_field_name
 from pricepoint.db import SessionLocal
 from pricepoint.db.models import StagingRedfinListing
 
@@ -473,37 +474,61 @@ def _parse_tax_history(soup: BeautifulSoup) -> list[dict[str, str | None]]:
     return result
 
 
-def _parse_property_details(soup: BeautifulSoup) -> dict[str, list[str]] | None:
-    """Parse property details/amenities grouped by category."""
-    pd_section = soup.find(class_="propertyDetails")
-    if not pd_section:
+def _is_hidden_entry(item: Tag) -> bool:
+    """Check if an entryItem belongs to a hidden custom fields section.
+
+    Redfin marks MLS custom/hidden fields by placing a ``<li>`` with the exact
+    text ``"hidden custom fields"`` as a sibling inside the same ``<ul>``.
+    """
+    parent = item.parent
+    if not parent:
+        return False
+    return any(
+        child.get_text(strip=True) == "hidden custom fields" for child in parent.find_all("li")
+    )
+
+
+def _parse_property_details(soup: BeautifulSoup) -> dict[str, str | bool] | None:
+    """Parse property details into a flat key-value dict.
+
+    Uses the ``id="propertyDetails-preview"`` container and extracts
+    ``<li class="entryItem">`` elements.  Key-value pairs (``"Key: Value"``)
+    become ``{snake_key: value_string}``.  Single-word features (no ``: ``
+    separator) become ``{snake_key: True}`` (boolean features like "Has Basement").
+
+    Items in hidden-custom-fields sections and bare comma-containing items
+    (likely stray values from hidden fields) are skipped.
+    """
+    container = soup.find(id="propertyDetails-preview")
+    if not container:
         return None
 
-    result: dict[str, list[str]] = {}
-    sec_content = pd_section.find(class_="sectionContent")
-    if not sec_content:
+    items = container.find_all("li", class_="entryItem")
+    if not items:
         return None
 
-    # Structure: h3.super-group-title followed by div.super-group-content
-    # Each content div has ul.bulletList with li items
-    current_group = "General"
-    for child in sec_content.children:
-        if not isinstance(child, Tag):
+    result: dict[str, str | bool] = {}
+    for item in items:
+        text = item.get_text(strip=True)
+        if not text:
             continue
-        cls: list[str] = child.get("class") or []  # type: ignore[assignment]
-        if child.name == "h3" and "super-group-title" in cls:
-            current_group = child.get_text(strip=True)
-        elif "super-group-content" in cls:
-            items: list[str] = []
-            for li in child.find_all("li", class_="entryItem"):
-                text = li.get_text(strip=True)
-                if text:
-                    items.append(text)
-            if items:
-                if current_group in result:
-                    result[current_group].extend(items)
-                else:
-                    result[current_group] = items
+
+        parts = text.split(": ", 1)
+
+        if len(parts) == 2:
+            # Standard key-value pair
+            key, value = parts
+            result[normalize_field_name(key)] = value
+        else:
+            # Single value — check for hidden/stray fields
+            if _is_hidden_entry(item):
+                logger.debug("Skipping hidden field entry: %s", text)
+                continue
+            if "," in text:
+                logger.debug("Skipping comma-containing single item: %s", text)
+                continue
+            # Boolean feature (e.g. "Has Basement", "Crawl Space")
+            result[normalize_field_name(text)] = True
 
     return result or None
 

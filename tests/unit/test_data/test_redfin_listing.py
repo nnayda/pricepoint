@@ -6,11 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from bs4 import BeautifulSoup
 
+from pricepoint.data.housing.known_fields import _to_snake_case, normalize_field_name
 from pricepoint.data.housing.redfin_listings import (
     _archive_to_s3,
     _determine_agent_role,
     _extract_photos,
     _get_price_label,
+    _is_hidden_entry,
     _parse_address,
     _parse_address_from_filename,
     _parse_agent_info,
@@ -530,20 +532,107 @@ class TestParsePropertyDetails:
     def test_sold_listing(self, sold_soup):
         details = _parse_property_details(sold_soup)
         assert details is not None
-        assert "Parking" in details
-        assert "Interior" in details
-        assert "Attached Garage: Yes" in details["Parking"]
-        assert "Bathrooms Full: 3" in details["Interior"]
+        assert details["bathrooms_full"] == "3"
+        assert details["bathrooms_half"] == "1"
+        assert details["attached_garage"] == "Yes"
+        assert details["garage_spaces"] == "2"
+        assert details["heating"] == "Forced Air"
+        assert details["cooling"] == "Central Air"
+        assert details["flooring"] == "Hardwood, Tile"
+        assert details["appliances"] == "Dishwasher, Microwave"
+        assert details["roof"] == "Asphalt Shingle"
+        assert details["fencing"] == "Wood"
+        assert details["hoa_dues"] == "$150/month"
+
+    def test_boolean_feature(self, sold_soup):
+        details = _parse_property_details(sold_soup)
+        assert details is not None
+        assert details["has_basement"] is True
+
+    def test_hidden_field_excluded(self, sold_soup):
+        details = _parse_property_details(sold_soup)
+        assert details is not None
+        # Items in the <ul> containing "hidden custom fields" are excluded
+        assert "somehiddenthing" not in details
+
+    def test_comma_single_item_excluded(self, sold_soup):
+        details = _parse_property_details(sold_soup)
+        assert details is not None
+        # "Dishwasher, Microwave, Oven" (comma-containing single item) is excluded
+        keys = list(details.keys())
+        assert not any("dishwasher" in k and "oven" in k for k in keys)
 
     def test_for_sale_listing(self, for_sale_soup):
         details = _parse_property_details(for_sale_soup)
         assert details is not None
-        assert "Interior" in details
-        assert "Granite Countertops: Yes" in details["Interior"]
+        assert details["granite_countertops"] == "Yes"
+        assert details["appliances"] == "Dishwasher, Microwave"
+        assert details["pool_features"] == "In-Ground"
+        assert details["crawl_space"] is True
 
     def test_no_details(self):
         soup = BeautifulSoup("<html><body></body></html>", "lxml")
         assert _parse_property_details(soup) is None
+
+    def test_empty_container(self):
+        soup = BeautifulSoup(
+            '<html><body><div id="propertyDetails-preview"></div></body></html>',
+            "lxml",
+        )
+        assert _parse_property_details(soup) is None
+
+
+class TestIsHiddenEntry:
+    def test_normal_item(self):
+        html = '<ul><li class="entryItem">Heating: Gas</li></ul>'
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find("li", class_="entryItem")
+        assert _is_hidden_entry(item) is False
+
+    def test_hidden_custom_fields_sibling(self):
+        html = """<ul>
+            <li>hidden custom fields</li>
+            <li class="entryItem">SomeHiddenThing</li>
+        </ul>"""
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find("li", class_="entryItem")
+        assert _is_hidden_entry(item) is True
+
+    def test_no_parent(self):
+        """Edge case: item with no parent returns False."""
+        from bs4 import Tag
+
+        item = Tag(name="li")
+        item.string = "Orphan"
+        assert _is_hidden_entry(item) is False
+
+
+class TestNormalizeFieldName:
+    def test_known_field(self):
+        assert normalize_field_name("Bathrooms Full") == "bathrooms_full"
+
+    def test_known_field_with_hash(self):
+        assert normalize_field_name("# of Full Baths") == "num_of_full_baths"
+
+    def test_trailing_space(self):
+        assert normalize_field_name("Lot Size ") == "lot_size"
+
+    def test_unknown_field_fallback(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            result = normalize_field_name("Brand New Field XYZ")
+        assert result == "brand_new_field_xyz"
+        assert "Unknown property detail field" in caplog.text
+
+    def test_to_snake_case_hash(self):
+        assert _to_snake_case("# of Full Baths") == "num_of_full_baths"
+
+    def test_to_snake_case_special_chars(self):
+        assert _to_snake_case("Garage/Parking Sq. Ft") == "garage_parking_sq_ft"
+
+    def test_to_snake_case_trailing_space(self):
+        assert _to_snake_case("Lot Size ") == "lot_size"
 
 
 class TestParseSchools:

@@ -107,8 +107,10 @@ class TestClimateRiskScore:
 class TestExtractInterior:
     def test_full_extraction(self):
         details = {
-            "Interior": ["Flooring: Hardwood, Tile", "Appliances: Dishwasher, Microwave"],
-            "Heating & Cooling": ["Heating: Forced Air", "Cooling: Central Air"],
+            "flooring": "Hardwood, Tile",
+            "appliances": "Dishwasher, Microwave",
+            "heating": "Forced Air",
+            "cooling": "Central Air",
         }
         result = extract_interior(details)
         assert result["flooring"] == ["Hardwood", "Tile"]
@@ -124,25 +126,45 @@ class TestExtractInterior:
         assert result["cooling"] is None
 
     def test_multi_value_flooring(self):
-        details = {"Interior": ["Flooring: Hardwood, Carpet, Tile"]}
+        details = {"flooring": "Hardwood, Carpet, Tile"}
         result = extract_interior(details)
         assert result["flooring"] == ["Hardwood", "Carpet", "Tile"]
 
-    def test_missing_group(self):
-        details = {"Interior": ["Flooring: Hardwood"]}
+    def test_missing_keys(self):
+        details = {"flooring": "Hardwood"}
         result = extract_interior(details)
         assert result["heating"] is None
         assert result["cooling"] is None
 
     def test_fireplace(self):
-        details = {"Interior": ["Fireplace: Gas Log"]}
+        details = {"fireplace": "Gas Log"}
         result = extract_interior(details)
         assert result["fireplace"] == "Gas Log"
 
+    def test_fireplace_features_alias(self):
+        details = {"fireplace_features": "Gas, Living Room"}
+        result = extract_interior(details)
+        assert result["fireplace"] == "Gas, Living Room"
+
+    def test_has_fireplace_boolean(self):
+        details = {"has_fireplace": True}
+        result = extract_interior(details)
+        assert result["fireplace"] == "Yes"
+
     def test_basement(self):
-        details = {"Interior": ["Basement: Finished"]}
+        details = {"basement": "Finished"}
         result = extract_interior(details)
         assert result["basement"] == "Finished"
+
+    def test_has_basement_boolean(self):
+        details = {"has_basement": True}
+        result = extract_interior(details)
+        assert result["basement"] == "Yes"
+
+    def test_heating_information_alias(self):
+        details = {"heating_information": "Forced Air, Natural Gas"}
+        result = extract_interior(details)
+        assert result["heating"] == "Forced Air, Natural Gas"
 
 
 # ---------------------------------------------------------------------------
@@ -151,8 +173,11 @@ class TestExtractInterior:
 class TestExtractExterior:
     def test_full_extraction(self):
         details = {
-            "Exterior": ["Roof: Asphalt Shingle", "Fencing: Wood", "Pool: In-Ground"],
-            "Parking": ["Garage Spaces: 2", "Attached Garage: Yes"],
+            "roof": "Asphalt Shingle",
+            "fencing": "Wood",
+            "pool_features": "In-Ground",
+            "garage_spaces": "2",
+            "attached_garage": "Yes",
         }
         result = extract_exterior(details)
         assert result["roof"] == "Asphalt Shingle"
@@ -161,12 +186,12 @@ class TestExtractExterior:
         assert result["garage_spaces"] == 2
 
     def test_garage_spaces_parsing(self):
-        details = {"Parking": ["Garage Spaces: 3"]}
+        details = {"garage_spaces": "3"}
         result = extract_exterior(details)
         assert result["garage_spaces"] == 3
 
     def test_fence_is_string(self):
-        details = {"Exterior": ["Fencing: Chain Link"]}
+        details = {"fencing": "Chain Link"}
         result = extract_exterior(details)
         assert result["fence"] == "Chain Link"
         assert isinstance(result["fence"], str)
@@ -177,9 +202,19 @@ class TestExtractExterior:
         assert result["garage_spaces"] is None
 
     def test_pool_string(self):
-        details = {"Exterior": ["Pool Features: Heated"]}
+        details = {"pool_features": "Heated"}
         result = extract_exterior(details)
         assert result["pool"] == "Heated"
+
+    def test_parking_from_attached_garage(self):
+        details = {"attached_garage": "Yes"}
+        result = extract_exterior(details)
+        assert result["parking"] == "Attached Garage"
+
+    def test_parking_features_preferred(self):
+        details = {"parking_features": "Circular Driveway", "attached_garage": "Yes"}
+        result = extract_exterior(details)
+        assert result["parking"] == "Circular Driveway"
 
 
 # ---------------------------------------------------------------------------
@@ -194,9 +229,14 @@ class TestExtractFinancial:
         assert result["assessed_value"] == 400000.0
 
     def test_hoa_from_property_details(self):
-        details = {"Financial": ["HOA Dues: $150"]}
+        details = {"hoa_dues": "$150"}
         result = extract_financial(details, None)
         assert result["hoa_monthly"] == 150.0
+
+    def test_association_fee_fallback(self):
+        details = {"association_fee": "$200"}
+        result = extract_financial(details, None)
+        assert result["hoa_monthly"] == 200.0
 
     def test_empty(self):
         result = extract_financial(None, None)

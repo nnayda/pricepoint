@@ -41,31 +41,6 @@ CLIMATE_SCORE_MAP: dict[str, int] = {
     "minimal": 1,
 }
 
-# ---------------------------------------------------------------------------
-# Property-details JSON key mappings
-# ---------------------------------------------------------------------------
-INTERIOR_KEY_MAP: dict[str, str] = {
-    "flooring": "flooring",
-    "appliances": "appliances",
-    "heating": "heating",
-    "cooling": "cooling",
-    "fireplace": "fireplace",
-    "fireplace features": "fireplace",
-    "basement": "basement",
-}
-
-EXTERIOR_KEY_MAP: dict[str, str] = {
-    "roof": "roof",
-    "exterior features": "siding",
-    "siding": "siding",
-    "foundation": "foundation",
-    "foundation details": "foundation",
-    "fencing": "fence",
-    "fence": "fence",
-    "pool features": "pool",
-    "pool": "pool",
-}
-
 
 # ---------------------------------------------------------------------------
 # Pure parsing functions
@@ -153,18 +128,11 @@ def map_climate_score(risk_level: str | None) -> int | None:
     return CLIMATE_SCORE_MAP.get(risk_level.strip().lower())
 
 
-def _parse_detail_entries(entries: list[str]) -> dict[str, str]:
-    """Parse a list of 'Key: Value' strings into a dict."""
-    result: dict[str, str] = {}
-    for entry in entries:
-        if ": " in entry:
-            key, value = entry.split(": ", 1)
-            result[key.strip().lower()] = value.strip()
-    return result
-
-
 def extract_interior(prop_details_json: dict[str, Any] | None) -> dict[str, Any]:
-    """Extract interior features from property_details JSON."""
+    """Extract interior features from flat property_details JSON.
+
+    Reads snake_case keys directly from the flat dict produced by the collector.
+    """
     result: dict[str, Any] = {
         "flooring": [],
         "appliances": [],
@@ -176,26 +144,49 @@ def extract_interior(prop_details_json: dict[str, Any] | None) -> dict[str, Any]
     if not prop_details_json:
         return result
 
-    # Gather entries from Interior and Heating & Cooling groups
-    entries: list[str] = []
-    for group_name in ("Interior", "Heating & Cooling"):
-        entries.extend(prop_details_json.get(group_name, []))
+    # Flooring / appliances — comma-split into lists
+    for list_key in ("flooring", "appliances"):
+        val = prop_details_json.get(list_key)
+        if isinstance(val, str):
+            result[list_key] = [v.strip() for v in val.split(",")]
 
-    parsed = _parse_detail_entries(entries)
+    # Heating — multiple alias keys
+    for key in ("heating", "heating_information", "heating_type"):
+        val = prop_details_json.get(key)
+        if val is not None:
+            result["heating"] = val if isinstance(val, str) else "Yes"
+            break
 
-    for raw_key, mapped_key in INTERIOR_KEY_MAP.items():
-        if raw_key in parsed:
-            value = parsed[raw_key]
-            if mapped_key in ("flooring", "appliances"):
-                result[mapped_key] = [v.strip() for v in value.split(",")]
-            else:
-                result[mapped_key] = value
+    # Cooling — multiple alias keys
+    for key in ("cooling", "cooling_information", "air_conditioning_type"):
+        val = prop_details_json.get(key)
+        if val is not None:
+            result["cooling"] = val if isinstance(val, str) else "Yes"
+            break
+
+    # Fireplace — aliases + boolean
+    for key in ("fireplace", "fireplace_features"):
+        val = prop_details_json.get(key)
+        if val is not None:
+            result["fireplace"] = val if isinstance(val, str) else "Yes"
+            break
+    if result["fireplace"] is None and prop_details_json.get("has_fireplace") is True:
+        result["fireplace"] = "Yes"
+
+    # Basement — aliases + boolean
+    for key in ("basement", "basement_details", "basement_information", "basement_type"):
+        val = prop_details_json.get(key)
+        if val is not None:
+            result["basement"] = val if isinstance(val, str) else "Yes"
+            break
+    if result["basement"] is None and prop_details_json.get("has_basement") is True:
+        result["basement"] = "Yes"
 
     return result
 
 
 def extract_exterior(prop_details_json: dict[str, Any] | None) -> dict[str, Any]:
-    """Extract exterior features from property_details JSON."""
+    """Extract exterior features from flat property_details JSON."""
     result: dict[str, Any] = {
         "roof": None,
         "siding": None,
@@ -208,27 +199,53 @@ def extract_exterior(prop_details_json: dict[str, Any] | None) -> dict[str, Any]
     if not prop_details_json:
         return result
 
-    entries: list[str] = []
-    for group_name in ("Exterior", "Parking"):
-        entries.extend(prop_details_json.get(group_name, []))
+    # Direct keys
+    for key in ("roof", "roof_details"):
+        val = prop_details_json.get(key)
+        if isinstance(val, str):
+            result["roof"] = val
+            break
 
-    parsed = _parse_detail_entries(entries)
+    for key in ("exterior_features", "exterior_wall"):
+        val = prop_details_json.get(key)
+        if isinstance(val, str):
+            result["siding"] = val
+            break
 
-    for raw_key, mapped_key in EXTERIOR_KEY_MAP.items():
-        if raw_key in parsed:
-            result[mapped_key] = parsed[raw_key]
+    for key in ("foundation_details", "foundation_type"):
+        val = prop_details_json.get(key)
+        if isinstance(val, str):
+            result["foundation"] = val
+            break
 
-    # Parking info
-    if "parking features" in parsed:
-        result["parking"] = parsed["parking features"]
-    elif "attached garage" in parsed:
-        is_attached = parsed["attached garage"].lower() == "yes"
-        result["parking"] = "Attached Garage" if is_attached else None
+    for key in ("fencing",):
+        val = prop_details_json.get(key)
+        if isinstance(val, str):
+            result["fence"] = val
+            break
+
+    for key in ("pool_features",):
+        val = prop_details_json.get(key)
+        if isinstance(val, str):
+            result["pool"] = val
+            break
+
+    # Parking
+    val = prop_details_json.get("parking_features")
+    if isinstance(val, str):
+        result["parking"] = val
+    elif (
+        prop_details_json.get("attached_garage", "").lower() == "yes"
+        if isinstance(prop_details_json.get("attached_garage"), str)
+        else False
+    ):
+        result["parking"] = "Attached Garage"
 
     # Garage spaces
-    if "garage spaces" in parsed:
+    gs = prop_details_json.get("garage_spaces")
+    if gs is not None:
         with contextlib.suppress(ValueError, TypeError):
-            result["garage_spaces"] = int(parsed["garage spaces"])
+            result["garage_spaces"] = int(gs)
 
     return result
 
@@ -237,7 +254,7 @@ def extract_financial(
     prop_details_json: dict[str, Any] | None,
     tax_history: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
-    """Extract financial details from property_details and tax_history."""
+    """Extract financial details from flat property_details and tax_history."""
     result: dict[str, Any] = {
         "hoa_monthly": None,
         "tax_annual": None,
@@ -245,16 +262,13 @@ def extract_financial(
         "assessed_value": None,
     }
 
-    # Try HOA from property details
+    # Try HOA from flat property details
     if prop_details_json:
-        entries: list[str] = []
-        for group_name in ("Financial", "Community", "HOA"):
-            entries.extend(prop_details_json.get(group_name, []))
-        parsed = _parse_detail_entries(entries)
-        if "hoa dues" in parsed:
-            result["hoa_monthly"] = parse_price(parsed["hoa dues"])
-        elif "hoa fee" in parsed:
-            result["hoa_monthly"] = parse_price(parsed["hoa fee"])
+        for key in ("hoa_dues", "association_fee"):
+            val = prop_details_json.get(key)
+            if isinstance(val, str):
+                result["hoa_monthly"] = parse_price(val)
+                break
 
     # Get most recent tax data from tax_history
     if tax_history:
@@ -366,25 +380,46 @@ def parse_tax_history(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+_GEOCODE_MAX_RETRIES = 3
+_GEOCODE_BACKOFF_BASE = 2  # seconds
+
+
 def geocode_address(address: str) -> tuple[float, float] | None:
     """Geocode an address via Nominatim. Returns (lat, lon) or None.
 
-    Includes a 1-second sleep to respect Nominatim rate limits.
+    Retries with exponential backoff on 429/5xx responses to respect
+    Nominatim rate limits (max 1 request per second).
     """
-    time.sleep(1)
-    try:
-        resp = httpx.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": address, "format": "json", "limit": 1},
-            headers={"User-Agent": "PricePoint/1.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if data:
-            return float(data[0]["lat"]), float(data[0]["lon"])
-    except Exception:
-        logger.warning("Geocoding failed for %s", address, exc_info=True)
+    for attempt in range(_GEOCODE_MAX_RETRIES):
+        time.sleep(max(1, _GEOCODE_BACKOFF_BASE**attempt))
+        try:
+            resp = httpx.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": address, "format": "json", "limit": 1},
+                headers={"User-Agent": "PricePoint/1.0"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+            return None
+        except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            if code in (429, 503, 509) and attempt < _GEOCODE_MAX_RETRIES - 1:
+                logger.info(
+                    "Geocoding rate-limited (%d) for %s, retrying (attempt %d/%d)",
+                    code,
+                    address,
+                    attempt + 1,
+                    _GEOCODE_MAX_RETRIES,
+                )
+                continue
+            logger.warning("Geocoding failed for %s", address, exc_info=True)
+            return None
+        except Exception:
+            logger.warning("Geocoding failed for %s", address, exc_info=True)
+            return None
     return None
 
 
@@ -483,12 +518,16 @@ def transform_listing(
     if existing and existing.location is not None:
         location = existing.location
     else:
+        # The address field from the collector already contains the full
+        # address (e.g. "211 Torrey Pines Dr, Cary, NC 27513").  Only
+        # append city/state/zip when they are NOT already present to avoid
+        # duplicates like "..., Cary, NC 27513, Cary, NC 27513".
         full_address = staging.address
-        if staging.city:
+        if staging.city and staging.city not in full_address:
             full_address += f", {staging.city}"
-        if staging.state:
+        if staging.state and staging.state not in full_address:
             full_address += f", {staging.state}"
-        if staging.zip_code:
+        if staging.zip_code and staging.zip_code not in full_address:
             full_address += f" {staging.zip_code}"
         coords = geocode_fn(full_address)
         if coords:
