@@ -1,5 +1,8 @@
 """Tests for the property endpoint."""
 
+from io import BytesIO
+from unittest.mock import MagicMock, patch
+
 
 class TestPropertyReturns200:
     def test_returns_200_with_valid_params(self, client):
@@ -67,6 +70,7 @@ class TestPropertyResponseShape:
             "description",
             "highlights",
             "images",
+            "listing_status",
         ]:
             assert field in prop, f"Missing property field: {field}"
 
@@ -383,3 +387,33 @@ class TestPropertyRealisticData:
         )
         images = resp.json()["property"]["images"]
         assert any(img.get("is_primary") for img in images)
+
+
+class TestPhotoProxy:
+    @patch("pricepoint.api.routes.property.boto3")
+    def test_returns_image_from_s3(self, mock_boto3, client):
+        """GET /api/photos/<key> streams image from S3."""
+        mock_s3 = MagicMock()
+        mock_boto3.client.return_value = mock_s3
+        mock_s3.get_object.return_value = {
+            "Body": BytesIO(b"\xff\xd8\xff\xe0fake-jpeg"),
+            "ContentType": "image/jpeg",
+        }
+        resp = client.get("/api/photos/redfin/photos/slug/photo_0.jpeg")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/jpeg"
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+
+    @patch("pricepoint.api.routes.property.boto3")
+    def test_returns_404_for_missing_key(self, mock_boto3, client):
+        """GET /api/photos/<missing> returns 404."""
+        from botocore.exceptions import ClientError
+
+        mock_s3 = MagicMock()
+        mock_boto3.client.return_value = mock_s3
+        mock_s3.get_object.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "Not found"}},
+            "GetObject",
+        )
+        resp = client.get("/api/photos/nonexistent/photo.jpg")
+        assert resp.status_code == 404

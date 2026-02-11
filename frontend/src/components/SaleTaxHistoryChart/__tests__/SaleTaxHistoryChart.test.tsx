@@ -61,6 +61,20 @@ describe("SaleTaxHistoryChart", () => {
     expect(screen.getByLabelText("Sale and tax history")).toBeInTheDocument();
   });
 
+  it("handles Redfin-format dates like 'Jun 14, 2024'", () => {
+    const redfinSales: SaleHistoryEntry[] = [
+      { date: "Jun 14, 2024", price: 350000, event_type: "Sold" },
+      { date: "Mar 5, 2020", price: 280000, event_type: "Sold" },
+    ];
+    const taxes: TaxHistoryEntry[] = [
+      { year: 2024, assessed_value: 340000, tax_amount: 3400 },
+      { year: 2020, assessed_value: 270000, tax_amount: 2700 },
+    ];
+    // Should render without errors — chart aligns on year
+    render(<SaleTaxHistoryChart saleHistory={redfinSales} taxHistory={taxes} />);
+    expect(screen.getByTestId("composed-chart")).toBeInTheDocument();
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <SaleTaxHistoryChart saleHistory={saleHistory} taxHistory={taxHistory} />,

@@ -84,44 +84,57 @@ function ResultsPage() {
     <div className="flex flex-1 px-4 py-4 sm:py-8">
       <SectionSidebar sections={SIDEBAR_SECTIONS} />
 
-      <main className="mx-auto w-full max-w-4xl space-y-grid lg:ml-16">
+      <main className="mx-auto w-full max-w-7xl space-y-grid lg:ml-16">
         <Link to="/" className="text-sm font-medium text-text-sec hover:text-brand-blue">
           &larr; Back to search
         </Link>
 
+        {/* Zone A: Hero property header */}
         <div id="property-header">
           <PropertyHeader property={data.property} />
         </div>
 
-        <div id="valuation">
-          <ValueSection valuation={data.valuation} />
+        {/* Zone B: Dashboard grid — cards left, sticky map right */}
+        <div className="grid grid-cols-1 gap-grid lg:grid-cols-12">
+          <div className="space-y-grid lg:col-span-5">
+            <div id="valuation">
+              <ValueSection valuation={data.valuation} />
+            </div>
+
+            <div id="description">
+              <PropertyDescription
+                highlights={data.property.highlights}
+                description={data.property.description}
+              />
+            </div>
+
+            <div id="schools">
+              <SchoolsSection schools={data.schools} />
+            </div>
+
+            <div id="details">
+              <PropertyDetailsSection
+                interior={data.interior}
+                exterior={data.exterior}
+                financial={data.financial}
+              />
+            </div>
+
+            <div id="climate">
+              <ClimateRiskSection climateRisk={data.climate_risk} />
+            </div>
+          </div>
+
+          <div className="lg:col-span-7">
+            <div id="map" className="lg:sticky lg:top-4">
+              <PropertyMap lat={parseFloat(lat)} lon={parseFloat(lon)} address={address} />
+            </div>
+          </div>
         </div>
 
-        <div id="description">
-          <PropertyDescription
-            highlights={data.property.highlights}
-            description={data.property.description}
-          />
-        </div>
-
-        <div id="schools">
-          <SchoolsSection schools={data.schools} />
-        </div>
-
-        <div id="details">
-          <PropertyDetailsSection
-            interior={data.interior}
-            exterior={data.exterior}
-            financial={data.financial}
-          />
-        </div>
-
+        {/* Zone C: Full-width bottom sections */}
         <div id="history">
           <SaleTaxHistoryChart saleHistory={data.sale_history} taxHistory={data.tax_history} />
-        </div>
-
-        <div id="climate">
-          <ClimateRiskSection climateRisk={data.climate_risk} />
         </div>
 
         <div id="mortgage">
@@ -130,10 +143,6 @@ function ResultsPage() {
             annualTax={data.financial.tax_annual}
             monthlyHoa={data.financial.hoa_monthly ?? 0}
           />
-        </div>
-
-        <div id="map">
-          <PropertyMap lat={parseFloat(lat)} lon={parseFloat(lon)} address={address} />
         </div>
       </main>
     </div>

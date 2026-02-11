@@ -123,7 +123,7 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
     >
       <MapTabBar tabs={ALL_TABS} activeTab={activeTab} onTabChange={handleTabChange} />
 
-      <div style={{ height: 400 }}>
+      <div className="h-[400px] lg:h-[500px] xl:h-[600px]">
         <MapContainer center={[lat, lon]} zoom={14} style={{ height: "100%", width: "100%" }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

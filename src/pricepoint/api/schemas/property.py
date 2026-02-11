@@ -31,6 +31,7 @@ class PropertyDetails(BaseModel):
     description: str
     highlights: list[str]
     images: list[PropertyImage]
+    listing_status: str | None = None
 
 
 class ValuationData(BaseModel):

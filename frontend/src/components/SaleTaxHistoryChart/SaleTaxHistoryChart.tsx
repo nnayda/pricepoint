@@ -28,11 +28,21 @@ interface ChartRow {
   assessedValue?: number;
 }
 
+function extractYear(dateStr: string): string {
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) {
+    return String(parsed.getFullYear());
+  }
+  const match = dateStr.match(/\b(19|20)\d{2}\b/);
+  if (match) return match[0];
+  return dateStr.slice(0, 4);
+}
+
 function buildChartData(sales: SaleHistoryEntry[], taxes: TaxHistoryEntry[]): ChartRow[] {
   const map = new Map<string, ChartRow>();
 
   for (const s of sales) {
-    const year = s.date.slice(0, 4);
+    const year = extractYear(s.date);
     const existing = map.get(year) ?? { year };
     existing.salePrice = s.price;
     map.set(year, existing);

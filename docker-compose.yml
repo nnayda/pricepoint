@@ -15,7 +15,7 @@ services:
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
       - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
     volumes:
-      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
+      - redfindata:/data/raw/redfin
     depends_on:
       api-migrate:
         condition: service_completed_successfully
@@ -227,7 +227,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
     volumes:
       - airflow-logs:/opt/airflow/logs
-      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
+      - redfindata:/data/raw/redfin
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v2/monitor/health')\""]
       interval: 10s
@@ -268,7 +268,7 @@ services:
         condition: service_healthy
     volumes:
       - airflow-logs:/opt/airflow/logs
-      - ${REDFIN_DATA_DIR:-./data/redfin}:/data/raw/redfin
+      - redfindata:/data/raw/redfin
     networks:
       - pricepoint
 
@@ -277,6 +277,7 @@ volumes:
   pgadmindata:
   miniodata:
   valkeydata:
+  redfindata:
   airflow-logs:
 
 networks:

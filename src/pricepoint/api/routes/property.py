@@ -1,8 +1,13 @@
 """Property endpoint — returns property details from DB or stub data."""
 
+import logging
 from typing import Annotated
 
+import boto3
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
+from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,7 +25,10 @@ from pricepoint.api.schemas.property import (
     TaxHistoryEntry,
     ValuationData,
 )
+from pricepoint.config.settings import get_settings
 from pricepoint.db.models import PropertyDetail, PropertySchool, PropertyValuation, School
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["property"])
 
@@ -94,13 +102,13 @@ def _build_response_from_db(
                     )
                 )
 
-    # Build images from S3 paths
+    # Build images from S3 paths — prefix with /api/photos/ for browser access
     images = []
     if prop.photo_s3_paths:
         for i, path in enumerate(prop.photo_s3_paths):
             images.append(
                 PropertyImage(
-                    url=path,
+                    url=f"/api/photos/{path}",
                     alt=f"Property photo {i + 1}",
                     is_primary=(i == 0),
                 )
@@ -125,6 +133,7 @@ def _build_response_from_db(
             description=prop.description or "",
             highlights=[],
             images=images,
+            listing_status=prop.listing_status,
         ),
         valuation=ValuationData(
             listed_price=prop.listing_price,
@@ -206,6 +215,7 @@ def _build_stub_response(address: str, lat: float, lon: float) -> PropertyRespon
                 "Cul-de-sac location",
                 "Top-rated school district",
             ],
+            listing_status="FOR SALE",
             images=[
                 PropertyImage(
                     url="/images/property/front.jpg",
@@ -355,13 +365,88 @@ async def get_property(
     address: Annotated[str, Query(min_length=1)],
     db: Annotated[Session, Depends(get_db)],
 ) -> PropertyResponse:
-    """Return property details for the given location."""
-    # Try to find the property in the database
+    """Return property details for the given location.
+
+    Lookup strategy:
+    1. Spatial search — closest property within ~100 m of (lat, lon).
+    2. Street-name prefix match — first comma-delimited segment of address.
+    3. Fall back to stub data.
+    """
+    # 1. Spatial search (requires populated location column)
+    tolerance = 0.001  # ~111 m at mid-latitudes
+    point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+
     prop = db.execute(
-        select(PropertyDetail).where(PropertyDetail.address == address)
+        select(PropertyDetail)
+        .where(
+            PropertyDetail.location.isnot(None),
+            ST_DWithin(PropertyDetail.location, point, tolerance),
+        )
+        .order_by(ST_Distance(PropertyDetail.location, point))
+        .limit(1)
     ).scalar_one_or_none()
 
     if prop:
         return _build_response_from_db(prop, db, lat, lon)
 
+    # 2. Address text match — Nominatim display_name varies:
+    #      "100, Clendenen Court, Preston, Cary, ..."   (number, street, ...)
+    #      "100 Clendenen Ct, Cary, NC 27513, US"       (number street, ...)
+    #    DB stores Redfin form: "100 Clendenen Ct, Cary, NC 27513".
+    #    Extract house number + street keyword and ILIKE match.
+    parts = [p.strip() for p in address.split(",") if p.strip()]
+    house_number = parts[0] if parts else ""
+    street_name = parts[1] if len(parts) > 1 else ""
+
+    # If the first part has spaces (e.g. "100 Clendenen Ct"), it already
+    # includes the street — use it as-is for a prefix match.
+    if " " in house_number:
+        prop = db.execute(
+            select(PropertyDetail)
+            .where(PropertyDetail.address.startswith(house_number + ","))
+            .limit(1)
+        ).scalar_one_or_none()
+    elif house_number and street_name:
+        # Nominatim splits "100" and "Clendenen Court" into separate parts.
+        # Use the first word of the street name to avoid abbreviation mismatches
+        # (e.g. "Court" vs "Ct"). ILIKE '100 Clendenen%' matches the DB row.
+        street_keyword = street_name.split()[0] if street_name else ""
+        if street_keyword:
+            prop = db.execute(
+                select(PropertyDetail)
+                .where(PropertyDetail.address.ilike(f"{house_number} {street_keyword}%"))
+                .limit(1)
+            ).scalar_one_or_none()
+
+    if prop:
+        return _build_response_from_db(prop, db, lat, lon)
+
     return _build_stub_response(address, lat, lon)
+
+
+@router.get("/photos/{path:path}")
+async def get_photo(path: str) -> StreamingResponse:
+    """Stream a property photo from S3 storage."""
+    settings = get_settings()
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=settings.s3_endpoint_url,
+        aws_access_key_id=settings.s3_access_key,
+        aws_secret_access_key=settings.s3_secret_key,
+    )
+    try:
+        obj = s3.get_object(Bucket=settings.s3_bucket, Key=path)
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code", "")
+        if error_code in ("NoSuchKey", "404"):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail="Photo not found") from exc
+        raise
+
+    content_type = obj.get("ContentType", "image/jpeg")
+    return StreamingResponse(
+        obj["Body"],
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

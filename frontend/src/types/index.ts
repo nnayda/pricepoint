@@ -57,6 +57,7 @@ export interface PropertyDetails {
   description: string;
   highlights: string[];
   images: PropertyImage[];
+  listing_status?: string;
 }
 
 export interface ValuationData {

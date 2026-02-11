@@ -302,6 +302,21 @@ def parse_school_desc(desc: str | None) -> dict[str, Any] | None:
     return result
 
 
+def _normalize_date(date_str: str | None) -> str | None:
+    """Normalize a date string to ISO format (YYYY-MM-DD).
+
+    Handles 'Jun 14, 2024', 'June 14, 2024', and already-ISO strings.
+    """
+    if not date_str:
+        return None
+    for fmt in ("%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(date_str.strip(), fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return date_str
+
+
 def parse_sale_history(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """Parse raw sale history into typed entries with float prices."""
     if not raw:
@@ -309,7 +324,7 @@ def parse_sale_history(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]
     result = []
     for entry in raw:
         parsed: dict[str, Any] = {
-            "date": entry.get("date"),
+            "date": _normalize_date(entry.get("date")),
             "event_type": entry.get("event") or entry.get("event_type"),
             "price": parse_price(str(entry.get("price", ""))) if entry.get("price") else None,
         }

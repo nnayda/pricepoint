@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pricepoint.data.housing.redfin_transformer import (
+    _normalize_date,
     compute_staging_hash,
     extract_exterior,
     extract_financial,
@@ -232,6 +233,29 @@ class TestParseSchoolDesc:
 
 
 # ---------------------------------------------------------------------------
+# TestNormalizeDate
+# ---------------------------------------------------------------------------
+class TestNormalizeDate:
+    def test_abbreviated_month(self):
+        assert _normalize_date("Jun 14, 2024") == "2024-06-14"
+
+    def test_full_month(self):
+        assert _normalize_date("January 15, 2024") == "2024-01-15"
+
+    def test_iso_passthrough(self):
+        assert _normalize_date("2024-06-14") == "2024-06-14"
+
+    def test_none_input(self):
+        assert _normalize_date(None) is None
+
+    def test_empty_string(self):
+        assert _normalize_date("") is None
+
+    def test_whitespace_handling(self):
+        assert _normalize_date("  Mar 5, 2020  ") == "2020-03-05"
+
+
+# ---------------------------------------------------------------------------
 # TestParseSaleHistory
 # ---------------------------------------------------------------------------
 class TestParseSaleHistory:
@@ -255,6 +279,16 @@ class TestParseSaleHistory:
         raw = [{"date": "2020-01-01", "event": "Sold", "price": "$1,234,567"}]
         result = parse_sale_history(raw)
         assert result[0]["price"] == 1234567.0
+
+    def test_redfin_date_format_normalized(self):
+        """Redfin dates like 'Jun 14, 2024' are normalized to ISO."""
+        raw = [
+            {"date": "Jun 14, 2024", "event": "Sold", "price": "$350,000"},
+            {"date": "March 5, 2020", "event": "Sold", "price": "$280,000"},
+        ]
+        result = parse_sale_history(raw)
+        assert result[0]["date"] == "2024-06-14"
+        assert result[1]["date"] == "2020-03-05"
 
 
 # ---------------------------------------------------------------------------

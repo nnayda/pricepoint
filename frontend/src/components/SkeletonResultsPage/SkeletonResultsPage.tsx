@@ -16,53 +16,62 @@ function SkeletonCard({ lines = 3 }: { lines?: number }) {
 function SkeletonResultsPage() {
   return (
     <div
-      className="mx-auto max-w-4xl space-y-grid p-4 sm:p-8"
+      className="mx-auto max-w-7xl space-y-grid p-4 sm:p-8"
       aria-label="Loading property data"
       role="status"
     >
       <span className="sr-only">Loading property data...</span>
 
-      {/* Header skeleton */}
-      <div className="rounded-lg bg-bg-card/80 p-5 shadow-soft backdrop-blur-md sm:p-8">
-        <div className="flex items-start gap-4">
-          <SkeletonBlock className="h-16 w-16 sm:h-20 sm:w-20" />
-          <div className="flex-1">
-            <SkeletonBlock className="mb-2 h-6 w-64" />
-            <SkeletonBlock className="h-4 w-40" />
+      {/* Zone A: Hero header skeleton */}
+      <div className="overflow-hidden rounded-lg bg-bg-card/80 shadow-soft backdrop-blur-md">
+        <SkeletonBlock className="h-48 w-full sm:h-64 md:h-72 lg:h-80" />
+        <div className="p-5 sm:p-8">
+          <SkeletonBlock className="mb-2 h-6 w-64" />
+          <SkeletonBlock className="h-4 w-40" />
+          <div className="mt-4 flex gap-6">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="text-center">
+                <SkeletonBlock className="mx-auto mb-1 h-5 w-10" />
+                <SkeletonBlock className="mx-auto h-3 w-8" />
+              </div>
+            ))}
           </div>
-        </div>
-        <div className="mt-4 flex gap-6">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="text-center">
-              <SkeletonBlock className="mx-auto mb-1 h-5 w-10" />
-              <SkeletonBlock className="mx-auto h-3 w-8" />
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* Value section skeleton */}
-      <SkeletonCard lines={4} />
+      {/* Zone B: Dashboard grid skeleton */}
+      <div className="grid grid-cols-1 gap-grid lg:grid-cols-12">
+        <div className="space-y-grid lg:col-span-5">
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={5} />
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={6} />
+          <SkeletonCard lines={2} />
+        </div>
+        <div className="lg:col-span-7">
+          <div className="rounded-lg bg-bg-card/80 shadow-soft backdrop-blur-md">
+            <SkeletonBlock className="h-10 w-full" />
+            <SkeletonBlock className="h-[400px] w-full lg:h-[500px] xl:h-[600px]" />
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i}>
+                    <SkeletonBlock className="mb-1 h-3 w-16" />
+                    <SkeletonBlock className="h-4 w-12" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Description skeleton */}
-      <SkeletonCard lines={5} />
-
-      {/* Schools skeleton */}
-      <SkeletonCard lines={4} />
-
-      {/* Details skeleton */}
-      <SkeletonCard lines={6} />
-
-      {/* Chart skeleton */}
+      {/* Zone C: Full-width bottom skeletons */}
       <div className="rounded-lg bg-bg-card/80 p-5 shadow-soft backdrop-blur-md sm:p-8">
         <SkeletonBlock className="mb-4 h-5 w-48" />
         <SkeletonBlock className="h-64 w-full" />
       </div>
 
-      {/* Climate skeleton */}
-      <SkeletonCard lines={2} />
-
-      {/* Mortgage skeleton */}
       <SkeletonCard lines={4} />
     </div>
   );
