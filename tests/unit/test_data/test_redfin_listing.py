@@ -8,7 +8,9 @@ from bs4 import BeautifulSoup
 
 from pricepoint.data.housing.redfin_listings import (
     _archive_to_s3,
+    _determine_agent_role,
     _extract_photos,
+    _get_price_label,
     _parse_address,
     _parse_address_from_filename,
     _parse_agent_info,
@@ -282,6 +284,192 @@ class TestParseAgentInfo:
         soup = BeautifulSoup("<html><body></body></html>", "lxml")
         result = _parse_agent_info(soup)
         assert result["listing_agent"] is None
+
+    def test_semantic_heading_without_prefix(self):
+        """Agent name directly in heading (Redfin-listed, no 'Listed by' prefix)."""
+        html = """
+        <div class="agent-info-section">
+          <div class="redfin-agent">
+            <div class="agent-info-item">
+              <span class="agent-basic-details--heading">Jane Doe</span>
+              <span class="agent-basic-details--broker">• Redfin Corp</span>
+            </div>
+          </div>
+        </div>
+        """
+        soup = BeautifulSoup(html, "lxml")
+        result = _parse_agent_info(soup)
+        assert result["listing_agent"] == "Jane Doe"
+        assert result["listing_brokerage"] == "Redfin Corp"
+
+    def test_legacy_pipe_delimited_fallback(self):
+        """Pipe-delimited text (no semantic elements) still works."""
+        html = """
+        <div class="agent-info-section">
+          <div class="agent-info-item">Listed by | Alice Jones | • | Best Realty</div>
+        </div>
+        """
+        soup = BeautifulSoup(html, "lxml")
+        result = _parse_agent_info(soup)
+        assert result["listing_agent"] == "Alice Jones"
+        assert result["listing_brokerage"] == "Best Realty"
+
+
+class TestGetPriceLabel:
+    def test_sold_fixture_label(self, sold_soup):
+        label = _get_price_label(sold_soup)
+        assert label == "Sold Price"
+
+    def test_for_sale_fixture_label(self, for_sale_soup):
+        label = _get_price_label(for_sale_soup)
+        assert label == "Est. mortgage"
+
+    def test_no_price_section(self):
+        soup = BeautifulSoup("<html><body></body></html>", "lxml")
+        assert _get_price_label(soup) is None
+
+
+class TestDetermineAgentRole:
+    def test_listed_by_prefix(self):
+        html = '<div class="agent-info-item"><span>Listed by Agent</span></div>'
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find(class_="agent-info-item")
+        assert _determine_agent_role("Listed by Agent", item) == "listing"
+
+    def test_bought_with_prefix(self):
+        html = '<div class="agent-info-item"><span>Bought with Agent</span></div>'
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find(class_="agent-info-item")
+        assert _determine_agent_role("Bought with Agent", item) == "buying"
+
+    def test_ancestor_redfin_agent(self):
+        html = """
+        <div class="agent-info-section">
+          <div class="redfin-agent">
+            <div class="agent-info-item"><span>Agent Name</span></div>
+          </div>
+        </div>
+        """
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find(class_="agent-info-item")
+        assert _determine_agent_role("Agent Name", item) == "listing"
+
+    def test_ancestor_buyer_agent(self):
+        html = """
+        <div class="agent-info-section">
+          <div class="buyer-agent-item">
+            <div class="agent-info-item"><span>Buyer Agent</span></div>
+          </div>
+        </div>
+        """
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find(class_="agent-info-item")
+        assert _determine_agent_role("Buyer Agent", item) == "buying"
+
+    def test_unknown_role(self):
+        html = (
+            '<div class="agent-info-section">'
+            '<div class="agent-info-item"><span>Unknown</span></div>'
+            "</div>"
+        )
+        soup = BeautifulSoup(html, "lxml")
+        item = soup.find(class_="agent-info-item")
+        assert _determine_agent_role("Unknown", item) is None
+
+
+class TestSoldPricePostProcessing:
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_sold_listing_moves_price_to_sold_price(self, mock_settings, mock_extract_photos):
+        """Sold listing with 'Sold Price' label → sold_price set, listing_price None."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_photos_prefix="redfin/photos",
+            s3_bucket="bucket",
+        )
+        mock_extract_photos.return_value = ([], 0)
+
+        data, _ = _parse_html_file(
+            SOLD_FIXTURE,
+            "100 Fern Berry Ct, Apex, NC 27502 ｜ Redfin (1_26_2026).html",
+        )
+
+        # The sold fixture has "Sold Price" as statsLabel and "SOLD ... FOR $721,000"
+        # in the banner. The banner already sets sold_price=$721,000 so the
+        # statsValue should NOT overwrite it. listing_price must be None.
+        assert data["sold_price"] == "$721,000"
+        assert data["listing_price"] is None
+
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_sold_no_banner_price_uses_stats_value(self, mock_settings, mock_extract_photos):
+        """Sold listing where banner has no price but statsLabel says 'Sold Price'."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_photos_prefix="redfin/photos",
+            s3_bucket="bucket",
+        )
+        mock_extract_photos.return_value = ([], 0)
+        html = """<!DOCTYPE html><html><body>
+        <div class="ListingStatusBannerSection">SOLD ON AUG 12, 2025</div>
+        <div class="stat-block price-section">
+          <div class="statsValue"><span>$1,440,000</span></div>
+          <span class="statsLabel">Sold Price</span>
+        </div>
+        </body></html>"""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
+            f.write(html)
+            f.flush()
+            data, _ = _parse_html_file(f.name, "test.html")
+            os.unlink(f.name)
+
+        assert data["sold_price"] == "$1,440,000"
+        assert data["listing_price"] is None
+
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_sold_estimate_label_clears_listing_price(self, mock_settings, mock_extract_photos):
+        """Sold listing where statsValue is Redfin estimate → listing_price None."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_photos_prefix="redfin/photos",
+            s3_bucket="bucket",
+        )
+        mock_extract_photos.return_value = ([], 0)
+        html = """<!DOCTYPE html><html><body>
+        <div class="ListingStatusBannerSection">SOLD APR 2022 FOR $675,000</div>
+        <div class="stat-block price-section">
+          <div class="statsValue"><span>$732,378</span></div>
+          <span class="statsLabel">Redfin Estimate</span>
+        </div>
+        </body></html>"""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
+            f.write(html)
+            f.flush()
+            data, _ = _parse_html_file(f.name, "test.html")
+            os.unlink(f.name)
+
+        assert data["sold_price"] == "$675,000"
+        assert data["listing_price"] is None
+
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_for_sale_listing_keeps_listing_price(self, mock_settings, mock_extract_photos):
+        """For-sale listings should keep listing_price unchanged."""
+        mock_settings.return_value = MagicMock(
+            redfin_s3_photos_prefix="redfin/photos",
+            s3_bucket="bucket",
+        )
+        mock_extract_photos.return_value = ([], 0)
+
+        data, _ = _parse_html_file(
+            FOR_SALE_FIXTURE,
+            "1010 Castalia Dr, Cary, NC 27513 ｜ Redfin (2_9_2026).html",
+        )
+
+        assert data["listing_price"] == "$500,000"
+        assert data["sold_price"] is None
 
 
 class TestParseRedfinEstimate:
@@ -790,9 +978,7 @@ class TestArchiveToS3:
     @patch("pricepoint.data.housing.redfin_listings.os.path.exists", return_value=True)
     @patch("pricepoint.data.housing.redfin_listings._get_s3_client")
     @patch("pricepoint.data.housing.redfin_listings.get_settings")
-    def test_archive_keeps_file_on_verify_failure(
-        self, mock_settings, mock_get_s3, _mock_exists
-    ):
+    def test_archive_keeps_file_on_verify_failure(self, mock_settings, mock_get_s3, _mock_exists):
         """If head_object fails after upload, do not delete local file."""
         mock_settings.return_value = MagicMock(
             redfin_s3_archive_prefix="redfin/archive",
@@ -866,7 +1052,7 @@ class TestParseHtmlFile:
         assert data["zip_code"] == "27502"
         assert data["listing_status"] == "SOLD"
         assert data["sold_price"] == "$721,000"
-        assert data["listing_price"] == "$725,574"
+        assert data["listing_price"] is None
         assert data["beds"] == 4
         assert data["baths"] == 3.5
         assert data["sqft"] == 2916

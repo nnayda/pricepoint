@@ -299,8 +299,35 @@ def _parse_description(soup: BeautifulSoup) -> str | None:
     return None
 
 
+def _determine_agent_role(heading_text: str, item: Tag) -> str | None:
+    """Determine whether an agent-info-item represents a listing or buying agent."""
+    ht = heading_text.lower()
+    if "listed by" in ht or "list" in ht:
+        return "listing"
+    if "bought" in ht or "buy" in ht:
+        return "buying"
+    # Check ancestor classes for context
+    for parent in item.parents:
+        cls: list[str] = parent.get("class") or []  # type: ignore[assignment]
+        if "listing-agent-item" in cls or "redfin-agent" in cls:
+            return "listing"
+        if "buyer-agent-item" in cls:
+            return "buying"
+        if "agent-info-section" in cls:
+            break
+    return None
+
+
 def _parse_agent_info(soup: BeautifulSoup) -> dict[str, str | None]:
-    """Parse listing and buying agent information."""
+    """Parse listing and buying agent information.
+
+    Supports two HTML structures:
+    1. Semantic elements (real Redfin pages): ``agent-basic-details--heading``
+       and ``agent-basic-details--broker`` classes inside each
+       ``agent-info-item``.
+    2. Pipe/bullet-delimited plain text (legacy test fixtures):
+       ``"Listed by | Agent | • | Brokerage"``.
+    """
     result: dict[str, str | None] = {
         "listing_agent": None,
         "listing_brokerage": None,
@@ -311,26 +338,67 @@ def _parse_agent_info(soup: BeautifulSoup) -> dict[str, str | None]:
     if not section:
         return result
 
-    items = section.find_all(class_="agent-info-item")
-    for item in items:
-        text = item.get_text(" ", strip=True)
-        # Pattern: "Listed by | AgentName | • | Brokerage"
-        # or "Bought with | AgentName | • | Brokerage"
-        parts = [p.strip() for p in re.split(r"[|•]", text) if p.strip()]
+    for item in section.find_all(class_="agent-info-item"):
+        heading = item.find(class_="agent-basic-details--heading")
+        broker_el = item.find(class_="agent-basic-details--broker")
 
-        if len(parts) >= 2:
-            role = parts[0].lower()
-            agent = parts[1] if len(parts) >= 2 else None
-            brokerage = parts[2] if len(parts) >= 3 else None
+        if heading:
+            # --- Semantic element approach (real Redfin HTML) ---
+            heading_text = heading.get_text(strip=True)
+            agent_name = (
+                re.sub(
+                    r"^(Listed by|Bought with)\s*",
+                    "",
+                    heading_text,
+                    flags=re.IGNORECASE,
+                ).strip()
+                or None
+            )
+            brokerage = (
+                re.sub(r"^[•·]\s*", "", broker_el.get_text(strip=True)).strip()
+                if broker_el
+                else None
+            ) or None
 
-            if "list" in role:
-                result["listing_agent"] = agent
+            role = _determine_agent_role(heading_text, item)
+            if role == "listing":
+                result["listing_agent"] = agent_name
                 result["listing_brokerage"] = brokerage
-            elif "bought" in role or "buy" in role:
-                result["buying_agent"] = agent
+            elif role == "buying":
+                result["buying_agent"] = agent_name
                 result["buying_brokerage"] = brokerage
+        else:
+            # --- Fallback: pipe / bullet text split (legacy fixtures) ---
+            text = item.get_text(" ", strip=True)
+            parts = [p.strip() for p in re.split(r"[|•]", text) if p.strip()]
+
+            if len(parts) >= 2:
+                role_text = parts[0].lower()
+                agent = parts[1] if len(parts) >= 2 else None
+                brokerage = parts[2] if len(parts) >= 3 else None
+
+                if "list" in role_text:
+                    result["listing_agent"] = agent
+                    result["listing_brokerage"] = brokerage
+                elif "bought" in role_text or "buy" in role_text:
+                    result["buying_agent"] = agent
+                    result["buying_brokerage"] = brokerage
 
     return result
+
+
+def _get_price_label(soup: BeautifulSoup) -> str | None:
+    """Read the statsLabel text from the price-section stat block."""
+
+    def _match_stat(name: str):
+        return lambda c: c and name in c and "stat-block" in c
+
+    price_block = soup.find("div", class_=_match_stat("price-section"))
+    if price_block:
+        label = price_block.find(class_="statsLabel")
+        if label:
+            return label.get_text(strip=True) or None
+    return None
 
 
 def _parse_redfin_estimate(soup: BeautifulSoup) -> str | None:
@@ -584,6 +652,16 @@ def _parse_html_file(file_path: str, source_filename: str) -> dict:
     # All parser functions
     data.update(_parse_listing_status(soup))
     data.update(_parse_key_stats(soup))
+
+    # For sold listings the price-section statsValue is NOT the listing price.
+    # If the statsLabel says "Sold Price" move it to sold_price; otherwise it is
+    # just a Redfin estimate, so clear listing_price.
+    if data.get("listing_status") == "SOLD":
+        label = _get_price_label(soup)
+        if label and "sold" in label.lower() and not data.get("sold_price"):
+            data["sold_price"] = data["listing_price"]
+        data["listing_price"] = None
+
     data.update(_parse_key_details(soup))
     data["description"] = _parse_description(soup)
     data.update(_parse_agent_info(soup))
