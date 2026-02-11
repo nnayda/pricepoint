@@ -13,12 +13,16 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # SPA fallback + API reverse proxy
+# Use Docker embedded DNS (127.0.0.11) and a variable so nginx resolves
+# the upstream at request time instead of failing at startup.
 RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
+    resolver 127.0.0.11 valid=30s ipv6=off; \
     location /api/ { \
-        proxy_pass http://api:8000; \
+        set $backend http://api:8000; \
+        proxy_pass $backend; \
         proxy_set_header Host $host; \
         proxy_set_header X-Real-IP $remote_addr; \
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
