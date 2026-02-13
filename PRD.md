@@ -1,410 +1,735 @@
-# PRD: Phase 2 — Property Results Page
-
-## Context
-
-Phase 1 established the landing page, design system, geocoding search, and a minimal results page showing a predicted value + map marker. Phase 2 builds the **core product page** — a comprehensive property details view that gives users everything they need to evaluate a home purchase: valuation comparison, neighborhood data, school quality, climate risks, financial tools, and interactive map overlays.
-
-The frontend is the primary deliverable. All backend endpoints are **stubbed with realistic mock data** so the UI can be fully developed and tested end-to-end without real data pipelines.
-
----
-
-## 1. Page Layout & Sections
-
-The results page (`/results?address=...&lat=...&lon=...`) is a single scrollable page with all sections visible. A **sticky icon sidebar** on desktop (hidden on mobile) enables quick section navigation.
-
-### 1.1 Section Navigation Sidebar
-- **Desktop only**: thin left sidebar with icon buttons, each linking to a section anchor
-- **Icons + tooltips**: house, dollar, book, list, chart, cloud, calculator, map icons — tooltip text shown on hover
-- **Scroll-aware**: active icon highlights based on current scroll position
-- **Mobile**: hidden — users scroll naturally
-
-### 1.2 Property Header (Compact)
-- Small thumbnail image (or placeholder icon if no image) — not a hero layout
-- Full address as page title, city/state/zip below
-- Key stats row: bedrooms, bathrooms, sqft, lot size, year built, property type
-- Focus on data density over visual impact (images are placeholder stubs for now)
-
-### 1.3 Value Comparison
-- **Listed price** (or last sold price if not currently listed) — label indicates which
-- **Predicted value** from ML model, with confidence interval range
-- **Both badge + bar**: horizontal bar chart comparing listed vs predicted values side-by-side, with a colored pill badge summarizing the delta (e.g., "$12K below listed" in green, "$8K above listed" in red)
-- Model version + prediction date metadata (small text)
-
-### 1.4 Property Description
-- **Highlights**: 3-5 bullet-point selling features (e.g., "Updated kitchen", "Hardwood floors throughout")
-- **Full text**: complete paragraph description below the highlights
-
-### 1.5 School Data
-- Text list only (no inline map)
-- Each entry: school name, type (Elementary/Middle/High), **numeric badge** (colored circle with rating number: green 7-10, yellow 4-6, red 1-3), distance in miles, drive time, walk time (if walkable)
-
-### 1.6 Detailed Property Info
-- **All sections expanded by default** (no collapsing)
-- Three sub-sections:
-  - **Interior**: flooring, appliances, heating, cooling, fireplace, basement
-  - **Exterior**: roof, siding, foundation, parking, pool, fence
-  - **Financial**: HOA monthly, annual tax, tax year, assessed value
-
-### 1.7 Sale & Tax History Chart
-- Recharts combined chart: sale prices (line with dots) + tax assessments (area fill) over time
-- **20-year range** of stub data (2005-2025): ~4-5 sale events + 20 tax assessment entries
-- Tooltip with date + dollar values on hover
-- Currency-formatted Y-axis
-
-### 1.8 Climate Risks
-- **Score only**: flood and fire risk labels (Minimal/Low/Moderate/High/Severe) with colored score bar (1-10)
-- Color-coded by severity (green → yellow → red)
-- Compact — no explanatory text
-
-### 1.9 Mortgage Payment Calculator
-- **Sliders + synced text inputs** for: home price (pre-filled from listed/predicted), down payment %, interest rate, loan term
-- Pre-filled from property data: annual tax, HOA
-- **Real-time updates**: donut chart and numbers update instantly as sliders move (no debouncing — useMemo keeps computation cheap)
-- Donut chart showing monthly breakdown: principal, interest, tax, insurance, HOA
-- Total monthly payment prominently displayed
-- **Gear icon** linking to `/settings` to configure default slider values
-- Default values for interest rate, down payment %, insurance are loaded from user's saved settings (localStorage)
-
-### 1.10 Interactive Map with Tab Overlays
-- Map centered on property with a **distinct home icon** pin (house-shaped, visually different from data overlay pins)
-- Tab bar above the map switches between 5 data views
-- Metrics panel **below the map**, content changes per active tab
-- **Error handling per tab**: if an overlay endpoint fails, show an error message with a retry button within the map area for that tab
-- Map layers are lazy-loaded (fetched on first tab activation) and cached in component state
-
-| Tab | Overlay | Metrics Below Map |
-|-----|---------|-------------------|
-| **Crime Density** | Kernel density heatmap (**standard blue-to-red gradient**) | Total incidents in 1-mi radius, crime rate per 1K people, z-score vs sample mean, trend |
-| **Crime Incidents** | Individual pins with popups (date, type, description) | Same metrics as density tab |
-| **Points of Interest** | **Color-coded pins per category** (e.g., blue=grocery, green=retail, red=pharmacy, etc.) with popups showing name, distance, drive time. Gear icon linking to /settings for POI preferences | Category breakdown, nearest of each type |
-| **Greenspace** | Green pins for parks/trails with acreage in popup | Parks within 1 mi, nearest park distance, green acres in 1 mi, z-score |
-| **Utilities** | Gray pins for nuisance infrastructure (railroads, powerlines, highways) | Nearest highway/railroad/powerline distances, nuisance score (1-10) |
-
-### 1.11 Loading State
-- **Skeleton screens**: gray placeholder blocks mimicking the page layout (skeleton cards for each section) while property data loads
-- Map overlay tabs show individual loading spinners when their data is being fetched
-
-### 1.12 Re-search Behavior
-- When searching for a new address from the NavBar, use a **full page transition** (existing view transition pattern). Fresh page load — no in-place update complexity.
-
----
-
-## 2. Settings Page (`/settings`)
-
-A unified settings page with two sections, accessible from the **NavBar** (settings icon) and from gear icons within the results page (on POI tab and mortgage calculator).
-
-### 2.1 POI Preferences
-- **Default POI list**: pre-populated by category (Grocery: Costco, Trader Joe's, Whole Foods, Publix; Retail: Target, Walmart; Pharmacy: CVS, Walgreens; etc.)
-- **Toggle POIs**: enable/disable individual POIs or entire categories
-- **Add custom POIs**: user can add a POI by name and category
-- **Remove custom POIs**: delete user-added entries (defaults can only be toggled off)
-- **Persistence**: localStorage
-
-### 2.2 Mortgage Defaults
-- Configurable default values for: down payment %, interest rate, loan term (years), annual home insurance
-- These values pre-fill the mortgage calculator on every property page
-- **Persistence**: localStorage
-
-### 2.3 Implementation
-- **Route**: `/settings` added to `App.tsx`
-- **Page**: `src/pages/SettingsPage.tsx` — two sections, no tabs needed
-- **Hook**: `src/hooks/usePoiPreferences.ts` — localStorage CRUD for POI preferences
-- **Hook**: `src/hooks/useMortgageDefaults.ts` — localStorage read/write for mortgage defaults
-- **NavBar**: add settings gear icon to NavBar component
-- **Integration**: PropertyMap's POI layer reads from `usePoiPreferences` to filter; MortgageCalculator reads from `useMortgageDefaults` for initial values
-
----
-
-## 3. Backend API Endpoints (All Stubbed)
-
-All endpoints return hardcoded realistic data for a Cary, NC area property. The `address` param is echoed back in the response.
-
-### 3.1 GET `/api/property`
-
-**Params**: `lat: float`, `lon: float`, `address: str`
-
-**Response** (`PropertyResponse`):
-```
-{
-  property: { address, city, state, zip_code, lat, lon, bedrooms, bathrooms, sqft,
-              lot_size_sqft, year_built, property_type, stories, garage_spaces,
-              description, highlights: string[],
-              images: [{ url, alt, is_primary }] },
-  valuation: { listed_price?, last_sold_price?, last_sold_date?, predicted_value,
-               confidence_interval_low, confidence_interval_high, model_version,
-               prediction_date },
-  interior:  { flooring[], appliances[], heating, cooling, fireplace, basement? },
-  exterior:  { roof, siding, foundation, parking, pool, fence },
-  financial: { hoa_monthly?, tax_annual, tax_year, assessed_value },
-  schools:   [{ name, school_type, rating, distance_miles, drive_minutes, walk_minutes? }],
-  sale_history: [{ date, price, event_type }],   // 20 years of data
-  tax_history:  [{ year, assessed_value, tax_amount }],  // 20 years of data
-  climate_risk: { flood_risk, flood_score, fire_risk, fire_score }
-}
-```
-
-**Files**: `api/schemas/property.py`, `api/routes/property.py`
-
-### 3.2 GET `/api/crime`
-
-**Params**: `lat: float`, `lon: float`, `radius_miles: float = 1.0`
-
-**Response** (`CrimeResponse`):
-```
-{
-  heatmap:   [{ lat, lon, intensity }],       // ~80 points
-  incidents: [{ id, incident_type, category, date, lat, lon, description? }],  // ~25 incidents
-  metrics:   { total_incidents_1mi, incidents_per_1000_people, crime_z_score, trend }
-}
-```
-
-**Files**: `api/schemas/crime.py`, `api/routes/crime.py`
-
-### 3.3 GET `/api/pois`
-
-**Params**: `lat: float`, `lon: float`, `radius_miles: float = 3.0`
-
-**Response** (`PoisResponse`):
-```
-{
-  pois: [{ id, name, category, lat, lon, distance_miles, drive_minutes }]  // ~15 POIs
-}
-```
-
-**Files**: `api/schemas/pois.py`, `api/routes/pois.py`
-
-### 3.4 GET `/api/greenspace`
-
-**Params**: `lat: float`, `lon: float`, `radius_miles: float = 2.0`
-
-**Response** (`GreenspaceResponse`):
-```
-{
-  features: [{ id, name, feature_type, lat, lon, distance_miles, acreage? }],
-  metrics:  { parks_within_1mi, nearest_park_miles, total_green_acres_1mi, greenspace_z_score }
-}
-```
-
-**Files**: `api/schemas/greenspace.py`, `api/routes/greenspace.py`
-
-### 3.5 GET `/api/utilities`
-
-**Params**: `lat: float`, `lon: float`, `radius_miles: float = 1.0`
-
-**Response** (`UtilitiesResponse`):
-```
-{
-  features: [{ id, name, feature_type, lat, lon, distance_miles }],
-  metrics:  { nearest_highway_miles, nearest_railroad_miles, nearest_powerline_miles, nuisance_score }
-}
-```
-
-**Files**: `api/schemas/utilities.py`, `api/routes/utilities.py`
-
-**Registration**: All 5 routers added to `src/pricepoint/api/main.py` with `/api` prefix.
-
----
-
-## 4. Frontend Architecture
-
-### 4.1 New Components
-
-```
-src/components/
-  SectionSidebar/SectionSidebar.tsx          — Sticky icon sidebar (desktop nav)
-  PropertyHeader/PropertyHeader.tsx          — Compact: thumbnail + address + stats
-  ValueSection/ValueSection.tsx              — Listed vs predicted: badge + bar chart
-  PropertyDescription/PropertyDescription.tsx — Highlights bullets + full text
-  SchoolsSection/SchoolsSection.tsx          — School list with numeric rating badges
-  PropertyDetailsSection/PropertyDetailsSection.tsx — Interior/exterior/financial (all expanded)
-  SaleTaxHistoryChart/SaleTaxHistoryChart.tsx — Recharts 20-year combined chart
-  ClimateRiskSection/ClimateRiskSection.tsx   — Score-only flood/fire indicators
-  MortgageCalculator/MortgageCalculator.tsx   — Sliders + text inputs + real-time donut chart
-  SkeletonResultsPage/SkeletonResultsPage.tsx — Skeleton loading state
-  PropertyMap/PropertyMap.tsx                — Map container + tab management + error states
-  PropertyMap/MapTabBar.tsx                  — Tab bar for map overlays
-  PropertyMap/layers/CrimeHeatmapLayer.tsx   — leaflet.heat (blue-to-red gradient)
-  PropertyMap/layers/CrimeIncidentsLayer.tsx — Incident marker pins
-  PropertyMap/layers/PoisLayer.tsx           — Color-coded POI pins per category
-  PropertyMap/layers/GreenspaceLayer.tsx     — Green park/trail pins
-  PropertyMap/layers/UtilitiesLayer.tsx      — Gray infrastructure pins
-```
-
-Each component has a `__tests__/` directory with vitest + React Testing Library + vitest-axe tests.
-
-### 4.2 New Services & Hooks
-
-```
-src/services/property.ts          — getProperty, getCrime, getPois, getGreenspace, getUtilities
-src/hooks/usePropertyData.ts      — Wraps useApi(getProperty), auto-fetches on lat/lon/address
-src/hooks/useMortgageCalculator.ts — Pure computation (amortization formula), real-time via useMemo
-src/hooks/useMortgageDefaults.ts  — localStorage read/write for mortgage default values
-src/hooks/usePoiPreferences.ts    — localStorage CRUD for POI preferences + default list
-src/hooks/useActiveSection.ts     — IntersectionObserver to track which section is in view (for sidebar)
-```
-
-### 4.3 New Types
-
-All added to `src/types/index.ts`:
-- `PropertyResponse` (with nested: `PropertyDetails`, `ValuationData`, `InteriorFeatures`, `ExteriorFeatures`, `FinancialDetails`, `SchoolNearby`, `SaleHistoryEntry`, `TaxHistoryEntry`, `ClimateRisk`)
-- `CrimeResponse`, `CrimeHeatmapPoint`, `CrimeIncident`, `CrimeMetrics`
-- `PoisResponse`, `PointOfInterest`
-- `GreenspaceResponse`, `GreenspaceFeature`, `GreenspaceMetrics`
-- `UtilitiesResponse`, `UtilityFeature`, `UtilitiesMetrics`
-- `MapTab`
-- `MortgageInputs`, `MortgageBreakdown`
-- `PoiPreference`
-- `MortgageDefaults`
-
-### 4.4 New Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| `recharts` | Sale/tax history chart + mortgage donut chart |
-| `leaflet.heat` | Crime density heatmap layer |
-| `react-leaflet-cluster` | Marker clustering for incident/POI pins |
-
-Plus a custom `src/types/leaflet-heat.d.ts` type declaration.
-
-### 4.5 State Management
-
-No Redux or Context needed. Data flows:
-- `ResultsPage` fetches property data via `usePropertyData` hook, passes down as props
-- Each map layer fetches its own data via `useApi` on first tab activation (lazy)
-- `MortgageCalculator` manages local input state + reads defaults from `useMortgageDefaults` + computes via `useMortgageCalculator`
-- POI layer reads from `usePoiPreferences` to filter displayed pins
-- `SectionSidebar` uses `useActiveSection` (IntersectionObserver) for scroll-aware highlighting
-
-### 4.6 Routing Changes
-
-| Route | Component | Notes |
-|-------|-----------|-------|
-| `/results` | `ResultsPage` | **Rewritten** — same URL params, new data source (`getProperty` instead of `postForecast`) |
-| `/settings` | `SettingsPage` | **New** — POI preferences + mortgage defaults |
-
-Existing routes (`/`, `/forecast`) unchanged. NavBar gets a settings gear icon.
-
----
-
-## 5. Implementation Order
-
-### Phase A: Data Contracts
-1. Create all 5 Pydantic schema files (`api/schemas/property.py`, `crime.py`, `pois.py`, `greenspace.py`, `utilities.py`)
-2. Create all 5 route files with stub data (`api/routes/property.py`, etc.)
-3. Register routes in `api/main.py`
-4. Backend unit tests for all 5 endpoints
-5. Add all TypeScript types to `frontend/src/types/index.ts`
-6. Create `frontend/src/services/property.ts` with 5 API functions
-7. Create `usePropertyData` and `useMortgageCalculator` hooks + tests
-
-### Phase B: Map Infrastructure + Dependencies
-1. Install npm dependencies (`recharts`, `leaflet.heat`, `react-leaflet-cluster`)
-2. Create `leaflet-heat.d.ts` type declaration
-3. Build `PropertyMap` + `MapTabBar` components (with error state per tab + retry)
-4. Build all 5 map layer components (heatmap: blue-to-red; POIs: color-per-category; property: home icon)
-5. Map component tests
-
-### Phase C: Section Components (parallelizable)
-1. `PropertyHeader` (compact layout, thumbnail) + tests
-2. `ValueSection` (badge + bar comparison) + tests
-3. `PropertyDescription` (highlights + full text) + tests
-4. `SchoolsSection` (numeric rating badges) + tests
-5. `PropertyDetailsSection` (all expanded) + tests
-6. `SaleTaxHistoryChart` (20-year Recharts chart) + tests
-7. `ClimateRiskSection` (score-only bars) + tests
-8. `MortgageCalculator` (sliders + real-time donut) + tests
-9. `SkeletonResultsPage` (skeleton loading state) + tests
-10. `SectionSidebar` (sticky icons + tooltips + IntersectionObserver) + tests
-
-### Phase D: Settings Page
-1. Create `usePoiPreferences` hook (localStorage + defaults) + tests
-2. Create `useMortgageDefaults` hook (localStorage + defaults) + tests
-3. Build `SettingsPage` (POI section + mortgage section) + tests
-4. Add `/settings` route to `App.tsx`
-5. Add settings gear icon to `NavBar`
-6. Wire `PoisLayer` to read from `usePoiPreferences` for filtering
-7. Wire `MortgageCalculator` to read from `useMortgageDefaults` for initial values
-
-### Phase E: Page Assembly & Verification
-1. Rewrite `ResultsPage` to compose all section components + sidebar + skeleton loading
-2. Update `ResultsPage` tests
-3. Full test suite pass (`npx vitest run`, `make test`)
-4. Lint clean (`make frontend-lint`, `make lint`)
-5. Build succeeds (`npm run build`)
-
----
-
-## 6. Key Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/pricepoint/api/main.py` | Register 5 new routers |
-| `frontend/src/types/index.ts` | Add all new TypeScript interfaces |
-| `frontend/src/pages/ResultsPage.tsx` | Complete rewrite as section orchestrator |
-| `frontend/src/App.tsx` | Add `/settings` route, lazy-load `SettingsPage` |
-| `frontend/src/components/NavBar/NavBar.tsx` | Add settings gear icon |
-| `frontend/package.json` | Add `recharts`, `leaflet.heat`, `react-leaflet-cluster` |
-
-**Existing code to reuse**:
-- `src/hooks/useApi.ts` — generic API fetch hook (all new service calls use this)
-- `src/hooks/useDebounce.ts` — if needed for any input debouncing
-- `src/utils/viewTransition.ts` — for page transitions
-- `src/services/api.ts` — axios client pattern to follow for `property.ts`
-- Design system tokens in `src/index.css` — all new components use existing tokens
-
----
-
-## 7. Out of Scope (Future Phases)
-
-- Real backend data integration (all endpoints return stubs)
-- Property image fetching from real sources (placeholder URLs)
-- User accounts / auth / saved properties
-- Mobile-native optimizations beyond responsive Tailwind
-- Print/export views
-- Additional map tabs (e.g., schools on map)
-
----
-
-## 8. Verification Plan
-
-### Backend
-- `make test` — pytest passes for all new endpoint unit tests
-- `make lint` — ruff check + format check passes
-
-### Frontend
-- `cd frontend && npx vitest run` — all component + hook + page tests pass
-- `make frontend-lint` — ESLint + Prettier clean
-- `cd frontend && npm run build` — TypeScript + production build succeeds
-- Manual: `npm run dev` → navigate to `/results?address=123+Main+St&lat=35.73&lon=-78.78` → verify:
-  - Skeleton loading appears then sections populate
-  - All 9 sections render with stub data
-  - Map tabs switch, heatmap renders, POI pins are color-coded
-  - Mortgage sliders update donut chart in real-time
-  - Sticky sidebar highlights correct section on scroll
-  - `/settings` page loads, POI toggles and mortgage defaults persist in localStorage
-  - Settings gear icon visible in NavBar
-
-### Accessibility
-- vitest-axe assertions in every component test
-- Keyboard navigation: map tabs, calculator inputs, settings toggles
-- ARIA labels on all interactive elements
-- Tooltips on sidebar icons
-
----
-
-## 9. Design Guidelines
-
-All components follow the Phase 1 design system:
-- **Cards**: `rounded-lg bg-bg-card/80 shadow-soft backdrop-blur-md p-5 sm:p-8`
-- **Headings**: `text-text-pri font-bold`
-- **Secondary text**: `text-text-sec font-medium`
-- **Accent color**: `text-brand-blue` / `bg-brand-blue`
-- **Positive indicators**: `text-status-maint` (#47d1a0 green)
-- **Negative indicators**: `text-status-rented` (#ff5c8e pink)
-- **Spacing**: `gap-grid` (24px) between sections
-- **Responsive**: mobile-first, `sm:` breakpoint for desktop
-- **Font**: Plus Jakarta Sans (400/500/600/700)
-- **Map heatmap**: standard blue → yellow → red gradient
-- **POI pin colors**: distinct per category (grocery=blue, retail=green, pharmacy=red, etc.)
-- **Property pin**: distinct home icon, visually different from data pins
-- **School ratings**: colored numeric badge (green 7-10, yellow 4-6, red 1-3)
+# Refin Listing Data Post Processing
+
+## Objective
+Process the raw data uploaded to the table `staging_redfin_listings` and turn it into clean data, as well as derive new features to be used in modeling.
+
+## Tasks
+Completely redesign the current DAG for processing the staging table data. Each item below lists the table the data will go into and each bullet lists the field in the table. Each bullet contains the new table column name, a description of the field, the field type, and how to parse the data from the staging table.
+
+1. Create records in table `redfin_listings`
+- [ ] `id`
+    description: "The property ID (unique)"
+    type: [PK] integer
+- [ ] `street_address`
+    description: "The street address of the property"
+    type: str
+    values:
+        - parse `address` and strip city, state, and zipcode
+- [ ] `city`
+    description: "The address city"
+    type: str
+    values:
+        - use `city`
+- [ ] `state`
+    description: "The address state"
+    type: str
+    values:
+        - use `state`
+- [ ] `zip_code`
+    description: "The address zipcode"
+    type: str
+    values:
+        - use `zip_code`
+- [ ] `listing_status`
+    description: "The status of the listing"
+    type: str
+    values:
+        - use `listing_status` and standardize into the following values:
+            - SOLD
+            - CONTINGENT
+            - PENDING
+            - COMING SOON
+            - FOR SALE
+            - FOR RENT
+            - UNDER CONTRACT
+- [ ] `sold_date`
+    description: "The date the property was last sold"
+    type: date
+    values:
+        - parse `sold_date`
+        - If just includes a month assume it was sold on the first day of the month
+- [ ] `sold_price`
+    description: "The value the property was last sold at"
+    type: float
+    values:
+        - parse `sold_price`
+        - None if no value
+- [ ] `listing_price`
+    description: "The listing price"
+    type: float
+    values:
+        - parse `listing_price`
+        - None if no value
+- [ ] `description`
+    description: "The listing description"
+    type: str
+    values:
+        - use `description` no transform needed
+- [ ] `flood_factor`
+    description: "The climate flood factor"
+    type: category
+    values:
+        - use `climate_flood_factor` and map to these values:
+            - 1: Minimal
+            - 2: Minor
+            - 3: Moderate
+            - 4: Major
+            - 5: Severe
+            - 6: Extreme
+- [ ] `fire_factor`
+    description: "The climate fire factor"
+    type: category
+    values:
+        - use `climate_fire_factor` and map to these values:
+            - 1: Minimal
+            - 2: Minor
+            - 3: Moderate
+            - 4: Major
+            - 5: Severe
+            - 6: Extreme
+- [ ] `has_garage`
+    description: "Indicates whether the property has a garage"
+    type: bool
+    values:
+        - True if `property_details.garage` == "Yes"
+        - False otherwise
+- [ ] `num_garage_spaces`
+    description: "The number of parking spaces in the garage"
+    type: int
+    values:
+        - parse `property_details.garage_spaces`, 0 if missing
+- [ ] `parking_type`
+    description: "Provides context on the type of parking"
+    type: category
+    values:
+        in order of presidence:
+        - "Attached Garage" if `property_details.attached_garage`=="Yes" or "Attached" in `property_details.parking_features`
+        - "Detached Garage" if "Detached" in `property_details.parking_features`
+        - "Carport" if "Carport" or "Covered" in `property_details.parking_features`
+        - "Street" if "On Street" in `property_details.parking_features`
+        - "Garage" if `property_details.garage`=="Yes"
+        - None otherwise
+- [ ] `garage_entry`
+    description: "Provides context about the orientation of the garage"
+    type: category
+    values:
+        in order of presidence:
+        - "Front" if "Garage Faces Front" in `property_details.parking_features`
+        - "Side" if "Garage Faces Side" in `property_details.parking_features`
+        - "Rear" if "Garage Faces Rear" in `property_details.parking_features`
+        - None otherwise
+- [ ] `driveway_surface`
+    description: "Provides context about quality of the driveway"
+    type: category
+    values:
+        in order of presidence:
+        - "Paved" if `property_details.parking_features` contains ["Concrete","Parking Pad","Paved","Asphalt","Paver Block","Brick","Paver"]
+        - "Unpaved" if `property_details.parking_features` contains ["Gravel","Unpaved","Dirt","Crushed Stone", "Stone"]
+        - None otherwise
+- [ ] `has_workshop`
+    description: "Indicates whether the preoprty has a workshop"
+    type: bool
+    values:
+        - True if `property_details.parking_features` contains "Workshop in Garage"
+        - True if `property_details.other_structures` contains ["Workshop"]
+        - False otherwise
+- [ ] `has_circular_driveway`
+    description: "Indicates whether the driveway is circular"
+    type: bool
+    values:
+        - True if `property_details.parking_features` contains "Circular Driveway"
+        - False otherwise
+- [ ] `has_ev_charging`
+    description: "Indicates whether the parking area has EV charging"
+    type: bool
+    values:
+        - True if `property_details.parking_features` contains "Electric Vehicle Charging Station(s)"
+        - False otherwise
+- [ ] `has_fireplace`
+    description: "Indicates whether the property has a fireplace"
+    type: bool
+    values:
+        - True if `property_details.fireplace` == "Yes"
+        - False otherwise
+- [ ] `water_heater_energy_source`
+    description: "The energy source for the water heater (e.g., Gas, Electric)"
+    type: category
+    values:
+        in order of presidence:
+        - "Gas" if "Gas Water Heater" or "Propane Water Heater" in `property_details.appliances`
+        - "Electric" if "Electric Water Heater" in `property_details.appliances`
+        - "Solar" if "Solar Hot Water" in `property_details.appliances`
+        - "UNKNOWN" otherwise
+- [ ] `cooktop_energy_source`
+    description: "The energy source for the cooktop (e.g., Gas, Electric)"
+    type: category
+    values:
+        in order of presidence:
+        - "Gas" if "Gas Cooktop" or "Gas Range" or "Built-In Gas Range" or "Free-Standing Gas Range" "Propane Cooktop" in `property_details.appliances`
+        - "Electric" if "Electric Range" or "Electric Cooktop" or "Free-Standing Electric Range" or "Induction Cooktop" or "Built-In Electric Range" in `property_details.appliances`
+- [ ] `oven_energy_source`
+    description: "The energy source for the oven (e.g., Gas, Electric)"
+    type: category
+    values:
+        in order of presidence:
+        - "Gas" if "Gas Oven" or "Free-Standing Gas Oven"  in `property_details.appliances`
+        - "Electric" if "Electric Oven" or "Built-In Electric Oven" or "Built-In Gas Oven" or "Free-Standing Electric Oven" in `property_details.appliances`
+        - "UNKNOWN" otherwise
+- [ ] `has_drink_fridge`
+    description: "Indicates whether the property has a wine or beverage fridge"
+    type: bool
+    values:
+        - True if `property_details.appliances` contains ["Bar Fridge","Wine Refrigerator","Wine Cooler"]
+        - False otherwise
+- [ ] `has_stainless_appliances`
+    description: "Indicates whether the property has stainless steel appliances"
+    type: bool
+    values:
+        - True if `property_details.appliances` contains ["Stainless Steel Appliance(s)"]
+        - False otherwise
+- [ ] `appliances_included_count`
+    description: "Number of appliances that convey with the property. Ranges from 0-3 (fridge, washer, dryer)"
+    type: bool
+    values:
+        - +1 if `property_details.appliances` contains any of ["Refrigerator","Free-Standing Refrigerator","Built-In Refrigerator",]
+        - +1 if `property_details.appliances` contains any of ["Washer","Washer/Dryer","Washer/Dryer Stacked","ENERGY STAR Qualified Washer",]
+        - +1 if `property_details.appliances` contains any of ["Dryer","Washer/Dryer","Washer/Dryer Stacked","ENERGY STAR Qualified Dryer"]
+- [ ] `has_efficient_windows`
+    description: "Indicates whether the property has updated windows"
+    type: bool
+    values:
+        - True if `property_details.window_features` contains ["Insulated Windows","Double Pane Windows","Low-Emissivity Windows","ENERGY STAR Qualified Windows","Triple Pane Windows"]
+        - False otherwise
+- [ ] `has_skylights`
+    description: "Indicates whether the property has skylights"
+    type: bool
+    values:
+        - True if `property_details.window_features` contains ["Skylight",]
+        - False otherwise
+- [ ] `has_bay_window`
+    description: "Indicates whether the property has bay windows"
+    type: bool
+    values:
+        - True if `property_details.window_features` contains ["Bay","Garden"]
+        - False otherwise
+- [ ] `laundry_location`
+    description: "Where the laundry is located in the house"
+    type: category
+    values:
+        in order of presidence:
+        - "Upper" if "Upper" in `property_details.laundry_features`
+        - "Main" if "Main" in `property_details.laundry_features`
+        - "Basement" if "Lower" or "Basement"  in `property_details.laundry_features`
+        - "Garage/Out" if "Garage" or "Outside"  in `property_details.laundry_features`
+        - "Standard" otherwise
+- [ ] `has_laundry_room`
+    description: "Indicates whether the property has a dedicated laundry room"
+    type: bool
+    values:
+        - True if `property_details.laundry_features` contains ["Laundry Room",]
+        - False otherwise
+- [ ] `has_utility_sink`
+    description: "Indicates whether the property has a utility sink"
+    type: bool
+    values:
+        - True if `property_details.laundry_features` contains ["Sink",]
+        - False otherwise
+- [ ] `countertop_material`
+    description: "The material the countertop is made from"
+    type: category
+    values:
+        in order of presidence:
+        - "Ultra" if "Quartz Counters" in `property_details.interior_features`
+        - "Premium" if "Granite Counters" or "Stone Counters" in `property_details.interior_features`
+        - "Standard" if "Tile Counters" or "Laminate Counters"  in `property_details.interior_features`
+        - "Unknown" otherwise
+- [ ] `is_primary_downstairs`
+    description: "Indicates whether the primary bedroom is on the first floor"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Primary Downstairs",]
+        - False otherwise
+- [ ] `has_guest_suite`
+    description: "Indicates whether the home has a guest suite for in laws"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["In-Law Floorplan", "Second Primary Bedroom", "Apartment/Suite, Room Over Garage"]
+        - False otherwise
+- [ ] `has_butler_pantry`
+    description: "Indicates whether the home has a butlers pantry"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Butler's Pantry"]
+        - False otherwise
+- [ ] `has_walkin_closets`
+    description: "Indicates whether the home has walk in closets"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Walk-In Closet(s)"]
+        - False otherwise
+- [ ] `has_tall_ceilings`
+    description: "Indicates whether the home has high ceilings"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["High Ceilings","Vaulted Ceiling(s)","Cathedral Ceiling(s)",]
+        - False otherwise
+- [ ] `has_luxury_ceilings`
+    description: "Indicates whether the home has luxury ceilings"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Tray Ceiling(s)","Coffered Ceiling(s)","Beamed Ceilings",]
+        - False otherwise
+- [ ] `has_sauna`
+    description: "Indicates whether the home has a sauna"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Sauna",]
+        - False otherwise
+- [ ] `has_bar`
+    description: "Indicates whether the home has a bar"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Bar",]
+        - False otherwise
+- [ ] `has_second_primary`
+    description: "Indicates whether the home has a second primary bedroom"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Second Primary Bedroom",]
+        - False otherwise
+- [ ] `has_room_over_garage`
+    description: "Indicates whether the home has a room above the garage"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Room Over Garage",]
+        - False otherwise
+- [ ] `has_open_floorplan`
+    description: "Indicates whether the home has a room above the garage"
+    type: bool
+    values:
+        - True if `property_details.interior_features` contains ["Open Floorplane",]
+        - False otherwise
+- [ ] `has_outdoor_fireplace`
+    description: "Indicates whether the home has an outdoor fireplace"
+    type: bool
+    values:
+        - True if `property_details.fireplace_features` contains ["Outside","Fire Pit",]
+        - False otherwise
+- [ ] `has_primary_fireplace`
+    description: "Indicates whether the home has a fireplace in the primary bedroom/bath"
+    type: bool
+    values:
+        - True if `property_details.fireplace_features` contains ["Primary Bedroom","Bedroom","Bath",]
+        - False otherwise
+- [ ] `has_architectural_fireplace`
+    description: "Indicates whether the home has an architectural fireplace"
+    type: bool
+    values:
+        - True if `property_details.fireplace_features` contains ["Double Sided","See Through",]
+        - False otherwise
+- [ ] `fireplace_fuel_source`
+    description: "The fuel used for the fireplace"
+    type: category
+    values:
+        in order of presidence:
+        - "Gas" if "Gas Log" or "Gas" or "Sealed Combustion" or "Propane" in `property_details.fireplace_features`
+        - "Wood" if "Wood Burning" or "Masonry" or "Wood Burning Stove" in `property_details.fireplace_features`
+        - "Electric" if "Electric" in `property_details.fireplace_features`
+        - "Unknown" otherwise
+- [ ] `num_fireplaces`
+    description: "The number of fireplaces"
+    type: int
+    values:
+        - parse `property_details.fireplaces_total`, 0 if missing
+- [ ] `is_carpet_free`
+    description: "Indicates whether the home has no carpet"
+    type: bool
+    values:
+        - True if `property_details.flooring` does not contain ["Carpet"]
+        - False otherwise
+- [ ] `has_premium_stone`
+    description: "Indicates whether the home has premium stone"
+    type: bool
+    values:
+        - True if `property_details.flooring` does not contain ["Marble","Slate","Granite","Stone",]
+        - False otherwise
+- [ ] `has_hardwood`
+    description: "Indicates whether the home has real hardwood"
+    type: bool
+    values:
+        - True if `property_details.flooring` does not contain ["Wood","Bamboo","Parquet","Cork","FSC or SFI Certified Source Hardwood"]
+        - False otherwise
+- [ ] `has_crawl_space`
+    description: "Indicates whether the home has a crawlspace"
+    type: bool
+    values:
+        - True if `property_details.crawl_space` =="Yes"
+        - False otherwise
+- [ ] `facade_type`
+    description: "The material used for the facade"
+    type: category
+    values:
+        in order of presidence:
+        - "Masonry" if `property_details.construction_materials` contains ["Brick","Stone","Stucco","Block","Plaster",]
+        - "Fiber Cement" if `property_details.construction_materials` contains ["Fiber Cement","HardiPlank","Cement"]
+        - "Synthetic" if `property_details.construction_materials` contains ["Vinyl","Metal","Aluminum",]
+        - "Wood" if `property_details.construction_materials` contains ["Masonite","Wood","Cedar","Shake","Log","Board & Batten Siding","Lap Siding"]
+        - None otherwise
+- [ ] `building_area`
+    description: "The total building area in sqft"
+    type: float
+    values:
+        - parse `property_details.building_area_total`, 0 if missing
+- [ ] `above_grade_finished_area`
+    description: "The total finished building area above grade in sqft"
+    type: float
+    values:
+        - parse `property_details.above_grade_finished_area`, 0 if missing
+- [ ] `below_grade_finished_area`
+    description: "The total finished building area below grade in sqft"
+    type: float
+    values:
+        - parse `property_details.below_grade_finished_area`, 0 if missing
+- [ ] `num_stories`
+    description: "The number of building levels"
+    type: category
+    values:
+        in order of presidence:
+        - parse `property_details.stories`
+        - If null then parse `property_details.levels` and map these values:
+            Two
+            Three Or More
+            One and One Half
+            One
+            Tri-Level
+            Multi/Split
+            Bi-Level
+            Three
+        - None if missing
+- [ ] `lot_size`
+    description: "The lot size in acres"
+    type: float
+    values:
+        - parse `property_details.lot_size_acres`
+        - if missing parse `property_details.lot_size`
+        - if missing parse `property_details.lot_size_square_feet`
+        - if thats missing parse `property_details.lot_size_area` and `property_details.lot_size_units`
+        - None otherwise
+- [ ] `is_waterfront`
+    description: "Indicates whether the home is waterfront"
+    type: bool
+    values:
+        - True if `property_details.waterfront` =="Yes"
+        - True if `property_details.features` contains ["Waterfront"]
+        - False otherwise      
+- [ ] `buyer_financing`
+    description: "The type of financing the buyer used"
+    type: category
+    values:
+        - use `property_details.buyer_financing`
+- [ ] `is_septic`
+    description: "Indicates whether the home is on a septic tank"
+    type: bool
+    values:
+        - True if `property_details.sewer` contains ["Septic","Private Sewer",]
+        - False otherwise  
+- [ ] `is_well_water`
+    description: "Indicates whether the home uses well water"
+    type: bool
+    values:
+        - True if `property_details.water_source` contains ["Well","Private",]
+        - False otherwise  
+- [ ] `no_heating`
+    description: "Indicates whether the home is not heated"
+    type: bool
+    values:
+        - True if `property_details.heating` =="No"
+        - False otherwise 
+- [ ] `no_cooling`
+    description: "Indicates whether the home is not cooled"
+    type: bool
+    values:
+        - True if `property_details.cooling` =="No"
+        - False otherwise 
+- [ ] `has_hoa`
+    description: "Indicates whether the home is in an HOA"
+    type: bool
+    values:
+        - True if `property_details.association` =="Yes"
+        - False otherwise 
+- [ ] `has_enclosed_porch`
+    description: "Indicates whether the home has an enclosed porch"
+    type: bool
+    values:
+        - True if `property_details.patio_and_porch_features` contains ["Screened","Enclosed","]
+        - False otherwise 
+- [ ] `has_front_porch`
+    description: "Indicates whether the home has a front porch"
+    type: bool
+    values:
+        - True if `property_details.patio_and_porch_features` contains ["Front Porch","Wrap Around","]
+        - False otherwise 
+- [ ] `has_fenced_yard`
+    description: "Indicates whether the home has a fenced yard"
+    type: bool
+    values:
+        In order of presidence:
+        - True if `property_details.fencing` contains a value and does not contain ["None","Invisible","Partial","Electric"]
+        - True if `property_details.exterior_features` contains ["Fence","Private Yard","Dog Run"]
+        - False otherwise 
+- [ ] `has_outdoor_kitchen`
+    description: "Indicates whether the home has an outdoor kitchen"
+    type: bool
+    values:
+        - True if `property_details.exterior_features` contains ["Kitchen","Built-in Barbecue","Gas Grill"]
+        - True if `property_details.other_structures` contains ["Outdoor Kitchen"]
+        - False otherwise 
+- [ ] `has_sport_court`
+    description: "Indicates whether the home has an outdoor court (e.g., tennis, basketball)"
+    type: bool
+    values:
+        - True if `property_details.exterior_features` contains ["Tennis Court(s)","Basketball Court","Arena"]
+        - False otherwise 
+- [ ] `has_private_pool`
+    description: "Indicates whether the home has a private pool"
+    type: bool
+    values:
+        in order of presidence:
+        - True if `property_details.exterior_features` contains ["Pool"]
+        - True if `property_details.features` contains ["Pool"]
+        - True if `property_details.pool_features` contains a value and does not contain ["Swimming Pool Com/Fee","Community","Association","None"]
+        - False otherwise
+- [ ] `has_community_pool`
+    description: "Indicates whether the home has a community pool"
+    type: bool
+    values:
+        in order of presidence:
+        - True if `property_details.community_features` contains ["Pool"]
+        - True if `property_details.pool_features` contains ["Swimming Pool Com/Fee","Community","Association"]
+        - True if `property_details.association_amenities` contains ["Pool",]
+        - False otherwise
+- [ ] `has_clubhouse`
+    description: "Indicates whether the home has a community clubhouse"
+    type: bool
+    values:
+        - True if `property_details.community_features` contains ["Clubhouse"]
+        - True if `property_details.association_amenities` contains ["Clubhouse","Recreation Facilities","Fitness Center",]
+        - False otherwise 
+- [ ] `has_exterior_storage`
+    description: "Indicates whether the home has a exterior storage building"
+    type: bool
+    values:
+        in order of presidence:
+        - True if `property_details.other_structures` contains ["Shed","Storage","Workshop","Outbuilding","Barn","Second Garage",]
+        - True if `property_details.exterior_features` contains ["Storage","Barn","Equestrian Facilities","Outbuilding","Shed","Stable"]
+        - False otherwise 
+- [ ] `has_garden`
+    description: "Indicates whether the home has a garden/greenhouse"
+    type: bool
+    values:
+        - True if `property_details.exterior_features` contains ["Garden","Greenhouse"]
+        - True if `property_details.other_structures` contains ["Greenhouse"]
+        - False otherwise 
+- [ ] `association_fee`
+    description: "The yearly HOA fee"
+    type: float
+    values:
+        - parse `property_details.association_fee` and `property_details.association_fee_frequency`, convert to a yearly value
+        - parse `property_details.association_fee_2` and `property_details.association_fee_2_frequency`, convert to a yearly value
+        - parse `property_details.hoa_dues` and convert to a yearly value
+        - sum the two fees
+- [ ] `location`
+    description: "The coordinates of the house"
+    type: geometry
+    values:
+        - parse latitude from `property_details.latitude`
+        - parse longitude from `property_details.longitude`
+        - if the above are empty use the geocoding service using the `address` field 
+- [ ] `year_built`
+    description: "The year the home was built"
+    type: int
+    values:
+        in order of presidence:
+        - use `year_built`
+        - If null then parse `property_details.year_built`
+        - None otherwise
+- [ ] `num_beds`
+    description: "The number of bedrooms"
+    type: int
+    values:
+        in order of presidence:
+        - use `beds`
+        - If null then parse `property_details.beds`
+        - if null then parse `property_details.num_of_bedrooms`,
+        - None otherwise
+- [ ] `num_baths`
+    description: "The number of bathrooms"
+    type: float
+    values:
+        in order of presidence:
+        - use `baths`
+        - If null then parse `property_details.baths`
+        - If null then parse and add `property_details.num_of_full_bathrooms` and `property_details.num_of_half_bathrooms`
+        - None otherwise
+- [ ] `sqft`
+    description: "The sqft of the house"
+    type: int
+    values:
+        in order of presidence:
+        - use `sqft`
+        - If null then parse `property_details.year_built`
+        - If null then parse `property_details.living_area`
+        - None otherwise
+- [ ] `price_per_sqft`
+    description: "The listing price per sqft of the house"
+    type: float
+    values:
+        in order of presidence:
+        - use `price_per_sqft`
+        - If null then calculate it from taking the calculated features `listing_price` / `sqft`
+        - None otherwise
+- [ ] `listing_agent`
+    description: "The listing agent for the house"
+    type: str
+    values:
+        - use `listing_agent`, no transform needed
+- [ ] `listing_brokerage`
+    description: "The listing broker for the house"
+    type: str
+    values:
+        - use `listing_brokerage`, no transform needed
+- [ ] `buying_agent`
+    description: "The buying agent for the house"
+    type: str
+    values:
+        - use `buying_agent`, no transform needed
+- [ ] `buying_brokerage`
+    description: "The buying broker for the house"
+    type: str
+    values:
+        - use `buying_brokerage`, no transform needed
+- [ ] `hoa_name`
+    description: "The name of the HOA"
+    type: str
+    values:
+        - use `property_details.association_name`, no transform needed
+- [ ] `year_renovated`
+    description: "The year the house was last renovated"
+    type: int
+    values:
+        - parse `property_details.year_renovated`
+- [ ] `apn`
+    description: "The APN identifier of the house"
+    type: str
+    values:
+        - parse `property_details.apn`
+        - should be in the format "0761.03 34 2215 000"
+        - some cases it appears like "0763593132" can this be parsed?
+        - sometimes says "See Plat" - just use None for these and others
+- [ ] `contract_date`
+    description: "The date the contract status changed"
+    type: date
+    values:
+        - parse `property_details.contract_status_change_date`
+- [ ] `num_parking_spaces`
+    description: "The number of parking spaces"
+    type: int
+    values:
+        in order of presidence:
+        - parse `property_details.parking_total`
+        - parse `property_details.parking_spaces`
+- [ ] `has_garden`
+    description: "Indicates whether the home has a garden/greenhouse"
+    type: bool
+    values:
+        - True if `property_details.exterior_features` contains ["Garden","Greenhouse"]
+        - True if `property_details.other_structures` contains ["Greenhouse"]
+        - False otherwise 
+- [ ] `property_photos`
+    description: "The S3 location of the property photos"
+    type: list[str]
+    values:
+        - use `photo_s3_paths`
+- [ ] `source_file`
+    description: "The name of the source HTML file"
+    type: str
+    values:
+        - use `source_file`
+- [ ] `processed_at`
+    description: "The time the record was processed"
+    type: datetime
+    values:
+        - set to current datetime
+
+2. Create records in table `sale_history`
+Parse each record in `sale_history` column into these columns
+- [ ] `id`
+    description: "The event ID (unique)"
+    type: [PK] integer
+- [ ] `property_id`
+    description: "Link to the property ID"
+    type: [FK] integer
+- [ ] `date`
+    description: "The date of the sale event"
+    type: date
+    values:
+        - parse `date`
+- [ ] `event`
+    description: "The type of sale event"
+    type: str
+    values:
+        - use `event`, standardize in all caps
+- [ ] `price`
+    description: "The event price"
+    type: float
+    values:
+        - parse `price`
+- [ ] `source`
+    description: "The event source"
+    type: str
+    values:
+        - set to "Redfin"
+
+3. Create records in table `tax_history`
+Parse each record in `tax_history` column into these columns
+- [ ] `id`
+    description: "The event ID (unique)"
+    type: [PK] integer
+- [ ] `property_id`
+    description: "Link to the property ID"
+    type: [FK] integer
+- [ ] `date`
+    description: "The date of the tax event"
+    type: date
+    values:
+        - parse `year` - set to 1st of the year
+- [ ] `property_tax`
+    description: "The tax amount"
+    type: float
+    values:
+        - parse `tax`, only extract the tax amount not the % change
+- [ ] `assessment_value_land`
+    description: "The assessed land value"
+    type: float
+    values:
+        - parse `land`
+- [ ] `assessment_value_additions`
+    description: "The assessed additions value"
+    type: float
+    values:
+        - parse `additions`
+- [ ] `assessment_value`
+    description: "The total assessed value"
+    type: float
+    values:
+        - parse `assessed_value`
+- [ ] `source`
+    description: "The event source"
+    type: str
+    values:
+        - set to "Redfin"
+
+4. Create records in table `property_valuations`
+Keep the current processing logic. However, adjust the estimated_at column. Instead of using the processing time use the `loaded_at` value from `staging_redfin_listings`
+
+5. Write tests for the above to verify that the values are being parsed correctly.

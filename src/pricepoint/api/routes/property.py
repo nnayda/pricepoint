@@ -26,7 +26,14 @@ from pricepoint.api.schemas.property import (
     ValuationData,
 )
 from pricepoint.config.settings import get_settings
-from pricepoint.db.models import PropertyDetail, PropertySchool, PropertyValuation, School
+from pricepoint.db.models import (
+    PropertySchool,
+    PropertyValuation,
+    RedfinListing,
+    SaleHistoryRecord,
+    School,
+    TaxHistoryRecord,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +41,7 @@ router = APIRouter(tags=["property"])
 
 
 def _build_response_from_db(
-    prop: PropertyDetail,
+    prop: RedfinListing,
     db: Session,
     lat: float,
     lon: float,
@@ -76,36 +83,52 @@ def _build_response_from_db(
         for link, school in school_links
     ]
 
-    # Build sale history
-    sale_history = []
-    if prop.sale_history:
-        for entry in prop.sale_history:
-            if entry.get("date") and entry.get("price") is not None:
-                sale_history.append(
-                    SaleHistoryEntry(
-                        date=entry["date"],
-                        price=entry["price"],
-                        event_type=entry.get("event_type", "Sold"),
-                    )
-                )
+    # Build sale history from relational table
+    sale_records = (
+        db.execute(
+            select(SaleHistoryRecord)
+            .where(SaleHistoryRecord.property_id == prop.id)
+            .order_by(SaleHistoryRecord.date)
+        )
+        .scalars()
+        .all()
+    )
 
-    # Build tax history
-    tax_history = []
-    if prop.tax_history:
-        for entry in prop.tax_history:
-            if entry.get("year") is not None:
-                tax_history.append(
-                    TaxHistoryEntry(
-                        year=entry["year"],
-                        assessed_value=entry.get("assessed_value") or 0.0,
-                        tax_amount=entry.get("tax_amount") or 0.0,
-                    )
-                )
+    sale_history = [
+        SaleHistoryEntry(
+            date=rec.date.strftime("%Y-%m-%d") if rec.date else "",
+            price=rec.price or 0.0,
+            event_type=rec.event or "Sold",
+        )
+        for rec in sale_records
+        if rec.date and rec.price is not None
+    ]
+
+    # Build tax history from relational table
+    tax_records = (
+        db.execute(
+            select(TaxHistoryRecord)
+            .where(TaxHistoryRecord.property_id == prop.id)
+            .order_by(TaxHistoryRecord.date.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+    tax_history = [
+        TaxHistoryEntry(
+            year=rec.date.year if rec.date else 0,
+            assessed_value=rec.assessment_value or 0.0,
+            tax_amount=rec.property_tax or 0.0,
+        )
+        for rec in tax_records
+        if rec.date
+    ]
 
     # Build images from S3 paths — prefix with /api/photos/ for browser access
     images = []
-    if prop.photo_s3_paths:
-        for i, path in enumerate(prop.photo_s3_paths):
+    if prop.property_photos:
+        for i, path in enumerate(prop.property_photos):
             images.append(
                 PropertyImage(
                     url=f"/api/photos/{path}",
@@ -114,22 +137,31 @@ def _build_response_from_db(
                 )
             )
 
+    # Build full address for display
+    full_address = prop.street_address or ""
+    if prop.city:
+        full_address += f", {prop.city}"
+    if prop.state:
+        full_address += f", {prop.state}"
+    if prop.zip_code:
+        full_address += f" {prop.zip_code}"
+
     return PropertyResponse(
         property=PropertyDetails(
-            address=prop.address,
+            address=full_address,
             city=prop.city or "",
             state=prop.state or "",
             zip_code=prop.zip_code or "",
             lat=lat,
             lon=lon,
-            bedrooms=prop.beds or 0,
-            bathrooms=prop.baths or 0.0,
+            bedrooms=prop.num_beds or 0,
+            bathrooms=prop.num_baths or 0.0,
             sqft=prop.sqft or 0,
-            lot_size_sqft=int(prop.lot_size_sqft) if prop.lot_size_sqft else 0,
+            lot_size_sqft=int(prop.lot_size * 43560) if prop.lot_size else 0,
             year_built=prop.year_built or 0,
-            property_type=prop.property_type or "Single Family",
-            stories=prop.stories or 1,
-            garage_spaces=prop.garage_spaces or 0,
+            property_type="Single Family",
+            stories=int(prop.num_stories) if prop.num_stories else 1,
+            garage_spaces=prop.num_garage_spaces or 0,
             description=prop.description or "",
             highlights=[],
             images=images,
@@ -149,34 +181,34 @@ def _build_response_from_db(
             ),
         ),
         interior=InteriorFeatures(
-            flooring=prop.flooring or [],
-            appliances=prop.appliances or [],
-            heating=prop.heating or "Unknown",
-            cooling=prop.cooling or "Unknown",
-            fireplace=prop.fireplace is not None and prop.fireplace.lower() != "none",
-            basement=prop.basement,
+            flooring=[],
+            appliances=[],
+            heating="Unknown",
+            cooling="Unknown",
+            fireplace=prop.has_fireplace or False,
+            basement=None,
         ),
         exterior=ExteriorFeatures(
-            roof=prop.roof or "Unknown",
-            siding=prop.siding or "Unknown",
-            foundation=prop.foundation or "Unknown",
-            parking=prop.parking or "None",
-            pool=prop.pool is not None and prop.pool.lower() not in ("none", "no"),
-            fence=prop.fence or "None",
+            roof="Unknown",
+            siding=prop.facade_type or "Unknown",
+            foundation="Unknown",
+            parking=prop.parking_type or "None",
+            pool=prop.has_private_pool or False,
+            fence="None",
         ),
         financial=FinancialDetails(
-            hoa_monthly=prop.hoa_monthly,
-            tax_annual=prop.tax_annual or 0.0,
-            tax_year=prop.tax_year or 0,
-            assessed_value=prop.assessed_value or 0.0,
+            hoa_monthly=(prop.association_fee / 12) if prop.association_fee else None,
+            tax_annual=tax_history[0].tax_amount if tax_history else 0.0,
+            tax_year=tax_history[0].year if tax_history else 0,
+            assessed_value=tax_history[0].assessed_value if tax_history else 0.0,
         ),
         schools=schools,
         sale_history=sale_history,
         tax_history=tax_history,
         climate_risk=ClimateRisk(
-            flood_risk=prop.flood_risk or "Unknown",
+            flood_risk=prop.flood_factor or "Unknown",
             flood_score=prop.flood_score or 0,
-            fire_risk=prop.fire_risk or "Unknown",
+            fire_risk=prop.fire_factor or "Unknown",
             fire_score=prop.fire_score or 0,
         ),
     )
@@ -377,12 +409,12 @@ async def get_property(
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
     prop = db.execute(
-        select(PropertyDetail)
+        select(RedfinListing)
         .where(
-            PropertyDetail.location.isnot(None),
-            ST_DWithin(PropertyDetail.location, point, tolerance),
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, tolerance),
         )
-        .order_by(ST_Distance(PropertyDetail.location, point))
+        .order_by(ST_Distance(RedfinListing.location, point))
         .limit(1)
     ).scalar_one_or_none()
 
@@ -392,29 +424,27 @@ async def get_property(
     # 2. Address text match — Nominatim display_name varies:
     #      "100, Clendenen Court, Preston, Cary, ..."   (number, street, ...)
     #      "100 Clendenen Ct, Cary, NC 27513, US"       (number street, ...)
-    #    DB stores Redfin form: "100 Clendenen Ct, Cary, NC 27513".
+    #    DB stores Redfin form: "100 Clendenen Ct" in street_address.
     #    Extract house number + street keyword and ILIKE match.
     parts = [p.strip() for p in address.split(",") if p.strip()]
     house_number = parts[0] if parts else ""
     street_name = parts[1] if len(parts) > 1 else ""
 
     # If the first part has spaces (e.g. "100 Clendenen Ct"), it already
-    # includes the street — use it as-is for a prefix match.
+    # includes the street — use it for a prefix match on street_address.
     if " " in house_number:
         prop = db.execute(
-            select(PropertyDetail)
-            .where(PropertyDetail.address.startswith(house_number + ","))
+            select(RedfinListing)
+            .where(RedfinListing.street_address.startswith(house_number))
             .limit(1)
         ).scalar_one_or_none()
     elif house_number and street_name:
         # Nominatim splits "100" and "Clendenen Court" into separate parts.
-        # Use the first word of the street name to avoid abbreviation mismatches
-        # (e.g. "Court" vs "Ct"). ILIKE '100 Clendenen%' matches the DB row.
         street_keyword = street_name.split()[0] if street_name else ""
         if street_keyword:
             prop = db.execute(
-                select(PropertyDetail)
-                .where(PropertyDetail.address.ilike(f"{house_number} {street_keyword}%"))
+                select(RedfinListing)
+                .where(RedfinListing.street_address.ilike(f"{house_number} {street_keyword}%"))
                 .limit(1)
             ).scalar_one_or_none()
 
