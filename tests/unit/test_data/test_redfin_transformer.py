@@ -989,6 +989,103 @@ class TestParseSchoolDesc:
 
 
 # ---------------------------------------------------------------------------
+# Case-insensitive matching tests
+# ---------------------------------------------------------------------------
+class TestCaseInsensitive:
+    """Verify that parsing functions handle mixed-case input correctly."""
+
+    # Equality checks (Yes/No)
+    def test_garage_lowercase(self):
+        assert parse_has_garage({"garage": "yes"}) is True
+
+    def test_garage_uppercase(self):
+        assert parse_has_garage({"garage": "YES"}) is True
+
+    def test_fireplace_lowercase(self):
+        assert parse_has_fireplace({"fireplace": "yes"}) is True
+
+    def test_crawl_space_mixed_case(self):
+        assert parse_has_crawl_space({"crawl_space": "YES"}) is True
+
+    def test_no_heating_lowercase(self):
+        assert parse_no_heating({"heating": "no"}) is True
+
+    def test_no_cooling_uppercase(self):
+        assert parse_no_cooling({"cooling": "NO"}) is True
+
+    def test_hoa_mixed_case(self):
+        assert parse_has_hoa({"association": "yEs"}) is True
+
+    # Keyword checks in strings
+    def test_facade_uppercase_brick(self):
+        assert parse_facade_type({"construction_materials": "BRICK"}) == "Masonry"
+
+    def test_facade_mixed_case(self):
+        assert parse_facade_type({"construction_materials": "vinyl Siding"}) == "Synthetic"
+
+    def test_parking_type_lowercase(self):
+        assert parse_parking_type({"parking_features": "attached"}) == "Attached Garage"
+
+    def test_parking_type_uppercase(self):
+        assert parse_parking_type({"parking_features": "DETACHED"}) == "Detached Garage"
+
+    def test_driveway_mixed_case(self):
+        assert parse_driveway_surface({"parking_features": "CONCRETE"}) == "Paved"
+
+    def test_water_heater_mixed_case(self):
+        assert parse_water_heater_energy_source({"appliances": "gas water heater"}) == "Gas"
+
+    def test_cooktop_uppercase(self):
+        assert parse_cooktop_energy_source({"appliances": "GAS COOKTOP"}) == "Gas"
+
+    def test_oven_mixed_case(self):
+        assert parse_oven_energy_source({"appliances": "Electric Oven"}) == "Electric"
+
+    def test_countertop_uppercase(self):
+        assert parse_countertop_material({"interior_features": "QUARTZ COUNTERS"}) == "Ultra"
+
+    def test_laundry_location_uppercase(self):
+        assert parse_laundry_location({"laundry_features": "UPPER Level"}) == "Upper"
+
+    def test_fireplace_fuel_mixed_case(self):
+        assert parse_fireplace_fuel_source({"fireplace_features": "gas log"}) == "Gas"
+
+    # Boolean keyword checks
+    def test_has_skylight_uppercase(self):
+        assert parse_has_skylights({"window_features": "SKYLIGHT"}) is True
+
+    def test_has_sauna_lowercase(self):
+        assert parse_has_sauna({"interior_features": "sauna, Bar"}) is True
+
+    def test_has_open_floorplan_uppercase(self):
+        assert parse_has_open_floorplan({"interior_features": "OPEN FLOORPLAN"}) is True
+
+    def test_is_waterfront_lowercase(self):
+        assert parse_is_waterfront({"waterfront": "yes"}) is True
+
+    def test_septic_uppercase(self):
+        assert parse_is_septic({"sewer": "SEPTIC TANK"}) is True
+
+    def test_well_water_mixed_case(self):
+        assert parse_is_well_water({"water_source": "well"}) is True
+
+    def test_enclosed_porch_uppercase(self):
+        assert parse_has_enclosed_porch({"patio_and_porch_features": "SCREENED"}) is True
+
+    def test_fenced_yard_uppercase(self):
+        assert parse_has_fenced_yard({"fencing": "WOOD"}) is True
+
+    def test_garden_mixed_case(self):
+        assert parse_has_garden({"exterior_features": "garden"}) is True
+
+    def test_carpet_free_uppercase(self):
+        assert parse_is_carpet_free({"flooring": "CARPET, Tile"}) is False
+
+    def test_hardwood_mixed_case(self):
+        assert parse_has_hardwood({"flooring": "WOOD"}) is True
+
+
+# ---------------------------------------------------------------------------
 # Hash tests
 # ---------------------------------------------------------------------------
 class TestComputeHash:

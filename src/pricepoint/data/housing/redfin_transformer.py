@@ -237,7 +237,7 @@ def _contains_any(items: list[str] | str | None, targets: list[str]) -> bool:
 
 def parse_has_garage(details: dict[str, Any]) -> bool:
     """True if property_details.garage == 'Yes'."""
-    return _get_str(details, "garage") == "Yes"
+    return (_get_str(details, "garage") or "").lower() == "yes"
 
 
 def parse_num_garage_spaces(details: dict[str, Any]) -> int:
@@ -247,47 +247,47 @@ def parse_num_garage_spaces(details: dict[str, Any]) -> int:
 
 def parse_parking_type(details: dict[str, Any]) -> str | None:
     """Determine parking type from details, in order of precedence."""
-    attached = _get_str(details, "attached_garage")
-    parking = _get_str(details, "parking_features") or ""
+    attached = (_get_str(details, "attached_garage") or "").lower()
+    parking = (_get_str(details, "parking_features") or "").lower()
 
-    if attached == "Yes" or "Attached" in parking:
+    if attached == "yes" or "attached" in parking:
         return "Attached Garage"
-    if "Detached" in parking:
+    if "detached" in parking:
         return "Detached Garage"
-    if "Carport" in parking or "Covered" in parking:
+    if "carport" in parking or "covered" in parking:
         return "Carport"
-    if "On Street" in parking:
+    if "on street" in parking:
         return "Street"
-    if _get_str(details, "garage") == "Yes":
+    if (_get_str(details, "garage") or "").lower() == "yes":
         return "Garage"
     return None
 
 
 def parse_garage_entry(details: dict[str, Any]) -> str | None:
     """Determine garage entry orientation from parking_features."""
-    parking = _get_str(details, "parking_features") or ""
-    if "Garage Faces Front" in parking:
+    parking = (_get_str(details, "parking_features") or "").lower()
+    if "garage faces front" in parking:
         return "Front"
-    if "Garage Faces Side" in parking:
+    if "garage faces side" in parking:
         return "Side"
-    if "Garage Faces Rear" in parking:
+    if "garage faces rear" in parking:
         return "Rear"
     return None
 
 
 def parse_driveway_surface(details: dict[str, Any]) -> str | None:
     """Determine driveway surface type from parking_features."""
-    parking = _get_str(details, "parking_features") or ""
+    parking = (_get_str(details, "parking_features") or "").lower()
     paved_keywords = [
-        "Concrete",
-        "Parking Pad",
-        "Paved",
-        "Asphalt",
-        "Paver Block",
-        "Brick",
-        "Paver",
+        "concrete",
+        "parking pad",
+        "paved",
+        "asphalt",
+        "paver block",
+        "brick",
+        "paver",
     ]
-    unpaved_keywords = ["Gravel", "Unpaved", "Dirt", "Crushed Stone", "Stone"]
+    unpaved_keywords = ["gravel", "unpaved", "dirt", "crushed stone", "stone"]
     if any(kw in parking for kw in paved_keywords):
         return "Paved"
     if any(kw in parking for kw in unpaved_keywords):
@@ -297,54 +297,55 @@ def parse_driveway_surface(details: dict[str, Any]) -> str | None:
 
 def parse_has_workshop(details: dict[str, Any]) -> bool:
     """True if parking_features or other_structures contains 'Workshop'."""
-    parking = _get_str(details, "parking_features") or ""
-    other = _get_str(details, "other_structures") or ""
-    return "Workshop in Garage" in parking or "Workshop" in other
+    parking = (_get_str(details, "parking_features") or "").lower()
+    other = (_get_str(details, "other_structures") or "").lower()
+    return "workshop in garage" in parking or "workshop" in other
 
 
 def parse_has_circular_driveway(details: dict[str, Any]) -> bool:
     """True if parking_features contains 'Circular Driveway'."""
-    return "Circular Driveway" in (_get_str(details, "parking_features") or "")
+    return "circular driveway" in (_get_str(details, "parking_features") or "").lower()
 
 
 def parse_has_ev_charging(details: dict[str, Any]) -> bool:
     """True if parking_features contains 'Electric Vehicle Charging Station(s)'."""
-    return "Electric Vehicle Charging Station(s)" in (_get_str(details, "parking_features") or "")
+    parking = (_get_str(details, "parking_features") or "").lower()
+    return "electric vehicle charging station(s)" in parking
 
 
 def parse_has_fireplace(details: dict[str, Any]) -> bool:
     """True if property_details.fireplace == 'Yes'."""
-    return _get_str(details, "fireplace") == "Yes"
+    return (_get_str(details, "fireplace") or "").lower() == "yes"
 
 
 def parse_water_heater_energy_source(details: dict[str, Any]) -> str:
     """Determine water heater energy source from appliances."""
-    appliances = _get_str(details, "appliances") or ""
-    if "Gas Water Heater" in appliances or "Propane Water Heater" in appliances:
+    appliances = (_get_str(details, "appliances") or "").lower()
+    if "gas water heater" in appliances or "propane water heater" in appliances:
         return "Gas"
-    if "Electric Water Heater" in appliances:
+    if "electric water heater" in appliances:
         return "Electric"
-    if "Solar Hot Water" in appliances:
+    if "solar hot water" in appliances:
         return "Solar"
     return "UNKNOWN"
 
 
 def parse_cooktop_energy_source(details: dict[str, Any]) -> str | None:
     """Determine cooktop energy source from appliances."""
-    appliances = _get_str(details, "appliances") or ""
+    appliances = (_get_str(details, "appliances") or "").lower()
     gas_keywords = [
-        "Gas Cooktop",
-        "Gas Range",
-        "Built-In Gas Range",
-        "Free-Standing Gas Range",
-        "Propane Cooktop",
+        "gas cooktop",
+        "gas range",
+        "built-in gas range",
+        "free-standing gas range",
+        "propane cooktop",
     ]
     electric_keywords = [
-        "Electric Range",
-        "Electric Cooktop",
-        "Free-Standing Electric Range",
-        "Induction Cooktop",
-        "Built-In Electric Range",
+        "electric range",
+        "electric cooktop",
+        "free-standing electric range",
+        "induction cooktop",
+        "built-in electric range",
     ]
     if any(kw in appliances for kw in gas_keywords):
         return "Gas"
@@ -355,13 +356,13 @@ def parse_cooktop_energy_source(details: dict[str, Any]) -> str | None:
 
 def parse_oven_energy_source(details: dict[str, Any]) -> str:
     """Determine oven energy source from appliances."""
-    appliances = _get_str(details, "appliances") or ""
-    gas_keywords = ["Gas Oven", "Free-Standing Gas Oven"]
+    appliances = (_get_str(details, "appliances") or "").lower()
+    gas_keywords = ["gas oven", "free-standing gas oven"]
     electric_keywords = [
-        "Electric Oven",
-        "Built-In Electric Oven",
-        "Built-In Gas Oven",
-        "Free-Standing Electric Oven",
+        "electric oven",
+        "built-in electric oven",
+        "built-in gas oven",
+        "free-standing electric oven",
     ]
     if any(kw in appliances for kw in gas_keywords):
         return "Gas"
@@ -372,31 +373,31 @@ def parse_oven_energy_source(details: dict[str, Any]) -> str:
 
 def parse_has_drink_fridge(details: dict[str, Any]) -> bool:
     """True if appliances contains wine/beverage fridge."""
-    appliances = _get_str(details, "appliances") or ""
-    return any(kw in appliances for kw in ["Bar Fridge", "Wine Refrigerator", "Wine Cooler"])
+    appliances = (_get_str(details, "appliances") or "").lower()
+    return any(kw in appliances for kw in ["bar fridge", "wine refrigerator", "wine cooler"])
 
 
 def parse_has_stainless_appliances(details: dict[str, Any]) -> bool:
     """True if appliances contains 'Stainless Steel Appliance(s)'."""
-    return "Stainless Steel Appliance(s)" in (_get_str(details, "appliances") or "")
+    return "stainless steel appliance(s)" in (_get_str(details, "appliances") or "").lower()
 
 
 def parse_appliances_included_count(details: dict[str, Any]) -> int:
     """Count of included appliances (fridge, washer, dryer) from 0-3."""
-    appliances = _get_str(details, "appliances") or ""
+    appliances = (_get_str(details, "appliances") or "").lower()
     count = 0
-    fridge_keywords = ["Refrigerator", "Free-Standing Refrigerator", "Built-In Refrigerator"]
+    fridge_keywords = ["refrigerator", "free-standing refrigerator", "built-in refrigerator"]
     washer_keywords = [
-        "Washer",
-        "Washer/Dryer",
-        "Washer/Dryer Stacked",
-        "ENERGY STAR Qualified Washer",
+        "washer",
+        "washer/dryer",
+        "washer/dryer stacked",
+        "energy star qualified washer",
     ]
     dryer_keywords = [
-        "Dryer",
-        "Washer/Dryer",
-        "Washer/Dryer Stacked",
-        "ENERGY STAR Qualified Dryer",
+        "dryer",
+        "washer/dryer",
+        "washer/dryer stacked",
+        "energy star qualified dryer",
     ]
     if any(kw in appliances for kw in fridge_keywords):
         count += 1
@@ -409,162 +410,162 @@ def parse_appliances_included_count(details: dict[str, Any]) -> int:
 
 def parse_has_efficient_windows(details: dict[str, Any]) -> bool:
     """True if window_features contains energy-efficient window types."""
-    windows = _get_str(details, "window_features") or ""
+    windows = (_get_str(details, "window_features") or "").lower()
     keywords = [
-        "Insulated Windows",
-        "Double Pane Windows",
-        "Low-Emissivity Windows",
-        "ENERGY STAR Qualified Windows",
-        "Triple Pane Windows",
+        "insulated windows",
+        "double pane windows",
+        "low-emissivity windows",
+        "energy star qualified windows",
+        "triple pane windows",
     ]
     return any(kw in windows for kw in keywords)
 
 
 def parse_has_skylights(details: dict[str, Any]) -> bool:
     """True if window_features contains 'Skylight'."""
-    return "Skylight" in (_get_str(details, "window_features") or "")
+    return "skylight" in (_get_str(details, "window_features") or "").lower()
 
 
 def parse_has_bay_window(details: dict[str, Any]) -> bool:
     """True if window_features contains 'Bay' or 'Garden'."""
-    windows = _get_str(details, "window_features") or ""
-    return "Bay" in windows or "Garden" in windows
+    windows = (_get_str(details, "window_features") or "").lower()
+    return "bay" in windows or "garden" in windows
 
 
 def parse_laundry_location(details: dict[str, Any]) -> str:
     """Determine laundry location from laundry_features, in order of precedence."""
-    laundry = _get_str(details, "laundry_features") or ""
-    if "Upper" in laundry:
+    laundry = (_get_str(details, "laundry_features") or "").lower()
+    if "upper" in laundry:
         return "Upper"
-    if "Main" in laundry:
+    if "main" in laundry:
         return "Main"
-    if "Lower" in laundry or "Basement" in laundry:
+    if "lower" in laundry or "basement" in laundry:
         return "Basement"
-    if "Garage" in laundry or "Outside" in laundry:
+    if "garage" in laundry or "outside" in laundry:
         return "Garage/Out"
     return "Standard"
 
 
 def parse_has_laundry_room(details: dict[str, Any]) -> bool:
     """True if laundry_features contains 'Laundry Room'."""
-    return "Laundry Room" in (_get_str(details, "laundry_features") or "")
+    return "laundry room" in (_get_str(details, "laundry_features") or "").lower()
 
 
 def parse_has_utility_sink(details: dict[str, Any]) -> bool:
     """True if laundry_features contains 'Sink'."""
-    return "Sink" in (_get_str(details, "laundry_features") or "")
+    return "sink" in (_get_str(details, "laundry_features") or "").lower()
 
 
 def parse_countertop_material(details: dict[str, Any]) -> str:
     """Determine countertop material grade from interior_features."""
-    interior = _get_str(details, "interior_features") or ""
-    if "Quartz Counters" in interior:
+    interior = (_get_str(details, "interior_features") or "").lower()
+    if "quartz counters" in interior:
         return "Ultra"
-    if "Granite Counters" in interior or "Stone Counters" in interior:
+    if "granite counters" in interior or "stone counters" in interior:
         return "Premium"
-    if "Tile Counters" in interior or "Laminate Counters" in interior:
+    if "tile counters" in interior or "laminate counters" in interior:
         return "Standard"
     return "Unknown"
 
 
 def parse_is_primary_downstairs(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Primary Downstairs'."""
-    return "Primary Downstairs" in (_get_str(details, "interior_features") or "")
+    return "primary downstairs" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_guest_suite(details: dict[str, Any]) -> bool:
     """True if interior_features contains in-law/guest suite indicators."""
-    interior = _get_str(details, "interior_features") or ""
+    interior = (_get_str(details, "interior_features") or "").lower()
     return any(
         kw in interior
         for kw in [
-            "In-Law Floorplan",
-            "Second Primary Bedroom",
-            "Apartment/Suite, Room Over Garage",
+            "in-law floorplan",
+            "second primary bedroom",
+            "apartment/suite, room over garage",
         ]
     )
 
 
 def parse_has_butler_pantry(details: dict[str, Any]) -> bool:
     """True if interior_features contains \"Butler's Pantry\"."""
-    return "Butler's Pantry" in (_get_str(details, "interior_features") or "")
+    return "butler's pantry" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_walkin_closets(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Walk-In Closet(s)'."""
-    return "Walk-In Closet(s)" in (_get_str(details, "interior_features") or "")
+    return "walk-in closet(s)" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_tall_ceilings(details: dict[str, Any]) -> bool:
     """True if interior_features contains high/vaulted/cathedral ceilings."""
-    interior = _get_str(details, "interior_features") or ""
+    interior = (_get_str(details, "interior_features") or "").lower()
     return any(
-        kw in interior for kw in ["High Ceilings", "Vaulted Ceiling(s)", "Cathedral Ceiling(s)"]
+        kw in interior for kw in ["high ceilings", "vaulted ceiling(s)", "cathedral ceiling(s)"]
     )
 
 
 def parse_has_luxury_ceilings(details: dict[str, Any]) -> bool:
     """True if interior_features contains tray/coffered/beamed ceilings."""
-    interior = _get_str(details, "interior_features") or ""
+    interior = (_get_str(details, "interior_features") or "").lower()
     return any(
-        kw in interior for kw in ["Tray Ceiling(s)", "Coffered Ceiling(s)", "Beamed Ceilings"]
+        kw in interior for kw in ["tray ceiling(s)", "coffered ceiling(s)", "beamed ceilings"]
     )
 
 
 def parse_has_sauna(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Sauna'."""
-    return "Sauna" in (_get_str(details, "interior_features") or "")
+    return "sauna" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_bar(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Bar'."""
-    return "Bar" in (_get_str(details, "interior_features") or "")
+    return "bar" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_second_primary(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Second Primary Bedroom'."""
-    return "Second Primary Bedroom" in (_get_str(details, "interior_features") or "")
+    return "second primary bedroom" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_room_over_garage(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Room Over Garage'."""
-    return "Room Over Garage" in (_get_str(details, "interior_features") or "")
+    return "room over garage" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_open_floorplan(details: dict[str, Any]) -> bool:
     """True if interior_features contains 'Open Floorplan'."""
-    return "Open Floorplan" in (_get_str(details, "interior_features") or "")
+    return "open floorplan" in (_get_str(details, "interior_features") or "").lower()
 
 
 def parse_has_outdoor_fireplace(details: dict[str, Any]) -> bool:
     """True if fireplace_features contains 'Outside' or 'Fire Pit'."""
-    features = _get_str(details, "fireplace_features") or ""
-    return "Outside" in features or "Fire Pit" in features
+    features = (_get_str(details, "fireplace_features") or "").lower()
+    return "outside" in features or "fire pit" in features
 
 
 def parse_has_primary_fireplace(details: dict[str, Any]) -> bool:
     """True if fireplace_features contains primary bedroom/bath indicators."""
-    features = _get_str(details, "fireplace_features") or ""
-    return any(kw in features for kw in ["Primary Bedroom", "Bedroom", "Bath"])
+    features = (_get_str(details, "fireplace_features") or "").lower()
+    return any(kw in features for kw in ["primary bedroom", "bedroom", "bath"])
 
 
 def parse_has_architectural_fireplace(details: dict[str, Any]) -> bool:
     """True if fireplace_features contains 'Double Sided' or 'See Through'."""
-    features = _get_str(details, "fireplace_features") or ""
-    return "Double Sided" in features or "See Through" in features
+    features = (_get_str(details, "fireplace_features") or "").lower()
+    return "double sided" in features or "see through" in features
 
 
 def parse_fireplace_fuel_source(details: dict[str, Any]) -> str:
     """Determine fireplace fuel source from fireplace_features."""
-    features = _get_str(details, "fireplace_features") or ""
-    gas_keywords = ["Gas Log", "Gas", "Sealed Combustion", "Propane"]
-    wood_keywords = ["Wood Burning", "Masonry", "Wood Burning Stove"]
+    features = (_get_str(details, "fireplace_features") or "").lower()
+    gas_keywords = ["gas log", "gas", "sealed combustion", "propane"]
+    wood_keywords = ["wood burning", "masonry", "wood burning stove"]
     # Check gas first (in precedence order)
     if any(kw in features for kw in gas_keywords):
         return "Gas"
     if any(kw in features for kw in wood_keywords):
         return "Wood"
-    if "Electric" in features:
+    if "electric" in features:
         return "Electric"
     return "Unknown"
 
@@ -576,42 +577,42 @@ def parse_num_fireplaces(details: dict[str, Any]) -> int:
 
 def parse_is_carpet_free(details: dict[str, Any]) -> bool:
     """True if flooring does not contain 'Carpet'."""
-    flooring = _get_str(details, "flooring") or ""
-    return "Carpet" not in flooring
+    flooring = (_get_str(details, "flooring") or "").lower()
+    return "carpet" not in flooring
 
 
 def parse_has_premium_stone(details: dict[str, Any]) -> bool:
     """True if flooring contains premium stone types."""
-    flooring = _get_str(details, "flooring") or ""
-    return any(kw in flooring for kw in ["Marble", "Slate", "Granite", "Stone"])
+    flooring = (_get_str(details, "flooring") or "").lower()
+    return any(kw in flooring for kw in ["marble", "slate", "granite", "stone"])
 
 
 def parse_has_hardwood(details: dict[str, Any]) -> bool:
     """True if flooring contains hardwood types."""
-    flooring = _get_str(details, "flooring") or ""
-    keywords = ["Wood", "Bamboo", "Parquet", "Cork", "FSC or SFI Certified Source Hardwood"]
+    flooring = (_get_str(details, "flooring") or "").lower()
+    keywords = ["wood", "bamboo", "parquet", "cork", "fsc or sfi certified source hardwood"]
     return any(kw in flooring for kw in keywords)
 
 
 def parse_has_crawl_space(details: dict[str, Any]) -> bool:
     """True if property_details.crawl_space == 'Yes'."""
-    return _get_str(details, "crawl_space") == "Yes"
+    return (_get_str(details, "crawl_space") or "").lower() == "yes"
 
 
 def parse_facade_type(details: dict[str, Any]) -> str | None:
     """Determine facade type from construction_materials, in order of precedence."""
-    materials = _get_str(details, "construction_materials") or ""
-    masonry = ["Brick", "Stone", "Stucco", "Block", "Plaster"]
-    fiber_cement = ["Fiber Cement", "HardiPlank", "Cement"]
-    synthetic = ["Vinyl", "Metal", "Aluminum"]
+    materials = (_get_str(details, "construction_materials") or "").lower()
+    masonry = ["brick", "stone", "stucco", "block", "plaster"]
+    fiber_cement = ["fiber cement", "hardiplank", "cement"]
+    synthetic = ["vinyl", "metal", "aluminum"]
     wood = [
-        "Masonite",
-        "Wood",
-        "Cedar",
-        "Shake",
-        "Log",
-        "Board & Batten Siding",
-        "Lap Siding",
+        "masonite",
+        "wood",
+        "cedar",
+        "shake",
+        "log",
+        "board & batten siding",
+        "lap siding",
     ]
     if any(kw in materials for kw in masonry):
         return "Masonry"
@@ -730,90 +731,91 @@ def parse_lot_size_from_staging(lot_str: str | None) -> float | None:
 
 def parse_is_waterfront(details: dict[str, Any]) -> bool:
     """True if waterfront property."""
-    if _get_str(details, "waterfront") == "Yes":
+    if (_get_str(details, "waterfront") or "").lower() == "yes":
         return True
-    features = _get_str(details, "features") or ""
-    return "Waterfront" in features
+    features = (_get_str(details, "features") or "").lower()
+    return "waterfront" in features
 
 
 def parse_is_septic(details: dict[str, Any]) -> bool:
     """True if sewer contains 'Septic' or 'Private Sewer'."""
-    sewer = _get_str(details, "sewer") or ""
-    return "Septic" in sewer or "Private Sewer" in sewer
+    sewer = (_get_str(details, "sewer") or "").lower()
+    return "septic" in sewer or "private sewer" in sewer
 
 
 def parse_is_well_water(details: dict[str, Any]) -> bool:
     """True if water_source contains 'Well' or 'Private'."""
-    water = _get_str(details, "water_source") or ""
-    return "Well" in water or "Private" in water
+    water = (_get_str(details, "water_source") or "").lower()
+    return "well" in water or "private" in water
 
 
 def parse_no_heating(details: dict[str, Any]) -> bool:
     """True if heating is explicitly 'No'."""
-    return _get_str(details, "heating") == "No"
+    return (_get_str(details, "heating") or "").lower() == "no"
 
 
 def parse_no_cooling(details: dict[str, Any]) -> bool:
     """True if cooling is explicitly 'No'."""
-    return _get_str(details, "cooling") == "No"
+    return (_get_str(details, "cooling") or "").lower() == "no"
 
 
 def parse_has_hoa(details: dict[str, Any]) -> bool:
     """True if association == 'Yes'."""
-    return _get_str(details, "association") == "Yes"
+    return (_get_str(details, "association") or "").lower() == "yes"
 
 
 def parse_has_enclosed_porch(details: dict[str, Any]) -> bool:
     """True if patio_and_porch_features contains 'Screened' or 'Enclosed'."""
-    patio = _get_str(details, "patio_and_porch_features") or ""
-    return "Screened" in patio or "Enclosed" in patio
+    patio = (_get_str(details, "patio_and_porch_features") or "").lower()
+    return "screened" in patio or "enclosed" in patio
 
 
 def parse_has_front_porch(details: dict[str, Any]) -> bool:
     """True if patio_and_porch_features contains 'Front Porch' or 'Wrap Around'."""
-    patio = _get_str(details, "patio_and_porch_features") or ""
-    return "Front Porch" in patio or "Wrap Around" in patio
+    patio = (_get_str(details, "patio_and_porch_features") or "").lower()
+    return "front porch" in patio or "wrap around" in patio
 
 
 def parse_has_fenced_yard(details: dict[str, Any]) -> bool:
     """True if property has a fenced yard (not invisible/partial/electric fence)."""
     fencing = _get_str(details, "fencing")
     if fencing:
-        excluded = ["None", "Invisible", "Partial", "Electric"]
-        if not any(ex in fencing for ex in excluded):
+        fencing_lower = fencing.lower()
+        excluded = ["none", "invisible", "partial", "electric"]
+        if not any(ex in fencing_lower for ex in excluded):
             return True
-    exterior = _get_str(details, "exterior_features") or ""
-    return any(kw in exterior for kw in ["Fence", "Private Yard", "Dog Run"])
+    exterior = (_get_str(details, "exterior_features") or "").lower()
+    return any(kw in exterior for kw in ["fence", "private yard", "dog run"])
 
 
 def parse_has_outdoor_kitchen(details: dict[str, Any]) -> bool:
     """True if property has an outdoor kitchen."""
-    exterior = _get_str(details, "exterior_features") or ""
-    other = _get_str(details, "other_structures") or ""
+    exterior = (_get_str(details, "exterior_features") or "").lower()
+    other = (_get_str(details, "other_structures") or "").lower()
     return (
-        any(kw in exterior for kw in ["Kitchen", "Built-in Barbecue", "Gas Grill"])
-        or "Outdoor Kitchen" in other
+        any(kw in exterior for kw in ["kitchen", "built-in barbecue", "gas grill"])
+        or "outdoor kitchen" in other
     )
 
 
 def parse_has_sport_court(details: dict[str, Any]) -> bool:
     """True if property has a sport court."""
-    exterior = _get_str(details, "exterior_features") or ""
-    return any(kw in exterior for kw in ["Tennis Court(s)", "Basketball Court", "Arena"])
+    exterior = (_get_str(details, "exterior_features") or "").lower()
+    return any(kw in exterior for kw in ["tennis court(s)", "basketball court", "arena"])
 
 
 def parse_has_private_pool(details: dict[str, Any]) -> bool:
     """True if property has a private pool."""
-    exterior = _get_str(details, "exterior_features") or ""
-    features = _get_str(details, "features") or ""
-    pool = _get_str(details, "pool_features") or ""
+    exterior = (_get_str(details, "exterior_features") or "").lower()
+    features = (_get_str(details, "features") or "").lower()
+    pool = (_get_str(details, "pool_features") or "").lower()
 
-    if "Pool" in exterior:
+    if "pool" in exterior:
         return True
-    if "Pool" in features:
+    if "pool" in features:
         return True
     if pool:
-        community_keywords = ["Swimming Pool Com/Fee", "Community", "Association", "None"]
+        community_keywords = ["swimming pool com/fee", "community", "association", "none"]
         if not any(kw in pool for kw in community_keywords):
             return True
     return False
@@ -821,43 +823,43 @@ def parse_has_private_pool(details: dict[str, Any]) -> bool:
 
 def parse_has_community_pool(details: dict[str, Any]) -> bool:
     """True if property has access to a community pool."""
-    community = _get_str(details, "community_features") or ""
-    pool = _get_str(details, "pool_features") or ""
-    assoc = _get_str(details, "association_amenities") or ""
+    community = (_get_str(details, "community_features") or "").lower()
+    pool = (_get_str(details, "pool_features") or "").lower()
+    assoc = (_get_str(details, "association_amenities") or "").lower()
 
-    if "Pool" in community:
+    if "pool" in community:
         return True
-    if any(kw in pool for kw in ["Swimming Pool Com/Fee", "Community", "Association"]):
+    if any(kw in pool for kw in ["swimming pool com/fee", "community", "association"]):
         return True
-    return "Pool" in assoc
+    return "pool" in assoc
 
 
 def parse_has_clubhouse(details: dict[str, Any]) -> bool:
     """True if property has a community clubhouse."""
-    community = _get_str(details, "community_features") or ""
-    assoc = _get_str(details, "association_amenities") or ""
+    community = (_get_str(details, "community_features") or "").lower()
+    assoc = (_get_str(details, "association_amenities") or "").lower()
 
-    if "Clubhouse" in community:
+    if "clubhouse" in community:
         return True
-    return any(kw in assoc for kw in ["Clubhouse", "Recreation Facilities", "Fitness Center"])
+    return any(kw in assoc for kw in ["clubhouse", "recreation facilities", "fitness center"])
 
 
 def parse_has_exterior_storage(details: dict[str, Any]) -> bool:
     """True if property has exterior storage buildings."""
-    other = _get_str(details, "other_structures") or ""
-    exterior = _get_str(details, "exterior_features") or ""
+    other = (_get_str(details, "other_structures") or "").lower()
+    exterior = (_get_str(details, "exterior_features") or "").lower()
 
-    storage_other = ["Shed", "Storage", "Workshop", "Outbuilding", "Barn", "Second Garage"]
-    storage_ext = ["Storage", "Barn", "Equestrian Facilities", "Outbuilding", "Shed", "Stable"]
+    storage_other = ["shed", "storage", "workshop", "outbuilding", "barn", "second garage"]
+    storage_ext = ["storage", "barn", "equestrian facilities", "outbuilding", "shed", "stable"]
 
     return any(kw in other for kw in storage_other) or any(kw in exterior for kw in storage_ext)
 
 
 def parse_has_garden(details: dict[str, Any]) -> bool:
     """True if property has a garden or greenhouse."""
-    exterior = _get_str(details, "exterior_features") or ""
-    other = _get_str(details, "other_structures") or ""
-    return "Garden" in exterior or "Greenhouse" in exterior or "Greenhouse" in other
+    exterior = (_get_str(details, "exterior_features") or "").lower()
+    other = (_get_str(details, "other_structures") or "").lower()
+    return "garden" in exterior or "greenhouse" in exterior or "greenhouse" in other
 
 
 def parse_association_fee_yearly(details: dict[str, Any]) -> float | None:
