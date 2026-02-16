@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:32b"
+    ollama_vision_model: str = "llama3.2-vision:11b"
     ollama_max_concurrent: int = 4
     ollama_timeout_seconds: int = 120
 
