@@ -820,3 +820,30 @@ class LlmQualityScore(Base):
             name="uq_llm_score_listing_model",
         ),
     )
+
+
+class LlmPhotoScore(Base):
+    """LLM-based photo quality scores for property listings."""
+
+    __tablename__ = "llm_photo_scores"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    listing_id = Column(Integer, nullable=False, index=True)
+    model_name = Column(String, nullable=False)
+    model_version = Column(String, nullable=False)
+    photos_hash = Column(String(64), nullable=False)
+    visual_quality_score = Column(Integer, nullable=True)
+    visual_reasoning = Column(Text, nullable=True)
+    detected_features = Column(JSON, nullable=True)
+    renovation_level = Column(String, nullable=True)
+    raw_response = Column(JSON, nullable=False)
+    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "listing_id",
+            "model_name",
+            "model_version",
+            name="uq_llm_photo_score_listing_model",
+        ),
+    )
