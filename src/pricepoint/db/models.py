@@ -541,15 +541,15 @@ class StagingRedfinListing(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class PropertyDetail(Base):
-    """Production property record transformed from staging data."""
+class RedfinListing(Base):
+    """Production property record transformed from staging Redfin data (silver layer)."""
 
-    __tablename__ = "property_details"
+    __tablename__ = "redfin_listings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     # Location
-    address = Column(String, nullable=False, unique=True, index=True)
+    street_address = Column(String, nullable=False, index=True)
     city = Column(String, nullable=True)
     state = Column(String(2), nullable=True)
     zip_code = Column(String(10), nullable=True)
@@ -560,42 +560,111 @@ class PropertyDetail(Base):
     sold_date = Column(DateTime, nullable=True)
     sold_price = Column(Float, nullable=True)
     listing_price = Column(Float, nullable=True)
-    price_per_sqft = Column(Float, nullable=True)
-
-    # Stats
-    beds = Column(Integer, nullable=True)
-    baths = Column(Float, nullable=True)
-    sqft = Column(Integer, nullable=True)
-    lot_size_sqft = Column(Float, nullable=True)
-    year_built = Column(Integer, nullable=True)
-    property_type = Column(String, nullable=True)
-    stories = Column(Integer, nullable=True)
-
-    # Description
     description = Column(Text, nullable=True)
 
-    # Interior (extracted from JSON)
-    flooring = Column(JSON, nullable=True)
-    appliances = Column(JSON, nullable=True)
-    heating = Column(String, nullable=True)
-    cooling = Column(String, nullable=True)
-    fireplace = Column(String, nullable=True)
-    basement = Column(String, nullable=True)
+    # Climate risk
+    flood_factor = Column(String, nullable=True)
+    fire_factor = Column(String, nullable=True)
+    flood_score = Column(Integer, nullable=True)
+    fire_score = Column(Integer, nullable=True)
 
-    # Exterior (extracted from JSON)
-    roof = Column(String, nullable=True)
-    siding = Column(String, nullable=True)
-    foundation = Column(String, nullable=True)
-    parking = Column(String, nullable=True)
-    garage_spaces = Column(Integer, nullable=True)
-    pool = Column(String, nullable=True)
-    fence = Column(String, nullable=True)
+    # Parking
+    has_garage = Column(Boolean, default=False, server_default=text("false"))
+    num_garage_spaces = Column(Integer, nullable=True)
+    parking_type = Column(String, nullable=True)
+    garage_entry = Column(String, nullable=True)
+    driveway_surface = Column(String, nullable=True)
+    has_workshop = Column(Boolean, default=False, server_default=text("false"))
+    has_circular_driveway = Column(Boolean, default=False, server_default=text("false"))
+    has_ev_charging = Column(Boolean, default=False, server_default=text("false"))
+    num_parking_spaces = Column(Integer, nullable=True)
 
-    # Financial
-    hoa_monthly = Column(Float, nullable=True)
-    tax_annual = Column(Float, nullable=True)
-    tax_year = Column(Integer, nullable=True)
-    assessed_value = Column(Float, nullable=True)
+    # Fireplace
+    has_fireplace = Column(Boolean, default=False, server_default=text("false"))
+    has_outdoor_fireplace = Column(Boolean, default=False, server_default=text("false"))
+    has_primary_fireplace = Column(Boolean, default=False, server_default=text("false"))
+    has_architectural_fireplace = Column(Boolean, default=False, server_default=text("false"))
+    fireplace_fuel_source = Column(String, nullable=True)
+    num_fireplaces = Column(Integer, nullable=True)
+
+    # Appliances / energy
+    water_heater_energy_source = Column(String, nullable=True)
+    cooktop_energy_source = Column(String, nullable=True)
+    oven_energy_source = Column(String, nullable=True)
+    has_drink_fridge = Column(Boolean, default=False, server_default=text("false"))
+    has_stainless_appliances = Column(Boolean, default=False, server_default=text("false"))
+    appliances_included_count = Column(Integer, nullable=True)
+
+    # Windows
+    has_efficient_windows = Column(Boolean, default=False, server_default=text("false"))
+    has_skylights = Column(Boolean, default=False, server_default=text("false"))
+    has_bay_window = Column(Boolean, default=False, server_default=text("false"))
+
+    # Laundry
+    laundry_location = Column(String, nullable=True)
+    has_laundry_room = Column(Boolean, default=False, server_default=text("false"))
+    has_utility_sink = Column(Boolean, default=False, server_default=text("false"))
+
+    # Interior features
+    countertop_material = Column(String, nullable=True)
+    is_primary_downstairs = Column(Boolean, default=False, server_default=text("false"))
+    has_guest_suite = Column(Boolean, default=False, server_default=text("false"))
+    has_butler_pantry = Column(Boolean, default=False, server_default=text("false"))
+    has_walkin_closets = Column(Boolean, default=False, server_default=text("false"))
+    has_tall_ceilings = Column(Boolean, default=False, server_default=text("false"))
+    has_luxury_ceilings = Column(Boolean, default=False, server_default=text("false"))
+    has_sauna = Column(Boolean, default=False, server_default=text("false"))
+    has_bar = Column(Boolean, default=False, server_default=text("false"))
+    has_second_primary = Column(Boolean, default=False, server_default=text("false"))
+    has_room_over_garage = Column(Boolean, default=False, server_default=text("false"))
+    has_open_floorplan = Column(Boolean, default=False, server_default=text("false"))
+
+    # Flooring
+    is_carpet_free = Column(Boolean, default=False, server_default=text("false"))
+    has_premium_stone = Column(Boolean, default=False, server_default=text("false"))
+    has_hardwood = Column(Boolean, default=False, server_default=text("false"))
+    has_crawl_space = Column(Boolean, default=False, server_default=text("false"))
+
+    # Exterior / structure
+    facade_type = Column(String, nullable=True)
+    building_area = Column(Float, nullable=True)
+    above_grade_finished_area = Column(Float, nullable=True)
+    below_grade_finished_area = Column(Float, nullable=True)
+    num_stories = Column(Float, nullable=True)
+    lot_size = Column(Float, nullable=True)
+    is_waterfront = Column(Boolean, default=False, server_default=text("false"))
+    buyer_financing = Column(String, nullable=True)
+
+    # Utilities
+    is_septic = Column(Boolean, default=False, server_default=text("false"))
+    is_well_water = Column(Boolean, default=False, server_default=text("false"))
+    no_heating = Column(Boolean, default=False, server_default=text("false"))
+    no_cooling = Column(Boolean, default=False, server_default=text("false"))
+
+    # HOA / community
+    has_hoa = Column(Boolean, default=False, server_default=text("false"))
+    association_fee = Column(Float, nullable=True)
+    hoa_name = Column(String, nullable=True)
+
+    # Porch / outdoor
+    has_enclosed_porch = Column(Boolean, default=False, server_default=text("false"))
+    has_front_porch = Column(Boolean, default=False, server_default=text("false"))
+    has_fenced_yard = Column(Boolean, default=False, server_default=text("false"))
+    has_outdoor_kitchen = Column(Boolean, default=False, server_default=text("false"))
+    has_sport_court = Column(Boolean, default=False, server_default=text("false"))
+    has_private_pool = Column(Boolean, default=False, server_default=text("false"))
+    has_community_pool = Column(Boolean, default=False, server_default=text("false"))
+    has_clubhouse = Column(Boolean, default=False, server_default=text("false"))
+    has_exterior_storage = Column(Boolean, default=False, server_default=text("false"))
+    has_garden = Column(Boolean, default=False, server_default=text("false"))
+
+    # Core stats
+    year_built = Column(Integer, nullable=True)
+    year_renovated = Column(Integer, nullable=True)
+    num_beds = Column(Integer, nullable=True)
+    num_baths = Column(Float, nullable=True)
+    sqft = Column(Integer, nullable=True)
+    price_per_sqft = Column(Float, nullable=True)
 
     # Agents
     listing_agent = Column(String, nullable=True)
@@ -603,27 +672,62 @@ class PropertyDetail(Base):
     buying_agent = Column(String, nullable=True)
     buying_brokerage = Column(String, nullable=True)
 
-    # Climate
-    flood_risk = Column(String, nullable=True)
-    flood_score = Column(Integer, nullable=True)
-    fire_risk = Column(String, nullable=True)
-    fire_score = Column(Integer, nullable=True)
+    # Identifiers
+    apn = Column(String, nullable=True)
+    contract_date = Column(DateTime, nullable=True)
 
-    # History
-    sale_history = Column(JSON, nullable=True)
-    tax_history = Column(JSON, nullable=True)
+    # Raw data for UI
+    property_details = Column(JSON, nullable=True)
 
-    # Photos
-    photo_s3_paths = Column(JSON, nullable=True)
+    # Photos and source
+    property_photos = Column(JSON, nullable=True)
+    source_file = Column(String, nullable=True)
 
     # Change detection
     staging_hash = Column(String(64), nullable=True)
 
     # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    processed_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (Index("idx_property_details_location", "location", postgresql_using="gist"),)
+    __table_args__ = (
+        Index("idx_redfin_listings_location", "location", postgresql_using="gist"),
+        Index(
+            "uq_redfin_listings_address",
+            "street_address",
+            "city",
+            "state",
+            "zip_code",
+            unique=True,
+        ),
+    )
+
+
+class SaleHistoryRecord(Base):
+    """Individual sale event linked to a Redfin listing."""
+
+    __tablename__ = "sale_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(Integer, nullable=False, index=True)
+    date = Column(DateTime, nullable=True)
+    event = Column(String, nullable=True)
+    price = Column(Float, nullable=True)
+    source = Column(String, nullable=True)
+
+
+class TaxHistoryRecord(Base):
+    """Individual tax assessment linked to a Redfin listing."""
+
+    __tablename__ = "tax_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(Integer, nullable=False, index=True)
+    date = Column(DateTime, nullable=True)
+    property_tax = Column(Float, nullable=True)
+    assessment_value_land = Column(Float, nullable=True)
+    assessment_value_additions = Column(Float, nullable=True)
+    assessment_value = Column(Float, nullable=True)
+    source = Column(String, nullable=True)
 
 
 class PropertyValuation(Base):

@@ -13,8 +13,9 @@ from typing import Any
 
 import httpx
 from geoalchemy2.shape import from_shape, to_shape
+from geoalchemy2.types import Geography
 from shapely.geometry import Point
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.config.settings import get_settings
@@ -81,8 +82,8 @@ def match_nces_school(
             select(NcesSchool).where(
                 NcesSchool.location.isnot(None),
                 func.ST_DWithin(
-                    func.ST_Geography(NcesSchool.location),
-                    func.ST_Geography(property_point),
+                    cast(NcesSchool.location, Geography),
+                    cast(property_point, Geography),
                     radius_m,
                 ),
             )

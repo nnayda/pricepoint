@@ -33,6 +33,8 @@ frontend/src/
 └── types/         # TypeScript type definitions
 dags/              # Airflow DAGs (collection, features, training, TIGER)
 tests/             # Backend tests (unit/, integration/, docker/)
+docs/
+└── FEATURE_CATALOG.md  # ML feature data dictionary (94 features, derivation logic, data sources)
 ```
 
 ## Workflow

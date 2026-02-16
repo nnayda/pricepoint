@@ -28,7 +28,7 @@ STAGING_DATASET = Asset("staging_redfin_listings")
     tags=["data", "transform", "housing", "redfin"],
 )
 def redfin_listing_transform():
-    """Transform staging Redfin listings into production property tables."""
+    """Transform staging Redfin listings into production redfin_listings table."""
 
     @task()
     def transform_listings():
@@ -48,16 +48,16 @@ def redfin_listing_transform():
     def verify_transform(result):
         """Verify at least one production record exists."""
         from pricepoint.db import SessionLocal
-        from pricepoint.db.models import PropertyDetail
+        from pricepoint.db.models import RedfinListing
 
         session = SessionLocal()
         try:
-            count = session.execute(select(func.count()).select_from(PropertyDetail)).scalar()
+            count = session.execute(select(func.count()).select_from(RedfinListing)).scalar()
 
             if not count:
-                raise RuntimeError("No records found in property_details after transform")
+                raise RuntimeError("No records found in redfin_listings after transform")
 
-            logger.info("Verification successful: %d records in property_details", count)
+            logger.info("Verification successful: %d records in redfin_listings", count)
         finally:
             session.close()
 
