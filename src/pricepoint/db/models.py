@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -788,3 +789,34 @@ class NcesSchool(Base):
     location = Column(Geometry("POINT", srid=4326), nullable=True)
     extras = Column(JSON, nullable=True)
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LlmQualityScore(Base):
+    """LLM-generated property quality score from listing description analysis.
+
+    Versioned by (listing_id, model_name, model_version) so multiple model
+    versions can coexist for comparison and gold-layer promotion.
+    """
+
+    __tablename__ = "llm_quality_scores"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    listing_id = Column(Integer, nullable=False, index=True)
+    model_name = Column(String, nullable=False)
+    model_version = Column(String, nullable=False)
+    description_hash = Column(String(64), nullable=False)
+    quality_score = Column(Integer, nullable=True)
+    quality_reasoning = Column(Text, nullable=True)
+    positive_factors = Column(JSON, nullable=True)
+    negative_factors = Column(JSON, nullable=True)
+    raw_response = Column(JSON, nullable=False)
+    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "listing_id",
+            "model_name",
+            "model_version",
+            name="uq_llm_score_listing_model",
+        ),
+    )

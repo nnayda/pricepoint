@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 logger = logging.getLogger(__name__)
 
 STAGING_DATASET = Asset("staging_redfin_listings")
+LISTINGS_DATASET = Asset("redfin_listings")
 
 
 @dag(
@@ -30,7 +31,7 @@ STAGING_DATASET = Asset("staging_redfin_listings")
 def redfin_listing_transform():
     """Transform staging Redfin listings into production redfin_listings table."""
 
-    @task()
+    @task(outlets=[LISTINGS_DATASET])
     def transform_listings():
         """Run the staging-to-production transformation."""
         from pricepoint.data.housing.redfin_transformer import transform_all_listings

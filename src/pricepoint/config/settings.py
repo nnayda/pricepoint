@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_rate_limit_seconds: float = 1.0
 
+    # Ollama LLM (description quality scoring)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:32b"
+    ollama_max_concurrent: int = 4
+    ollama_timeout_seconds: int = 120
+
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"
     redfin_s3_archive_prefix: str = "redfin/archive"
