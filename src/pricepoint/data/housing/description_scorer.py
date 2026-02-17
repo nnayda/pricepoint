@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -453,12 +454,26 @@ def score_all_descriptions(
 
         listings = [{"id": row.id, "description": row.description} for row in all_listings]
 
+        total_listings = len(listings)
+        total_batches = (total_listings + batch_size - 1) // batch_size
         scored = 0
         skipped = 0
         errors = 0
 
+        logger.info(
+            "Description scoring started: %d listings, %d batches (size %d), model=%s/%s",
+            total_listings,
+            total_batches,
+            batch_size,
+            model_name,
+            model_version,
+        )
+
+        run_start = time.monotonic()
+
         # Process in batches
-        for i in range(0, len(listings), batch_size):
+        for batch_idx, i in enumerate(range(0, total_listings, batch_size), start=1):
+            batch_start = time.monotonic()
             batch = listings[i : i + batch_size]
             results = asyncio.run(
                 score_descriptions_batch(
@@ -470,9 +485,12 @@ def score_all_descriptions(
                 )
             )
 
+            batch_scored = 0
+            batch_errors = 0
             for result in results:
                 if result["raw_response"].get("error"):
                     errors += 1
+                    batch_errors += 1
                     continue
 
                 # Upsert: delete existing then insert
@@ -506,6 +524,7 @@ def score_all_descriptions(
                     session.add(LlmQualityScore(**result))
 
                 scored += 1
+                batch_scored += 1
 
             session.commit()
 
@@ -515,10 +534,50 @@ def score_all_descriptions(
                     key = (result["listing_id"], result["model_name"], result["model_version"])
                     existing_hashes[key] = result["description_hash"]
 
-        # Calculate skipped (listings with unchanged hashes)
-        skipped = len(listings) - scored - errors
+            # Progress logging with ETA
+            batch_elapsed = time.monotonic() - batch_start
+            total_elapsed = time.monotonic() - run_start
+            processed = i + len(batch)
+            batch_skipped = len(batch) - batch_scored - batch_errors
 
-        logger.info("Scoring complete: %d scored, %d skipped, %d errors", scored, skipped, errors)
+            if processed < total_listings:
+                avg_per_listing = total_elapsed / processed
+                remaining = (total_listings - processed) * avg_per_listing
+                eta_min, eta_sec = divmod(int(remaining), 60)
+                eta_str = f"{eta_min}m{eta_sec:02d}s"
+            else:
+                eta_str = "done"
+
+            logger.info(
+                "Batch %d/%d complete: %d scored, %d skipped, %d errors "
+                "(%.1fs) | Total: %d/%d (%.0f%%) | ETA: %s",
+                batch_idx,
+                total_batches,
+                batch_scored,
+                batch_skipped,
+                batch_errors,
+                batch_elapsed,
+                processed,
+                total_listings,
+                processed / total_listings * 100,
+                eta_str,
+            )
+
+        # Calculate skipped (listings with unchanged hashes)
+        skipped = total_listings - scored - errors
+        total_elapsed = time.monotonic() - run_start
+        elapsed_min, elapsed_sec = divmod(int(total_elapsed), 60)
+
+        logger.info(
+            "Description scoring complete: %d scored, %d skipped, %d errors "
+            "in %dm%02ds (%d total listings)",
+            scored,
+            skipped,
+            errors,
+            elapsed_min,
+            elapsed_sec,
+            total_listings,
+        )
         return {"scored": scored, "skipped": skipped, "errors": errors}
     finally:
         session.close()

@@ -14,6 +14,7 @@ from pricepoint.data.housing.photo_scorer import (
     call_ollama_vision,
     compute_photos_hash,
     download_photos_as_base64,
+    merge_photo_results,
     parse_llm_response,
     score_all_photos,
     score_photos_batch,
@@ -229,28 +230,30 @@ def _make_async_raise(exc):
 class TestCallOllamaVision:
     def test_success(self):
         response_data = {
-            "response": json.dumps(
-                {
-                    "visual_quality_score": 65,
-                    "visual_reasoning": "Average home.",
-                    "detected_features": {},
-                    "renovation_level": "original_maintained",
-                }
-            )
+            "message": {
+                "content": json.dumps(
+                    {
+                        "visual_quality_score": 65,
+                        "visual_reasoning": "Average home.",
+                        "detected_features": {},
+                        "renovation_level": "original_maintained",
+                    }
+                )
+            }
         }
-        mock_request = httpx.Request("POST", "http://test/api/generate")
+        mock_request = httpx.Request("POST", "http://test/api/chat")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_return(mock_response)
 
-        result = asyncio.run(call_ollama_vision(["base64img1", "base64img2"], client=mock_client))
+        result = asyncio.run(call_ollama_vision("base64img1", client=mock_client))
         assert result is not None
         assert result["visual_quality_score"] == 65
 
-    def test_images_in_payload(self):
-        """Verify images are passed in the API payload."""
-        response_data = {"response": json.dumps(_make_raw())}
-        mock_request = httpx.Request("POST", "http://test/api/generate")
+    def test_single_image_in_payload(self):
+        """Verify single image is wrapped in a list in the payload."""
+        response_data = {"message": {"content": json.dumps(_make_raw())}}
+        mock_request = httpx.Request("POST", "http://test/api/chat")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
 
         captured_payload = {}
@@ -262,9 +265,10 @@ class TestCallOllamaVision:
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = mock_post
 
-        asyncio.run(call_ollama_vision(["img1", "img2", "img3"], client=mock_client))
-        assert "images" in captured_payload
-        assert captured_payload["images"] == ["img1", "img2", "img3"]
+        asyncio.run(call_ollama_vision("img1", client=mock_client))
+        assert "messages" in captured_payload
+        user_msg = captured_payload["messages"][1]
+        assert user_msg["images"] == ["img1"]
 
     def test_http_error(self):
         mock_response = httpx.Response(500)
@@ -276,14 +280,14 @@ class TestCallOllamaVision:
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_raise(exc)
 
-        result = asyncio.run(call_ollama_vision(["img"], client=mock_client))
+        result = asyncio.run(call_ollama_vision("img", client=mock_client))
         assert result is None
 
     def test_timeout(self):
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_raise(httpx.TimeoutException("timeout"))
 
-        result = asyncio.run(call_ollama_vision(["img"], client=mock_client))
+        result = asyncio.run(call_ollama_vision("img", client=mock_client))
         assert result is None
 
 
@@ -292,9 +296,55 @@ class TestCallOllamaVision:
 # ---------------------------------------------------------------------------
 
 
+class TestMergePhotoResults:
+    def test_median_score_odd(self):
+        results = [
+            _make_raw(score=40, reasoning="Low"),
+            _make_raw(score=60, reasoning="Mid"),
+            _make_raw(score=80, reasoning="High"),
+        ]
+        merged = merge_photo_results([parse_llm_response(r) for r in results])
+        assert merged["visual_quality_score"] == 60
+
+    def test_median_score_even(self):
+        results = [
+            _make_raw(score=40, reasoning="Low"),
+            _make_raw(score=60, reasoning="High"),
+        ]
+        merged = merge_photo_results([parse_llm_response(r) for r in results])
+        assert merged["visual_quality_score"] == 50
+
+    def test_features_merged(self):
+        results = [
+            _make_raw(features={"kitchen_features": ["granite"], "flooring": ["hardwood"]}),
+            _make_raw(
+                features={"kitchen_features": ["island", "granite"], "exterior_features": ["pool"]}
+            ),
+        ]
+        merged = merge_photo_results([parse_llm_response(r) for r in results])
+        assert set(merged["detected_features"]["kitchen_features"]) == {"granite", "island"}
+        assert merged["detected_features"]["flooring"] == ["hardwood"]
+        assert merged["detected_features"]["exterior_features"] == ["pool"]
+
+    def test_most_common_renovation(self):
+        results = [
+            _make_raw(renovation="fully_renovated"),
+            _make_raw(renovation="original_maintained"),
+            _make_raw(renovation="fully_renovated"),
+        ]
+        merged = merge_photo_results([parse_llm_response(r) for r in results])
+        assert merged["renovation_level"] == "fully_renovated"
+
+    def test_all_none_scores(self):
+        results = [_make_raw(score=None, reasoning=None, renovation=None)]
+        # score=None with other fields present → parse_llm_response sets score=None
+        merged = merge_photo_results([parse_llm_response(r) for r in results])
+        assert merged["visual_quality_score"] is None
+
+
 class TestScorePhotosBatch:
     def test_processes_all(self):
-        async def mock_ollama(images, **kwargs):
+        async def mock_ollama(image, **kwargs):
             return _make_raw(score=60, reasoning="OK")
 
         def mock_s3(keys, **kwargs):
@@ -311,14 +361,41 @@ class TestScorePhotosBatch:
                 "abc123",
                 ollama_fn=mock_ollama,
                 s3_fn=mock_s3,
-                max_concurrent=2,
             )
         )
         assert len(results) == 2
         assert all(r["visual_quality_score"] == 60 for r in results)
 
+    def test_multiple_photos_per_listing(self):
+        """Each photo is scored individually and results are merged."""
+        call_count = 0
+
+        async def mock_ollama(image, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return _make_raw(score=50 + call_count * 10, reasoning=f"Photo {call_count}")
+
+        def mock_s3(keys, **kwargs):
+            return ["base64data"] * len(keys)
+
+        listings = [{"id": 1, "property_photos": ["photos/a.jpg", "photos/b.jpg"]}]
+        results = asyncio.run(
+            score_photos_batch(
+                listings,
+                "model",
+                "v1",
+                ollama_fn=mock_ollama,
+                s3_fn=mock_s3,
+            )
+        )
+        assert len(results) == 1
+        assert call_count == 2
+        # raw_response is a list of per-photo responses
+        assert isinstance(results[0]["raw_response"], list)
+        assert len(results[0]["raw_response"]) == 2
+
     def test_skips_unchanged_hash(self):
-        async def mock_ollama(images, **kwargs):
+        async def mock_ollama(image, **kwargs):
             return _make_raw(score=70)
 
         def mock_s3(keys, **kwargs):
@@ -341,7 +418,7 @@ class TestScorePhotosBatch:
         assert len(results) == 0
 
     def test_handles_failures_gracefully(self):
-        async def mock_ollama(images, **kwargs):
+        async def mock_ollama(image, **kwargs):
             return None
 
         def mock_s3(keys, **kwargs):
@@ -361,7 +438,7 @@ class TestScorePhotosBatch:
         assert results[0]["raw_response"] == {"error": "ollama_call_failed"}
 
     def test_skips_empty_photos(self):
-        async def mock_ollama(images, **kwargs):
+        async def mock_ollama(image, **kwargs):
             return _make_raw()
 
         def mock_s3(keys, **kwargs):

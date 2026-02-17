@@ -11,6 +11,7 @@ import asyncio
 import base64
 import hashlib
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -239,15 +240,62 @@ def download_photos_as_base64(
 # ---------------------------------------------------------------------------
 
 
+def merge_photo_results(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge per-photo LLM results into a single listing-level score.
+
+    Takes the median score, concatenates reasoning, unions detected features,
+    and picks the most common renovation level.
+    """
+    scores = [
+        r["visual_quality_score"] for r in results if r.get("visual_quality_score") is not None
+    ]
+    reasonings = [r["visual_reasoning"] for r in results if r.get("visual_reasoning")]
+    renovation_levels = [r["renovation_level"] for r in results if r.get("renovation_level")]
+
+    # Merge detected features: union all lists per category
+    merged_features: dict[str, list[str]] = {}
+    for r in results:
+        feats = r.get("detected_features") or {}
+        for category, items in feats.items():
+            if isinstance(items, list):
+                existing = merged_features.setdefault(category, [])
+                for item in items:
+                    if item not in existing:
+                        existing.append(item)
+
+    # Median score
+    if scores:
+        scores.sort()
+        mid = len(scores) // 2
+        median_score = scores[mid] if len(scores) % 2 else (scores[mid - 1] + scores[mid]) // 2
+    else:
+        median_score = None
+
+    # Most common renovation level
+    if renovation_levels:
+        from collections import Counter
+
+        renovation = Counter(renovation_levels).most_common(1)[0][0]
+    else:
+        renovation = None
+
+    return {
+        "visual_quality_score": median_score,
+        "visual_reasoning": " | ".join(reasonings) if reasonings else None,
+        "detected_features": merged_features or None,
+        "renovation_level": renovation,
+    }
+
+
 async def call_ollama_vision(
-    images: list[str],
+    image: str,
     *,
     client: httpx.AsyncClient | None = None,
     base_url: str | None = None,
     model: str | None = None,
     timeout: int | None = None,
 ) -> dict[str, Any] | None:
-    """Call Ollama vision API to score property photos.
+    """Call Ollama vision API to score a single property photo.
 
     Returns parsed JSON dict or None on failure.
     """
@@ -258,9 +306,10 @@ async def call_ollama_vision(
 
     payload = {
         "model": model,
-        "system": build_system_prompt(),
-        "prompt": build_user_prompt(),
-        "images": images,
+        "messages": [
+            {"role": "system", "content": build_system_prompt()},
+            {"role": "user", "content": build_user_prompt(), "images": [image]},
+        ],
         "format": "json",
         "stream": False,
         "options": {
@@ -275,16 +324,17 @@ async def call_ollama_vision(
         should_close = True
 
     try:
-        response = await client.post(f"{base_url}/api/generate", json=payload)
+        response = await client.post(f"{base_url}/api/chat", json=payload)
         response.raise_for_status()
         data = response.json()
-        text = data.get("response", "")
+        text = data.get("message", {}).get("content", "")
         return extract_json_from_text(text)
     except httpx.TimeoutException:
         logger.warning("Ollama vision request timed out")
         return None
     except httpx.HTTPStatusError as exc:
-        logger.warning("Ollama vision HTTP error %s", exc.response.status_code)
+        body = exc.response.text[:500] if exc.response else ""
+        logger.warning("Ollama vision HTTP error %s: %s", exc.response.status_code, body)
         return None
     except Exception:
         logger.exception("Unexpected error calling Ollama vision")
@@ -302,7 +352,7 @@ async def score_photos_batch(
     existing_hashes: dict[tuple[int, str, str], str] | None = None,
     ollama_fn: Callable[..., Any] | None = None,
     s3_fn: Callable[..., Any] | None = None,
-    max_concurrent: int = 2,
+    max_concurrent: int = 1,
 ) -> list[dict[str, Any]]:
     """Score a batch of listings' photos concurrently.
 
@@ -339,10 +389,17 @@ async def score_photos_batch(
             logger.warning("No photos downloaded for listing %d", listing_id)
             return None
 
-        async with semaphore:
-            raw = await ollama_fn(images)
+        # Score each photo individually (model only supports single image)
+        per_photo_results: list[dict[str, Any]] = []
+        all_raw: list[dict[str, Any] | None] = []
+        for img in images:
+            async with semaphore:
+                raw = await ollama_fn(img)
+            all_raw.append(raw)
+            if raw is not None:
+                per_photo_results.append(parse_llm_response(raw))
 
-        if raw is None:
+        if not per_photo_results:
             return {
                 "listing_id": listing_id,
                 "model_name": model_name,
@@ -355,17 +412,17 @@ async def score_photos_batch(
                 "raw_response": {"error": "ollama_call_failed"},
             }
 
-        parsed = parse_llm_response(raw)
+        merged = merge_photo_results(per_photo_results)
         return {
             "listing_id": listing_id,
             "model_name": model_name,
             "model_version": model_version,
             "photos_hash": photos_hash,
-            "visual_quality_score": parsed["visual_quality_score"],
-            "visual_reasoning": parsed["visual_reasoning"],
-            "detected_features": parsed["detected_features"],
-            "renovation_level": parsed["renovation_level"],
-            "raw_response": raw,
+            "visual_quality_score": merged["visual_quality_score"],
+            "visual_reasoning": merged["visual_reasoning"],
+            "detected_features": merged["detected_features"],
+            "renovation_level": merged["renovation_level"],
+            "raw_response": [r for r in all_raw if r is not None],
         }
 
     tasks = [_score_one(listing) for listing in listings]
@@ -428,13 +485,33 @@ def score_all_photos(
 
         listings = [{"id": row.id, "property_photos": row.property_photos} for row in all_listings]
 
+        total_listings = len(listings)
+        total_photos = sum(len(lt.get("property_photos") or []) for lt in listings)
+        total_batches = (total_listings + batch_size - 1) // batch_size
         scored = 0
         skipped = 0
         errors = 0
+        photos_processed = 0
+
+        logger.info(
+            "Photo scoring started: %d listings (%d total photos), "
+            "%d batches (size %d), model=%s/%s",
+            total_listings,
+            total_photos,
+            total_batches,
+            batch_size,
+            model_name,
+            model_version,
+        )
+
+        run_start = time.monotonic()
 
         # Process in batches
-        for i in range(0, len(listings), batch_size):
+        for batch_idx, i in enumerate(range(0, total_listings, batch_size), start=1):
+            batch_start = time.monotonic()
             batch = listings[i : i + batch_size]
+            batch_photo_count = sum(len(lt.get("property_photos") or []) for lt in batch)
+
             results = asyncio.run(
                 score_photos_batch(
                     batch,
@@ -446,9 +523,12 @@ def score_all_photos(
                 )
             )
 
+            batch_scored = 0
+            batch_errors = 0
             for result in results:
                 if result["raw_response"].get("error"):
                     errors += 1
+                    batch_errors += 1
                     continue
 
                 # Upsert: check existing then insert/update
@@ -473,6 +553,7 @@ def score_all_photos(
                     session.add(LlmPhotoScore(**result))
 
                 scored += 1
+                batch_scored += 1
 
             session.commit()
 
@@ -482,14 +563,55 @@ def score_all_photos(
                     key = (result["listing_id"], result["model_name"], result["model_version"])
                     existing_hashes[key] = result["photos_hash"]
 
+            # Progress logging with ETA
+            batch_elapsed = time.monotonic() - batch_start
+            total_elapsed = time.monotonic() - run_start
+            listings_processed = i + len(batch)
+            photos_processed += batch_photo_count
+            batch_skipped = len(batch) - batch_scored - batch_errors
+
+            if listings_processed < total_listings:
+                avg_per_listing = total_elapsed / listings_processed
+                remaining = (total_listings - listings_processed) * avg_per_listing
+                eta_min, eta_sec = divmod(int(remaining), 60)
+                eta_str = f"{eta_min}m{eta_sec:02d}s"
+            else:
+                eta_str = "done"
+
+            logger.info(
+                "Batch %d/%d complete: %d scored, %d skipped, %d errors "
+                "(%d photos, %.1fs) | Total: %d/%d listings (%.0f%%), "
+                "%d/%d photos | ETA: %s",
+                batch_idx,
+                total_batches,
+                batch_scored,
+                batch_skipped,
+                batch_errors,
+                batch_photo_count,
+                batch_elapsed,
+                listings_processed,
+                total_listings,
+                listings_processed / total_listings * 100,
+                photos_processed,
+                total_photos,
+                eta_str,
+            )
+
         # Calculate skipped (listings with photos minus scored minus errors)
-        skipped = len(listings) - scored - errors
+        skipped = total_listings - scored - errors
+        total_elapsed = time.monotonic() - run_start
+        elapsed_min, elapsed_sec = divmod(int(total_elapsed), 60)
 
         logger.info(
-            "Photo scoring complete: %d scored, %d skipped, %d errors",
+            "Photo scoring complete: %d scored, %d skipped, %d errors "
+            "in %dm%02ds (%d listings, %d photos)",
             scored,
             skipped,
             errors,
+            elapsed_min,
+            elapsed_sec,
+            total_listings,
+            total_photos,
         )
         return {"scored": scored, "skipped": skipped, "errors": errors}
     finally:

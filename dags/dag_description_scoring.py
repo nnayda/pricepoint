@@ -12,6 +12,7 @@ from airflow.sdk import Asset, dag, task
 logger = logging.getLogger(__name__)
 
 LISTINGS_DATASET = Asset("redfin_listings")
+DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
 
 
 @dag(
@@ -44,7 +45,7 @@ def description_quality_scoring():
         )
         return result
 
-    @task()
+    @task(outlets=[DESCRIPTION_SCORING_DATASET])
     def verify_scoring(result):
         """Verify scoring completed without excessive errors."""
         total = result["scored"] + result["skipped"] + result["errors"]

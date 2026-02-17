@@ -1,24 +1,23 @@
 """LLM photo quality scoring DAG.
 
-Triggered by Dataset update from the redfin_listing_transform DAG
-when production listings are updated. Waits for description scoring
-to complete before running to avoid Ollama model-switching overhead.
+Triggered by Dataset update from the description_quality_scoring DAG,
+ensuring description scoring completes before photo scoring starts
+to avoid Ollama model-switching overhead.
 """
 
 import logging
 from datetime import datetime, timedelta
 
 from airflow.sdk import Asset, dag, task
-from airflow.sensors.external_task import ExternalTaskSensor
 
 logger = logging.getLogger(__name__)
 
-LISTINGS_DATASET = Asset("redfin_listings")
+DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
 
 
 @dag(
     dag_id="photo_quality_scoring",
-    schedule=[LISTINGS_DATASET],
+    schedule=[DESCRIPTION_SCORING_DATASET],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     max_active_runs=1,
@@ -31,16 +30,6 @@ LISTINGS_DATASET = Asset("redfin_listings")
 )
 def photo_quality_scoring():
     """Score Redfin listing photos using LLM vision analysis."""
-
-    wait_for_description_scoring = ExternalTaskSensor(
-        task_id="wait_for_description_scoring",
-        external_dag_id="description_quality_scoring",
-        external_task_id=None,
-        mode="reschedule",
-        timeout=7200,
-        poke_interval=60,
-        allowed_states=["success"],
-    )
 
     @task()
     def score_photos():
@@ -73,7 +62,6 @@ def photo_quality_scoring():
         )
 
     result = score_photos()
-    wait_for_description_scoring >> result
     verify_scoring(result)
 
 
