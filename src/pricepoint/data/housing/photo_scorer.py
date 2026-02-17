@@ -330,11 +330,9 @@ async def call_ollama_vision(
             {"role": "user", "content": build_user_prompt(), "images": images},
         ],
         "stream": False,
+        "think": False,
         "options": {
             "temperature": 0.1,
-            "num_predict": 2048,
-            "repeat_penalty": 1.5,
-            "repeat_last_n": 128,
         },
     }
 
@@ -350,10 +348,20 @@ async def call_ollama_vision(
         text = data.get("message", {}).get("content", "")
         parsed = extract_json_from_text(text)
         if parsed is None:
+            # Log full response metadata for diagnosis (exclude message content
+            # which is already shown, and avoid logging huge fields)
+            diag = {
+                k: v
+                for k, v in data.items()
+                if k not in ("message", "context")
+            }
             logger.warning(
-                "Ollama vision returned unparseable response (len=%d): %.300s",
+                "Ollama vision returned unparseable response (len=%d): %.300s "
+                "| response_meta=%s | image_sizes=%s",
                 len(text),
                 text,
+                diag,
+                [len(img) for img in images],
             )
         return parsed
     except httpx.TimeoutException:

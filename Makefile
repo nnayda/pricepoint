@@ -1,4 +1,4 @@
-.PHONY: up up-infra up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build frontend-install frontend-lint frontend-test frontend-test-coverage
+.PHONY: up up-infra up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build build-no-cache frontend-install frontend-lint frontend-test frontend-test-coverage
 
 # --- Docker Compose -----------------------------------------------------------
 
@@ -48,6 +48,9 @@ migration: ## Create a new alembic migration (usage: make migration MSG="add foo
 
 build: ## Build all Docker images
 	docker compose --profile infra --profile airflow build
+
+build-no-cache: ## Build all Docker images without cache
+	docker compose --profile infra --profile airflow build --no-cache
 
 # --- Frontend -----------------------------------------------------------------
 
