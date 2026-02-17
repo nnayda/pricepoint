@@ -230,18 +230,16 @@ def _make_async_raise(exc):
 class TestCallOllamaVision:
     def test_success(self):
         response_data = {
-            "message": {
-                "content": json.dumps(
-                    {
-                        "visual_quality_score": 65,
-                        "visual_reasoning": "Average home.",
-                        "detected_features": {},
-                        "renovation_level": "original_maintained",
-                    }
-                )
-            }
+            "response": json.dumps(
+                {
+                    "visual_quality_score": 65,
+                    "visual_reasoning": "Average home.",
+                    "detected_features": {},
+                    "renovation_level": "original_maintained",
+                }
+            )
         }
-        mock_request = httpx.Request("POST", "http://test/api/chat")
+        mock_request = httpx.Request("POST", "http://test/api/generate")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_return(mock_response)
@@ -252,8 +250,8 @@ class TestCallOllamaVision:
 
     def test_single_image_in_payload(self):
         """Verify single image is wrapped in a list in the payload."""
-        response_data = {"message": {"content": json.dumps(_make_raw())}}
-        mock_request = httpx.Request("POST", "http://test/api/chat")
+        response_data = {"response": json.dumps(_make_raw())}
+        mock_request = httpx.Request("POST", "http://test/api/generate")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
 
         captured_payload = {}
@@ -266,9 +264,8 @@ class TestCallOllamaVision:
         mock_client.post = mock_post
 
         asyncio.run(call_ollama_vision("img1", client=mock_client))
-        assert "messages" in captured_payload
-        user_msg = captured_payload["messages"][1]
-        assert user_msg["images"] == ["img1"]
+        assert "images" in captured_payload
+        assert captured_payload["images"] == ["img1"]
 
     def test_http_error(self):
         mock_response = httpx.Response(500)

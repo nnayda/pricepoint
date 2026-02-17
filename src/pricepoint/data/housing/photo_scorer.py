@@ -306,10 +306,9 @@ async def call_ollama_vision(
 
     payload = {
         "model": model,
-        "messages": [
-            {"role": "system", "content": build_system_prompt()},
-            {"role": "user", "content": build_user_prompt(), "images": [image]},
-        ],
+        "system": build_system_prompt(),
+        "prompt": build_user_prompt(),
+        "images": [image],
         "format": "json",
         "stream": False,
         "options": {
@@ -324,10 +323,10 @@ async def call_ollama_vision(
         should_close = True
 
     try:
-        response = await client.post(f"{base_url}/api/chat", json=payload)
+        response = await client.post(f"{base_url}/api/generate", json=payload)
         response.raise_for_status()
         data = response.json()
-        text = data.get("message", {}).get("content", "")
+        text = data.get("response", "")
         return extract_json_from_text(text)
     except httpx.TimeoutException:
         logger.warning("Ollama vision request timed out")
