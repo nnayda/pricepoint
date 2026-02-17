@@ -13,6 +13,7 @@ from pricepoint.data.housing.photo_scorer import (
     build_user_prompt,
     call_ollama_vision,
     compute_photos_hash,
+    compute_prompt_version,
     download_photos_as_base64,
     merge_photo_results,
     parse_llm_response,
@@ -230,28 +231,30 @@ def _make_async_raise(exc):
 class TestCallOllamaVision:
     def test_success(self):
         response_data = {
-            "response": json.dumps(
-                {
-                    "visual_quality_score": 65,
-                    "visual_reasoning": "Average home.",
-                    "detected_features": {},
-                    "renovation_level": "original_maintained",
-                }
-            )
+            "message": {
+                "content": json.dumps(
+                    {
+                        "visual_quality_score": 65,
+                        "visual_reasoning": "Average home.",
+                        "detected_features": {},
+                        "renovation_level": "original_maintained",
+                    }
+                )
+            }
         }
-        mock_request = httpx.Request("POST", "http://test/api/generate")
+        mock_request = httpx.Request("POST", "http://test/api/chat")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_return(mock_response)
 
-        result = asyncio.run(call_ollama_vision("base64img1", client=mock_client))
+        result = asyncio.run(call_ollama_vision(["base64img1"], client=mock_client))
         assert result is not None
         assert result["visual_quality_score"] == 65
 
-    def test_single_image_in_payload(self):
-        """Verify single image is wrapped in a list in the payload."""
-        response_data = {"response": json.dumps(_make_raw())}
-        mock_request = httpx.Request("POST", "http://test/api/generate")
+    def test_multi_image_in_payload(self):
+        """Verify multiple images are passed in the messages payload."""
+        response_data = {"message": {"content": json.dumps(_make_raw())}}
+        mock_request = httpx.Request("POST", "http://test/api/chat")
         mock_response = httpx.Response(200, json=response_data, request=mock_request)
 
         captured_payload = {}
@@ -263,9 +266,48 @@ class TestCallOllamaVision:
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = mock_post
 
-        asyncio.run(call_ollama_vision("img1", client=mock_client))
-        assert "images" in captured_payload
-        assert captured_payload["images"] == ["img1"]
+        asyncio.run(call_ollama_vision(["img1", "img2", "img3"], client=mock_client))
+        assert "messages" in captured_payload
+        user_msg = captured_payload["messages"][1]
+        assert user_msg["images"] == ["img1", "img2", "img3"]
+
+    def test_single_image_in_payload(self):
+        """Verify single image is passed correctly."""
+        response_data = {"message": {"content": json.dumps(_make_raw())}}
+        mock_request = httpx.Request("POST", "http://test/api/chat")
+        mock_response = httpx.Response(200, json=response_data, request=mock_request)
+
+        captured_payload = {}
+
+        async def mock_post(url, json=None, **kwargs):
+            captured_payload.update(json or {})
+            return mock_response
+
+        mock_client = MagicMock(spec=httpx.AsyncClient)
+        mock_client.post = mock_post
+
+        asyncio.run(call_ollama_vision(["img1"], client=mock_client))
+        user_msg = captured_payload["messages"][1]
+        assert user_msg["images"] == ["img1"]
+
+    def test_system_prompt_in_messages(self):
+        """Verify system prompt is sent as first message."""
+        response_data = {"message": {"content": json.dumps(_make_raw())}}
+        mock_request = httpx.Request("POST", "http://test/api/chat")
+        mock_response = httpx.Response(200, json=response_data, request=mock_request)
+
+        captured_payload = {}
+
+        async def mock_post(url, json=None, **kwargs):
+            captured_payload.update(json or {})
+            return mock_response
+
+        mock_client = MagicMock(spec=httpx.AsyncClient)
+        mock_client.post = mock_post
+
+        asyncio.run(call_ollama_vision(["img1"], client=mock_client))
+        assert captured_payload["messages"][0]["role"] == "system"
+        assert "SCORING GUIDELINES" in captured_payload["messages"][0]["content"]
 
     def test_http_error(self):
         mock_response = httpx.Response(500)
@@ -277,19 +319,19 @@ class TestCallOllamaVision:
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_raise(exc)
 
-        result = asyncio.run(call_ollama_vision("img", client=mock_client))
+        result = asyncio.run(call_ollama_vision(["img"], client=mock_client))
         assert result is None
 
     def test_timeout(self):
         mock_client = MagicMock(spec=httpx.AsyncClient)
         mock_client.post = _make_async_raise(httpx.TimeoutException("timeout"))
 
-        result = asyncio.run(call_ollama_vision("img", client=mock_client))
+        result = asyncio.run(call_ollama_vision(["img"], client=mock_client))
         assert result is None
 
 
 # ---------------------------------------------------------------------------
-# TestScorePhotosBatch (async)
+# TestMergePhotoResults
 # ---------------------------------------------------------------------------
 
 
@@ -339,9 +381,14 @@ class TestMergePhotoResults:
         assert merged["visual_quality_score"] is None
 
 
+# ---------------------------------------------------------------------------
+# TestScorePhotosBatch (async)
+# ---------------------------------------------------------------------------
+
+
 class TestScorePhotosBatch:
     def test_processes_all(self):
-        async def mock_ollama(image, **kwargs):
+        async def mock_ollama(images, **kwargs):
             return _make_raw(score=60, reasoning="OK")
 
         def mock_s3(keys, **kwargs):
@@ -363,19 +410,21 @@ class TestScorePhotosBatch:
         assert len(results) == 2
         assert all(r["visual_quality_score"] == 60 for r in results)
 
-    def test_multiple_photos_per_listing(self):
-        """Each photo is scored individually and results are merged."""
+    def test_multiple_photos_sent_together(self):
+        """All photos for a listing are sent in a single Ollama call."""
         call_count = 0
+        received_images = []
 
-        async def mock_ollama(image, **kwargs):
+        async def mock_ollama(images, **kwargs):
             nonlocal call_count
             call_count += 1
-            return _make_raw(score=50 + call_count * 10, reasoning=f"Photo {call_count}")
+            received_images.extend(images)
+            return _make_raw(score=75, reasoning="Multi-photo analysis")
 
         def mock_s3(keys, **kwargs):
-            return ["base64data"] * len(keys)
+            return [f"base64_{k}" for k in keys]
 
-        listings = [{"id": 1, "property_photos": ["photos/a.jpg", "photos/b.jpg"]}]
+        listings = [{"id": 1, "property_photos": ["photos/a.jpg", "photos/b.jpg", "photos/c.jpg"]}]
         results = asyncio.run(
             score_photos_batch(
                 listings,
@@ -386,13 +435,14 @@ class TestScorePhotosBatch:
             )
         )
         assert len(results) == 1
-        assert call_count == 2
-        # raw_response is a list of per-photo responses
-        assert isinstance(results[0]["raw_response"], list)
-        assert len(results[0]["raw_response"]) == 2
+        assert call_count == 1  # single call for all photos
+        assert len(received_images) == 3
+        # raw_response is the single response dict
+        assert isinstance(results[0]["raw_response"], dict)
+        assert results[0]["visual_quality_score"] == 75
 
     def test_skips_unchanged_hash(self):
-        async def mock_ollama(image, **kwargs):
+        async def mock_ollama(images, **kwargs):
             return _make_raw(score=70)
 
         def mock_s3(keys, **kwargs):
@@ -415,7 +465,7 @@ class TestScorePhotosBatch:
         assert len(results) == 0
 
     def test_handles_failures_gracefully(self):
-        async def mock_ollama(image, **kwargs):
+        async def mock_ollama(images, **kwargs):
             return None
 
         def mock_s3(keys, **kwargs):
@@ -435,7 +485,7 @@ class TestScorePhotosBatch:
         assert results[0]["raw_response"] == {"error": "ollama_call_failed"}
 
     def test_skips_empty_photos(self):
-        async def mock_ollama(image, **kwargs):
+        async def mock_ollama(images, **kwargs):
             return _make_raw()
 
         def mock_s3(keys, **kwargs):
@@ -464,12 +514,23 @@ class TestScorePhotosBatch:
 _SCORER = "pricepoint.data.housing.photo_scorer"
 
 
+class TestComputePromptVersion:
+    def test_deterministic(self):
+        """Same prompts produce same version."""
+        v1 = compute_prompt_version()
+        v2 = compute_prompt_version()
+        assert v1 == v2
+        assert len(v1) == 12
+
+    def test_is_hex(self):
+        """Version string is a hex digest prefix."""
+        version = compute_prompt_version()
+        int(version, 16)  # raises if not valid hex
+
+
 class TestScoreAllPhotos:
     @patch(f"{_SCORER}.SessionLocal")
-    @patch(f"{_SCORER}._get_model_version")
-    def test_full_pipeline_mock(self, mock_version, mock_session_cls):
-        mock_version.return_value = "abc123456789"
-
+    def test_full_pipeline_mock(self, mock_session_cls):
         mock_session = MagicMock()
         mock_session_cls.return_value = mock_session
 
@@ -482,43 +543,38 @@ class TestScoreAllPhotos:
         def mock_s3(keys, **kwargs):
             return ["base64data"]
 
-        result = score_all_photos(batch_size=10, ollama_fn=mock_ollama, s3_fn=mock_s3)
+        result = score_all_photos(ollama_fn=mock_ollama, s3_fn=mock_s3)
         assert "scored" in result
         assert "skipped" in result
         assert "errors" in result
 
     @patch(f"{_SCORER}.SessionLocal")
-    @patch(f"{_SCORER}._get_model_version")
-    def test_empty_database(self, mock_version, mock_session_cls):
-        mock_version.return_value = "abc123456789"
-
+    def test_empty_database(self, mock_session_cls):
         mock_session = MagicMock()
         mock_session_cls.return_value = mock_session
 
         # First call: existing hashes, second call: listings
         mock_session.execute.return_value.all.side_effect = [[], []]
 
-        result = score_all_photos(batch_size=10)
+        result = score_all_photos()
         assert result["scored"] == 0
         assert result["skipped"] == 0
         assert result["errors"] == 0
 
     @patch(f"{_SCORER}.SessionLocal")
-    @patch(f"{_SCORER}._get_model_version")
-    def test_skips_same_hash(self, mock_version, mock_session_cls):
-        mock_version.return_value = "abc123456789"
-
+    def test_skips_same_hash(self, mock_session_cls):
         mock_session = MagicMock()
         mock_session_cls.return_value = mock_session
 
         photo_keys = ["photos/slug/photo_0.jpg", "photos/slug/photo_1.jpg"]
         photos_hash = compute_photos_hash(photo_keys)
+        prompt_version = compute_prompt_version()
 
         # Mock existing hashes with matching hash
         existing_row = MagicMock()
         existing_row.listing_id = 1
-        existing_row.model_name = "llama3.2-vision:11b"
-        existing_row.model_version = "abc123456789"
+        existing_row.model_name = "qwen3-vl:32b"
+        existing_row.model_version = prompt_version
         existing_row.photos_hash = photos_hash
 
         # Mock listing
@@ -531,6 +587,6 @@ class TestScoreAllPhotos:
             [listing_row],
         ]
 
-        result = score_all_photos(batch_size=10)
+        result = score_all_photos()
         assert result["skipped"] == 1
         assert result["scored"] == 0

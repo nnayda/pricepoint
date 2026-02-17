@@ -182,6 +182,96 @@ def extract_json_from_text(text: str) -> dict[str, Any] | None:
                         pass
                     break
 
+    # Strategy 4: repair truncated JSON (model hit token limit mid-response)
+    if start is not None and start != -1:
+        return _repair_truncated_json(stripped[start:])
+
+    return None
+
+
+def _repair_truncated_json(text: str) -> dict[str, Any] | None:
+    """Attempt to repair truncated JSON by closing open brackets/braces.
+
+    When the LLM hits its token limit, the JSON is cut off mid-value.
+    Tries closing at the current position first, then progressively
+    truncates back to earlier clean break points (commas, closing
+    brackets) until a valid parse succeeds.
+    """
+    if not text or not text.strip():
+        return None
+
+    # Collect candidate truncation points: every comma or closing bracket
+    # outside a string, plus the full text itself
+    candidates: list[int] = [len(text)]
+    in_string = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if in_string:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+                candidates.append(i + 1)
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch in ",]}":
+                candidates.append(i + 1)
+        i += 1
+
+    # Try from longest to shortest candidate
+    for end in reversed(candidates):
+        result = _try_close_json(text[:end])
+        if result is not None:
+            return result
+
+    return None
+
+
+def _try_close_json(fragment: str) -> dict[str, Any] | None:
+    """Try to close a JSON fragment by appending missing brackets/braces."""
+    fragment = fragment.rstrip().rstrip(",")
+    if not fragment:
+        return None
+
+    # Walk to determine string state and open structures
+    in_string = False
+    stack: list[str] = []
+    i = 0
+    while i < len(fragment):
+        ch = fragment[i]
+        if in_string:
+            if ch == "\\" and i + 1 < len(fragment):
+                i += 2
+                continue
+            if ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                stack.append("}")
+            elif ch == "[":
+                stack.append("]")
+            elif ch in "}]" and stack and stack[-1] == ch:
+                stack.pop()
+        i += 1
+
+    # Close unclosed string
+    suffix = ""
+    if in_string:
+        suffix += '"'
+    suffix += "".join(reversed(stack))
+
+    try:
+        result = json.loads(fragment + suffix)
+        if isinstance(result, dict):
+            return result
+    except (json.JSONDecodeError, ValueError):
+        pass
+
     return None
 
 
