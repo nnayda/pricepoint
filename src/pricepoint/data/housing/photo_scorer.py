@@ -223,6 +223,7 @@ def download_photos_as_base64(
     bucket = settings.s3_bucket
     images: list[str] = []
 
+    failures = 0
     for key in photo_keys:
         try:
             response = s3_client.get_object(Bucket=bucket, Key=key)
@@ -230,7 +231,15 @@ def download_photos_as_base64(
             encoded = base64.b64encode(body).decode("utf-8")
             images.append(encoded)
         except Exception:
-            logger.warning("Failed to download photo from S3: %s", key)
+            failures += 1
+            logger.warning("Failed to download photo from S3: %s/%s", bucket, key)
+
+    if failures:
+        logger.warning(
+            "S3 download: %d/%d photos failed for batch",
+            failures,
+            len(photo_keys),
+        )
 
     return images
 
@@ -327,9 +336,16 @@ async def call_ollama_vision(
         response.raise_for_status()
         data = response.json()
         text = data.get("response", "")
-        return extract_json_from_text(text)
+        parsed = extract_json_from_text(text)
+        if parsed is None:
+            logger.warning(
+                "Ollama vision returned unparseable response (len=%d): %.300s",
+                len(text),
+                text,
+            )
+        return parsed
     except httpx.TimeoutException:
-        logger.warning("Ollama vision request timed out")
+        logger.warning("Ollama vision request timed out (limit=%ds)", timeout)
         return None
     except httpx.HTTPStatusError as exc:
         body = exc.response.text[:500] if exc.response else ""
@@ -385,20 +401,38 @@ async def score_photos_batch(
         # Download photos from S3
         images = s3_fn(photo_keys)
         if not images:
-            logger.warning("No photos downloaded for listing %d", listing_id)
+            logger.warning(
+                "Listing %d: no photos downloaded from S3 (%d keys attempted)",
+                listing_id,
+                len(photo_keys),
+            )
             return None
 
         # Score each photo individually (model only supports single image)
         per_photo_results: list[dict[str, Any]] = []
         all_raw: list[dict[str, Any] | None] = []
-        for img in images:
+        photo_failures = 0
+        for idx, img in enumerate(images):
             async with semaphore:
                 raw = await ollama_fn(img)
             all_raw.append(raw)
             if raw is not None:
                 per_photo_results.append(parse_llm_response(raw))
+            else:
+                photo_failures += 1
+                logger.debug(
+                    "Listing %d: photo %d/%d failed Ollama scoring",
+                    listing_id,
+                    idx + 1,
+                    len(images),
+                )
 
         if not per_photo_results:
+            logger.warning(
+                "Listing %d: all %d photos failed Ollama scoring",
+                listing_id,
+                len(images),
+            )
             return {
                 "listing_id": listing_id,
                 "model_name": model_name,
@@ -410,6 +444,15 @@ async def score_photos_batch(
                 "renovation_level": None,
                 "raw_response": {"error": "ollama_call_failed"},
             }
+
+        if photo_failures:
+            logger.info(
+                "Listing %d: %d/%d photos scored successfully (%d failed)",
+                listing_id,
+                len(per_photo_results),
+                len(images),
+                photo_failures,
+            )
 
         merged = merge_photo_results(per_photo_results)
         return {
@@ -427,9 +470,15 @@ async def score_photos_batch(
     tasks = [_score_one(listing) for listing in listings]
     batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    for r in batch_results:
+    for idx, r in enumerate(batch_results):
         if isinstance(r, BaseException):
-            logger.error("Photo scoring task failed: %s", r)
+            listing_id = listings[idx].get("id", "unknown")
+            logger.error(
+                "Listing %s: photo scoring raised %s: %s",
+                listing_id,
+                type(r).__name__,
+                r,
+            )
         elif isinstance(r, dict):
             results.append(r)
 
@@ -525,7 +574,8 @@ def score_all_photos(
             batch_scored = 0
             batch_errors = 0
             for result in results:
-                if result["raw_response"].get("error"):
+                raw = result["raw_response"]
+                if isinstance(raw, dict) and raw.get("error"):
                     errors += 1
                     batch_errors += 1
                     continue
@@ -558,7 +608,8 @@ def score_all_photos(
 
             # Update existing_hashes with newly scored
             for result in results:
-                if not result["raw_response"].get("error"):
+                raw = result["raw_response"]
+                if not (isinstance(raw, dict) and raw.get("error")):
                     key = (result["listing_id"], result["model_name"], result["model_version"])
                     existing_hashes[key] = result["photos_hash"]
 
