@@ -791,6 +791,30 @@ class NcesSchool(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class WakeSubdivision(Base):
+    """Wake County subdivision boundary from ArcGIS MapServer."""
+
+    __tablename__ = "wake_subdivisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String(40))
+    snumber = Column(String(10), index=True)
+    access_rd = Column(String(30))
+    jurisdiction = Column(String(25))
+    status = Column(String(20))
+    acres = Column(Float)
+    lots = Column(Integer)
+    density = Column(Float)
+    mapclass = Column(Integer)
+    iscluster = Column(String(5))
+    approvdate = Column(DateTime(timezone=True))
+    appldate = Column(DateTime(timezone=True))
+    last_edited_date = Column(DateTime(timezone=True))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class LlmQualityScore(Base):
     """LLM-generated property quality score from listing description analysis.
 

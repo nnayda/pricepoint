@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_rate_limit_seconds: float = 1.0
 
+    # Wake County Subdivisions (ArcGIS MapServer)
+    wake_subdivisions_base_url: str = (
+        "https://maps.wake.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/0"
+    )
+
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:32b"
