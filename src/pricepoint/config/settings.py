@@ -58,6 +58,53 @@ class Settings(BaseSettings):
         "https://maps.wake.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/0"
     )
 
+    # Wake County Geospatial Collectors (ArcGIS)
+    wake_farmers_markets_base_url: str = (
+        "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services"
+        "/Farmers_Market/FeatureServer/0"
+    )
+    wake_libraries_base_url: str = (
+        "https://services1.arcgis.com/a7CWfuGP5ZnLYE7I/arcgis/rest/services"
+        "/Libraries/FeatureServer/0"
+    )
+    wake_hospitals_base_url: str = (
+        "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Hospital/FeatureServer/0"
+    )
+    wake_parks_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/OpenSpace/MapServer/0"
+    )
+    raleigh_parks_base_url: str = (
+        "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Parks/FeatureServer/0"
+    )
+    cary_parks_base_url: str = (
+        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/0"
+    )
+    wake_greenways_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/Greenways/MapServer/0"
+    )
+    raleigh_greenways_base_url: str = (
+        "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services"
+        "/Greenway_Trails_All/FeatureServer/0"
+    )
+    cary_greenways_base_url: str = (
+        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/2"
+    )
+    wake_railroads_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services"
+        "/Transportation/Transportation/FeatureServer/2"
+    )
+    wake_major_roads_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services"
+        "/Transportation/Transportation/FeatureServer/3"
+    )
+    wake_highways_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services"
+        "/Transportation/Transportation/FeatureServer/4"
+    )
+    wake_utility_easements_base_url: str = (
+        "https://maps.wakegov.com/arcgis/rest/services/Property/Easements/MapServer/1"
+    )
+
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:32b"
