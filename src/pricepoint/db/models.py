@@ -815,6 +815,288 @@ class WakeSubdivision(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class WakeFarmersMarket(Base):
+    """Wake County farmers market location from ArcGIS."""
+
+    __tablename__ = "wake_farmers_markets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    location_desc = Column(String)
+    organization = Column(String)
+    active_day = Column(String)
+    months = Column(String)
+    hours = Column(String)
+    website = Column(String)
+    phone = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeLibrary(Base):
+    """Wake County library location from ArcGIS."""
+
+    __tablename__ = "wake_libraries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    address = Column(String)
+    city = Column(String)
+    code = Column(String)
+    label = Column(String)
+    status = Column(String)
+    facility_type = Column(String)
+    hours_mt = Column(String)
+    hours_fri = Column(String)
+    hours_sat = Column(String)
+    hours_sun = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeHospital(Base):
+    """Wake County hospital location from ArcGIS."""
+
+    __tablename__ = "wake_hospitals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    facility = Column(String, index=True)
+    address = Column(String)
+    city = Column(String)
+    acute_care = Column(String)
+    url = Column(String)
+    telephone = Column(String)
+    gis_edit_date = Column(DateTime(timezone=True))
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakePark(Base):
+    """Wake County open space / park from ArcGIS MapServer."""
+
+    __tablename__ = "wake_parks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    acres = Column(Float)
+    owner = Column(String)
+    jurisdiction = Column(String)
+    park_type = Column(String)
+    manager = Column(String)
+    comments = Column(String)
+    corridor = Column(String)
+    os_number = Column(String)
+    created_date = Column(DateTime(timezone=True))
+    last_edited_date = Column(DateTime(timezone=True))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class RaleighPark(Base):
+    """City of Raleigh park from ArcGIS FeatureServer."""
+
+    __tablename__ = "raleigh_parks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    park_type = Column(String)
+    developed = Column(String)
+    map_acres = Column(Float)
+    address = Column(String)
+    zip_code = Column(String)
+    park_id = Column(String)
+    initial_acquisition_date = Column(DateTime(timezone=True))
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CaryPark(Base):
+    """Town of Cary park with amenity details from ArcGIS FeatureServer."""
+
+    __tablename__ = "cary_parks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    facility_id = Column(String)
+    address = Column(String)
+    park_area = Column(Float)
+    park_url = Column(String)
+    num_parking = Column(Integer)
+    restroom = Column(String)
+    ada_compliant = Column(String)
+    camping = Column(String)
+    swimming = Column(String)
+    hiking = Column(String)
+    fishing = Column(String)
+    picnic = Column(String)
+    boating = Column(String)
+    road_cycle = Column(String)
+    mtb_cycle = Column(String)
+    playground = Column(String)
+    golf = Column(String)
+    soccer = Column(String)
+    baseball = Column(String)
+    basketball = Column(String)
+    skatepark = Column(String)
+    tennis_court = Column(String)
+    volleyball = Column(String)
+    fitness_trail = Column(String)
+    nature_trail = Column(String)
+    trailhead = Column(String)
+    open_space = Column(String)
+    lake = Column(String)
+    amphitheater = Column(String)
+    dog_park = Column(String)
+    disc_golf = Column(String)
+    climbing_rocks = Column(String)
+    climbing_ropes = Column(String)
+    batting_cages = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeGreenway(Base):
+    """Wake County greenway trail from ArcGIS MapServer."""
+
+    __tablename__ = "wake_greenways"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    trail_name = Column(String, index=True)
+    corridor_name = Column(String)
+    owner = Column(String)
+    trail_status = Column(String)
+    trail_surface = Column(String)
+    trail_class = Column(String)
+    length = Column(Float)
+    width = Column(Float)
+    open_date = Column(DateTime(timezone=True))
+    public_access = Column(String)
+    accessibility_status = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class RaleighGreenway(Base):
+    """City of Raleigh greenway trail from ArcGIS FeatureServer."""
+
+    __tablename__ = "raleigh_greenways"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    trail_name = Column(String, index=True)
+    greenway_type = Column(String)
+    location_desc = Column(String)
+    status = Column(String)
+    material = Column(String)
+    map_miles = Column(Float)
+    width_ft = Column(Float)
+    owner = Column(String)
+    ada = Column(String)
+    gw_status = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CaryGreenway(Base):
+    """Town of Cary greenway trail from ArcGIS FeatureServer."""
+
+    __tablename__ = "cary_greenways"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    name = Column(String, index=True)
+    segment = Column(String)
+    length = Column(Float)
+    width = Column(Float)
+    trail_type = Column(String)
+    surface_type = Column(String)
+    status = Column(String)
+    install_date = Column(DateTime(timezone=True))
+    open_to_public = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeRailroad(Base):
+    """Wake County railroad from ArcGIS FeatureServer."""
+
+    __tablename__ = "wake_railroads"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    branch_or = Column(String)
+    track_type = Column(String)
+    track_owner = Column(String)
+    shape_length = Column(Float)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeMajorRoad(Base):
+    """Wake County major road from ArcGIS FeatureServer."""
+
+    __tablename__ = "wake_major_roads"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    street_name = Column(String, index=True)
+    street_type = Column(String)
+    dir_prefix = Column(String)
+    dir_suffix = Column(String)
+    state_road = Column(String)
+    carto_name = Column(String)
+    corporation = Column(String)
+    class_name = Column(String)
+    label_name = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeHighway(Base):
+    """Wake County highway from ArcGIS FeatureServer."""
+
+    __tablename__ = "wake_highways"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    street_name = Column(String, index=True)
+    street_type = Column(String)
+    dir_prefix = Column(String)
+    dir_suffix = Column(String)
+    from_left = Column(Integer)
+    to_left = Column(Integer)
+    from_right = Column(Integer)
+    to_right = Column(Integer)
+    state_road = Column(String)
+    carto_name = Column(String)
+    corporation = Column(String)
+    class_name = Column(String)
+    label_name = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WakeUtilityEasement(Base):
+    """Wake County utility easement from ArcGIS MapServer."""
+
+    __tablename__ = "wake_utility_easements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    length = Column(Float)
+    ftr_code = Column(String)
+    status = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class LlmQualityScore(Base):
     """LLM-generated property quality score from listing description analysis.
 
