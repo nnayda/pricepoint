@@ -27,9 +27,15 @@ export async function getCrime(
   lat: number,
   lon: number,
   radiusMiles?: number,
+  daysBack?: number,
 ): Promise<CrimeResponse> {
   const { data } = await client.get<CrimeResponse>("/api/crime", {
-    params: { lat, lon, ...(radiusMiles !== undefined && { radius_miles: radiusMiles }) },
+    params: {
+      lat,
+      lon,
+      ...(radiusMiles !== undefined && { radius_miles: radiusMiles }),
+      ...(daysBack !== undefined && { days_back: daysBack }),
+    },
   });
   return data;
 }
