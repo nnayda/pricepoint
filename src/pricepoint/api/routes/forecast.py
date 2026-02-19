@@ -5,12 +5,14 @@ import logging
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
+from pricepoint.api.rate_limit import limiter
 from pricepoint.api.schemas.forecast import ForecastRequest, ForecastResponse
+from pricepoint.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +133,10 @@ def _get_or_create_property_id(
 
 
 @router.post("/forecast", response_model=ForecastResponse)
+@limiter.limit(get_settings().rate_limit_forecast)
 async def forecast(
-    request: ForecastRequest,
+    request: Request,
+    body: ForecastRequest,
     db: Annotated[Session, Depends(get_db)],
     valkey: Annotated[Redis | None, Depends(get_valkey)],
 ) -> ForecastResponse:
@@ -141,7 +145,7 @@ async def forecast(
     Geocodes the address, builds features, and runs the production model.
     Falls back gracefully when MLflow is unavailable.
     """
-    cache_key = f"forecast:{request.address.strip().lower()}"
+    cache_key = f"forecast:{body.address.strip().lower()}"
 
     # Check cache first
     if valkey is not None:
@@ -153,10 +157,10 @@ async def forecast(
             logger.warning("Valkey read failed for key %s", cache_key, exc_info=True)
 
     # Geocode the address
-    coords = await _geocode_address(request)
+    coords = await _geocode_address(body)
     if coords is None:
         return ForecastResponse(
-            address=request.address,
+            address=body.address,
             predicted_value=0.0,
             confidence_interval_low=0.0,
             confidence_interval_high=0.0,
@@ -167,11 +171,11 @@ async def forecast(
 
     # Look up or create property record
     try:
-        property_id = _get_or_create_property_id(db, lat, lon, request.address)
+        property_id = _get_or_create_property_id(db, lat, lon, body.address)
     except Exception:
         logger.warning("Property lookup/creation failed", exc_info=True)
         return ForecastResponse(
-            address=request.address,
+            address=body.address,
             predicted_value=0.0,
             confidence_interval_low=0.0,
             confidence_interval_high=0.0,
@@ -184,7 +188,7 @@ async def forecast(
     except Exception:
         logger.warning("Feature engineering failed for property %d", property_id, exc_info=True)
         return ForecastResponse(
-            address=request.address,
+            address=body.address,
             predicted_value=0.0,
             confidence_interval_low=0.0,
             confidence_interval_high=0.0,
@@ -193,7 +197,7 @@ async def forecast(
 
     if features.empty:
         return ForecastResponse(
-            address=request.address,
+            address=body.address,
             predicted_value=0.0,
             confidence_interval_low=0.0,
             confidence_interval_high=0.0,
@@ -206,7 +210,7 @@ async def forecast(
     except Exception:
         logger.warning("Model prediction failed", exc_info=True)
         return ForecastResponse(
-            address=request.address,
+            address=body.address,
             predicted_value=0.0,
             confidence_interval_low=0.0,
             confidence_interval_high=0.0,
@@ -214,7 +218,7 @@ async def forecast(
         )
 
     response = ForecastResponse(
-        address=request.address,
+        address=body.address,
         predicted_value=predicted_value,
         confidence_interval_low=ci_low,
         confidence_interval_high=ci_high,

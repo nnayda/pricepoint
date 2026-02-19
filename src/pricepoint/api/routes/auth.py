@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,14 +14,18 @@ from pricepoint.api.auth import (
     verify_password,
 )
 from pricepoint.api.dependencies import get_db
+from pricepoint.api.rate_limit import limiter
 from pricepoint.api.schemas.auth import TokenResponse, UserCreate, UserResponse, UserUpdate
+from pricepoint.config.settings import get_settings
 from pricepoint.db.models import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(get_settings().rate_limit_auth)
 def register(
+    request: Request,
     body: UserCreate,
     db: Annotated[Session, Depends(get_db)],
 ) -> UserResponse:
@@ -45,7 +49,9 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit(get_settings().rate_limit_auth)
 def login(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
