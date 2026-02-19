@@ -1,6 +1,7 @@
 """Property endpoint — returns property details from DB or stub data."""
 
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import boto3
@@ -8,12 +9,13 @@ from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.property import (
     ClimateRisk,
+    ComparableProperty,
     ExteriorFeatures,
     FinancialDetails,
     InteriorFeatures,
@@ -480,3 +482,103 @@ async def get_photo(path: str) -> StreamingResponse:
         media_type=content_type,
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+_MILES_TO_METERS = 1609.344
+
+
+@router.get("/comparables", response_model=list[ComparableProperty])
+async def get_comparables(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+    beds: Annotated[int, Query(ge=0)],
+    sqft: Annotated[float, Query(gt=0)],
+    db: Annotated[Session, Depends(get_db)],
+    radius_miles: Annotated[float, Query(gt=0, le=50)] = 3.0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 5,
+) -> list[ComparableProperty]:
+    """Return comparable recently-sold properties near a given location.
+
+    Filters by radius, bedroom count (+/- 1), and square footage (+/- 25%).
+    Results are ranked by a composite similarity score combining distance,
+    size difference, and recency.
+    """
+    radius_meters = radius_miles * _MILES_TO_METERS
+    cutoff_date = datetime.now(tz=UTC) - timedelta(days=365)
+    sqft_low = sqft * 0.75
+    sqft_high = sqft * 1.25
+
+    point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+
+    # Distance in metres (geography cast for accurate measurement)
+    dist_col = func.ST_Distance(
+        func.cast(RedfinListing.location, func.geography),
+        func.cast(point, func.geography),
+    ).label("distance_m")
+
+    stmt = select(RedfinListing, dist_col).where(
+        RedfinListing.location.isnot(None),
+        RedfinListing.sold_date.isnot(None),
+        RedfinListing.sold_price.isnot(None),
+        RedfinListing.sold_date >= cutoff_date,
+        RedfinListing.num_beds.isnot(None),
+        RedfinListing.sqft.isnot(None),
+        RedfinListing.num_beds.between(beds - 1, beds + 1),
+        RedfinListing.sqft.between(int(sqft_low), int(sqft_high)),
+        ST_DWithin(
+            func.cast(RedfinListing.location, func.geography),
+            func.cast(point, func.geography),
+            radius_meters,
+        ),
+    )
+
+    rows = db.execute(stmt).all()
+
+    now = datetime.now(tz=UTC)
+    scored: list[tuple[float, RedfinListing, float]] = []
+    for row_listing, distance_m in rows:
+        distance_km = distance_m / 1000.0
+        sqft_diff = abs((row_listing.sqft or 0) - sqft)
+        days_since = (now - row_listing.sold_date.replace(tzinfo=UTC)).days
+
+        score = distance_km * 0.3 + (sqft_diff / sqft) * 0.4 + (days_since / 365) * 0.3
+        scored.append((score, row_listing, distance_m))
+
+    scored.sort(key=lambda x: x[0])
+    top = scored[:limit]
+
+    results: list[ComparableProperty] = []
+    for _score, prop, _dist in top:
+        # Extract lat/lon from the geometry
+        prop_point = db.execute(
+            select(
+                func.ST_Y(prop.location).label("lat"),
+                func.ST_X(prop.location).label("lon"),
+            )
+        ).one()
+
+        full_address = prop.street_address or ""
+        if prop.city:
+            full_address += f", {prop.city}"
+        if prop.state:
+            full_address += f", {prop.state}"
+        if prop.zip_code:
+            full_address += f" {prop.zip_code}"
+
+        results.append(
+            ComparableProperty(
+                id=prop.id,
+                address=full_address,
+                sale_price=prop.sold_price,
+                sold_date=prop.sold_date.strftime("%Y-%m-%d"),
+                beds=prop.num_beds or 0,
+                baths=prop.num_baths or 0.0,
+                sqft=prop.sqft or 0,
+                price_per_sqft=prop.price_per_sqft
+                or (round(prop.sold_price / prop.sqft, 2) if prop.sqft else 0.0),
+                lat=prop_point.lat,
+                lon=prop_point.lon,
+            )
+        )
+
+    return results

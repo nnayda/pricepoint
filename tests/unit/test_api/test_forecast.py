@@ -2,12 +2,14 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
 from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.main import create_app
+from pricepoint.api.routes.forecast import FEATURE_DISPLAY_NAMES
 
 
 @pytest.fixture
@@ -211,3 +213,91 @@ class TestForecastCaching:
         assert data["model_version"] == "run-cached-v2"
 
         app.dependency_overrides.clear()
+
+
+class TestFeatureImportance:
+    """Tests for GET /api/forecast/importance/{property_id}."""
+
+    def test_returns_stub_when_mlflow_unavailable(self, client):
+        """Falls back to stub importances when no model is available."""
+        resp = client.get("/api/forecast/importance/1")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 15  # 10 positive + 5 negative from stub
+
+    def test_stub_response_has_correct_schema(self, client):
+        """Each attribution has feature, display_name, impact_dollars."""
+        resp = client.get("/api/forecast/importance/1")
+        data = resp.json()
+        for item in data:
+            assert "feature" in item
+            assert "display_name" in item
+            assert "impact_dollars" in item
+            assert isinstance(item["impact_dollars"], float)
+
+    def test_stub_contains_positive_and_negative(self, client):
+        """Stub data includes both positive and negative impacts."""
+        resp = client.get("/api/forecast/importance/1")
+        data = resp.json()
+        positives = [d for d in data if d["impact_dollars"] > 0]
+        negatives = [d for d in data if d["impact_dollars"] < 0]
+        assert len(positives) > 0
+        assert len(negatives) > 0
+
+    def test_display_names_match_mapping(self, client):
+        """Display names should come from FEATURE_DISPLAY_NAMES."""
+        resp = client.get("/api/forecast/importance/1")
+        data = resp.json()
+        for item in data:
+            if item["feature"] in FEATURE_DISPLAY_NAMES:
+                assert item["display_name"] == FEATURE_DISPLAY_NAMES[item["feature"]]
+
+    @patch(
+        "pricepoint.api.routes.forecast._build_features_for_property",
+        return_value=pd.DataFrame(
+            {"feat_a": [2.0], "feat_b": [3.0], "feat_c": [1.0]},
+            index=[42],
+        ),
+    )
+    @patch("mlflow.pyfunc.load_model")
+    def test_returns_model_importances_when_available(self, mock_load_model, mock_features, client):
+        """When MLflow model has feature_importances_, use them."""
+        mock_model = MagicMock()
+        mock_model._model_impl.feature_importances_ = np.array([0.5, -0.3, 0.1])
+        mock_load_model.return_value = mock_model
+
+        resp = client.get("/api/forecast/importance/42")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        # feat_a: 0.5 * 2.0 = 1.0 (positive)
+        # feat_b: -0.3 * 3.0 = -0.9 (negative)
+        # feat_c: 0.1 * 1.0 = 0.1 (positive)
+        features = {d["feature"]: d["impact_dollars"] for d in data}
+        assert features["feat_a"] == 1.0
+        assert features["feat_b"] == -0.9
+        assert features["feat_c"] == 0.1
+
+    @patch(
+        "pricepoint.api.routes.forecast._build_features_for_property",
+        return_value=pd.DataFrame(),
+    )
+    @patch("mlflow.pyfunc.load_model")
+    def test_falls_back_to_stub_when_features_empty(self, mock_load_model, mock_features, client):
+        """When feature engineering returns empty DF, fall back to stub."""
+        mock_model = MagicMock()
+        mock_model._model_impl.feature_importances_ = np.array([0.5])
+        mock_load_model.return_value = mock_model
+
+        resp = client.get("/api/forecast/importance/99")
+        assert resp.status_code == 200
+        data = resp.json()
+        # Should be stub data (15 items)
+        assert len(data) == 15
+
+    def test_invalid_property_id_type(self, client):
+        """Non-integer property_id returns 422."""
+        resp = client.get("/api/forecast/importance/abc")
+        assert resp.status_code == 422

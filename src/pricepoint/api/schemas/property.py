@@ -116,6 +116,21 @@ class ClimateRisk(BaseModel):
     fire_score: int
 
 
+class ComparableProperty(BaseModel):
+    """A comparable property for comparison."""
+
+    id: int
+    address: str
+    sale_price: float
+    sold_date: str
+    beds: int
+    baths: float
+    sqft: int
+    price_per_sqft: float
+    lat: float
+    lon: float
+
+
 class PropertyResponse(BaseModel):
     """Response body for property lookup."""
 
