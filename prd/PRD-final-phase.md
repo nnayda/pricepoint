@@ -1155,13 +1155,10 @@ Phase 6 (Infra Hardening) ─────── independent ──────�
 
 After all phases complete, verify end-to-end:
 
-1. **Data pipeline:** Trigger all Airflow DAGs manually. Verify data flows from collectors -> staging -> production -> features -> model training -> MLflow
-2. **ML predictions:** Confirm model is registered in MLflow with target metrics (MAPE < 8%, R2 > 0.85). Verify batch scoring populates `property_valuations`.
-3. **API endpoints:** Hit every endpoint with real data. Verify no stubs remain. Test spatial queries at various locations in Wake County.
-4. **Frontend:** Navigate search -> results -> forecast flow. Verify ML predictions display, feature importance shows, comparables load, map layers show real data.
-5. **Auth:** Register, login, save property, view saved list, create API key, use API key, logout.
-6. **Performance:** Run k6 load tests. All endpoints meet latency thresholds.
-7. **CI/CD:** Push a commit, verify all CI stages pass (lint, typecheck, security scan, tests, build, container scan).
-8. **Monitoring:** Check Grafana dashboards show API metrics. Verify structured logs in JSON format.
-9. **Run full test suite:** `make test && make frontend-test` - all tests pass, 0 failures.
-10. **Build:** `npm run build` succeeds with no TypeScript errors. `make lint && make frontend-lint` pass.
+1. **ML predictions:** Confirm model is registered in MLflow with target metrics (MAPE < 8%, R2 > 0.85). Verify batch scoring populates `property_valuations`.
+2. **API endpoints:** Hit every endpoint with real data. Verify no stubs remain. Test spatial queries at various locations in Wake County.
+3. **Frontend:** Navigate search -> results -> forecast flow. Verify ML predictions display, feature importance shows, comparables load, map layers show real data.
+4. **Auth:** Register, login, save property, view saved list, create API key, use API key, logout.
+5. **Monitoring:** Check Grafana dashboards show API metrics. Verify structured logs in JSON format.
+6. **Run full test suite:** `make test && make frontend-test` - all tests pass, 0 failures.
+7. **Build:** `npm run build` succeeds with no TypeScript errors. `make lint && make frontend-lint` pass.
