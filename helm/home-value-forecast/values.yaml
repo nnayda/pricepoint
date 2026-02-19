@@ -128,6 +128,14 @@ externalS3:
   secretKey: ""
   bucket: ""
 
+# -- Secrets (sensitive values) ------------------------------------------------
+# Override these via --set or a separate values file (never commit real values).
+secrets:
+  jwtSecretKey: "changeme"
+  fredApiKey: ""
+  oauthGoogleClientSecret: ""
+  mlflowBackendStoreUri: ""
+
 # -- Airflow (optional, bundled) -----------------------------------------------
 airflow:
   enabled: true

@@ -5,10 +5,7 @@ metadata:
   labels:
     {{- include "pricepoint.labels" . | nindent 4 }}
 data:
-  DATABASE_URL: {{ include "pricepoint.databaseUrl" . | quote }}
   S3_ENDPOINT_URL: {{ include "pricepoint.s3Endpoint" . | quote }}
-  S3_ACCESS_KEY: {{ include "pricepoint.s3AccessKey" . | quote }}
-  S3_SECRET_KEY: {{ include "pricepoint.s3SecretKey" . | quote }}
   S3_BUCKET: {{ if .Values.minio.enabled }}pricepoint-data{{ else }}{{ .Values.externalS3.bucket }}{{ end }}
   MLFLOW_TRACKING_URI: "http://{{ include "pricepoint.fullname" . }}-mlflow:{{ .Values.mlflow.service.port }}"
   AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"

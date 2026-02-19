@@ -27,6 +27,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
           livenessProbe:
             httpGet:
               path: /
