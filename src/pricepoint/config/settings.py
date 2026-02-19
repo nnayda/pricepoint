@@ -112,6 +112,21 @@ class Settings(BaseSettings):
     ollama_max_concurrent: int = 4
     ollama_timeout_seconds: int = 120
 
+    # FRED API (economic indicators)
+    fred_api_key: str = ""
+    fred_series_ids: list[str] = [
+        "MORTGAGE30US",
+        "MORTGAGE15US",
+        "CPIAUCSL",
+        "UNRATE",
+        "NCUR",
+        "HOUST",
+        "PERMIT",
+        "CSUSHPISA",
+        "UMCSENT",
+    ]
+    fred_lookback_years: int = 10
+
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"
     redfin_s3_archive_prefix: str = "redfin/archive"

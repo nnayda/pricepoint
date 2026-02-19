@@ -700,6 +700,18 @@ wheels = [
 ]
 
 [[package]]
+name = "fredapi"
+version = "0.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6f/3c/e9281ecda4c6ee5c7d50a4bcf00dc5df1a7ff325e604c9b9510c5bdd8514/fredapi-0.5.2.tar.gz", hash = "sha256:405ca048abed4207d93dbc9b7ee8c46d6b473483650323e2f1c094af83d4b247", size = 14735, upload-time = "2024-05-05T11:42:11.444Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/73/64/1db43417cf7ed430f104a347126b5260a1724ee9a1b7d0b1622262c9c4df/fredapi-0.5.2-py3-none-any.whl", hash = "sha256:961817ec8d70e58886ff7302d3dda908614ad99f77831a59833c4fc3f6150155", size = 11854, upload-time = "2024-05-05T11:42:09.559Z" },
+]
+
+[[package]]
 name = "geoalchemy2"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1875,6 +1887,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "boto3" },
     { name = "fastapi" },
+    { name = "fredapi" },
     { name = "geoalchemy2" },
     { name = "geopandas" },
     { name = "httpx" },
@@ -1906,6 +1919,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12,<5" },
     { name = "boto3", specifier = ">=1.34,<2" },
     { name = "fastapi", specifier = ">=0.111,<1" },
+    { name = "fredapi", specifier = ">=0.5,<1" },
     { name = "geoalchemy2", specifier = ">=0.15,<1" },
     { name = "geopandas", specifier = ">=1.0,<2" },
     { name = "httpx", specifier = ">=0.27,<1" },

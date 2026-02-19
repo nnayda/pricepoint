@@ -5,6 +5,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     Index,
@@ -1152,4 +1153,21 @@ class LlmPhotoScore(Base):
             "model_version",
             name="uq_llm_photo_score_listing_model",
         ),
+    )
+
+
+class EconomicIndicator(Base):
+    """Macroeconomic time-series observation from FRED."""
+
+    __tablename__ = "economic_indicators"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    series_id = Column(String, nullable=False)
+    observation_date = Column(Date, nullable=False)
+    value = Column(Float, nullable=False)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("series_id", "observation_date", name="uq_economic_series_date"),
+        Index("idx_economic_series_date", "series_id", "observation_date"),
     )
