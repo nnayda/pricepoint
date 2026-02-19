@@ -20,6 +20,7 @@ class GreenspaceMetrics(BaseModel):
 
     parks_within_1mi: int
     nearest_park_miles: float
+    nearest_greenway_miles: float = 0.0
     total_green_acres_1mi: float
     greenspace_z_score: float
 
