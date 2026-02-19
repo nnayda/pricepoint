@@ -43,4 +43,5 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_wake_highway_collection.py" in names
     assert "dag_wake_utility_easement_collection.py" in names
     assert "dag_economic_collection.py" in names
-    assert len(dag_files) == 28
+    assert "dag_batch_scoring.py" in names
+    assert len(dag_files) == 29
