@@ -301,3 +301,12 @@ export interface ForecastData {
   feature_attributions: FeatureAttribution[];
   comparables: ComparableProperty[];
 }
+
+export interface RecentlyViewedItem {
+  address: string;
+  lat: number;
+  lon: number;
+  price?: number;
+  thumbnailUrl?: string;
+  viewedAt: string;
+}

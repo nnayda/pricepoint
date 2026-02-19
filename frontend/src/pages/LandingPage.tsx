@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import SearchBar from "../components/SearchBar/SearchBar";
+import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import { startViewTransition } from "../utils/viewTransition";
 import type { GeocodeResult } from "../types";
 
@@ -30,6 +31,8 @@ function LandingPage() {
         </div>
 
         <SearchBar onSelect={handleSelect} placeholder="Enter a property address..." />
+
+        <RecentlyViewed />
 
         <div className="grid w-full grid-cols-1 gap-grid sm:grid-cols-3">
           <div className="rounded-md bg-bg-card p-4 shadow-soft sm:p-6">
