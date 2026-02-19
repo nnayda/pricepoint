@@ -15,7 +15,16 @@ class PointOfInterest(BaseModel):
     drive_minutes: int
 
 
+class PoisMetrics(BaseModel):
+    """Aggregate metrics for POI results."""
+
+    total_count: int
+    categories_represented: int
+    nearest_distance_miles: float | None
+
+
 class PoisResponse(BaseModel):
     """Response body for points of interest lookup."""
 
     pois: list[PointOfInterest]
+    metrics: PoisMetrics | None = None
