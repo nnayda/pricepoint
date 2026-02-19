@@ -135,6 +135,11 @@ class Settings(BaseSettings):
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
+    # JWT Authentication
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440  # 24 hours
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000

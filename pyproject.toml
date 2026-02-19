@@ -27,6 +27,9 @@ dependencies = [
     "python-multipart>=0.0.22",
     "fredapi>=0.5,<1",
     "xgboost>=2.0,<3",
+    "passlib[bcrypt]>=1.7,<2",
+    "python-jose[cryptography]>=3.3,<4",
+    "bcrypt<4.2",
 ]
 
 [project.optional-dependencies]

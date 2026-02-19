@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
 from pricepoint.api.routes import (
+    auth,
     crime,
     forecast,
     geocode,
@@ -15,6 +16,7 @@ from pricepoint.api.routes import (
     health,
     pois,
     property,
+    saved,
     upload,
     utilities,
 )
@@ -64,6 +66,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router, prefix="/api")
     app.include_router(forecast.router, prefix="/api")
     app.include_router(geocode.router, prefix="/api")
     app.include_router(property.router, prefix="/api")
@@ -71,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(pois.router, prefix="/api")
     app.include_router(greenspace.router, prefix="/api")
     app.include_router(utilities.router, prefix="/api")
+    app.include_router(saved.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
 
     return app
