@@ -1,8 +1,8 @@
 """Tests for the crime endpoint."""
 
 import json
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,7 +30,7 @@ def _make_row(
 ):
     """Create a mock DB row for crime query results."""
     if occurred_at is None:
-        occurred_at = datetime.now(tz=timezone.utc) - timedelta(days=30)
+        occurred_at = datetime.now(tz=UTC) - timedelta(days=30)
     return _FakeRow(
         incident_id=incident_id,
         lat=lat,
@@ -48,7 +48,7 @@ def crime_app():
     app = create_app()
     mock_session = MagicMock()
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     rows = [
         _make_row(
             incident_id="1",
@@ -356,27 +356,19 @@ class TestCrimeEmptyResults:
 
     def test_empty_returns_200(self, empty_crime_client):
         """Should still return 200 with empty lists."""
-        resp = empty_crime_client.get(
-            "/api/crime", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
 
     def test_empty_heatmap(self, empty_crime_client):
-        resp = empty_crime_client.get(
-            "/api/crime", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["heatmap"] == []
 
     def test_empty_incidents(self, empty_crime_client):
-        resp = empty_crime_client.get(
-            "/api/crime", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["incidents"] == []
 
     def test_empty_metrics_zero(self, empty_crime_client):
-        resp = empty_crime_client.get(
-            "/api/crime", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
         assert metrics["total_incidents_1mi"] == 0
         assert metrics["crime_z_score"] == 0.0
@@ -437,7 +429,7 @@ class TestCrimeValkeyCaching:
         mock_valkey = AsyncMock()
         mock_valkey.get.return_value = None  # Cache miss
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         rows = [
             _make_row(occurred_at=now - timedelta(days=5)),
         ]
@@ -473,7 +465,7 @@ class TestCrimeHelperFunctions:
         """Recent incident should have high intensity."""
         from pricepoint.api.routes.crime import _compute_intensity
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         recent = now - timedelta(days=1)
         intensity = _compute_intensity(recent, now, 365)
         assert intensity > 0.9
@@ -482,7 +474,7 @@ class TestCrimeHelperFunctions:
         """Old incident should have low intensity."""
         from pricepoint.api.routes.crime import _compute_intensity
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         old = now - timedelta(days=300)
         intensity = _compute_intensity(old, now, 365)
         assert intensity < 0.2

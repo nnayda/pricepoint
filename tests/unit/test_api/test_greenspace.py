@@ -277,21 +277,15 @@ class TestGreenspaceEmptyResults:
 
     def test_empty_returns_200(self, empty_greenspace_client):
         """Should still return 200 with empty lists."""
-        resp = empty_greenspace_client.get(
-            "/api/greenspace", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
 
     def test_empty_features(self, empty_greenspace_client):
-        resp = empty_greenspace_client.get(
-            "/api/greenspace", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["features"] == []
 
     def test_empty_metrics_zeros(self, empty_greenspace_client):
-        resp = empty_greenspace_client.get(
-            "/api/greenspace", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
         assert metrics["parks_within_1mi"] == 0
         assert metrics["nearest_park_miles"] == 0.0

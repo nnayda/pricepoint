@@ -320,22 +320,16 @@ class TestUtilitiesEmptyResults:
     """Tests for when no infrastructure features are found."""
 
     def test_empty_returns_200(self, empty_utilities_client):
-        resp = empty_utilities_client.get(
-            "/api/utilities", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
 
     def test_empty_features_list(self, empty_utilities_client):
-        resp = empty_utilities_client.get(
-            "/api/utilities", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["features"] == []
 
     def test_empty_metrics_defaults_to_radius(self, empty_utilities_client):
         """When no features found, nearest distances default to radius_miles."""
-        resp = empty_utilities_client.get(
-            "/api/utilities", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
         # Default radius is 3.0
         assert metrics["nearest_highway_miles"] == 3.0
@@ -344,9 +338,7 @@ class TestUtilitiesEmptyResults:
 
     def test_empty_nuisance_score_zero(self, empty_utilities_client):
         """With all distances at radius (3 miles), nuisance score should be 0."""
-        resp = empty_utilities_client.get(
-            "/api/utilities", params={"lat": 35.79, "lon": -78.78}
-        )
+        resp = empty_utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["metrics"]["nuisance_score"] == 0.0
 
 

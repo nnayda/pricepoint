@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from pricepoint.data.geospatial.police_incidents import fetch_police_incidents
 
-
 MODULE = "pricepoint.data.geospatial.police_incidents"
 
 
