@@ -135,15 +135,30 @@ class Settings(BaseSettings):
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
+    # Cache TTLs (seconds)
+    cache_ttl_crime: int = 21600  # 6 hours
+    cache_ttl_property: int = 86400  # 24 hours
+    cache_ttl_pois: int = 604800  # 7 days
+    cache_ttl_geocode: int = 2592000  # 30 days
+
     # JWT Authentication
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
 
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "json"
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Rate limiting
+    rate_limit_default: str = "100/minute"
+    rate_limit_forecast: str = "10/minute"
+    rate_limit_auth: str = "5/minute"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

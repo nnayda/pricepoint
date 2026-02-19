@@ -7,8 +7,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
+from pricepoint.api.logging_config import RequestLoggingMiddleware, setup_logging
+from pricepoint.api.rate_limit import setup_rate_limiting
 from pricepoint.api.routes import (
     auth,
+    cache,
     crime,
     forecast,
     geocode,
@@ -51,12 +54,15 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    setup_logging(level=settings.log_level, log_format=settings.log_format)
+
     app = FastAPI(
         title="Home Value Forecast API",
         version="0.1.0",
         lifespan=lifespan,
     )
 
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.api_cors_origins,
@@ -64,6 +70,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    setup_rate_limiting(app)
 
     app.include_router(health.router)
     app.include_router(auth.router, prefix="/api")
@@ -76,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(utilities.router, prefix="/api")
     app.include_router(saved.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
+    app.include_router(cache.router, prefix="/api")
 
     return app
 
