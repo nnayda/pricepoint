@@ -5,13 +5,13 @@ WORKDIR /app
 # Install uv
 RUN pip install --no-cache-dir uv
 
-# Copy project files
+# Install dependencies first (cached unless pyproject.toml/uv.lock change)
 COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --no-dev
+
+# Copy source code and config (changes here won't invalidate dependency cache)
 COPY src/ src/
 COPY alembic.ini ./
-
-# Install dependencies
-RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
 
