@@ -164,7 +164,10 @@ describe("PropertyMap", () => {
 
   it("renders crime density tab as active by default", () => {
     render(<PropertyMap lat={35.78} lon={-78.64} address="123 Main St" />);
-    expect(screen.getByText("Crime Density")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Crime Density").closest("button")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("renders the tab panel", () => {
@@ -177,8 +180,14 @@ describe("PropertyMap", () => {
     render(<PropertyMap lat={35.78} lon={-78.64} address="123 Main St" />);
 
     await user.click(screen.getByText("Points of Interest"));
-    expect(screen.getByText("Points of Interest")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Crime Density")).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText("Points of Interest").closest("button")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Crime Density").closest("button")).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
   });
 
   it("has no accessibility violations", async () => {

@@ -14,6 +14,14 @@ const TAB_LABELS: Record<MapTab, string> = {
   utilities: "Utilities",
 };
 
+const TAB_LABELS_SHORT: Record<MapTab, string> = {
+  "crime-density": "Density",
+  "crime-incidents": "Incidents",
+  pois: "POIs",
+  greenspace: "Green",
+  utilities: "Utils",
+};
+
 function MapTabBar({ tabs, activeTab, onTabChange }: MapTabBarProps) {
   return (
     <div
@@ -28,13 +36,14 @@ function MapTabBar({ tabs, activeTab, onTabChange }: MapTabBarProps) {
           aria-selected={activeTab === tab}
           aria-controls={`map-panel-${tab}`}
           onClick={() => onTabChange(tab)}
-          className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
             activeTab === tab
               ? "bg-brand-blue text-white"
               : "text-text-sec hover:bg-bg-card hover:text-text-pri"
           }`}
         >
-          {TAB_LABELS[tab]}
+          <span className="hidden sm:inline">{TAB_LABELS[tab]}</span>
+          <span className="sm:hidden">{TAB_LABELS_SHORT[tab]}</span>
         </button>
       ))}
     </div>

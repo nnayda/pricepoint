@@ -30,25 +30,25 @@ describe("MapTabBar", () => {
 
   it("marks the active tab with aria-selected=true", () => {
     render(<MapTabBar tabs={ALL_TABS} activeTab="pois" onTabChange={vi.fn()} />);
-    const poisTab = screen.getByText("Points of Interest");
+    const poisTab = screen.getByText("Points of Interest").closest("button")!;
     expect(poisTab).toHaveAttribute("aria-selected", "true");
   });
 
   it("marks non-active tabs with aria-selected=false", () => {
     render(<MapTabBar tabs={ALL_TABS} activeTab="pois" onTabChange={vi.fn()} />);
-    const crimeTab = screen.getByText("Crime Density");
+    const crimeTab = screen.getByText("Crime Density").closest("button")!;
     expect(crimeTab).toHaveAttribute("aria-selected", "false");
   });
 
   it("active tab has brand-blue styling", () => {
     render(<MapTabBar tabs={ALL_TABS} activeTab="greenspace" onTabChange={vi.fn()} />);
-    const tab = screen.getByText("Greenspace");
+    const tab = screen.getByText("Greenspace").closest("button")!;
     expect(tab.className).toContain("bg-brand-blue");
   });
 
   it("inactive tab does not have brand-blue styling", () => {
     render(<MapTabBar tabs={ALL_TABS} activeTab="greenspace" onTabChange={vi.fn()} />);
-    const tab = screen.getByText("Utilities");
+    const tab = screen.getByText("Utilities").closest("button")!;
     expect(tab.className).not.toContain("bg-brand-blue");
   });
 
@@ -63,7 +63,7 @@ describe("MapTabBar", () => {
 
   it("sets aria-controls to the panel id", () => {
     render(<MapTabBar tabs={ALL_TABS} activeTab="crime-density" onTabChange={vi.fn()} />);
-    const tab = screen.getByText("Crime Density");
+    const tab = screen.getByText("Crime Density").closest("button")!;
     expect(tab).toHaveAttribute("aria-controls", "map-panel-crime-density");
   });
 
