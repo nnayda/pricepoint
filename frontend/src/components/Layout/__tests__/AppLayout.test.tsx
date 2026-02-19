@@ -12,6 +12,19 @@ vi.mock("../../../hooks/useGeocode", () => ({
   }),
 }));
 
+vi.mock("../../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshAuth: vi.fn(),
+  }),
+}));
+
 function renderLayout(children = <p>Page content</p>, initialPath = "/forecast") {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>

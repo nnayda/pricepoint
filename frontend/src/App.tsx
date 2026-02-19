@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/Layout/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
@@ -27,19 +28,21 @@ function PageLoader() {
 function App() {
   return (
     <ErrorBoundary>
-      <AppLayout>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/forecast" element={<ForecastPage />} />
-            <Route path="/results" element={<ResultsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/dashboard" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
-      </AppLayout>
+      <AuthProvider>
+        <AppLayout>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/forecast" element={<ForecastPage />} />
+              <Route path="/results" element={<ResultsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+        </AppLayout>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

@@ -24,6 +24,19 @@ vi.mock("../../../hooks/useGeocode", () => ({
   useGeocode: (...args: unknown[]) => mockUseGeocode(...(args as [])),
 }));
 
+vi.mock("../../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshAuth: vi.fn(),
+  }),
+}));
+
 function renderNavBar(initialPath = "/") {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>

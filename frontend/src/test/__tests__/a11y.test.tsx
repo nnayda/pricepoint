@@ -13,6 +13,19 @@ vi.mock("../../hooks/useGeocode", () => ({
   useGeocode: () => ({ results: [], loading: false, error: null }),
 }));
 
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshAuth: vi.fn(),
+  }),
+}));
+
 vi.mock("../../hooks/useApi", () => ({
   useApi: () => ({ data: null, loading: false, error: null, execute: vi.fn() }),
 }));

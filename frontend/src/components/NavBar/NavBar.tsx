@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../SearchBar/SearchBar";
+import AuthModal from "../AuthModal/AuthModal";
 import { startViewTransition } from "../../utils/viewTransition";
 import { useScrollProgress } from "../../hooks/useScrollProgress";
+import { useAuth } from "../../contexts/AuthContext";
 import type { GeocodeResult } from "../../types";
 
 function NavBar() {
   const navigate = useNavigate();
   const scrollProgress = useScrollProgress(100);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
 
   function handleSelect(result: GeocodeResult) {
     const url = `/results?address=${encodeURIComponent(result.display_name)}&lat=${result.lat}&lon=${result.lon}`;
@@ -78,6 +82,27 @@ function NavBar() {
             />
           </svg>
         </Link>
+        {/* Desktop auth */}
+        {isAuthenticated ? (
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="text-sm text-text-sec">{user?.display_name}</span>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-lg px-3 py-1 text-sm text-text-sec transition-colors hover:text-brand-blue"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAuthModalOpen(true)}
+            className="hidden rounded-lg bg-brand-blue px-3 py-1 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:block"
+          >
+            Sign In
+          </button>
+        )}
         {/* Mobile hamburger button */}
         <button
           type="button"
@@ -130,9 +155,33 @@ function NavBar() {
             >
               Settings
             </Link>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+              >
+                Sign Out ({user?.display_name})
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthModalOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+              >
+                Sign In
+              </button>
+            )}
           </div>
         </div>
       )}
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }
