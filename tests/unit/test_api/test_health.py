@@ -24,5 +24,5 @@ def test_forecast_endpoint_stub(client):
     assert response.status_code == 200
     data = response.json()
     assert data["address"] == "123 Main St"
-    assert data["model_version"] == "stub"
+    assert data["model_version"] == "unavailable"
     assert "predicted_value" in data
