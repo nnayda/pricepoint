@@ -264,3 +264,40 @@ export interface MortgageDefaults {
   loanTermYears: number;
   annualInsurance: number;
 }
+
+export interface ForecastTimeline {
+  date: string;
+  value: number;
+  low: number;
+  high: number;
+}
+
+export interface FeatureAttribution {
+  feature: string;
+  display_name: string;
+  impact_dollars: number;
+}
+
+export interface ComparableProperty {
+  id: number;
+  address: string;
+  sale_price: number;
+  sold_date: string;
+  beds: number;
+  baths: number;
+  sqft: number;
+  price_per_sqft: number;
+  lat: number;
+  lon: number;
+  thumbnail_url?: string;
+}
+
+export interface ForecastData {
+  predicted_value: number;
+  confidence_low: number;
+  confidence_high: number;
+  model_version: string;
+  timeline: ForecastTimeline[];
+  feature_attributions: FeatureAttribution[];
+  comparables: ComparableProperty[];
+}

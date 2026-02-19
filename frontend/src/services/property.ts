@@ -5,6 +5,8 @@ import type {
   PoisResponse,
   GreenspaceResponse,
   UtilitiesResponse,
+  ComparableProperty,
+  FeatureAttribution,
 } from "../types";
 
 const client = axios.create({
@@ -70,5 +72,29 @@ export async function getUtilities(
   const { data } = await client.get<UtilitiesResponse>("/api/utilities", {
     params: { lat, lon, ...(radiusMiles !== undefined && { radius_miles: radiusMiles }) },
   });
+  return data;
+}
+
+export async function getComparables(
+  lat: number,
+  lon: number,
+  beds: number,
+  sqft: number,
+  radius?: number,
+): Promise<ComparableProperty[]> {
+  const { data } = await client.get<ComparableProperty[]>("/api/comparables", {
+    params: {
+      lat,
+      lon,
+      beds,
+      sqft,
+      ...(radius !== undefined && { radius_miles: radius }),
+    },
+  });
+  return data;
+}
+
+export async function getFeatureImportance(propertyId: number): Promise<FeatureAttribution[]> {
+  const { data } = await client.get<FeatureAttribution[]>(`/api/forecast/importance/${propertyId}`);
   return data;
 }
