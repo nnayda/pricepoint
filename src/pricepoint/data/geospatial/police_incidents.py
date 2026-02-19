@@ -4,6 +4,7 @@ Sources: municipal open-data portals (Opendatasoft, ArcGIS Feature Services).
 """
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 import httpx
@@ -23,12 +24,36 @@ from pricepoint.db.models import (
 logger = logging.getLogger(__name__)
 
 
-def fetch_police_incidents(*, city: str, start_date: str, end_date: str) -> None:
-    """Download police incident records for the given city and date range.
+def fetch_police_incidents(*, full_refresh: bool = True) -> dict[str, str]:
+    """Orchestrate police incident collection from all supported cities.
 
-    Stores results in the PostGIS ``police_incidents`` table.
+    Calls the city-specific collectors for Cary, Raleigh, and Morrisville,
+    collecting results and returning summary status for each city.
+
+    Args:
+        full_refresh: If True (default), each collector truncates its staging
+            table before loading.
+
+    Returns:
+        A dict mapping city name to status string ("ok" or an error message).
     """
-    raise NotImplementedError
+    collectors: dict[str, Callable[..., None]] = {
+        "cary": fetch_cary_police_incidents,
+        "raleigh": fetch_raleigh_police_incidents,
+        "morrisville": fetch_morrisville_police_incidents,
+    }
+
+    results: dict[str, str] = {}
+    for city, collector_fn in collectors.items():
+        try:
+            collector_fn(full_refresh=full_refresh)
+            results[city] = "ok"
+            logger.info("Police incidents collection succeeded for %s", city)
+        except Exception:
+            logger.exception("Police incidents collection failed for %s", city)
+            results[city] = "error"
+
+    return results
 
 
 def _csv_val(value: str) -> str | None:
