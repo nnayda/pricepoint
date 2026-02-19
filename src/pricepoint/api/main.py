@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from redis.asyncio import Redis
+from starlette.middleware.sessions import SessionMiddleware
 
 from pricepoint.api.logging_config import RequestLoggingMiddleware, setup_logging
 from pricepoint.api.rate_limit import setup_rate_limiting
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret_key)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,

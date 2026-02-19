@@ -32,6 +32,8 @@ dependencies = [
     "bcrypt<4.2",
     "slowapi>=0.1,<1",
     "prometheus-fastapi-instrumentator>=7.1.0",
+    "authlib>=1.6.8",
+    "email-validator>=2.3.0",
 ]
 
 [project.optional-dependencies]

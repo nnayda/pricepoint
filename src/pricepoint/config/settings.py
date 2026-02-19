@@ -146,6 +146,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
 
+    # OAuth (Google)
+    oauth_google_client_id: str = ""
+    oauth_google_client_secret: str = ""
+    oauth_redirect_uri: str = "http://localhost:5173/auth/google/callback"
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"
