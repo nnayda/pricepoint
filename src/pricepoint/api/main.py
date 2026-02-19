@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from redis.asyncio import Redis
 
 from pricepoint.api.logging_config import RequestLoggingMiddleware, setup_logging
@@ -85,6 +86,8 @@ def create_app() -> FastAPI:
     app.include_router(saved.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
     app.include_router(cache.router, prefix="/api")
+
+    Instrumentator().instrument(app).expose(app)
 
     return app
 
