@@ -32,31 +32,102 @@ def model_training():
     )
 
     @task()
-    def train():
+    def train() -> dict:
         """Train the forecasting model."""
-        raise NotImplementedError("Stub: implement model training")
+        import pickle
+
+        import pandas as pd
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.assembly import assemble_features
+        from pricepoint.models.training import train_model
+
+        db = SessionLocal()
+        try:
+            features: pd.DataFrame = assemble_features(db)
+        finally:
+            db.close()
+
+        model = train_model(features=features)
+        model_bytes = pickle.dumps(model)
+
+        return {
+            "model_pickle_hex": model_bytes.hex(),
+            "feature_columns": list(features.columns),
+            "n_samples": len(features),
+        }
 
     @task()
-    def validate():
+    def validate(train_output: dict) -> dict:
         """Run cross-validation on the trained model."""
-        raise NotImplementedError("Stub: implement model validation")
+        import pandas as pd
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.assembly import assemble_features
+        from pricepoint.models.validation import cross_validate
+
+        db = SessionLocal()
+        try:
+            features: pd.DataFrame = assemble_features(db)
+        finally:
+            db.close()
+
+        cv_metrics = cross_validate(features=features)
+
+        return {
+            "cv_metrics": cv_metrics,
+            "model_pickle_hex": train_output["model_pickle_hex"],
+        }
 
     @task()
-    def evaluate():
+    def evaluate(train_output: dict) -> dict:
         """Evaluate the model on held-out test data."""
-        raise NotImplementedError("Stub: implement model evaluation")
+        import pickle
+
+        import pandas as pd
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.assembly import assemble_features
+        from pricepoint.models.evaluation import evaluate_model
+
+        db = SessionLocal()
+        try:
+            features: pd.DataFrame = assemble_features(db)
+        finally:
+            db.close()
+
+        model = pickle.loads(bytes.fromhex(train_output["model_pickle_hex"]))  # noqa: S301
+        eval_metrics = evaluate_model(model=model, test_features=features)
+
+        return {
+            "eval_metrics": eval_metrics,
+            "model_pickle_hex": train_output["model_pickle_hex"],
+        }
 
     @task()
-    def register_model():
+    def register_model(validate_output: dict, evaluate_output: dict) -> str:
         """Log model and metrics to MLflow; promote if improved."""
-        raise NotImplementedError("Stub: implement model registration")
+        import pickle
+
+        from pricepoint.models.registry import log_model
+
+        model = pickle.loads(  # noqa: S301
+            bytes.fromhex(validate_output["model_pickle_hex"])
+        )
+        metrics = {
+            **validate_output.get("cv_metrics", {}),
+            **evaluate_output.get("eval_metrics", {}),
+        }
+
+        run_id = log_model(model=model, metrics=metrics, run_name="daily_training")
+        return run_id
 
     train_step = train()
-    validate_step = validate()
-    evaluate_step = evaluate()
-    register_step = register_model()
+    validate_step = validate(train_step)
+    evaluate_step = evaluate(train_step)
+    register_step = register_model(validate_step, evaluate_step)
 
-    wait_for_features >> train_step >> validate_step >> evaluate_step >> register_step
+    wait_for_features >> train_step >> [validate_step, evaluate_step] >> register_step
 
 
 model_training()
