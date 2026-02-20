@@ -77,7 +77,7 @@ class Settings(BaseSettings):
         "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Parks/FeatureServer/0"
     )
     cary_parks_base_url: str = (
-        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/0"
+        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/0"
     )
     wake_greenways_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/Greenways/MapServer/0"
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         "/Greenway_Trails_All/FeatureServer/0"
     )
     cary_greenways_base_url: str = (
-        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/2"
+        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/2"
     )
     wake_railroads_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services"
@@ -112,6 +112,21 @@ class Settings(BaseSettings):
     ollama_max_concurrent: int = 4
     ollama_timeout_seconds: int = 120
 
+    # FRED API (economic indicators)
+    fred_api_key: str = ""
+    fred_series_ids: list[str] = [
+        "MORTGAGE30US",
+        "MORTGAGE15US",
+        "CPIAUCSL",
+        "UNRATE",
+        "NCUR",
+        "HOUST",
+        "PERMIT",
+        "CSUSHPISA",
+        "UMCSENT",
+    ]
+    fred_lookback_years: int = 10
+
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"
     redfin_s3_archive_prefix: str = "redfin/archive"
@@ -120,10 +135,35 @@ class Settings(BaseSettings):
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
+    # Cache TTLs (seconds)
+    cache_ttl_crime: int = 21600  # 6 hours
+    cache_ttl_property: int = 86400  # 24 hours
+    cache_ttl_pois: int = 604800  # 7 days
+    cache_ttl_geocode: int = 2592000  # 30 days
+
+    # JWT Authentication
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440  # 24 hours
+
+    # OAuth (Google)
+    oauth_google_client_id: str = ""
+    oauth_google_client_secret: str = ""
+    oauth_redirect_uri: str = "http://localhost:5173/auth/google/callback"
+
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "json"
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Rate limiting
+    rate_limit_default: str = "100/minute"
+    rate_limit_forecast: str = "10/minute"
+    rate_limit_auth: str = "5/minute"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-db-backup
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "pricepoint.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          containers:
+            - name: pg-backup
+              image: postgres:16
+              command: ["/bin/sh", "-c"]
+              args:
+                - pg_dump $DATABASE_URL | gzip > /backups/pricepoint-$(date +%Y%m%d).sql.gz
+              envFrom:
+                - secretRef:
+                    name: {{ include "pricepoint.fullname" . }}-secret
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "pricepoint.fullname" . }}-backups

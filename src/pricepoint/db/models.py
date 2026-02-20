@@ -5,8 +5,10 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     Integer,
     String,
@@ -1153,3 +1155,75 @@ class LlmPhotoScore(Base):
             name="uq_llm_photo_score_listing_model",
         ),
     )
+
+
+class EconomicIndicator(Base):
+    """Macroeconomic time-series observation from FRED."""
+
+    __tablename__ = "economic_indicators"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    series_id = Column(String, nullable=False)
+    observation_date = Column(Date, nullable=False)
+    value = Column(Float, nullable=False)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("series_id", "observation_date", name="uq_economic_series_date"),
+        Index("idx_economic_series_date", "series_id", "observation_date"),
+    )
+
+
+class User(Base):
+    """Application user account."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, server_default=text("true"))
+    oauth_provider = Column(String, nullable=True)
+    oauth_id = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class SavedProperty(Base):
+    """Property saved/bookmarked by a user."""
+
+    __tablename__ = "saved_properties"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    listing_id = Column(
+        Integer,
+        ForeignKey("redfin_listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "listing_id", name="uq_saved_property_user_listing"),
+    )
+
+
+class ApiKey(Base):
+    """API key for programmatic access."""
+
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    key_hash = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, server_default=text("true"))

@@ -4,6 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { axe } from "vitest-axe";
 import LandingPage from "../LandingPage";
 
+vi.mock("../../components/RecentlyViewed/RecentlyViewed", () => ({
+  default: () => <div data-testid="recently-viewed-mock" />,
+}));
+
 vi.mock("../../components/SearchBar/SearchBar", () => ({
   default: ({
     onSelect,

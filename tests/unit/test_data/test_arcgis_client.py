@@ -163,9 +163,7 @@ class TestFetchArcgisDataset:
         ]
 
         mapper = MagicMock(return_value=MagicMock())
-        fetch_arcgis_dataset(
-            "http://test/0", WakeUtilityEasement, mapper, "test_dataset"
-        )
+        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
 
         session.add_all.assert_called_once()
         session.close.assert_called_once()
@@ -181,9 +179,7 @@ class TestFetchArcgisDataset:
         mock_query.side_effect = [{"features": page1}, {"features": page2}]
 
         mapper = MagicMock(return_value=MagicMock())
-        fetch_arcgis_dataset(
-            "http://test/0", WakeUtilityEasement, mapper, "test_dataset"
-        )
+        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
 
         assert session.add_all.call_count == 2
 
@@ -195,9 +191,7 @@ class TestFetchArcgisDataset:
         mock_query.return_value = {"features": []}
 
         mapper = MagicMock()
-        fetch_arcgis_dataset(
-            "http://test/0", WakeUtilityEasement, mapper, "test_dataset"
-        )
+        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
 
         session.add_all.assert_not_called()
         session.close.assert_called_once()
@@ -210,9 +204,7 @@ class TestFetchArcgisDataset:
         mock_query.side_effect = RuntimeError("connection failed")
 
         with pytest.raises(RuntimeError, match="connection failed"):
-            fetch_arcgis_dataset(
-                "http://test/0", WakeUtilityEasement, MagicMock(), "test_dataset"
-            )
+            fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, MagicMock(), "test_dataset")
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()

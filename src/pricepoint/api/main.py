@@ -5,9 +5,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from redis.asyncio import Redis
+from starlette.middleware.sessions import SessionMiddleware
 
+from pricepoint.api.logging_config import RequestLoggingMiddleware, setup_logging
+from pricepoint.api.rate_limit import setup_rate_limiting
 from pricepoint.api.routes import (
+    auth,
+    cache,
     crime,
     forecast,
     geocode,
@@ -15,6 +21,7 @@ from pricepoint.api.routes import (
     health,
     pois,
     property,
+    saved,
     upload,
     utilities,
 )
@@ -49,12 +56,16 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     settings = get_settings()
 
+    setup_logging(level=settings.log_level, log_format=settings.log_format)
+
     app = FastAPI(
         title="Home Value Forecast API",
         version="0.1.0",
         lifespan=lifespan,
     )
 
+    app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret_key)
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.api_cors_origins,
@@ -63,7 +74,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    setup_rate_limiting(app)
+
     app.include_router(health.router)
+    app.include_router(auth.router, prefix="/api")
     app.include_router(forecast.router, prefix="/api")
     app.include_router(geocode.router, prefix="/api")
     app.include_router(property.router, prefix="/api")
@@ -71,7 +85,11 @@ def create_app() -> FastAPI:
     app.include_router(pois.router, prefix="/api")
     app.include_router(greenspace.router, prefix="/api")
     app.include_router(utilities.router, prefix="/api")
+    app.include_router(saved.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
+    app.include_router(cache.router, prefix="/api")
+
+    Instrumentator().instrument(app).expose(app)
 
     return app
 

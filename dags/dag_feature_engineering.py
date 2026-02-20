@@ -32,28 +32,72 @@ def feature_engineering():
     )
 
     @task()
-    def build_geospatial_features():
+    def build_geospatial():
         """Compute geospatial features."""
-        raise NotImplementedError("Stub: implement geospatial feature engineering")
+        import logging
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.geospatial import build_geospatial_features
+
+        logger = logging.getLogger(__name__)
+        db = SessionLocal()
+        try:
+            df = build_geospatial_features(db)
+            logger.info("Geospatial features shape: %s", df.shape)
+        finally:
+            db.close()
 
     @task()
-    def build_housing_features():
+    def build_housing():
         """Compute housing features."""
-        raise NotImplementedError("Stub: implement housing feature engineering")
+        import logging
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.housing import build_housing_features
+
+        logger = logging.getLogger(__name__)
+        db = SessionLocal()
+        try:
+            df = build_housing_features(db)
+            logger.info("Housing features shape: %s", df.shape)
+        finally:
+            db.close()
 
     @task()
-    def build_economic_features():
+    def build_economic():
         """Compute economic features."""
-        raise NotImplementedError("Stub: implement economic feature engineering")
+        import logging
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.economic import build_economic_features
+
+        logger = logging.getLogger(__name__)
+        db = SessionLocal()
+        try:
+            df = build_economic_features(db)
+            logger.info("Economic features shape: %s", df.shape)
+        finally:
+            db.close()
 
     @task()
     def assemble_feature_matrix():
         """Join all feature sets into a single training matrix."""
-        raise NotImplementedError("Stub: implement feature assembly")
+        import logging
 
-    geo = build_geospatial_features()
-    housing = build_housing_features()
-    econ = build_economic_features()
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.assembly import assemble_features
+
+        logger = logging.getLogger(__name__)
+        db = SessionLocal()
+        try:
+            df = assemble_features(db)
+            logger.info("Assembled feature matrix shape: %s", df.shape)
+        finally:
+            db.close()
+
+    geo = build_geospatial()
+    housing = build_housing()
+    econ = build_economic()
     assembly = assemble_feature_matrix()
 
     wait_for_data >> [geo, housing, econ]

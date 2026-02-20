@@ -20,3 +20,11 @@ class ForecastResponse(BaseModel):
     confidence_interval_low: float
     confidence_interval_high: float
     model_version: str
+
+
+class FeatureAttribution(BaseModel):
+    """A single feature's contribution to the predicted value."""
+
+    feature: str
+    display_name: str
+    impact_dollars: float

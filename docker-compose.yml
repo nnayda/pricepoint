@@ -225,6 +225,7 @@ services:
       - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
       - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
+      - FRED_API_KEY=${FRED_API_KEY:-}
     volumes:
       - airflow-logs:/opt/airflow/logs
       - redfindata:/data/raw/redfin
@@ -261,6 +262,7 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-minioadmin}
       - S3_SECRET_KEY=${S3_SECRET_KEY:-minioadmin}
       - S3_BUCKET=${S3_BUCKET:-pricepoint-data}
+      - FRED_API_KEY=${FRED_API_KEY:-}
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -272,6 +274,52 @@ services:
     networks:
       - pricepoint
 
+  # ---------------------------------------------------------------------------
+  # Optional operations services (use with: docker compose --profile ops up)
+  # ---------------------------------------------------------------------------
+
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    profiles: ["ops"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: pricepoint
+      POSTGRES_USER: pricepoint
+      POSTGRES_PASSWORD: pricepoint
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 30
+      BACKUP_DIR: /backups
+    volumes:
+      - postgres-backups:/backups
+    depends_on:
+      - postgres
+    networks:
+      - pricepoint
+
+  # ---------------------------------------------------------------------------
+  # Monitoring stack (use with: docker compose --profile monitoring up)
+  # ---------------------------------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: [monitoring]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - pricepoint
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: [monitoring]
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - pricepoint
+
 volumes:
   pgdata:
   pgadmindata:
@@ -279,6 +327,7 @@ volumes:
   valkeydata:
   redfindata:
   airflow-logs:
+  postgres-backups:
 
 networks:
   pricepoint:

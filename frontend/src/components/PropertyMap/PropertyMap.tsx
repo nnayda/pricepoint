@@ -25,17 +25,51 @@ interface PropertyMapProps {
 
 const ALL_TABS: MapTab[] = ["crime-density", "crime-incidents", "pois", "greenspace", "utilities"];
 
+const RADIUS_OPTIONS = [0.5, 1, 2, 3, 5] as const;
+const DAYS_BACK_OPTIONS = [
+  { value: 30, label: "Last 30 days" },
+  { value: 90, label: "Last 90 days" },
+  { value: 365, label: "Last 365 days" },
+] as const;
+
 function PropertyMap({ lat, lon, address }: PropertyMapProps) {
   const [activeTab, setActiveTab] = useState<MapTab>("crime-density");
+  const [radiusMiles, setRadiusMiles] = useState<number>(1);
+  const [daysBack, setDaysBack] = useState<number>(365);
   const fetchedTabs = useRef(new Set<string>());
 
-  const crime = useApi<CrimeResponse, [number, number]>(getCrime);
-  const pois = useApi<PoisResponse, [number, number]>(getPois);
-  const greenspace = useApi<GreenspaceResponse, [number, number]>(getGreenspace);
-  const utilities = useApi<UtilitiesResponse, [number, number]>(getUtilities);
+  const crime = useApi<CrimeResponse, [number, number, number | undefined, number | undefined]>(
+    getCrime,
+  );
+  const pois = useApi<PoisResponse, [number, number, number | undefined]>(getPois);
+  const greenspace = useApi<GreenspaceResponse, [number, number, number | undefined]>(
+    getGreenspace,
+  );
+  const utilities = useApi<UtilitiesResponse, [number, number, number | undefined]>(getUtilities);
 
   const { preferences } = usePoiPreferences();
   const enabledPoiNames = new Set(preferences.filter((p) => p.enabled).map((p) => p.name));
+
+  const fetchTab = useCallback(
+    (tab: MapTab, radius: number, days: number) => {
+      switch (tab) {
+        case "crime-density":
+        case "crime-incidents":
+          crime.execute(lat, lon, radius, days);
+          break;
+        case "pois":
+          pois.execute(lat, lon, radius);
+          break;
+        case "greenspace":
+          greenspace.execute(lat, lon, radius);
+          break;
+        case "utilities":
+          utilities.execute(lat, lon, radius);
+          break;
+      }
+    },
+    [lat, lon, crime, pois, greenspace, utilities],
+  );
 
   const handleTabChange = useCallback(
     (tab: MapTab) => {
@@ -43,30 +77,24 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
       if (fetchedTabs.current.has(tab)) return;
       fetchedTabs.current.add(tab);
 
-      switch (tab) {
-        case "crime-density":
-        case "crime-incidents":
-          if (
-            !fetchedTabs.current.has("crime-density") ||
-            !fetchedTabs.current.has("crime-incidents")
-          ) {
-            fetchedTabs.current.add("crime-density");
-            fetchedTabs.current.add("crime-incidents");
-          }
-          if (!crime.data && !crime.loading) crime.execute(lat, lon);
-          break;
-        case "pois":
-          if (!pois.data && !pois.loading) pois.execute(lat, lon);
-          break;
-        case "greenspace":
-          if (!greenspace.data && !greenspace.loading) greenspace.execute(lat, lon);
-          break;
-        case "utilities":
-          if (!utilities.data && !utilities.loading) utilities.execute(lat, lon);
-          break;
+      if (tab === "crime-density" || tab === "crime-incidents") {
+        if (
+          !fetchedTabs.current.has("crime-density") ||
+          !fetchedTabs.current.has("crime-incidents")
+        ) {
+          fetchedTabs.current.add("crime-density");
+          fetchedTabs.current.add("crime-incidents");
+        }
+        if (!crime.data && !crime.loading) crime.execute(lat, lon, radiusMiles, daysBack);
+      } else if (tab === "pois") {
+        if (!pois.data && !pois.loading) pois.execute(lat, lon, radiusMiles);
+      } else if (tab === "greenspace") {
+        if (!greenspace.data && !greenspace.loading) greenspace.execute(lat, lon, radiusMiles);
+      } else if (tab === "utilities") {
+        if (!utilities.data && !utilities.loading) utilities.execute(lat, lon, radiusMiles);
       }
     },
-    [lat, lon, crime, pois, greenspace, utilities],
+    [lat, lon, radiusMiles, daysBack, crime, pois, greenspace, utilities],
   );
 
   // Fetch crime data on mount for the default tab
@@ -75,46 +103,66 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
     initialFetched.current = true;
     fetchedTabs.current.add("crime-density");
     fetchedTabs.current.add("crime-incidents");
-    crime.execute(lat, lon);
+    crime.execute(lat, lon, radiusMiles, daysBack);
   }
 
-  const activeError =
-    activeTab === "crime-density" || activeTab === "crime-incidents"
-      ? crime.error
-      : activeTab === "pois"
-        ? pois.error
-        : activeTab === "greenspace"
-          ? greenspace.error
-          : utilities.error;
+  const handleRadiusChange = useCallback(
+    (newRadius: number) => {
+      setRadiusMiles(newRadius);
+      fetchedTabs.current.clear();
+      fetchedTabs.current.add(activeTab);
+      if (activeTab === "crime-density" || activeTab === "crime-incidents") {
+        fetchedTabs.current.add("crime-density");
+        fetchedTabs.current.add("crime-incidents");
+      }
+      fetchTab(activeTab, newRadius, daysBack);
+    },
+    [activeTab, daysBack, fetchTab],
+  );
 
-  const activeLoading =
-    activeTab === "crime-density" || activeTab === "crime-incidents"
-      ? crime.loading
-      : activeTab === "pois"
-        ? pois.loading
-        : activeTab === "greenspace"
-          ? greenspace.loading
-          : utilities.loading;
+  const handleDaysBackChange = useCallback(
+    (newDays: number) => {
+      setDaysBack(newDays);
+      fetchedTabs.current.delete("crime-density");
+      fetchedTabs.current.delete("crime-incidents");
+      fetchedTabs.current.add("crime-density");
+      fetchedTabs.current.add("crime-incidents");
+      crime.execute(lat, lon, radiusMiles, newDays);
+    },
+    [lat, lon, radiusMiles, crime],
+  );
+
+  const isCrimeTab = activeTab === "crime-density" || activeTab === "crime-incidents";
+
+  const activeError = isCrimeTab
+    ? crime.error
+    : activeTab === "pois"
+      ? pois.error
+      : activeTab === "greenspace"
+        ? greenspace.error
+        : utilities.error;
+
+  const activeLoading = isCrimeTab
+    ? crime.loading
+    : activeTab === "pois"
+      ? pois.loading
+      : activeTab === "greenspace"
+        ? greenspace.loading
+        : utilities.loading;
 
   function handleRetry() {
-    switch (activeTab) {
-      case "crime-density":
-      case "crime-incidents":
-        crime.execute(lat, lon);
-        break;
-      case "pois":
-        pois.execute(lat, lon);
-        break;
-      case "greenspace":
-        greenspace.execute(lat, lon);
-        break;
-      case "utilities":
-        utilities.execute(lat, lon);
-        break;
-    }
+    fetchTab(activeTab, radiusMiles, daysBack);
   }
 
   const filteredPois = pois.data?.pois.filter((p) => enabledPoiNames.has(p.name)) ?? [];
+
+  const hasEmptyResults =
+    !activeLoading &&
+    !activeError &&
+    ((isCrimeTab && crime.data && crime.data.incidents.length === 0) ||
+      (activeTab === "pois" && pois.data && pois.data.pois.length === 0) ||
+      (activeTab === "greenspace" && greenspace.data && greenspace.data.features.length === 0) ||
+      (activeTab === "utilities" && utilities.data && utilities.data.features.length === 0));
 
   return (
     <section
@@ -122,6 +170,42 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
       className="rounded-lg bg-bg-card/80 shadow-soft backdrop-blur-md"
     >
       <MapTabBar tabs={ALL_TABS} activeTab={activeTab} onTabChange={handleTabChange} />
+
+      <div className="flex flex-wrap items-center gap-3 border-b border-bg-main px-4 py-2">
+        <label className="flex items-center gap-1.5 text-xs font-medium text-text-sec">
+          Radius
+          <select
+            value={radiusMiles}
+            onChange={(e) => handleRadiusChange(Number(e.target.value))}
+            className="rounded-md border border-bg-main bg-bg-card px-2 py-1 text-xs text-text-pri"
+            aria-label="Search radius"
+          >
+            {RADIUS_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {r} {r === 1 ? "mile" : "miles"}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {isCrimeTab && (
+          <label className="flex items-center gap-1.5 text-xs font-medium text-text-sec">
+            Time range
+            <select
+              value={daysBack}
+              onChange={(e) => handleDaysBackChange(Number(e.target.value))}
+              className="rounded-md border border-bg-main bg-bg-card px-2 py-1 text-xs text-text-pri"
+              aria-label="Crime date range"
+            >
+              {DAYS_BACK_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       <div className="h-[400px] lg:h-[500px] xl:h-[600px]">
         <MapContainer center={[lat, lon]} zoom={14} style={{ height: "100%", width: "100%" }}>
@@ -155,7 +239,12 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
         aria-label={`${activeTab} metrics`}
         className="p-4"
       >
-        {activeLoading && <p className="text-sm text-text-sec">Loading data...</p>}
+        {activeLoading && (
+          <div className="flex items-center gap-2" aria-label="Loading tab data">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue border-t-transparent" />
+            <p className="text-sm text-text-sec">Loading data...</p>
+          </div>
+        )}
 
         {activeError && (
           <div className="flex items-center gap-2">
@@ -170,9 +259,15 @@ function PropertyMap({ lat, lon, address }: PropertyMapProps) {
           </div>
         )}
 
-        {!activeLoading && !activeError && (
+        {hasEmptyResults && (
+          <p className="text-sm text-text-sec" role="status">
+            No data found within {radiusMiles} {radiusMiles === 1 ? "mile" : "miles"}
+          </p>
+        )}
+
+        {!activeLoading && !activeError && !hasEmptyResults && (
           <>
-            {(activeTab === "crime-density" || activeTab === "crime-incidents") && crime.data && (
+            {isCrimeTab && crime.data && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <MetricItem
                   label="Total Incidents (1mi)"

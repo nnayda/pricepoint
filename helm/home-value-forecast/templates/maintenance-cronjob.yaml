@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-db-maintenance
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: maintenance
+spec:
+  schedule: "0 4 * * 0"  # Weekly on Sunday at 4 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "pricepoint.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: maintenance
+        spec:
+          containers:
+            - name: pg-maintenance
+              image: postgres:16
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "Running VACUUM ANALYZE on all tables..."
+                  psql $DATABASE_URL -c "VACUUM ANALYZE;"
+                  echo "Reindexing spatial indexes..."
+                  psql $DATABASE_URL -c "REINDEX DATABASE pricepoint;"
+                  echo "Maintenance complete."
+              envFrom:
+                - secretRef:
+                    name: {{ include "pricepoint.fullname" . }}-secret
+          restartPolicy: OnFailure

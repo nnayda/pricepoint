@@ -350,11 +350,7 @@ async def call_ollama_vision(
         if parsed is None:
             # Log full response metadata for diagnosis (exclude message content
             # which is already shown, and avoid logging huge fields)
-            diag = {
-                k: v
-                for k, v in data.items()
-                if k not in ("message", "context")
-            }
+            diag = {k: v for k, v in data.items() if k not in ("message", "context")}
             logger.warning(
                 "Ollama vision returned unparseable response (len=%d): %.300s "
                 "| response_meta=%s | image_sizes=%s",
@@ -633,9 +629,7 @@ def score_all_photos(
                     s3_fn,
                 )
             except Exception:
-                logger.exception(
-                    "Listing %s: unexpected error during scoring", listing["id"]
-                )
+                logger.exception("Listing %s: unexpected error during scoring", listing["id"])
                 errors += 1
                 continue
 

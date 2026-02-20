@@ -28,6 +28,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
           resources:
             {{- toYaml .Values.airflow.resources | nindent 12 }}
 ---
@@ -57,6 +59,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
           resources:
             {{- toYaml .Values.airflow.resources | nindent 12 }}
 {{- end }}

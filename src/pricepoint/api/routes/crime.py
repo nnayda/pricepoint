@@ -1,320 +1,172 @@
-"""Crime endpoint — returns crime data with stub data."""
+"""Crime endpoint — returns crime data from PostGIS spatial queries."""
 
+import hashlib
+import json
+import logging
+import math
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from redis.asyncio import Redis
+from sqlalchemy import (
+    DateTime,
+    String,
+    cast,
+    func,
+    literal,
+    select,
+    text,
+    union_all,
+)
+from sqlalchemy.orm import Session
 
+from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.schemas.crime import (
     CrimeHeatmapPoint,
     CrimeIncident,
     CrimeMetrics,
     CrimeResponse,
 )
+from pricepoint.db.models import (
+    StagingCaryPoliceIncident,
+    StagingMorrisvillePoliceIncident,
+    StagingRaleighPoliceIncident,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["crime"])
 
-# Pre-generated heatmap points scattered around Cary, NC (35.79, -78.78)
-_HEATMAP_POINTS = [
-    CrimeHeatmapPoint(lat=35.7920, lon=-78.7810, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7935, lon=-78.7825, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7888, lon=-78.7795, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7902, lon=-78.7842, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7945, lon=-78.7768, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7871, lon=-78.7831, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7958, lon=-78.7802, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7912, lon=-78.7756, intensity=0.8),
-    CrimeHeatmapPoint(lat=35.7883, lon=-78.7819, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7929, lon=-78.7788, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7864, lon=-78.7845, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7951, lon=-78.7773, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7897, lon=-78.7861, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7940, lon=-78.7815, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7876, lon=-78.7779, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7915, lon=-78.7838, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7962, lon=-78.7791, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7889, lon=-78.7807, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7934, lon=-78.7852, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7856, lon=-78.7823, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7948, lon=-78.7764, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7907, lon=-78.7836, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7873, lon=-78.7798, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7921, lon=-78.7775, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7895, lon=-78.7849, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7955, lon=-78.7811, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7868, lon=-78.7787, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7931, lon=-78.7830, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7886, lon=-78.7762, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7943, lon=-78.7843, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7910, lon=-78.7805, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7860, lon=-78.7817, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7927, lon=-78.7770, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7899, lon=-78.7855, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7965, lon=-78.7796, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7878, lon=-78.7828, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7937, lon=-78.7783, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7852, lon=-78.7840, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7916, lon=-78.7759, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7893, lon=-78.7813, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7960, lon=-78.7847, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7881, lon=-78.7776, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7925, lon=-78.7802, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7904, lon=-78.7858, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7947, lon=-78.7790, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7866, lon=-78.7822, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7938, lon=-78.7765, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7884, lon=-78.7834, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7953, lon=-78.7808, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7870, lon=-78.7793, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7919, lon=-78.7851, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7892, lon=-78.7771, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7941, lon=-78.7826, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7858, lon=-78.7800, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7908, lon=-78.7844, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7967, lon=-78.7782, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7875, lon=-78.7816, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7932, lon=-78.7758, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7898, lon=-78.7837, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7957, lon=-78.7804, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7863, lon=-78.7786, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7924, lon=-78.7853, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7891, lon=-78.7769, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7946, lon=-78.7820, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7854, lon=-78.7797, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7913, lon=-78.7841, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7880, lon=-78.7812, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7936, lon=-78.7774, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7901, lon=-78.7848, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7963, lon=-78.7829, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7869, lon=-78.7760, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7928, lon=-78.7806, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7887, lon=-78.7839, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7950, lon=-78.7777, intensity=0.6),
-    CrimeHeatmapPoint(lat=35.7862, lon=-78.7814, intensity=0.4),
-    CrimeHeatmapPoint(lat=35.7917, lon=-78.7856, intensity=0.2),
-    CrimeHeatmapPoint(lat=35.7894, lon=-78.7785, intensity=0.5),
-    CrimeHeatmapPoint(lat=35.7942, lon=-78.7801, intensity=0.3),
-    CrimeHeatmapPoint(lat=35.7859, lon=-78.7833, intensity=0.7),
-    CrimeHeatmapPoint(lat=35.7906, lon=-78.7763, intensity=0.4),
-]
+METERS_PER_MILE = 1609.344
+CACHE_TTL = 21600  # 6 hours
 
-_INCIDENTS = [
-    CrimeIncident(
-        id="CR-2024-001",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-12-15",
-        lat=35.7920,
-        lon=-78.7810,
-        description="Theft from vehicle in shopping center parking lot",
-    ),
-    CrimeIncident(
-        id="CR-2024-002",
-        incident_type="Vandalism",
-        category="Property",
-        date="2024-12-12",
-        lat=35.7888,
-        lon=-78.7795,
-        description="Graffiti on commercial property",
-    ),
-    CrimeIncident(
-        id="CR-2024-003",
-        incident_type="Burglary",
-        category="Property",
-        date="2024-12-08",
-        lat=35.7935,
-        lon=-78.7825,
-        description="Residential break-in, no occupants present",
-    ),
-    CrimeIncident(
-        id="CR-2024-004",
-        incident_type="Assault",
-        category="Violent",
-        date="2024-12-05",
-        lat=35.7912,
-        lon=-78.7756,
-        description="Simple assault outside restaurant",
-    ),
-    CrimeIncident(
-        id="CR-2024-005",
-        incident_type="Vehicle Theft",
-        category="Property",
-        date="2024-11-28",
-        lat=35.7951,
-        lon=-78.7773,
-    ),
-    CrimeIncident(
-        id="CR-2024-006",
-        incident_type="Fraud",
-        category="White Collar",
-        date="2024-11-22",
-        lat=35.7897,
-        lon=-78.7861,
-        description="Identity theft reported by resident",
-    ),
-    CrimeIncident(
-        id="CR-2024-007",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-11-18",
-        lat=35.7940,
-        lon=-78.7815,
-        description="Shoplifting at retail store",
-    ),
-    CrimeIncident(
-        id="CR-2024-008",
-        incident_type="DUI",
-        category="Traffic",
-        date="2024-11-15",
-        lat=35.7876,
-        lon=-78.7779,
-    ),
-    CrimeIncident(
-        id="CR-2024-009",
-        incident_type="Vandalism",
-        category="Property",
-        date="2024-11-10",
-        lat=35.7962,
-        lon=-78.7791,
-        description="Mailbox damaged",
-    ),
-    CrimeIncident(
-        id="CR-2024-010",
-        incident_type="Trespassing",
-        category="Other",
-        date="2024-11-05",
-        lat=35.7889,
-        lon=-78.7807,
-    ),
-    CrimeIncident(
-        id="CR-2024-011",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-10-30",
-        lat=35.7934,
-        lon=-78.7852,
-        description="Package theft from porch",
-    ),
-    CrimeIncident(
-        id="CR-2024-012",
-        incident_type="Drug Possession",
-        category="Drug",
-        date="2024-10-25",
-        lat=35.7856,
-        lon=-78.7823,
-    ),
-    CrimeIncident(
-        id="CR-2024-013",
-        incident_type="Assault",
-        category="Violent",
-        date="2024-10-20",
-        lat=35.7948,
-        lon=-78.7764,
-        description="Domestic dispute",
-    ),
-    CrimeIncident(
-        id="CR-2024-014",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-10-15",
-        lat=35.7907,
-        lon=-78.7836,
-        description="Bicycle stolen from park",
-    ),
-    CrimeIncident(
-        id="CR-2024-015",
-        incident_type="Fraud",
-        category="White Collar",
-        date="2024-10-10",
-        lat=35.7873,
-        lon=-78.7798,
-    ),
-    CrimeIncident(
-        id="CR-2024-016",
-        incident_type="Burglary",
-        category="Property",
-        date="2024-10-05",
-        lat=35.7921,
-        lon=-78.7775,
-        description="Commercial break-in overnight",
-    ),
-    CrimeIncident(
-        id="CR-2024-017",
-        incident_type="Vandalism",
-        category="Property",
-        date="2024-09-28",
-        lat=35.7955,
-        lon=-78.7811,
-        description="Car window smashed",
-    ),
-    CrimeIncident(
-        id="CR-2024-018",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-09-22",
-        lat=35.7868,
-        lon=-78.7787,
-    ),
-    CrimeIncident(
-        id="CR-2024-019",
-        incident_type="DUI",
-        category="Traffic",
-        date="2024-09-15",
-        lat=35.7931,
-        lon=-78.7830,
-        description="DUI checkpoint arrest",
-    ),
-    CrimeIncident(
-        id="CR-2024-020",
-        incident_type="Trespassing",
-        category="Other",
-        date="2024-09-08",
-        lat=35.7886,
-        lon=-78.7762,
-    ),
-    CrimeIncident(
-        id="CR-2024-021",
-        incident_type="Vehicle Theft",
-        category="Property",
-        date="2024-09-01",
-        lat=35.7943,
-        lon=-78.7843,
-        description="Car stolen from apartment complex",
-    ),
-    CrimeIncident(
-        id="CR-2024-022",
-        incident_type="Larceny",
-        category="Property",
-        date="2024-08-25",
-        lat=35.7910,
-        lon=-78.7805,
-    ),
-    CrimeIncident(
-        id="CR-2024-023",
-        incident_type="Assault",
-        category="Violent",
-        date="2024-08-18",
-        lat=35.7860,
-        lon=-78.7817,
-        description="Altercation at gas station",
-    ),
-    CrimeIncident(
-        id="CR-2024-024",
-        incident_type="Drug Possession",
-        category="Drug",
-        date="2024-08-10",
-        lat=35.7927,
-        lon=-78.7770,
-    ),
-    CrimeIncident(
-        id="CR-2024-025",
-        incident_type="Fraud",
-        category="White Collar",
-        date="2024-08-02",
-        lat=35.7899,
-        lon=-78.7855,
-        description="Check fraud at local bank",
-    ),
-]
+# Categories considered "violent" for violent_pct calculation
+VIOLENT_KEYWORDS = {
+    "assault",
+    "homicide",
+    "murder",
+    "robbery",
+    "rape",
+    "kidnapping",
+    "manslaughter",
+    "violent",
+    "weapon",
+    "arson",
+}
+
+
+def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
+    """ST_DWithin using geography cast for meter-based distance."""
+    return func.ST_DWithin(
+        cast(geom_col, text("geography")),
+        cast(point, text("geography")),
+        radius_meters,
+    )
+
+
+def _build_crime_cte(
+    property_point,  # noqa: ANN001
+    radius_meters: float,
+    cutoff_date: datetime,
+):
+    """Build a CTE unioning all three police staging tables with normalized columns."""
+    # Cary: date_from (DateTime), crime_type (description), crime_category
+    cary_q = select(
+        cast(StagingCaryPoliceIncident.id, String).label("incident_id"),
+        StagingCaryPoliceIncident.location.label("location"),
+        cast(StagingCaryPoliceIncident.date_from, DateTime(timezone=True)).label("occurred_at"),
+        func.coalesce(StagingCaryPoliceIncident.crime_type, "Unknown").label("description"),
+        func.coalesce(StagingCaryPoliceIncident.crime_category, "Other").label("category"),
+        literal("Cary").label("source_city"),
+    ).where(
+        StagingCaryPoliceIncident.location.isnot(None),
+        StagingCaryPoliceIncident.date_from >= cutoff_date,
+        _st_dwithin_geography(StagingCaryPoliceIncident.location, property_point, radius_meters),
+    )
+
+    # Raleigh: reported_date (DateTime), crime_description, crime_category
+    raleigh_q = select(
+        cast(StagingRaleighPoliceIncident.id, String).label("incident_id"),
+        StagingRaleighPoliceIncident.location.label("location"),
+        cast(StagingRaleighPoliceIncident.reported_date, DateTime(timezone=True)).label(
+            "occurred_at"
+        ),
+        func.coalesce(StagingRaleighPoliceIncident.crime_description, "Unknown").label(
+            "description"
+        ),
+        func.coalesce(StagingRaleighPoliceIncident.crime_category, "Other").label("category"),
+        literal("Raleigh").label("source_city"),
+    ).where(
+        StagingRaleighPoliceIncident.location.isnot(None),
+        StagingRaleighPoliceIncident.reported_date >= cutoff_date,
+        _st_dwithin_geography(StagingRaleighPoliceIncident.location, property_point, radius_meters),
+    )
+
+    # Morrisville: date_occu (String!), offense (description), no dedicated category
+    morrisville_q = select(
+        cast(StagingMorrisvillePoliceIncident.id, String).label("incident_id"),
+        StagingMorrisvillePoliceIncident.location.label("location"),
+        cast(
+            func.to_timestamp(StagingMorrisvillePoliceIncident.date_occu, "MM/DD/YYYY"),
+            DateTime(timezone=True),
+        ).label("occurred_at"),
+        func.coalesce(StagingMorrisvillePoliceIncident.offense, "Unknown").label("description"),
+        literal("Other").label("category"),
+        literal("Morrisville").label("source_city"),
+    ).where(
+        StagingMorrisvillePoliceIncident.location.isnot(None),
+        StagingMorrisvillePoliceIncident.date_occu.isnot(None),
+        _st_dwithin_geography(
+            StagingMorrisvillePoliceIncident.location,
+            property_point,
+            radius_meters,
+        ),
+    )
+
+    combined = union_all(cary_q, raleigh_q, morrisville_q).cte("all_incidents")
+    return combined
+
+
+def _compute_intensity(occurred_at: datetime, now: datetime, days_back: int) -> float:
+    """Compute heatmap intensity using exponential decay on recency.
+
+    More recent incidents get higher intensity (closer to 1.0).
+    Half-life is set to days_back / 4 so a quarter-period-old incident
+    has intensity ~0.5.
+    """
+    age_days = (now - occurred_at).total_seconds() / 86400.0
+    half_life = max(days_back / 4.0, 1.0)
+    intensity = math.exp(-0.693 * age_days / half_life)
+    return round(max(0.01, min(1.0, intensity)), 2)
+
+
+def _is_violent(category: str, description: str) -> bool:
+    """Check whether an incident is classified as violent."""
+    combined = f"{category} {description}".lower()
+    return any(kw in combined for kw in VIOLENT_KEYWORDS)
+
+
+def _compute_trend(current_count: int, prior_count: int) -> tuple[str, float]:
+    """Compute trend label and percentage vs prior year."""
+    if prior_count == 0:
+        if current_count == 0:
+            return "stable", 0.0
+        return "increasing", 100.0
+    pct = ((current_count - prior_count) / prior_count) * 100.0
+    if pct > 5:
+        return "increasing", round(pct, 1)
+    if pct < -5:
+        return "decreasing", round(pct, 1)
+    return "stable", round(pct, 1)
+
+
+def _cache_key(lat: float, lon: float, radius_miles: float, days_back: int) -> str:
+    """Build a deterministic cache key for the crime query."""
+    raw = f"crime:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}:{days_back}"
+    digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
+    return f"crime:{digest}"
 
 
 @router.get("/crime", response_model=CrimeResponse)
@@ -322,15 +174,120 @@ async def get_crime(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
     radius_miles: Annotated[float, Query(gt=0, le=10)] = 1.0,
+    days_back: Annotated[int, Query(ge=1, le=3650)] = 365,
+    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
+    valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
 ) -> CrimeResponse:
     """Return crime data for the area around the given location."""
-    return CrimeResponse(
-        heatmap=_HEATMAP_POINTS,
-        incidents=_INCIDENTS,
-        metrics=CrimeMetrics(
-            total_incidents_1mi=142,
-            incidents_per_1000_people=18.5,
-            crime_z_score=-0.32,
-            trend="decreasing",
-        ),
+    # Check cache
+    c_key = _cache_key(lat, lon, radius_miles, days_back)
+    if valkey is not None:
+        try:
+            cached = await valkey.get(c_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return CrimeResponse(**data)
+        except Exception:
+            logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
+
+    now = datetime.now(tz=UTC)
+    cutoff_date = now - timedelta(days=days_back)
+    radius_meters = radius_miles * METERS_PER_MILE
+
+    # Build the geography point for ST_DWithin
+    property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+
+    cte = _build_crime_cte(property_point, radius_meters, cutoff_date)
+
+    # Fetch all incidents in the area
+    rows = db.execute(
+        select(
+            cte.c.incident_id,
+            ST_Y(cte.c.location).label("lat"),
+            ST_X(cte.c.location).label("lon"),
+            cte.c.occurred_at,
+            cte.c.description,
+            cte.c.category,
+            cte.c.source_city,
+        ).order_by(cte.c.occurred_at.desc())
+    ).all()
+
+    # Build heatmap points (all incidents)
+    heatmap: list[CrimeHeatmapPoint] = []
+    for row in rows:
+        if row.lat is not None and row.lon is not None and row.occurred_at is not None:
+            intensity = _compute_intensity(row.occurred_at, now, days_back)
+            heatmap.append(CrimeHeatmapPoint(lat=row.lat, lon=row.lon, intensity=intensity))
+
+    # Build incident list (first 50, sorted by date desc)
+    incidents: list[CrimeIncident] = []
+    for row in rows[:50]:
+        if row.lat is not None and row.lon is not None:
+            incidents.append(
+                CrimeIncident(
+                    id=f"{row.source_city}-{row.incident_id}",
+                    incident_type=row.description or "Unknown",
+                    category=row.category or "Other",
+                    date=(row.occurred_at.strftime("%Y-%m-%d") if row.occurred_at else "Unknown"),
+                    lat=row.lat,
+                    lon=row.lon,
+                    description=row.description,
+                )
+            )
+
+    # Compute metrics
+    total = len(rows)
+    area_sq_km = math.pi * (radius_miles * 1.60934) ** 2
+    incidents_per_sq_km = round(total / area_sq_km, 1) if area_sq_km > 0 else 0.0
+    # Approximate per-1000 using density (no census pop data available)
+    incidents_per_1000 = round(incidents_per_sq_km * 0.5, 1)
+
+    # Trend: compare current period vs prior period of same length
+    prior_cutoff = cutoff_date - timedelta(days=days_back)
+    current_count = total
+    prior_cte = _build_crime_cte(property_point, radius_meters, prior_cutoff)
+    prior_total_result = db.execute(
+        select(func.count()).select_from(
+            select(prior_cte.c.incident_id).where(prior_cte.c.occurred_at < cutoff_date).subquery()
+        )
+    ).scalar()
+    prior_count = prior_total_result or 0
+
+    trend_label, _trend_pct = _compute_trend(current_count, prior_count)
+
+    # crime_z_score: simple normalization around regional baseline
+    baseline_density = 50.0
+    z_score = (
+        round(
+            (incidents_per_sq_km - baseline_density) / max(baseline_density * 0.3, 1),
+            2,
+        )
+        if total > 0
+        else 0.0
     )
+
+    metrics = CrimeMetrics(
+        total_incidents_1mi=total,
+        incidents_per_1000_people=incidents_per_1000,
+        crime_z_score=z_score,
+        trend=trend_label,
+    )
+
+    response = CrimeResponse(
+        heatmap=heatmap,
+        incidents=incidents,
+        metrics=metrics,
+    )
+
+    # Write to cache
+    if valkey is not None:
+        try:
+            await valkey.set(
+                c_key,
+                json.dumps(response.model_dump()),
+                ex=CACHE_TTL,
+            )
+        except Exception:
+            logger.warning("Valkey write failed for key %s", c_key, exc_info=True)
+
+    return response
