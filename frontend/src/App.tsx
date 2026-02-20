@@ -11,6 +11,7 @@ const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const ResultsPage = lazy(() => import("./pages/ResultsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const UploadPage = lazy(() => import("./pages/UploadPage"));
+const TestDashboardPage = lazy(() => import("./pages/TestDashboardPage"));
 
 function PageLoader() {
   return (
@@ -37,6 +38,7 @@ function App() {
               <Route path="/results" element={<ResultsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/upload" element={<UploadPage />} />
+              <Route path="/test-dashboard-page" element={<TestDashboardPage />} />
               <Route path="/dashboard" element={<Navigate to="/" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

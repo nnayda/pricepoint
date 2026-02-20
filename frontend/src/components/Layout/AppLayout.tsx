@@ -10,6 +10,11 @@ function AppLayout({ children }: AppLayoutProps) {
   const { pathname } = useLocation();
   const showNav = pathname !== "/";
 
+  // Dashboard page uses its own layout shell
+  if (pathname === "/test-dashboard-page") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-bg-main">
       {showNav && (

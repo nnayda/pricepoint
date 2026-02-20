@@ -310,3 +310,209 @@ export interface RecentlyViewedItem {
   thumbnailUrl?: string;
   viewedAt: string;
 }
+
+// ── Dashboard Types ──
+
+export type DashboardTab =
+  | "valuation"
+  | "risks"
+  | "demographics"
+  | "schools"
+  | "pois"
+  | "negative-pois"
+  | "greenspace"
+  | "property-details";
+
+export interface DashboardProperty {
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  neighborhood: string;
+  lat: number;
+  lon: number;
+  bedrooms: number;
+  bathrooms: number;
+  sqft: number;
+  lot_size_sqft: number;
+  year_built: number;
+  property_type: string;
+  stories: number;
+  garage_spaces: number;
+  description: string;
+  ai_summary: string;
+  highlights: string[];
+  images: string[];
+  listing_status: "For Sale" | "Pending" | "Sold";
+  days_on_market: number;
+  mls_number: string;
+  listed_date: string;
+}
+
+export interface DashboardValuation {
+  listed_price: number;
+  predicted_value: number;
+  confidence_low: number;
+  confidence_high: number;
+  redfin_estimate: number;
+  tax_assessment: number;
+  price_per_sqft: number;
+  neighborhood_median: number;
+  model_version: string;
+  prediction_date: string;
+  verdict: string;
+  verdict_detail: string;
+}
+
+export interface ShapFeature {
+  feature: string;
+  display_name: string;
+  impact_dollars: number;
+  group: string;
+}
+
+export interface PriceHistoryPoint {
+  date: string;
+  price: number;
+  neighborhood_median?: number;
+  event?: string;
+}
+
+export interface RiskCategory {
+  id: string;
+  label: string;
+  score: number;
+  level: "Low" | "Moderate" | "High" | "Very High";
+  detail: string;
+  icon: string;
+}
+
+export interface CrimeBreakdown {
+  category: string;
+  count: number;
+  pct_change: number;
+}
+
+export interface DemographicData {
+  geography_level: string;
+  race_ethnicity: { label: string; value: number; color: string }[];
+  age_distribution: { range: string; male: number; female: number }[];
+  median_income: number;
+  income_brackets: { label: string; value: number }[];
+  home_ownership_rate: number;
+  median_home_value: number;
+  population: number;
+  population_trend: { year: number; population: number }[];
+}
+
+export interface DashboardSchool {
+  name: string;
+  address: string;
+  school_type: "Elementary" | "Middle" | "High" | "K-8" | "Charter";
+  rating: number;
+  grades: string;
+  distance_miles: number;
+  drive_minutes: number;
+  walk_minutes?: number;
+  student_teacher_ratio: number;
+  test_scores: number;
+  assigned: boolean;
+  lat: number;
+  lon: number;
+}
+
+export interface DashboardPoi {
+  id: string;
+  name: string;
+  category: string;
+  subcategory: string;
+  lat: number;
+  lon: number;
+  distance_miles: number;
+  drive_minutes: number;
+  icon: string;
+}
+
+export interface NegativePoi {
+  id: string;
+  name: string;
+  type: string;
+  severity: "Safe" | "Caution" | "Concern";
+  distance_miles: number;
+  lat: number;
+  lon: number;
+  detail: string;
+}
+
+export interface DashboardGreenspace {
+  composite_score: number;
+  walk_minutes_nearest: number;
+  parks_within_1mi: number;
+  trails_within_1mi: number;
+  pct_greenspace: number;
+  greenspace_z_score: number;
+  tree_canopy_pct: number;
+  has_dog_park: boolean;
+  features: {
+    id: string;
+    name: string;
+    type: string;
+    lat: number;
+    lon: number;
+    distance_miles: number;
+    acreage: number;
+  }[];
+}
+
+export interface DashboardMortgage {
+  home_price: number;
+  down_payment_pct: number;
+  interest_rate: number;
+  loan_term_years: number;
+  annual_tax: number;
+  annual_insurance: number;
+  monthly_hoa: number;
+}
+
+export interface ListingQualityScore {
+  photo_score: number;
+  description_score: number;
+  listing_health: number;
+}
+
+export interface PropertyDetailSection {
+  label: string;
+  items: { key: string; value: string }[];
+}
+
+export interface ModelFeature {
+  feature_name: string;
+  raw_value: string;
+  engineered_value: string;
+  source: string;
+}
+
+export interface DashboardData {
+  property: DashboardProperty;
+  valuation: DashboardValuation;
+  shap_features: ShapFeature[];
+  price_history: PriceHistoryPoint[];
+  risks: { overall_score: number; categories: RiskCategory[] };
+  crime: {
+    incidents: CrimeIncident[];
+    heatmap: CrimeHeatmapPoint[];
+    breakdown: CrimeBreakdown[];
+    z_score: number;
+    growth_rate: number;
+    total_incidents: number;
+  };
+  demographics: DemographicData;
+  schools: DashboardSchool[];
+  pois: DashboardPoi[];
+  negative_pois: NegativePoi[];
+  greenspace: DashboardGreenspace;
+  mortgage_defaults: DashboardMortgage;
+  listing_quality: ListingQualityScore;
+  property_details: PropertyDetailSection[];
+  model_features: ModelFeature[];
+}

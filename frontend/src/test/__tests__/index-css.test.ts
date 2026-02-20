@@ -20,12 +20,14 @@ describe("index.css design system", () => {
 
     it("uses font-display: swap for all faces", () => {
       const swapCount = (css.match(/font-display:\s*swap/g) || []).length;
-      expect(swapCount).toBe(4);
+      // 4 Plus Jakarta Sans + 4 Inter + 3 JetBrains Mono = 11
+      expect(swapCount).toBe(11);
     });
 
     it("uses woff2 format for all faces", () => {
       const formatCount = (css.match(/format\("woff2"\)/g) || []).length;
-      expect(formatCount).toBe(4);
+      // 4 Plus Jakarta Sans + 4 Inter + 3 JetBrains Mono = 11
+      expect(formatCount).toBe(11);
     });
   });
 

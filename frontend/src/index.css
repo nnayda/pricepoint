@@ -34,6 +34,66 @@
   src: url("./assets/fonts/PlusJakartaSans-Bold.woff2") format("woff2");
 }
 
+/* ── Inter @font-face declarations ── */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/Inter-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/Inter-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/Inter-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/Inter-Bold.woff2") format("woff2");
+}
+
+/* ── JetBrains Mono @font-face declarations ── */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+
 /* ── Design System Tokens ── */
 
 @theme {
@@ -67,6 +127,63 @@
 
   /* Spacing */
   --spacing-grid: 24px;
+
+  /* ── Dashboard Design Tokens (db-* prefix) ── */
+
+  /* Dashboard Typography */
+  --font-db-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-db-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Dashboard Colors — Surface */
+  --color-db-bg: #0F1221;
+  --color-db-surface: #161A2C;
+  --color-db-surface-alt: #1C2333;
+  --color-db-surface-hover: #232A3F;
+  --color-db-border: #2E3553;
+  --color-db-border-subtle: #242B42;
+
+  /* Dashboard Colors — Text */
+  --color-db-text-primary: #F0F2F8;
+  --color-db-text-secondary: #9BA3BF;
+  --color-db-text-tertiary: #6B7394;
+  --color-db-text-muted: #4A5170;
+
+  /* Dashboard Colors — Brand / Accent */
+  --color-db-accent: #6366F1;
+  --color-db-accent-hover: #818CF8;
+  --color-db-accent-muted: rgba(99, 102, 241, 0.15);
+  --color-db-cyan: #22D3EE;
+  --color-db-cyan-muted: rgba(34, 211, 238, 0.15);
+
+  /* Dashboard Colors — Status */
+  --color-db-green: #34D399;
+  --color-db-green-muted: rgba(52, 211, 153, 0.15);
+  --color-db-yellow: #FBBF24;
+  --color-db-yellow-muted: rgba(251, 191, 36, 0.15);
+  --color-db-red: #F87171;
+  --color-db-red-muted: rgba(248, 113, 113, 0.15);
+  --color-db-orange: #FB923C;
+  --color-db-orange-muted: rgba(251, 146, 60, 0.15);
+
+  /* Dashboard Colors — Chart Palette */
+  --color-db-chart-1: #6366F1;
+  --color-db-chart-2: #22D3EE;
+  --color-db-chart-3: #34D399;
+  --color-db-chart-4: #FBBF24;
+  --color-db-chart-5: #F87171;
+  --color-db-chart-6: #A78BFA;
+  --color-db-chart-7: #FB923C;
+
+  /* Dashboard Shadows */
+  --shadow-db-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-db-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-db-nav: 0 1px 0 rgba(46, 53, 83, 0.5);
+
+  /* Dashboard Radius */
+  --radius-db-lg: 16px;
+  --radius-db-md: 12px;
+  --radius-db-sm: 8px;
+  --radius-db-xs: 6px;
 }
 
 /* ── Base Styles ── */
@@ -120,4 +237,64 @@
 
 ::view-transition-new(root) {
   animation: fade-in 200ms ease-in;
+}
+
+/* ── Dashboard Map Dark Mode Overrides ── */
+
+.dashboard-map .leaflet-control-zoom a {
+  background-color: var(--color-db-surface);
+  color: var(--color-db-text-primary);
+  border-color: var(--color-db-border);
+}
+
+.dashboard-map .leaflet-control-zoom a:hover {
+  background-color: var(--color-db-surface-hover);
+}
+
+.dashboard-map .leaflet-control-attribution {
+  background-color: rgba(15, 18, 33, 0.8);
+  color: var(--color-db-text-muted);
+  font-size: 10px;
+}
+
+.dashboard-map .leaflet-control-attribution a {
+  color: var(--color-db-text-tertiary);
+}
+
+.dashboard-map .leaflet-popup-content-wrapper {
+  background-color: var(--color-db-surface);
+  color: var(--color-db-text-primary);
+  border-radius: var(--radius-db-sm);
+  box-shadow: var(--shadow-db-card);
+}
+
+.dashboard-map .leaflet-popup-tip {
+  background-color: var(--color-db-surface);
+}
+
+/* ── Recharts dark mode tooltip & cursor overrides ── */
+
+.recharts-default-tooltip {
+  background-color: #1C2333 !important;
+  border: 1px solid #2E3553 !important;
+  border-radius: 8px !important;
+  color: #E8ECF4 !important;
+}
+
+.recharts-tooltip-label {
+  color: #9BA3BF !important;
+}
+
+.recharts-tooltip-item {
+  color: #E8ECF4 !important;
+}
+
+/* Scrollbar hiding utility for sidebar */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
