@@ -185,6 +185,59 @@ export function SparklesIcon({ size = defaultSize, className }: IconProps) {
   );
 }
 
+// Property detail icons
+export function LandPlotIcon({ size = defaultSize, className }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z" />
+      <path d="M12 12l9-4.5" />
+      <path d="M12 12v9" />
+      <path d="M12 12L3 7.5" />
+    </svg>
+  );
+}
+
+export function HomeIcon({ size = defaultSize, className }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+export function GarageIcon({ size = defaultSize, className }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20V8l8-5 8 5v12" />
+      <rect x="6" y="12" width="12" height="8" rx="1" />
+      <path d="M6 15h12" />
+      <path d="M6 18h12" />
+    </svg>
+  );
+}
+
+export function ThermometerIcon({ size = defaultSize, className }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+    </svg>
+  );
+}
+
+export function SnowflakeIcon({ size = defaultSize, className }: IconProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" x2="22" y1="12" y2="12" />
+      <line x1="12" x2="12" y1="2" y2="22" />
+      <path d="m20 16-4-4 4-4" />
+      <path d="m4 8 4 4-4 4" />
+      <path d="m16 4-4 4-4-4" />
+      <path d="m8 20 4-4 4 4" />
+    </svg>
+  );
+}
+
 // POI category icons
 export function ShoppingCartIcon({ size = defaultSize, className }: IconProps) {
   return (

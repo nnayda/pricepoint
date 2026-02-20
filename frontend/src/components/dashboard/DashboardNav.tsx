@@ -3,7 +3,7 @@ function DashboardNav() {
     <nav
       className="fixed top-0 right-0 left-0 z-50 flex h-16 items-center justify-between border-b border-[var(--color-db-border-subtle)] px-6"
       style={{
-        backgroundColor: "rgba(15, 18, 33, 0.85)",
+        backgroundColor: "rgba(15, 17, 23, 0.85)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         fontFamily: "var(--font-db-sans)",
@@ -36,9 +36,55 @@ function DashboardNav() {
           </kbd>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
+        {/* Upload */}
         <button
           type="button"
+          aria-label="Upload listing data"
+          className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+        </button>
+
+        {/* Comparison mode toggle */}
+        <button
+          type="button"
+          aria-label="Comparison mode"
+          className="relative rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15M4.5 4.5h15c.828 0 1.5.672 1.5 1.5v12c0 .828-.672 1.5-1.5 1.5h-15A1.5 1.5 0 013 18V6c0-.828.672-1.5 1.5-1.5z" />
+          </svg>
+        </button>
+
+        {/* Saved listings */}
+        <button
+          type="button"
+          aria-label="Saved listings"
+          className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+          </svg>
+        </button>
+
+        {/* Theme toggle */}
+        <button
+          type="button"
+          aria-label="Toggle theme"
+          className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+          </svg>
+        </button>
+
+        {/* Notifications */}
+        <button
+          type="button"
+          aria-label="Notifications"
           className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -49,11 +95,19 @@ function DashboardNav() {
             />
           </svg>
         </button>
-        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--color-db-accent)] to-[var(--color-db-cyan)] p-[2px]">
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--color-db-surface)]">
-            <span className="text-xs font-semibold text-[var(--color-db-text-primary)]">JD</span>
+
+        {/* User avatar menu */}
+        <button
+          type="button"
+          aria-label="User menu"
+          className="ml-1"
+        >
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--color-db-accent)] to-[var(--color-db-cyan)] p-[2px]">
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--color-db-surface)]">
+              <span className="text-xs font-semibold text-[var(--color-db-text-primary)]">JD</span>
+            </div>
           </div>
-        </div>
+        </button>
       </div>
     </nav>
   );

@@ -2,7 +2,17 @@ import type { DashboardProperty, DashboardValuation } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import StatusBadge from "../ui/StatusBadge";
 import MonoValue from "../ui/MonoValue";
-import { BedIcon, BathIcon, RulerIcon, CalendarIcon } from "../ui/Icons";
+import {
+  BedIcon,
+  BathIcon,
+  RulerIcon,
+  CalendarIcon,
+  LandPlotIcon,
+  HomeIcon,
+  GarageIcon,
+  ThermometerIcon,
+  SnowflakeIcon,
+} from "../ui/Icons";
 
 interface KeyFactsCardProps {
   property: DashboardProperty;
@@ -17,7 +27,16 @@ function fmtUsd(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
+function getDomColor(days: number): { bg: string; text: string } {
+  if (days < 30) return { bg: "rgba(52, 211, 153, 0.15)", text: "#34D399" };
+  if (days <= 90) return { bg: "rgba(251, 191, 36, 0.15)", text: "#FBBF24" };
+  return { bg: "rgba(248, 113, 113, 0.15)", text: "#F87171" };
+}
+
 function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
+  const domColor = getDomColor(property.days_on_market);
+  const lotAcres = (property.lot_size_sqft / 43560).toFixed(2);
+
   return (
     <DashboardCard>
       <div className="flex flex-col gap-4">
@@ -33,7 +52,10 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
               /sqft
             </span>
           </div>
-          <div className="rounded-[var(--radius-db-xs)] bg-[var(--color-db-accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--color-db-accent-hover)]">
+          <div
+            className="rounded-[var(--radius-db-xs)] px-2.5 py-1 text-xs font-medium"
+            style={{ backgroundColor: domColor.bg, color: domColor.text }}
+          >
             {property.days_on_market}d on market
           </div>
         </div>
@@ -72,10 +94,45 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
+            <LandPlotIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
+            <div className="flex flex-col">
+              <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Lot Acres</span>
+              <MonoValue value={lotAcres} size="md" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
             <CalendarIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
             <div className="flex flex-col">
               <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Built</span>
               <MonoValue value={property.year_built} size="md" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
+            <HomeIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
+            <div className="flex flex-col">
+              <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Type</span>
+              <span className="text-xs font-medium text-[var(--color-db-text-primary)]">{property.property_type}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
+            <GarageIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
+            <div className="flex flex-col">
+              <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Garage</span>
+              <MonoValue value={`${property.garage_spaces}-Car`} size="md" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
+            <ThermometerIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
+            <div className="flex flex-col">
+              <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Heating</span>
+              <span className="text-xs font-medium text-[var(--color-db-text-primary)]">Forced Air</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2.5">
+            <SnowflakeIcon size={16} className="shrink-0 text-[var(--color-db-text-muted)]" />
+            <div className="flex flex-col">
+              <span className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">Cooling</span>
+              <span className="text-xs font-medium text-[var(--color-db-text-primary)]">Central Air</span>
             </div>
           </div>
         </div>
@@ -84,6 +141,7 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
         <div className="flex gap-2">
           <button
             type="button"
+            aria-label="Save listing"
             className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-db-sm)] bg-[var(--color-db-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-db-accent-hover)]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -93,6 +151,7 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
           </button>
           <button
             type="button"
+            aria-label="Share property"
             className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -101,6 +160,7 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
           </button>
           <button
             type="button"
+            aria-label="Open in external source"
             className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

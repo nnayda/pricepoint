@@ -135,23 +135,24 @@
   --font-db-mono: "JetBrains Mono", ui-monospace, monospace;
 
   /* Dashboard Colors — Surface */
-  --color-db-bg: #0F1221;
-  --color-db-surface: #161A2C;
+  --color-db-bg: #0F1117;
+  --color-db-surface: #161B27;
   --color-db-surface-alt: #1C2333;
   --color-db-surface-hover: #232A3F;
   --color-db-border: #2E3553;
   --color-db-border-subtle: #242B42;
 
   /* Dashboard Colors — Text */
-  --color-db-text-primary: #F0F2F8;
+  --color-db-text-primary: #E8ECF4;
   --color-db-text-secondary: #9BA3BF;
-  --color-db-text-tertiary: #6B7394;
+  --color-db-text-tertiary: #5C6480;
   --color-db-text-muted: #4A5170;
 
   /* Dashboard Colors — Brand / Accent */
-  --color-db-accent: #6366F1;
-  --color-db-accent-hover: #818CF8;
-  --color-db-accent-muted: rgba(99, 102, 241, 0.15);
+  --color-db-accent: #5B7FFF;
+  --color-db-accent-hover: #7395FF;
+  --color-db-accent-subtle: #1E2D6B;
+  --color-db-accent-muted: rgba(91, 127, 255, 0.15);
   --color-db-cyan: #22D3EE;
   --color-db-cyan-muted: rgba(34, 211, 238, 0.15);
 
@@ -166,7 +167,7 @@
   --color-db-orange-muted: rgba(251, 146, 60, 0.15);
 
   /* Dashboard Colors — Chart Palette */
-  --color-db-chart-1: #6366F1;
+  --color-db-chart-1: #5B7FFF;
   --color-db-chart-2: #22D3EE;
   --color-db-chart-3: #34D399;
   --color-db-chart-4: #FBBF24;
@@ -175,8 +176,8 @@
   --color-db-chart-7: #FB923C;
 
   /* Dashboard Shadows */
-  --shadow-db-card: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --shadow-db-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-db-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-db-glow: 0 0 20px rgba(91, 127, 255, 0.15);
   --shadow-db-nav: 0 1px 0 rgba(46, 53, 83, 0.5);
 
   /* Dashboard Radius */
@@ -297,4 +298,23 @@
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ── Focus Ring ── */
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-db-accent), 0 0 0 4px var(--color-db-accent-subtle, rgba(91, 127, 255, 0.2));
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

@@ -14,6 +14,7 @@ function CollapsibleSection({ title, children, defaultOpen = true }: Collapsible
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-db-surface-hover)]"
       >
         <span
@@ -23,7 +24,8 @@ function CollapsibleSection({ title, children, defaultOpen = true }: Collapsible
           {title}
         </span>
         <svg
-          className={`h-4 w-4 text-[var(--color-db-text-tertiary)] transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-[var(--color-db-text-tertiary)] transition-transform duration-250 ${open ? "rotate-180" : ""}`}
+          style={{ transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)" }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -32,7 +34,17 @@ function CollapsibleSection({ title, children, defaultOpen = true }: Collapsible
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {open && <div className="px-5 pb-4">{children}</div>}
+      <div
+        className="grid transition-[grid-template-rows] duration-250"
+        style={{
+          gridTemplateRows: open ? "1fr" : "0fr",
+          transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-5 pb-4">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect } from "react";
 
 interface PhotoCarouselProps {
   images: string[];
+  photoScore?: number;
 }
 
-function PhotoCarousel({ images }: PhotoCarouselProps) {
+function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
   const [current, setCurrent] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -31,10 +32,17 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
   return (
     <>
       <div className="group relative overflow-hidden rounded-[var(--radius-db-lg)]">
+        {/* Photo Score badge in card header area */}
+        {photoScore !== undefined && (
+          <div className="absolute top-3 left-3 z-10 rounded-full bg-[var(--color-db-accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-db-accent-hover)] backdrop-blur-sm">
+            Photo Score: {photoScore}
+          </div>
+        )}
+
         <div className="aspect-[4/3] bg-[var(--color-db-surface-alt)]">
           <img
             src={images[current]}
-            alt={`Property photo ${current + 1}`}
+            alt={`Property photo ${current + 1} of ${images.length}`}
             className="h-full w-full object-cover"
           />
         </div>
@@ -43,6 +51,7 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
         <button
           type="button"
           onClick={prev}
+          aria-label="Previous photo"
           className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -52,6 +61,7 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
         <button
           type="button"
           onClick={next}
+          aria-label="Next photo"
           className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -68,6 +78,7 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
         <button
           type="button"
           onClick={() => setFullscreen(true)}
+          aria-label="Open fullscreen gallery"
           className="absolute bottom-3 right-3 rounded-lg bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -82,22 +93,21 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
               key={i}
               type="button"
               onClick={() => setCurrent(i)}
+              aria-label={`Go to photo ${i + 1} of ${images.length}`}
               className={`h-1.5 rounded-full transition-all ${i === current ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
             />
           ))}
         </div>
       </div>
 
-      {/* Fullscreen overlay — z-[9999] to sit above everything including charts */}
+      {/* Fullscreen overlay */}
       {fullscreen && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95"
           onClick={(e) => {
-            // Close when clicking the backdrop (not the image or buttons)
             if (e.target === e.currentTarget) setFullscreen(false);
           }}
         >
-          {/* Close button — always visible */}
           <button
             type="button"
             onClick={() => setFullscreen(false)}
@@ -108,13 +118,23 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <button type="button" onClick={prev} className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20">
+          <button
+            type="button"
+            onClick={prev}
+            aria-label="Previous photo"
+            className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+          >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <img src={images[current]} alt={`Photo ${current + 1}`} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" />
-          <button type="button" onClick={next} className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20">
+          <img src={images[current]} alt={`Photo ${current + 1} of ${images.length}`} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" />
+          <button
+            type="button"
+            onClick={next}
+            aria-label="Next photo"
+            className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+          >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>

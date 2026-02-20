@@ -6,11 +6,26 @@ interface SemiCircularGaugeProps {
   size?: number;
 }
 
+function getGradeLabel(value: number): { text: string; color: string } {
+  if (value >= 80) return { text: "Excellent", color: "#34D399" };
+  if (value >= 60) return { text: "Good", color: "#5B7FFF" };
+  if (value >= 40) return { text: "Fair", color: "#FBBF24" };
+  return { text: "Poor", color: "#F87171" };
+}
+
+function getGaugeColor(pct: number): string {
+  // Gradient: red at low, amber in middle, green at high
+  if (pct <= 0.25) return "#F87171";
+  if (pct <= 0.5) return "#FBBF24";
+  if (pct <= 0.75) return "#5B7FFF";
+  return "#34D399";
+}
+
 function SemiCircularGauge({
   value,
   max = 100,
   label,
-  color = "var(--color-db-accent)",
+  color,
   size = 160,
 }: SemiCircularGaugeProps) {
   const pct = Math.min(value / max, 1);
@@ -18,7 +33,7 @@ function SemiCircularGauge({
   const cx = size / 2;
   const cy = size / 2 + 10;
 
-  // Semicircle arc from 180° to 0° (left to right)
+  // Semicircle arc from 180deg to 0deg (left to right)
   const arcLength = Math.PI * r;
   const dashOffset = arcLength * (1 - pct);
 
@@ -29,9 +44,21 @@ function SemiCircularGauge({
 
   const pathD = `M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}`;
 
+  const gradientId = `gauge-gradient-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  const resolvedColor = color || getGaugeColor(pct);
+  const grade = getGradeLabel(value);
+
   return (
     <div className="flex flex-col items-center">
       <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`}>
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#F87171" />
+            <stop offset="40%" stopColor="#FBBF24" />
+            <stop offset="70%" stopColor="#5B7FFF" />
+            <stop offset="100%" stopColor="#34D399" />
+          </linearGradient>
+        </defs>
         {/* Background arc */}
         <path
           d={pathD}
@@ -44,7 +71,7 @@ function SemiCircularGauge({
         <path
           d={pathD}
           fill="none"
-          stroke={color}
+          stroke={color ? resolvedColor : `url(#${gradientId})`}
           strokeWidth={10}
           strokeLinecap="round"
           strokeDasharray={arcLength}
@@ -64,7 +91,13 @@ function SemiCircularGauge({
           {Math.round(value)}
         </text>
       </svg>
-      <span className="mt-1 text-xs font-medium text-[var(--color-db-text-secondary)]">{label}</span>
+      <span
+        className="text-xs font-semibold"
+        style={{ color: grade.color }}
+      >
+        {grade.text}
+      </span>
+      <span className="mt-0.5 text-xs font-medium text-[var(--color-db-text-secondary)]">{label}</span>
     </div>
   );
 }

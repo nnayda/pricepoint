@@ -28,11 +28,11 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
       <div className="mx-auto max-w-[1680px] px-4 py-6 xl:px-6">
         <div className="flex flex-col gap-6 xl:flex-row">
           {/* Left Column — sticky on desktop */}
-          <aside className="w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[380px] xl:overflow-y-auto xl:scrollbar-none">
+          <aside className="w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[320px] xl:overflow-y-auto xl:scrollbar-none">
             <div className="flex flex-col gap-4">
-              <PhotoCarousel images={property.images} />
+              <PhotoCarousel images={property.images} photoScore={data.listing_quality.photo_score} />
               <KeyFactsCard property={property} valuation={data.valuation} />
-              <DescriptionCard property={property} />
+              <DescriptionCard property={property} listingQuality={data.listing_quality} />
             </div>
           </aside>
 
