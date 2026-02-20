@@ -77,7 +77,7 @@ class Settings(BaseSettings):
         "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Parks/FeatureServer/0"
     )
     cary_parks_base_url: str = (
-        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/0"
+        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/0"
     )
     wake_greenways_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/Greenways/MapServer/0"
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         "/Greenway_Trails_All/FeatureServer/0"
     )
     cary_greenways_base_url: str = (
-        "https://maps-apis.carync.gov/arcgis/rest/services/ParksRecreation/Parks/FeatureServer/2"
+        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/2"
     )
     wake_railroads_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services"
