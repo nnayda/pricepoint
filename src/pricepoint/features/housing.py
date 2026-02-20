@@ -108,7 +108,13 @@ def _compute_property_features(listing: RedfinListing, now: datetime) -> dict:
     # days_on_market
     if listing.contract_date is not None:
         ref_date = listing.sold_date if listing.sold_date is not None else now
-        delta = ref_date - listing.contract_date
+        contract = listing.contract_date
+        # Normalize timezone awareness for subtraction
+        if contract.tzinfo is None and ref_date.tzinfo is not None:
+            contract = contract.replace(tzinfo=ref_date.tzinfo)
+        elif contract.tzinfo is not None and ref_date.tzinfo is None:
+            ref_date = ref_date.replace(tzinfo=contract.tzinfo)
+        delta = ref_date - contract
         result["days_on_market"] = delta.days
     else:
         result["days_on_market"] = None
