@@ -42,7 +42,7 @@ function NegativePoisTab({ data }: NegativePoisTabProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Summary */}
       <DashboardCard>
         <div className="flex items-center gap-3">
@@ -85,7 +85,9 @@ function NegativePoisTab({ data }: NegativePoisTabProps) {
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-[var(--color-db-text-muted)]">{n.type}</p>
-                    <p className="mt-1.5 text-xs text-[var(--color-db-text-tertiary)]">{n.detail}</p>
+                    <p className="mt-1.5 text-xs text-[var(--color-db-text-tertiary)]">
+                      {n.detail}
+                    </p>
                   </div>
                   <span
                     className="shrink-0 text-xs text-[var(--color-db-text-tertiary)]"

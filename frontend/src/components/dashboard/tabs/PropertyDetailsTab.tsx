@@ -12,7 +12,7 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
   const [showModelFeatures, setShowModelFeatures] = useState(false);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Property Detail Sections */}
       <DashboardCard padding={false}>
         {property_details.map((section) => (
@@ -68,22 +68,35 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-[var(--color-db-border-subtle)]">
-                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">Feature</th>
-                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">Raw Value</th>
-                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">Engineered</th>
-                    <th className="py-2 font-medium text-[var(--color-db-text-tertiary)]">Source</th>
+                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">
+                      Feature
+                    </th>
+                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">
+                      Raw Value
+                    </th>
+                    <th className="py-2 pr-4 font-medium text-[var(--color-db-text-tertiary)]">
+                      Engineered
+                    </th>
+                    <th className="py-2 font-medium text-[var(--color-db-text-tertiary)]">
+                      Source
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {model_features.map((f) => (
-                    <tr key={f.feature_name} className="border-b border-[var(--color-db-border-subtle)] last:border-b-0">
+                    <tr
+                      key={f.feature_name}
+                      className="border-b border-[var(--color-db-border-subtle)] last:border-b-0"
+                    >
                       <td
                         className="py-2 pr-4 font-medium text-[var(--color-db-text-primary)]"
                         style={{ fontFamily: "var(--font-db-mono)" }}
                       >
                         {f.feature_name}
                       </td>
-                      <td className="py-2 pr-4 text-[var(--color-db-text-secondary)]">{f.raw_value}</td>
+                      <td className="py-2 pr-4 text-[var(--color-db-text-secondary)]">
+                        {f.raw_value}
+                      </td>
                       <td
                         className="py-2 pr-4 text-[var(--color-db-text-secondary)]"
                         style={{ fontFamily: "var(--font-db-mono)" }}
@@ -118,7 +131,9 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
               key={s.source}
               className="flex items-center justify-between rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-4 py-2.5"
             >
-              <span className="text-xs font-medium text-[var(--color-db-text-primary)]">{s.source}</span>
+              <span className="text-xs font-medium text-[var(--color-db-text-primary)]">
+                {s.source}
+              </span>
               <div className="flex gap-4 text-[11px] text-[var(--color-db-text-muted)]">
                 <span>{s.fields} fields</span>
                 <span>Updated: {s.updated}</span>

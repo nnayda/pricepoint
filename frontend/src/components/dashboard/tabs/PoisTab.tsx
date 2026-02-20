@@ -52,17 +52,22 @@ function PoisTab({ data }: PoisTabProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* POI Score Summary */}
       <DashboardCard>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-db-accent-muted)]">
-            <span className="text-lg font-bold text-[var(--color-db-accent)]" style={{ fontFamily: "var(--font-db-mono)" }}>
+            <span
+              className="text-lg font-bold text-[var(--color-db-accent)]"
+              style={{ fontFamily: "var(--font-db-mono)" }}
+            >
               {pois.length}
             </span>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">Points of Interest</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+              Points of Interest
+            </h3>
             <p className="text-xs text-[var(--color-db-text-tertiary)]">
               {categories.length} categories within driving distance
             </p>
@@ -84,7 +89,10 @@ function PoisTab({ data }: PoisTabProps) {
                 <div className="flex items-center gap-3">
                   <span
                     className="flex h-6 w-6 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${CATEGORY_COLORS[cat]}20`, color: CATEGORY_COLORS[cat] }}
+                    style={{
+                      backgroundColor: `${CATEGORY_COLORS[cat]}20`,
+                      color: CATEGORY_COLORS[cat],
+                    }}
                   >
                     <IconComponent size={14} />
                   </span>
@@ -145,9 +153,7 @@ function PoisTab({ data }: PoisTabProps) {
 
       {/* POI Map */}
       <DashboardCard>
-        <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-          POI Map
-        </h3>
+        <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">POI Map</h3>
         <DashboardMap
           center={[property.lat, property.lon]}
           zoom={13}

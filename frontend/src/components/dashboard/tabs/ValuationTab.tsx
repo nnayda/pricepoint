@@ -81,68 +81,66 @@ function ValuationTab({ data }: ValuationTabProps) {
   ];
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Estimate Range + Stats side by side */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCard>
-          <h3 className="mb-4 text-sm font-semibold text-[var(--color-db-text-primary)]">
+    <div className="flex flex-col gap-4">
+      {/* Verdict callout — prominent at top per spec */}
+      <DashboardCard>
+        <div className="rounded-[var(--radius-db-sm)] border border-[var(--color-db-green)] border-opacity-30 bg-[var(--color-db-green-muted)] px-4 py-3">
+          <span className="text-sm font-semibold text-[var(--color-db-green)]">
+            {valuation.verdict}
+          </span>
+          <p className="mt-1 text-xs text-[var(--color-db-text-secondary)]">
+            {valuation.verdict_detail}
+          </p>
+        </div>
+      </DashboardCard>
+
+      {/* Estimate Range + AI Listing Quality + Stats row */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DashboardCard className="lg:col-span-2">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Valuation Range
           </h3>
           <EstimateRangeBar valuation={valuation} />
-          <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <StatChip label="Predicted" value={fmtUsd(valuation.predicted_value)} compact />
             <StatChip label="Redfin Est." value={fmtUsd(valuation.redfin_estimate)} compact />
             <StatChip label="Nbhd Median" value={fmtUsd(valuation.neighborhood_median)} compact />
           </div>
         </DashboardCard>
 
-        {/* Verdict + Listing Quality */}
-        <div className="flex flex-col gap-4">
-          <DashboardCard>
-            <div className="rounded-[var(--radius-db-sm)] border border-[var(--color-db-green)] border-opacity-30 bg-[var(--color-db-green-muted)] px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[var(--color-db-green)]">
-                  {valuation.verdict}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-[var(--color-db-text-secondary)]">
-                {valuation.verdict_detail}
-              </p>
-            </div>
-          </DashboardCard>
-
-          <DashboardCard>
-            <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-              AI Listing Quality
-            </h3>
-            <div className="flex items-center justify-around">
+        <DashboardCard>
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
+            AI Listing Quality
+          </h3>
+          <div className="flex flex-col items-center gap-1">
+            <SemiCircularGauge
+              value={listing_quality.listing_health}
+              label="Listing Health"
+              color="var(--color-db-green)"
+              size={100}
+            />
+            <div className="mt-1 flex w-full justify-around">
               <SemiCircularGauge
                 value={listing_quality.photo_score}
-                label="Photo Score"
+                label="Photo"
                 color="var(--color-db-cyan)"
-                size={110}
+                size={72}
               />
               <SemiCircularGauge
                 value={listing_quality.description_score}
                 label="Description"
                 color="var(--color-db-accent)"
-                size={110}
-              />
-              <SemiCircularGauge
-                value={listing_quality.listing_health}
-                label="Listing Health"
-                color="var(--color-db-green)"
-                size={110}
+                size={72}
               />
             </div>
-          </DashboardCard>
-        </div>
+          </div>
+        </DashboardCard>
       </div>
 
       {/* Price History + SHAP side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
               Price History
             </h3>
@@ -160,7 +158,7 @@ function ValuationTab({ data }: ValuationTabProps) {
         </DashboardCard>
 
         <DashboardCard>
-          <h3 className="mb-4 text-sm font-semibold text-[var(--color-db-text-primary)]">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Value Drivers (SHAP)
           </h3>
           <ShapWaterfall features={shap_features} />
@@ -174,7 +172,7 @@ function ValuationTab({ data }: ValuationTabProps) {
         </h3>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Sliders */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <div>
               <div className="mb-1 flex justify-between text-xs text-[var(--color-db-text-tertiary)]">
                 <span>Home Price</span>
@@ -193,7 +191,10 @@ function ValuationTab({ data }: ValuationTabProps) {
             <div>
               <div className="mb-1 flex justify-between text-xs text-[var(--color-db-text-tertiary)]">
                 <span>Down Payment</span>
-                <MonoValue value={`${downPct}%`} size="sm" />
+                <MonoValue
+                  value={`${downPct}% (${fmtUsd(Math.round((homePrice * downPct) / 100))})`}
+                  size="sm"
+                />
               </div>
               <input
                 type="range"
@@ -245,18 +246,21 @@ function ValuationTab({ data }: ValuationTabProps) {
           </div>
 
           {/* Donut + breakdown */}
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <DashboardDonut
               data={donutData}
               centerLabel="Monthly"
               centerValue={fmtUsd(Math.round(mortgage.total))}
-              size={180}
+              size={170}
             />
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-1.5">
               {donutData.map((d) => (
                 <div key={d.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
                     <span className="text-xs text-[var(--color-db-text-secondary)]">{d.label}</span>
                   </div>
                   <MonoValue value={fmtUsd(Math.round(d.value))} size="sm" />

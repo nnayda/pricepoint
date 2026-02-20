@@ -20,16 +20,16 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Score + Stats side by side */}
-      <div className="grid gap-4 lg:grid-cols-2">
+    <div className="flex flex-col gap-4">
+      {/* Score + Stats in a compact row */}
+      <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
         <DashboardCard>
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-1">
             <SemiCircularGauge
               value={greenspace.composite_score}
               label="Greenspace Score"
               color="var(--color-db-green)"
-              size={180}
+              size={150}
             />
           </div>
         </DashboardCard>
@@ -38,25 +38,21 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Key Statistics
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatChip label="Walk Time" value={`${greenspace.walk_minutes_nearest} min`} compact />
             <StatChip label="Parks (1mi)" value={greenspace.parks_within_1mi} compact />
             <StatChip label="Trails (1mi)" value={greenspace.trails_within_1mi} compact />
             <StatChip label="% Greenspace" value={`${greenspace.pct_greenspace}%`} compact />
             <StatChip label="Z-Score" value={greenspace.greenspace_z_score.toFixed(2)} compact />
             <StatChip label="Tree Canopy" value={`${greenspace.tree_canopy_pct}%`} compact />
-            <StatChip
-              label="Dog Park"
-              value={greenspace.has_dog_park ? "Yes" : "No"}
-              compact
-            />
+            <StatChip label="Dog Park" value={greenspace.has_dog_park ? "Yes" : "No"} compact />
             <StatChip label="Features" value={greenspace.features.length} compact />
           </div>
         </DashboardCard>
       </div>
 
       {/* Feature List + Map side by side */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <DashboardCard>
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Nearby Green Features
@@ -73,7 +69,9 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
                   </span>
                   <div>
                     <span className="text-sm text-[var(--color-db-text-primary)]">{f.name}</span>
-                    <span className="ml-2 text-[11px] text-[var(--color-db-text-muted)]">{f.type}</span>
+                    <span className="ml-2 text-[11px] text-[var(--color-db-text-muted)]">
+                      {f.type}
+                    </span>
                   </div>
                 </div>
                 <div className="flex gap-4 text-[11px] text-[var(--color-db-text-tertiary)]">

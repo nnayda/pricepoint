@@ -51,6 +51,20 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   return dots;
 }
 
+const TAB_COMPONENTS: Record<
+  DashboardTab,
+  React.LazyExoticComponent<React.ComponentType<{ data: DashboardData }>>
+> = {
+  valuation: ValuationTab,
+  risks: RisksTab,
+  demographics: DemographicsTab,
+  schools: SchoolsTab,
+  pois: PoisTab,
+  "negative-pois": NegativePoisTab,
+  greenspace: GreenspaceTab,
+  "property-details": PropertyDetailsTab,
+};
+
 interface DashboardTabsProps {
   data: DashboardData;
 }
@@ -65,19 +79,12 @@ function TabLoader() {
 
 function DashboardTabs({ data }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("valuation");
-  const [visited, setVisited] = useState<Set<DashboardTab>>(new Set(["valuation"]));
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const tabDots = useMemo(() => computeTabDots(data), [data]);
 
   const handleTabClick = useCallback((tab: DashboardTab) => {
     setActiveTab(tab);
-    setVisited((prev) => {
-      if (prev.has(tab)) return prev;
-      const next = new Set(prev);
-      next.add(tab);
-      return next;
-    });
   }, []);
 
   const handleKeyDown = useCallback(
@@ -108,19 +115,7 @@ function DashboardTabs({ data }: DashboardTabsProps) {
     [activeTab, handleTabClick],
   );
 
-  const tabComponents = useMemo(
-    () => ({
-      valuation: <ValuationTab data={data} />,
-      risks: <RisksTab data={data} />,
-      demographics: <DemographicsTab data={data} />,
-      schools: <SchoolsTab data={data} />,
-      pois: <PoisTab data={data} />,
-      "negative-pois": <NegativePoisTab data={data} />,
-      greenspace: <GreenspaceTab data={data} />,
-      "property-details": <PropertyDetailsTab data={data} />,
-    }),
-    [data],
-  );
+  const ActiveComponent = TAB_COMPONENTS[activeTab];
 
   return (
     <div>
@@ -137,7 +132,9 @@ function DashboardTabs({ data }: DashboardTabsProps) {
           return (
             <button
               key={tab.id}
-              ref={(el) => { tabRefs.current[index] = el; }}
+              ref={(el) => {
+                tabRefs.current[index] = el;
+              }}
               type="button"
               role="tab"
               aria-selected={isActive}
@@ -159,23 +156,15 @@ function DashboardTabs({ data }: DashboardTabsProps) {
         })}
       </div>
 
-      {/* Tab Content */}
-      <div className="p-5">
+      {/* Tab Content — only the active tab is mounted to avoid Leaflet re-init errors */}
+      <div
+        role="tabpanel"
+        id={`tabpanel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        className="p-5"
+      >
         <Suspense fallback={<TabLoader />}>
-          {TABS.map((tab) => {
-            if (!visited.has(tab.id)) return null;
-            return (
-              <div
-                key={tab.id}
-                role="tabpanel"
-                id={`tabpanel-${tab.id}`}
-                aria-labelledby={`tab-${tab.id}`}
-                style={{ display: activeTab === tab.id ? "block" : "none" }}
-              >
-                {tabComponents[tab.id]}
-              </div>
-            );
-          })}
+          <ActiveComponent data={data} />
         </Suspense>
       </div>
     </div>

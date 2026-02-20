@@ -38,81 +38,81 @@ function RisksTab({ data }: RisksTabProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Overall Risk Score */}
-      <DashboardCard>
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-db-green-muted)]">
-            <span
-              className="text-2xl font-bold text-[var(--color-db-green)]"
-              style={{ fontFamily: "var(--font-db-mono)" }}
-            >
-              {risks.overall_score}
-            </span>
-          </div>
-          <div>
+    <div className="flex flex-col gap-4">
+      {/* Overall Risk Score + Risk Category Grid */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+        <DashboardCard>
+          <div className="flex flex-col items-center gap-2 py-2">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-db-green-muted)]">
+              <span
+                className="text-2xl font-bold text-[var(--color-db-green)]"
+                style={{ fontFamily: "var(--font-db-mono)" }}
+              >
+                {risks.overall_score}
+              </span>
+            </div>
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
               Overall Risk Score
             </h3>
-            <p className="text-xs text-[var(--color-db-text-tertiary)]">
+            <p className="text-center text-xs text-[var(--color-db-text-tertiary)]">
               Low risk — Below average for Wake County
             </p>
           </div>
-        </div>
-      </DashboardCard>
+        </DashboardCard>
 
-      {/* Risk Category Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {risks.categories.map((cat) => {
-          const IconComponent = RISK_ICONS[cat.icon] || RISK_ICONS.flood;
-          return (
-            <DashboardCard key={cat.id}>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span style={{ color: levelColors[cat.level] }}>
-                    <IconComponent size={18} />
-                  </span>
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{
-                      color: levelColors[cat.level],
-                      backgroundColor: `${levelColors[cat.level]}20`,
-                    }}
-                  >
-                    {cat.level}
-                  </span>
+        <DashboardCard>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {risks.categories.map((cat) => {
+              const IconComponent = RISK_ICONS[cat.icon] || RISK_ICONS.flood;
+              return (
+                <div
+                  key={cat.id}
+                  className="flex flex-col gap-1.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span style={{ color: levelColors[cat.level] }}>
+                      <IconComponent size={16} />
+                    </span>
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        color: levelColors[cat.level],
+                        backgroundColor: `${levelColors[cat.level]}20`,
+                      }}
+                    >
+                      {cat.level}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-medium text-[var(--color-db-text-primary)]">
+                    {cat.label}
+                  </h4>
+                  <div className="h-1 rounded-full bg-[var(--color-db-surface)]">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${cat.score}%`,
+                        backgroundColor: levelColors[cat.level],
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] leading-tight text-[var(--color-db-text-muted)]">
+                    {cat.detail}
+                  </p>
                 </div>
-                <h4 className="text-sm font-medium text-[var(--color-db-text-primary)]">
-                  {cat.label}
-                </h4>
-                <div className="h-1.5 rounded-full bg-[var(--color-db-surface-alt)]">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${cat.score}%`,
-                      backgroundColor: levelColors[cat.level],
-                    }}
-                  />
-                </div>
-                <p className="text-[11px] text-[var(--color-db-text-muted)]">{cat.detail}</p>
-              </div>
-            </DashboardCard>
-          );
-        })}
+              );
+            })}
+          </div>
+        </DashboardCard>
       </div>
 
       {/* Crime Stats + Breakdown side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard>
-          <h3 className="mb-4 text-sm font-semibold text-[var(--color-db-text-primary)]">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Crime Statistics
           </h3>
           <div className="grid grid-cols-3 gap-2">
-            <StatChip
-              label="Z-Score"
-              value={crime.z_score.toFixed(2)}
-              compact
-            />
+            <StatChip label="Z-Score" value={crime.z_score.toFixed(2)} compact />
             <StatChip
               label="Growth Rate"
               value={`${crime.growth_rate}%`}
@@ -124,15 +124,17 @@ function RisksTab({ data }: RisksTabProps) {
         </DashboardCard>
 
         <DashboardCard>
-          <h3 className="mb-4 text-sm font-semibold text-[var(--color-db-text-primary)]">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Crime Breakdown
           </h3>
           <ResponsiveContainer width="100%" height={140}>
-            <BarChart
-              data={crime.breakdown}
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-            >
-              <CartesianGrid stroke="#2E3553" strokeDasharray="3 3" vertical={false} opacity={0.25} />
+            <BarChart data={crime.breakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <CartesianGrid
+                stroke="#2E3553"
+                strokeDasharray="3 3"
+                vertical={false}
+                opacity={0.25}
+              />
               <XAxis
                 dataKey="category"
                 tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-sans)" }}
@@ -160,7 +162,10 @@ function RisksTab({ data }: RisksTabProps) {
               />
               <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={24}>
                 {crime.breakdown.map((_, i) => (
-                  <Cell key={i} fill={["#6366F1", "#F87171", "#FB923C", "#FBBF24", "#A78BFA"][i % 5]} />
+                  <Cell
+                    key={i}
+                    fill={["#6366F1", "#F87171", "#FB923C", "#FBBF24", "#A78BFA"][i % 5]}
+                  />
                 ))}
               </Bar>
             </BarChart>
