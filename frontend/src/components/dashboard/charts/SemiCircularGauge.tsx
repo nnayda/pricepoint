@@ -4,6 +4,8 @@ interface SemiCircularGaugeProps {
   label: string;
   color?: string;
   size?: number;
+  suffix?: string;
+  showGrade?: boolean;
 }
 
 function getGradeLabel(value: number): { text: string; color: string } {
@@ -27,6 +29,8 @@ function SemiCircularGauge({
   label,
   color,
   size = 160,
+  suffix = "",
+  showGrade = true,
 }: SemiCircularGaugeProps) {
   const pct = Math.min(value / max, 1);
   const r = (size - 20) / 2;
@@ -88,15 +92,17 @@ function SemiCircularGauge({
           fontWeight={700}
           fontFamily="var(--font-db-mono)"
         >
-          {Math.round(value)}
+          {Math.round(value)}{suffix}
         </text>
       </svg>
-      <span
-        className="text-xs font-semibold"
-        style={{ color: grade.color }}
-      >
-        {grade.text}
-      </span>
+      {showGrade && (
+        <span
+          className="text-xs font-semibold"
+          style={{ color: grade.color }}
+        >
+          {grade.text}
+        </span>
+      )}
       <span className="mt-0.5 text-xs font-medium text-[var(--color-db-text-secondary)]">{label}</span>
     </div>
   );

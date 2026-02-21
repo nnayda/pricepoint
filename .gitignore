@@ -68,3 +68,6 @@ docker-compose.override.yml
 
 # MLflow
 mlruns/
+
+# Playwright MCP
+.playwright-mcp/

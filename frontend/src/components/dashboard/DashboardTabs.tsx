@@ -21,7 +21,7 @@ const TABS: TabDef[] = [
   { id: "risks", label: "Risks" },
   { id: "demographics", label: "Demographics" },
   { id: "schools", label: "Schools" },
-  { id: "pois", label: "POIs" },
+  { id: "pois", label: "Points of Interest" },
   { id: "negative-pois", label: "Negative POIs" },
   { id: "greenspace", label: "Greenspace" },
   { id: "property-details", label: "Property Details" },
@@ -46,6 +46,13 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   // Green dot on Schools if any school rated 8+
   if (data.schools.some((s) => s.rating >= 8)) {
     dots.schools = "#34D399";
+  }
+
+  // Red dot on Negative POIs if any Concern, yellow if any Caution
+  if (data.negative_pois.some((n) => n.severity === "Concern")) {
+    dots["negative-pois"] = "#F87171";
+  } else if (data.negative_pois.some((n) => n.severity === "Caution")) {
+    dots["negative-pois"] = "#FBBF24";
   }
 
   return dots;

@@ -358,6 +358,7 @@ export interface DashboardValuation {
   tax_assessment: number;
   price_per_sqft: number;
   neighborhood_median: number;
+  neighborhood_max: number;
   model_version: string;
   prediction_date: string;
   verdict: string;
@@ -393,8 +394,22 @@ export interface CrimeBreakdown {
   pct_change: number;
 }
 
+export interface DemographicDataset {
+  race_ethnicity: { label: string; value: number; color: string }[];
+  age_distribution: { range: string; male: number; female: number }[];
+  median_income: number;
+  income_brackets: { label: string; value: number }[];
+  home_ownership_rate: number;
+  median_home_value: number;
+  population: number;
+  population_trend: { year: number; population: number }[];
+}
+
+export type DemographicContext = "subdivision" | "neighborhood" | "town";
+
 export interface DemographicData {
   geography_level: string;
+  contexts: Record<DemographicContext, DemographicDataset>;
   race_ethnicity: { label: string; value: number; color: string }[];
   age_distribution: { range: string; male: number; female: number }[];
   median_income: number;

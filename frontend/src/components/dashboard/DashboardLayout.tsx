@@ -25,12 +25,12 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
         address={property.address}
       />
 
-      <div className="mx-auto max-w-[1680px] px-4 py-6 xl:px-6">
-        <div className="flex flex-col gap-6 xl:flex-row">
+      <div className="mx-auto max-w-[1680px] px-1 py-6 xl:px-1.5">
+        <div className="flex flex-col gap-4 xl:flex-row">
           {/* Left Column — sticky on desktop */}
-          <aside className="w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[320px] xl:overflow-y-auto xl:scrollbar-none">
+          <aside className="scrollbar-none w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[360px] xl:overflow-y-auto">
             <div className="flex flex-col gap-4">
-              <PhotoCarousel images={property.images} photoScore={data.listing_quality.photo_score} />
+              <PhotoCarousel images={property.images} />
               <KeyFactsCard property={property} valuation={data.valuation} />
               <DescriptionCard property={property} listingQuality={data.listing_quality} />
             </div>
@@ -44,6 +44,28 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
           </main>
         </div>
       </div>
+
+      {/* Floating Compare Button (FAB) */}
+      <button
+        type="button"
+        className="fixed right-6 bottom-6 z-50 flex h-14 items-center gap-2 rounded-full bg-[var(--color-db-accent)] px-5 shadow-lg transition-transform hover:scale-105 hover:bg-[var(--color-db-accent-hover)]"
+        aria-label="Compare properties"
+      >
+        <svg
+          className="h-5 w-5 text-white"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
+        </svg>
+        <span className="text-sm font-semibold text-white">Compare</span>
+      </button>
     </div>
   );
 }

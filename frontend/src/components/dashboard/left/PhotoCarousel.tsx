@@ -2,10 +2,9 @@ import { useState, useCallback, useEffect } from "react";
 
 interface PhotoCarouselProps {
   images: string[];
-  photoScore?: number;
 }
 
-function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
+function PhotoCarousel({ images }: PhotoCarouselProps) {
   const [current, setCurrent] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -32,13 +31,6 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
   return (
     <>
       <div className="group relative overflow-hidden rounded-[var(--radius-db-lg)]">
-        {/* Photo Score badge in card header area */}
-        {photoScore !== undefined && (
-          <div className="absolute top-3 left-3 z-10 rounded-full bg-[var(--color-db-accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-db-accent-hover)] backdrop-blur-sm">
-            Photo Score: {photoScore}
-          </div>
-        )}
-
         <div className="aspect-[4/3] bg-[var(--color-db-surface-alt)]">
           <img
             src={images[current]}
@@ -54,7 +46,13 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
           aria-label="Previous photo"
           className="absolute top-1/2 left-3 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -64,7 +62,13 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
           aria-label="Next photo"
           className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -81,8 +85,18 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
           aria-label="Open fullscreen gallery"
           className="absolute bottom-3 right-3 rounded-lg bg-black/50 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
           </svg>
         </button>
 
@@ -114,7 +128,13 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
             className="absolute top-4 right-4 z-10 rounded-lg bg-white/10 p-3 text-white transition-colors hover:bg-white/20"
             aria-label="Close fullscreen"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -124,18 +144,34 @@ function PhotoCarousel({ images, photoScore }: PhotoCarouselProps) {
             aria-label="Previous photo"
             className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <img src={images[current]} alt={`Photo ${current + 1} of ${images.length}`} className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" />
+          <img
+            src={images[current]}
+            alt={`Photo ${current + 1} of ${images.length}`}
+            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+          />
           <button
             type="button"
             onClick={next}
             aria-label="Next photo"
             className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>

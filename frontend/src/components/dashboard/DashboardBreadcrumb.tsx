@@ -26,7 +26,7 @@ function DashboardBreadcrumb({ city, neighborhood, address }: DashboardBreadcrum
             </svg>
           )}
           <span
-            className={`text-xs ${i === crumbs.length - 1 ? "font-medium text-[var(--color-db-text-primary)]" : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"} cursor-pointer`}
+            className={`text-xs ${i === crumbs.length - 1 ? "font-medium text-[var(--color-db-text-primary)]" : "uppercase tracking-wider text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"} cursor-pointer`}
           >
             {crumb}
           </span>

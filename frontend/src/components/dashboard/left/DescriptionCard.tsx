@@ -17,14 +17,14 @@ function DescriptionCard({ property, listingQuality }: DescriptionCardProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2
-            className="text-base font-semibold text-[var(--color-db-text-primary)]"
+            className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]"
             style={{ fontFamily: "var(--font-db-sans)" }}
           >
             About this Property
           </h2>
           {listingQuality && (
-            <span className="rounded-full bg-[var(--color-db-accent-muted)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-db-accent-hover)]">
-              Description Score: {listingQuality.description_score}
+            <span className="rounded-full bg-[var(--color-db-accent-muted)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-db-accent-hover)]">
+              AI Score: {listingQuality.description_score}
             </span>
           )}
         </div>

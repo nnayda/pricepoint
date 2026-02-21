@@ -5,9 +5,11 @@ import type { GeocodeResult } from "../../types";
 interface SearchBarProps {
   onSelect: (result: GeocodeResult) => void;
   placeholder?: string;
+  variant?: "default" | "landing";
 }
 
-function SearchBar({ onSelect, placeholder = "Search for an address..." }: SearchBarProps) {
+function SearchBar({ onSelect, placeholder = "Search for an address...", variant = "default" }: SearchBarProps) {
+  const isDark = variant === "landing";
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -86,7 +88,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
     <div ref={containerRef} className="relative w-full max-w-lg">
       <div className="relative">
         <svg
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-sec sm:left-4"
+          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 sm:left-4 ${isDark ? "text-[var(--color-db-text-muted)]" : "text-text-sec"}`}
           width="16"
           height="16"
           viewBox="0 0 24 24"
@@ -124,11 +126,15 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full rounded-pill bg-bg-card py-2.5 pl-10 pr-3 text-sm font-medium text-text-pri shadow-card outline-none placeholder:text-text-sec focus:ring-2 focus:ring-brand-blue sm:py-3 sm:pl-11 sm:pr-4 sm:text-base"
+          className={
+            isDark
+              ? "w-full rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface)] py-3 pl-10 pr-3 text-sm font-medium text-[var(--color-db-text-primary)] shadow-[var(--shadow-db-card)] outline-none placeholder:text-[var(--color-db-text-muted)] focus:border-[var(--color-db-accent)] sm:py-3.5 sm:pl-11 sm:pr-4 sm:text-base"
+              : "w-full rounded-pill bg-bg-card py-2.5 pl-10 pr-3 text-sm font-medium text-text-pri shadow-card outline-none placeholder:text-text-sec focus:ring-2 focus:ring-brand-blue sm:py-3 sm:pl-11 sm:pr-4 sm:text-base"
+          }
         />
         {loading && (
           <div
-            className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-text-sec border-t-brand-blue"
+            className={`absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 ${isDark ? "border-[var(--color-db-text-muted)] border-t-[var(--color-db-accent)]" : "border-text-sec border-t-brand-blue"}`}
             role="status"
             aria-label="Loading results"
           />
@@ -136,7 +142,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
       </div>
 
       {notFound && (
-        <p role="alert" className="mt-2 text-sm text-status-rented">
+        <p role="alert" className={`mt-2 text-sm ${isDark ? "text-[var(--color-db-red)]" : "text-status-rented"}`}>
           Address not found. Try a different search.
         </p>
       )}
@@ -147,14 +153,14 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
           id="searchbar-listbox"
           role="listbox"
           aria-label="Address suggestions"
-          className="absolute z-10 mt-2 w-full overflow-hidden rounded-md bg-bg-card shadow-soft"
+          className={`absolute z-10 mt-2 w-full overflow-hidden rounded-md shadow-soft ${isDark ? "border border-[var(--color-db-border)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]" : "bg-bg-card"}`}
         >
           {error && (
             <li
               role="option"
               aria-disabled="true"
               aria-selected={false}
-              className="px-4 py-3 text-sm text-status-rented"
+              className={`px-4 py-3 text-sm ${isDark ? "text-[var(--color-db-red)]" : "text-status-rented"}`}
             >
               <span role="alert">{error}</span>
             </li>
@@ -164,7 +170,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
               role="option"
               aria-disabled="true"
               aria-selected={false}
-              className="px-4 py-3 text-sm text-text-sec"
+              className={`px-4 py-3 text-sm ${isDark ? "text-[var(--color-db-text-secondary)]" : "text-text-sec"}`}
             >
               Searching...
             </li>
@@ -176,9 +182,13 @@ function SearchBar({ onSelect, placeholder = "Search for an address..." }: Searc
               role="option"
               aria-selected={index === activeIndex}
               className={`cursor-pointer px-4 py-3 text-sm transition-colors ${
-                index === activeIndex
-                  ? "bg-bg-main text-text-pri"
-                  : "text-text-sec hover:bg-bg-main"
+                isDark
+                  ? index === activeIndex
+                    ? "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-primary)]"
+                    : "text-[var(--color-db-text-secondary)] hover:bg-[var(--color-db-surface-alt)]"
+                  : index === activeIndex
+                    ? "bg-bg-main text-text-pri"
+                    : "text-text-sec hover:bg-bg-main"
               }`}
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(e) => {

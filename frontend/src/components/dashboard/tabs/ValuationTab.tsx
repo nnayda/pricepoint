@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
 import type { DashboardData, MortgageBreakdown } from "../../../types";
 import DashboardCard from "../DashboardCard";
-import StatChip from "../ui/StatChip";
 import MonoValue from "../ui/MonoValue";
 import EstimateRangeBar from "../charts/EstimateRangeBar";
 import PriceHistoryChart from "../charts/PriceHistoryChart";
 import ShapWaterfall from "../charts/ShapWaterfall";
-import SemiCircularGauge from "../charts/SemiCircularGauge";
 import DashboardDonut from "../charts/DashboardDonut";
 
 interface ValuationTabProps {
@@ -49,9 +47,22 @@ function calcMortgage(
   };
 }
 
+type Outcome = { label: string; style: string };
+
+function getOutcome(v: DashboardData["valuation"]): Outcome {
+  if (v.listed_price < v.confidence_low)
+    return { label: "Bargain", style: "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)]" };
+  if (v.listed_price < v.predicted_value)
+    return { label: "Value", style: "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-secondary)]" };
+  if (v.listed_price < v.confidence_high)
+    return { label: "Fair", style: "bg-[var(--color-db-orange-muted,rgba(251,146,60,0.15))] text-[var(--color-db-orange)]" };
+  return { label: "Overpriced", style: "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)]" };
+}
+
 function ValuationTab({ data }: ValuationTabProps) {
-  const { valuation, shap_features, price_history, listing_quality, mortgage_defaults } = data;
-  const [showNeighborhood, setShowNeighborhood] = useState(true);
+  const { valuation, shap_features, price_history, mortgage_defaults } = data;
+  const [timeRange, setTimeRange] = useState<"W" | "M">("M");
+  const outcome = getOutcome(valuation);
 
   const [homePrice, setHomePrice] = useState(mortgage_defaults.home_price);
   const [downPct, setDownPct] = useState(mortgage_defaults.down_payment_pct);
@@ -82,85 +93,94 @@ function ValuationTab({ data }: ValuationTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Verdict callout — prominent at top per spec */}
+      {/* Model Valuation Estimate — full width */}
       <DashboardCard>
-        <div className="rounded-[var(--radius-db-sm)] border border-[var(--color-db-green)] border-opacity-30 bg-[var(--color-db-green-muted)] px-4 py-3">
-          <span className="text-sm font-semibold text-[var(--color-db-green)]">
-            {valuation.verdict}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+              Model Valuation Estimate
+            </h3>
+            <a
+              href="/model-methodology"
+              aria-label="How model estimates are derived"
+              className="rounded-full p-0.5 text-[var(--color-db-text-muted)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-secondary)]"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+                />
+              </svg>
+            </a>
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${outcome.style}`}
+          >
+            {outcome.label}
           </span>
-          <p className="mt-1 text-xs text-[var(--color-db-text-secondary)]">
-            {valuation.verdict_detail}
-          </p>
         </div>
+        <EstimateRangeBar valuation={valuation} />
       </DashboardCard>
-
-      {/* Estimate Range + AI Listing Quality + Stats row */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <DashboardCard className="lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Valuation Range
-          </h3>
-          <EstimateRangeBar valuation={valuation} />
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <StatChip label="Predicted" value={fmtUsd(valuation.predicted_value)} compact />
-            <StatChip label="Redfin Est." value={fmtUsd(valuation.redfin_estimate)} compact />
-            <StatChip label="Nbhd Median" value={fmtUsd(valuation.neighborhood_median)} compact />
-          </div>
-        </DashboardCard>
-
-        <DashboardCard>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            AI Listing Quality
-          </h3>
-          <div className="flex flex-col items-center gap-1">
-            <SemiCircularGauge
-              value={listing_quality.listing_health}
-              label="Listing Health"
-              color="var(--color-db-green)"
-              size={100}
-            />
-            <div className="mt-1 flex w-full justify-around">
-              <SemiCircularGauge
-                value={listing_quality.photo_score}
-                label="Photo"
-                color="var(--color-db-cyan)"
-                size={72}
-              />
-              <SemiCircularGauge
-                value={listing_quality.description_score}
-                label="Description"
-                color="var(--color-db-accent)"
-                size={72}
-              />
-            </div>
-          </div>
-        </DashboardCard>
-      </div>
 
       {/* Price History + SHAP side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Price History
             </h3>
-            <label className="flex items-center gap-2 text-xs text-[var(--color-db-text-tertiary)]">
-              <input
-                type="checkbox"
-                checked={showNeighborhood}
-                onChange={(e) => setShowNeighborhood(e.target.checked)}
-                className="rounded border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)]"
-              />
-              Neighborhood median
-            </label>
+            <div className="flex overflow-hidden rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)]">
+              {(["W", "M"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTimeRange(t)}
+                  className={`px-3 py-1 text-[11px] font-semibold transition-colors ${
+                    timeRange === t
+                      ? "bg-[var(--color-db-accent-muted)] text-[var(--color-db-accent)]"
+                      : "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-tertiary)] hover:bg-[var(--color-db-surface-hover)]"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
-          <PriceHistoryChart data={price_history} showNeighborhood={showNeighborhood} />
+          <PriceHistoryChart data={price_history} showNeighborhood={true} />
         </DashboardCard>
 
         <DashboardCard>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Value Drivers (SHAP)
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
+              Value Drivers (SHAP)
+            </h3>
+            <button
+              type="button"
+              className="rounded-[var(--radius-db-xs)] p-1 text-[var(--color-db-text-muted)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-secondary)]"
+              aria-label="Expand SHAP chart"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+                />
+              </svg>
+            </button>
+          </div>
           <ShapWaterfall features={shap_features} />
         </DashboardCard>
       </div>
@@ -245,15 +265,15 @@ function ValuationTab({ data }: ValuationTabProps) {
             </div>
           </div>
 
-          {/* Donut + breakdown */}
-          <div className="flex flex-col items-center gap-3">
+          {/* Donut + breakdown — side by side */}
+          <div className="flex items-center gap-4">
             <DashboardDonut
               data={donutData}
               centerLabel="Monthly"
               centerValue={fmtUsd(Math.round(mortgage.total))}
-              size={170}
+              size={200}
             />
-            <div className="w-full space-y-1.5">
+            <div className="flex-1 space-y-1.5">
               {donutData.map((d) => (
                 <div key={d.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

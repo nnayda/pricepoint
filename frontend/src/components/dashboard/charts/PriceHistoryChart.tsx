@@ -26,6 +26,23 @@ const TOOLTIP_STYLE = {
 
 function PriceHistoryChart({ data, showNeighborhood = true }: PriceHistoryChartProps) {
   return (
+    <div className="flex flex-col">
+      {/* Legend */}
+      <div className="mb-2 flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-4 rounded-full" style={{ backgroundColor: "#6366F1" }} />
+          <span className="text-[11px] text-[var(--color-db-text-secondary)]">Property</span>
+        </div>
+        {showNeighborhood && (
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-0.5 w-4"
+              style={{ backgroundImage: "repeating-linear-gradient(to right, #22D3EE 0, #22D3EE 3px, transparent 3px, transparent 6px)" }}
+            />
+            <span className="text-[11px] text-[var(--color-db-text-secondary)]">Neighborhood Median</span>
+          </div>
+        )}
+      </div>
     <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
         <defs>
@@ -78,6 +95,7 @@ function PriceHistoryChart({ data, showNeighborhood = true }: PriceHistoryChartP
         )}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 

@@ -11,7 +11,6 @@ import {
 } from "recharts";
 import type { DashboardData } from "../../../types";
 import DashboardCard from "../DashboardCard";
-import StatChip from "../ui/StatChip";
 import DashboardMap from "../maps/DashboardMap";
 import { RISK_ICONS } from "../ui/Icons";
 
@@ -26,6 +25,8 @@ const levelColors: Record<string, string> = {
   "Very High": "var(--color-db-red)",
 };
 
+const HIDDEN_RISK_IDS = new Set(["earthquake", "air"]);
+
 function RisksTab({ data }: RisksTabProps) {
   const { risks, crime, property } = data;
   const [mapMode, setMapMode] = useState<"density" | "incidents">("incidents");
@@ -37,32 +38,18 @@ function RisksTab({ data }: RisksTabProps) {
     color: "#F87171",
   }));
 
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Overall Risk Score + Risk Category Grid */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-        <DashboardCard>
-          <div className="flex flex-col items-center gap-2 py-2">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-db-green-muted)]">
-              <span
-                className="text-2xl font-bold text-[var(--color-db-green)]"
-                style={{ fontFamily: "var(--font-db-mono)" }}
-              >
-                {risks.overall_score}
-              </span>
-            </div>
-            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
-              Overall Risk Score
-            </h3>
-            <p className="text-center text-xs text-[var(--color-db-text-tertiary)]">
-              Low risk — Below average for Wake County
-            </p>
-          </div>
-        </DashboardCard>
+  const visibleCategories = risks.categories.filter((c) => !HIDDEN_RISK_IDS.has(c.id));
 
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+      {/* Left column — risks + crime stats + breakdown */}
+      <div className="flex flex-col gap-4">
         <DashboardCard>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {risks.categories.map((cat) => {
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
+            Risk Assessment
+          </h3>
+          <div className="grid grid-cols-1 gap-3">
+            {visibleCategories.map((cat) => {
               const IconComponent = RISK_ICONS[cat.icon] || RISK_ICONS.flood;
               return (
                 <div
@@ -103,49 +90,36 @@ function RisksTab({ data }: RisksTabProps) {
             })}
           </div>
         </DashboardCard>
-      </div>
-
-      {/* Crime Stats + Breakdown side by side */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCard>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Crime Statistics
-          </h3>
-          <div className="grid grid-cols-3 gap-2">
-            <StatChip label="Z-Score" value={crime.z_score.toFixed(2)} compact />
-            <StatChip
-              label="Growth Rate"
-              value={`${crime.growth_rate}%`}
-              delta={crime.growth_rate}
-              compact
-            />
-            <StatChip label="Incidents (1yr)" value={crime.total_incidents} compact />
-          </div>
-        </DashboardCard>
 
         <DashboardCard>
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Crime Breakdown
           </h3>
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={crime.breakdown} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+          <ResponsiveContainer width="100%" height={crime.breakdown.length * 36 + 10}>
+            <BarChart
+              data={crime.breakdown}
+              layout="vertical"
+              margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+            >
               <CartesianGrid
                 stroke="#2E3553"
                 strokeDasharray="3 3"
-                vertical={false}
+                horizontal={false}
                 opacity={0.25}
               />
               <XAxis
-                dataKey="category"
-                tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-sans)" }}
+                type="number"
+                tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
                 axisLine={{ stroke: "#2E3553" }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
+                type="category"
+                dataKey="category"
+                tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-sans)" }}
                 axisLine={false}
                 tickLine={false}
-                width={30}
+                width={80}
               />
               <Tooltip
                 contentStyle={{
@@ -160,7 +134,7 @@ function RisksTab({ data }: RisksTabProps) {
                 labelStyle={{ color: "#9BA3BF" }}
                 cursor={{ fill: "rgba(99, 102, 241, 0.1)" }}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={24}>
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
                 {crime.breakdown.map((_, i) => (
                   <Cell
                     key={i}
@@ -173,34 +147,77 @@ function RisksTab({ data }: RisksTabProps) {
         </DashboardCard>
       </div>
 
-      {/* Crime Map */}
-      <DashboardCard>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">Crime Map</h3>
-          <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-            {(["incidents", "density"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setMapMode(mode)}
-                className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                  mapMode === mode
-                    ? "bg-[var(--color-db-accent)] text-white"
-                    : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                }`}
+      {/* Right column — Crime Map (sticky, fills viewport) */}
+      <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
+        <DashboardCard className="flex h-full flex-col">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">Crime Map</h3>
+            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+              {(["incidents", "density"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setMapMode(mode)}
+                  className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                    mapMode === mode
+                      ? "bg-[var(--color-db-accent)] text-white"
+                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-3 flex justify-center gap-2">
+            {[
+              { label: "Z-Score", value: crime.z_score.toFixed(2), raw: crime.z_score },
+              { label: "Growth", value: `${crime.growth_rate}%`, raw: crime.growth_rate },
+              { label: "Incidents", value: String(crime.total_incidents), raw: null },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
               >
-                {mode}
-              </button>
+                <span
+                  className="text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
+                  style={{ fontFamily: "var(--font-db-sans)" }}
+                >
+                  {stat.label}
+                </span>
+                <span
+                  className="text-xs font-semibold"
+                  style={{
+                    fontFamily: "var(--font-db-mono)",
+                    color:
+                      stat.raw === null
+                        ? "var(--color-db-text-primary)"
+                        : stat.raw < 0
+                          ? "var(--color-db-green)"
+                          : stat.raw > 0
+                            ? "var(--color-db-red)"
+                            : "var(--color-db-text-primary)",
+                  }}
+                >
+                  {stat.value}
+                </span>
+              </div>
             ))}
           </div>
-        </div>
-        <DashboardMap
-          center={[property.lat, property.lon]}
-          zoom={14}
-          markers={mapMode === "incidents" ? crimeMarkers : []}
-          height="320px"
-        />
-      </DashboardCard>
+          <div className="flex-1">
+            <DashboardMap
+              center={[property.lat, property.lon]}
+              zoom={14}
+              markers={[
+                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                ...(mapMode === "incidents" ? crimeMarkers : []),
+              ]}
+              height="100%"
+              minHeight="400px"
+            />
+          </div>
+        </DashboardCard>
+      </div>
     </div>
   );
 }

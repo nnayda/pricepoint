@@ -10,8 +10,8 @@ function AppLayout({ children }: AppLayoutProps) {
   const { pathname } = useLocation();
   const showNav = pathname !== "/";
 
-  // Dashboard page uses its own layout shell
-  if (pathname === "/test-dashboard-page") {
+  // Pages with their own full layout shell (dark theme, own nav, etc.)
+  if (pathname === "/" || pathname === "/test-dashboard-page") {
     return <>{children}</>;
   }
 

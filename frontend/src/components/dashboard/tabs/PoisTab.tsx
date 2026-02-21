@@ -29,8 +29,9 @@ function PoisTab({ data }: PoisTabProps) {
     {} as Record<string, DashboardPoi[]>,
   );
 
-  // All categories expanded by default
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(categories));
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {
@@ -45,6 +46,7 @@ function PoisTab({ data }: PoisTabProps) {
   };
 
   const mapMarkers = pois.map((p) => ({
+    id: p.id,
     lat: p.lat,
     lon: p.lon,
     label: `${p.name} (${p.distance_miles} mi)`,
@@ -52,31 +54,9 @@ function PoisTab({ data }: PoisTabProps) {
   }));
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* POI Score Summary */}
-      <DashboardCard>
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-db-accent-muted)]">
-            <span
-              className="text-lg font-bold text-[var(--color-db-accent)]"
-              style={{ fontFamily: "var(--font-db-mono)" }}
-            >
-              {pois.length}
-            </span>
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
-              Points of Interest
-            </h3>
-            <p className="text-xs text-[var(--color-db-text-tertiary)]">
-              {categories.length} categories within driving distance
-            </p>
-          </div>
-        </div>
-      </DashboardCard>
-
-      {/* Accordion by Category — all expanded by default */}
-      <div className="flex flex-col gap-2">
+    <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+      {/* Left column — summary + accordion */}
+      <div className="flex flex-col gap-4">
         {categories.map((cat) => {
           const IconComponent = POI_ICONS[cat] || ShoppingCartIcon;
           return (
@@ -118,10 +98,22 @@ function PoisTab({ data }: PoisTabProps) {
                   <div className="space-y-2">
                     {grouped[cat].map((poi) => {
                       const PoiIcon = POI_ICONS[poi.category] || ShoppingCartIcon;
+                      const isSelected = selectedId === poi.id;
                       return (
                         <div
                           key={poi.id}
-                          className="flex items-center justify-between rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-hover)] px-3 py-2"
+                          className="flex cursor-pointer items-center justify-between rounded-[var(--radius-db-xs)] px-3 py-2 transition-colors"
+                          style={{
+                            backgroundColor: isSelected
+                              ? "var(--color-db-accent-muted)"
+                              : "var(--color-db-surface-hover)",
+                            outline: isSelected
+                              ? "1px solid var(--color-db-accent)"
+                              : "none",
+                          }}
+                          onMouseEnter={() => setHoveredId(poi.id)}
+                          onMouseLeave={() => setHoveredId(null)}
+                          onClick={() => setSelectedId(isSelected ? null : poi.id)}
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-[var(--color-db-text-muted)]">
@@ -151,19 +143,28 @@ function PoisTab({ data }: PoisTabProps) {
         })}
       </div>
 
-      {/* POI Map */}
-      <DashboardCard>
-        <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">POI Map</h3>
-        <DashboardMap
-          center={[property.lat, property.lon]}
-          zoom={13}
-          markers={[
-            { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1" },
-            ...mapMarkers,
-          ]}
-          height="320px"
-        />
-      </DashboardCard>
+      {/* Right column — map (sticky, fills viewport) */}
+      <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
+        <DashboardCard className="flex h-full flex-col">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
+            POI Map
+          </h3>
+          <div className="flex-1">
+            <DashboardMap
+              center={[property.lat, property.lon]}
+              zoom={13}
+              markers={[
+                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                ...mapMarkers,
+              ]}
+              height="100%"
+              minHeight="400px"
+              highlightedId={hoveredId}
+              selectedId={selectedId}
+            />
+          </div>
+        </DashboardCard>
+      </div>
     </div>
   );
 }

@@ -76,10 +76,10 @@ describe("App", () => {
   });
 
   it("wraps routes in a Suspense boundary with design-system spinner", async () => {
-    renderApp("/");
+    renderApp("/forecast");
     // The page should eventually load
-    expect(await screen.findByTestId("landing-page")).toBeInTheDocument();
-    // Layout should be present
+    expect(await screen.findByTestId("forecast-page")).toBeInTheDocument();
+    // Layout should be present with main element (landing page has its own layout)
     const main = screen.getByRole("main");
     expect(main).toBeInTheDocument();
   });
