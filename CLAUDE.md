@@ -83,7 +83,11 @@ make up-infra             # Start app + core infra (postgres, minio, valkey) - u
 make up-all               # Start everything including bundled Airflow + its database
 make down                 # Stop all services
 make build                # Build all Docker images
+make dev-sync-api         # Copy local src/ into running API container and restart (~5s)
+make dev-sync-frontend    # Rebuild and restart frontend container with latest code
 ```
+
+> **Tip:** After editing backend code in `src/`, run `make dev-sync-api` instead of `make build` to push changes into the running container without a full image rebuild. This uses `docker cp` + restart, which is much faster. For frontend changes, use `make dev-sync-frontend`.
 
 ## Environment
 

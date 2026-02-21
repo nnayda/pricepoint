@@ -423,6 +423,16 @@ async def get_property(
     2. Street-name prefix match — first comma-delimited segment of address.
     3. Fall back to stub data.
     """
+    # Extract house number from the address for validation.
+    # Nominatim display_name varies:
+    #   "100, Clendenen Court, Preston, Cary, ..."   (number, street, ...)
+    #   "100 Clendenen Ct, Cary, NC 27513, US"       (number street, ...)
+    # DB stores Redfin form: "100 Clendenen Ct" in street_address.
+    parts = [p.strip() for p in address.split(",") if p.strip()]
+    first_part = parts[0] if parts else ""
+    # House number is the leading digit sequence from the first segment.
+    searched_house_num = first_part.split()[0] if first_part else ""
+
     # 1. Spatial search (requires populated location column)
     tolerance = 0.001  # ~111 m at mid-latitudes
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
@@ -438,32 +448,42 @@ async def get_property(
     ).scalar_one_or_none()
 
     if prop:
+        # Verify the house number matches to avoid returning a neighbour.
+        db_house_num = (prop.street_address or "").split()[0] if prop.street_address else ""
+        if searched_house_num and db_house_num != searched_house_num:
+            logger.info(
+                "Spatial match house number mismatch: searched %s, found %s (%s)",
+                searched_house_num,
+                db_house_num,
+                prop.street_address,
+            )
+            prop = None
+
+    if prop:
         return _build_response_from_db(prop, db, lat, lon)
 
-    # 2. Address text match — Nominatim display_name varies:
-    #      "100, Clendenen Court, Preston, Cary, ..."   (number, street, ...)
-    #      "100 Clendenen Ct, Cary, NC 27513, US"       (number street, ...)
-    #    DB stores Redfin form: "100 Clendenen Ct" in street_address.
-    #    Extract house number + street keyword and ILIKE match.
-    parts = [p.strip() for p in address.split(",") if p.strip()]
-    house_number = parts[0] if parts else ""
+    # 2. Address text match — exact house number + street keyword via ILIKE.
     street_name = parts[1] if len(parts) > 1 else ""
 
     # If the first part has spaces (e.g. "100 Clendenen Ct"), it already
     # includes the street — use it for a prefix match on street_address.
-    if " " in house_number:
+    if " " in first_part:
         prop = db.execute(
             select(RedfinListing)
-            .where(RedfinListing.street_address.startswith(house_number))
+            .where(RedfinListing.street_address.startswith(first_part))
             .limit(1)
         ).scalar_one_or_none()
-    elif house_number and street_name:
+    elif searched_house_num and street_name:
         # Nominatim splits "100" and "Clendenen Court" into separate parts.
         street_keyword = street_name.split()[0] if street_name else ""
         if street_keyword:
             prop = db.execute(
                 select(RedfinListing)
-                .where(RedfinListing.street_address.ilike(f"{house_number} {street_keyword}%"))
+                .where(
+                    RedfinListing.street_address.ilike(
+                        f"{searched_house_num} {street_keyword}%"
+                    )
+                )
                 .limit(1)
             ).scalar_one_or_none()
 

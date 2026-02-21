@@ -44,6 +44,18 @@ migrate: ## Run alembic migrations
 migration: ## Create a new alembic migration (usage: make migration MSG="add foo table")
 	uv run alembic revision --autogenerate -m "$(MSG)"
 
+# --- Dev Sync (hot-reload workaround for Docker-in-Docker) --------------------
+
+dev-sync-api: ## Copy local src/ into running API container and restart uvicorn
+	docker cp src/. pricepoint-api-1:/app/src/
+	docker compose restart api
+
+dev-sync-frontend: ## Rebuild and restart frontend container with latest code
+	docker compose build frontend
+	docker compose up -d frontend
+
+dev-sync: dev-sync-api ## Alias for dev-sync-api
+
 # --- Docker Build -------------------------------------------------------------
 
 build: ## Build all Docker images
