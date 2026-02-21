@@ -1,12 +1,12 @@
 """Authentication endpoints: register, login, user profile, and OAuth."""
 
+import datetime as _dt
 import secrets
 from typing import Annotated
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,14 @@ from pricepoint.api.auth import (
 )
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.rate_limit import limiter
-from pricepoint.api.schemas.auth import TokenResponse, UserCreate, UserResponse, UserUpdate
+from pricepoint.api.schemas.auth import (
+    AuthResponse,
+    LoginRequest,
+    TokenResponse,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 from pricepoint.config.settings import get_settings
 from pricepoint.db.models import User
 
@@ -40,14 +47,14 @@ def _configure_oauth() -> None:
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit(get_settings().rate_limit_auth)
 def register(
     request: Request,
     body: UserCreate,
     db: Annotated[Session, Depends(get_db)],
-) -> UserResponse:
-    """Create a new user account."""
+) -> AuthResponse:
+    """Create a new user account and return a token for auto-login."""
     existing = db.execute(select(User).where(User.email == body.email)).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(
@@ -59,30 +66,41 @@ def register(
         email=body.email,
         hashed_password=hash_password(body.password),
         display_name=body.display_name,
+        last_login_at=_dt.datetime.now(_dt.UTC),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return UserResponse.model_validate(user)
+    token = create_access_token(data={"sub": user.email})
+    return AuthResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user),
+    )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=AuthResponse)
 @limiter.limit(get_settings().rate_limit_auth)
 def login(
     request: Request,
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    body: LoginRequest,
     db: Annotated[Session, Depends(get_db)],
-) -> TokenResponse:
-    """Authenticate and return a JWT access token."""
-    user = db.execute(select(User).where(User.email == form_data.username)).scalar_one_or_none()
-    if user is None or not verify_password(form_data.password, user.hashed_password):
+) -> AuthResponse:
+    """Authenticate with JSON body and return a JWT access token + user."""
+    user = db.execute(select(User).where(User.email == body.email)).scalar_one_or_none()
+    if user is None or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    user.last_login_at = _dt.datetime.now(_dt.UTC)
+    db.commit()
+    db.refresh(user)
     token = create_access_token(data={"sub": user.email})
-    return TokenResponse(access_token=token)
+    return AuthResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserResponse)

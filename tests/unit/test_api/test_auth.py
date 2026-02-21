@@ -43,6 +43,7 @@ def _make_user(
     email: str = "test@example.com",
     display_name: str = "Test User",
     is_active: bool = True,
+    is_admin: bool = False,
 ) -> MagicMock:
     """Build a mock User ORM object."""
     user = MagicMock(spec=User)
@@ -50,7 +51,9 @@ def _make_user(
     user.email = email
     user.display_name = display_name
     user.is_active = is_active
+    user.is_admin = is_admin
     user.hashed_password = hash_password("secret123")
+    user.last_login_at = None
     user.created_at = None
     user.updated_at = None
     return user
@@ -70,14 +73,14 @@ def test_hash_and_verify_password():
 
 
 def test_register_success(client, mock_db):
-    """Registering a new user returns 201 with user data."""
-    # No existing user
+    """Registering a new user returns 201 with token and user data."""
     mock_db.execute.return_value.scalar_one_or_none.return_value = None
 
-    # After add+commit+refresh, simulate returning user
     def _refresh(user):
         user.id = 1
         user.is_active = True
+        user.is_admin = False
+        user.last_login_at = None
         user.created_at = None
 
     mock_db.refresh.side_effect = _refresh
@@ -88,9 +91,11 @@ def test_register_success(client, mock_db):
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["email"] == "new@example.com"
-    assert data["display_name"] == "New User"
-    assert "hashed_password" not in data
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["user"]["email"] == "new@example.com"
+    assert data["user"]["display_name"] == "New User"
+    assert "hashed_password" not in data["user"]
     mock_db.add.assert_called_once()
     mock_db.commit.assert_called_once()
 
@@ -116,22 +121,36 @@ def test_register_invalid_email(client):
     assert resp.status_code == 422
 
 
+def test_register_short_password(client):
+    """Registering with a password shorter than 8 characters returns 422."""
+    resp = client.post(
+        "/api/auth/register",
+        json={"email": "new@example.com", "password": "short"},
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    # Pydantic v2 validation error format
+    assert any("8 characters" in str(err) for err in detail)
+
+
 # ---------- POST /auth/login ----------
 
 
 def test_login_success(client, mock_db):
-    """Valid credentials return a JWT token."""
+    """Valid credentials return a JWT token and user data."""
     user = _make_user()
     mock_db.execute.return_value.scalar_one_or_none.return_value = user
 
     resp = client.post(
         "/api/auth/login",
-        data={"username": "test@example.com", "password": "secret123"},
+        json={"email": "test@example.com", "password": "secret123"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
+    assert data["user"]["email"] == "test@example.com"
+    assert data["user"]["display_name"] == "Test User"
 
 
 def test_login_wrong_password(client, mock_db):
@@ -141,7 +160,7 @@ def test_login_wrong_password(client, mock_db):
 
     resp = client.post(
         "/api/auth/login",
-        data={"username": "test@example.com", "password": "wrong"},
+        json={"email": "test@example.com", "password": "wrong"},
     )
     assert resp.status_code == 401
 
@@ -152,7 +171,7 @@ def test_login_nonexistent_user(client, mock_db):
 
     resp = client.post(
         "/api/auth/login",
-        data={"username": "nobody@example.com", "password": "whatever"},
+        json={"email": "nobody@example.com", "password": "whatever"},
     )
     assert resp.status_code == 401
 

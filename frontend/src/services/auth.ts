@@ -8,7 +8,9 @@ const client = axios.create({
 export interface AuthUser {
   id: number;
   email: string;
-  display_name: string;
+  display_name: string | null;
+  is_admin: boolean;
+  last_login_at: string | null;
 }
 
 export interface LoginResponse {
@@ -23,12 +25,40 @@ export interface RegisterResponse {
   user: AuthUser;
 }
 
+function mapAuthError(err: unknown): never {
+  if (axios.isAxiosError(err) && err.response) {
+    const { status, data } = err.response;
+    if (status === 401) {
+      throw new Error("Invalid email or password");
+    }
+    if (status === 409) {
+      throw new Error("An account with this email already exists");
+    }
+    if (status === 422) {
+      const detail = data?.detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        const msg = detail[0]?.msg ?? "Validation error";
+        throw new Error(String(msg));
+      }
+      if (typeof detail === "string") {
+        throw new Error(detail);
+      }
+      throw new Error("Validation error");
+    }
+  }
+  throw err instanceof Error ? err : new Error("An unexpected error occurred");
+}
+
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
-  const { data } = await client.post<LoginResponse>("/api/auth/login", {
-    email,
-    password,
-  });
-  return data;
+  try {
+    const { data } = await client.post<LoginResponse>("/api/auth/login", {
+      email,
+      password,
+    });
+    return data;
+  } catch (err) {
+    mapAuthError(err);
+  }
 }
 
 export async function registerUser(
@@ -36,12 +66,16 @@ export async function registerUser(
   password: string,
   displayName: string,
 ): Promise<RegisterResponse> {
-  const { data } = await client.post<RegisterResponse>("/api/auth/register", {
-    email,
-    password,
-    display_name: displayName,
-  });
-  return data;
+  try {
+    const { data } = await client.post<RegisterResponse>("/api/auth/register", {
+      email,
+      password,
+      display_name: displayName,
+    });
+    return data;
+  } catch (err) {
+    mapAuthError(err);
+  }
 }
 
 export async function getCurrentUser(token: string): Promise<AuthUser> {

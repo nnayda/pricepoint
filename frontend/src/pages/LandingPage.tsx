@@ -1,6 +1,7 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import SearchBar from "../components/SearchBar/SearchBar";
+import { useAuth } from "../contexts/AuthContext";
 import { startViewTransition } from "../utils/viewTransition";
 import type { GeocodeResult } from "../types";
 
@@ -73,6 +74,36 @@ function ArrowRightIcon() {
 /* ── Section: Landing Nav ── */
 
 function LandingNav() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [menuOpen]);
+
+  function handleLogout() {
+    logout();
+    setMenuOpen(false);
+  }
+
+  const initials = user?.display_name
+    ? user.display_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : (user?.email?.charAt(0).toUpperCase() ?? "U");
+
   return (
     <nav
       className="landing-nav fixed top-0 right-0 left-0 z-50 flex h-16 items-center justify-between px-6 sm:px-8"
@@ -91,18 +122,88 @@ function LandingNav() {
       </a>
 
       <div className="flex items-center gap-3">
-        <a
-          href="/login"
-          className="hidden rounded-[var(--radius-db-sm)] px-4 py-2 text-sm font-medium text-[var(--color-db-text-secondary)] transition-colors hover:text-[var(--color-db-text-primary)] sm:inline-flex"
-        >
-          Sign In
-        </a>
-        <a
-          href="/signup"
-          className="inline-flex items-center gap-2 rounded-[var(--radius-db-sm)] bg-[var(--color-db-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-db-accent-hover)]"
-        >
-          Get Started
-        </a>
+        {isAuthenticated ? (
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-expanded={menuOpen}
+              aria-haspopup="true"
+              className="flex items-center gap-2 rounded-full px-1 py-1 transition-colors hover:bg-white/10"
+              data-testid="landing-user-menu-button"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-db-accent)] text-xs font-semibold text-white">
+                {initials}
+              </div>
+              <span className="hidden max-w-[120px] truncate text-sm text-[var(--color-db-text-secondary)] sm:inline">
+                {user?.display_name || user?.email}
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`hidden h-4 w-4 text-[var(--color-db-text-secondary)] transition-transform sm:block ${menuOpen ? "rotate-180" : ""}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg"
+                style={{
+                  backgroundColor: "var(--color-db-surface)",
+                  border: "1px solid var(--color-db-border)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                }}
+                role="menu"
+                data-testid="landing-user-dropdown"
+              >
+                <div className="border-b border-[var(--color-db-border-subtle)] px-3 py-2">
+                  <p className="truncate text-sm font-medium text-[var(--color-db-text-primary)]">
+                    {user?.display_name || "User"}
+                  </p>
+                  <p className="truncate text-xs text-[var(--color-db-text-secondary)]">{user?.email}</p>
+                </div>
+                <Link
+                  to="/settings"
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+                >
+                  Settings
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <Link
+              to="/signin"
+              className="hidden rounded-[var(--radius-db-sm)] px-4 py-2 text-sm font-medium text-[var(--color-db-text-secondary)] transition-colors hover:text-[var(--color-db-text-primary)] sm:inline-flex"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              className="inline-flex items-center gap-2 rounded-[var(--radius-db-sm)] bg-[var(--color-db-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-db-accent-hover)]"
+            >
+              Get Started
+            </Link>
+          </>
+        )}
       </div>
     </nav>
   );

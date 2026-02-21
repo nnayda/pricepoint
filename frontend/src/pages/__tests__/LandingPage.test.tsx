@@ -4,6 +4,19 @@ import { MemoryRouter } from "react-router-dom";
 import { axe } from "vitest-axe";
 import LandingPage from "../LandingPage";
 
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refreshAuth: vi.fn(),
+  }),
+}));
+
 beforeAll(() => {
   // jsdom doesn't have IntersectionObserver
   const mockObserver = vi.fn(() => ({

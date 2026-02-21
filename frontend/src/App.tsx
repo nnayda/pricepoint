@@ -8,6 +8,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const PropertyDashboardPage = lazy(() => import("./pages/PropertyDashboardPage"));
+const SignInPage = lazy(() => import("./pages/SignInPage"));
+const SignUpPage = lazy(() => import("./pages/SignUpPage"));
+const UserSettingsPage = lazy(() => import("./pages/UserSettingsPage"));
 
 function PageLoader() {
   return (
@@ -26,20 +29,23 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-      <AuthProvider>
-        <AppLayout>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/property/:address" element={<PropertyDashboardPage />} />
-              <Route path="/results" element={<Navigate to="/" replace />} />
-              <Route path="/dashboard" element={<Navigate to="/" replace />} />
-              <Route path="/test-dashboard-page" element={<Navigate to="/" replace />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </Suspense>
-        </AppLayout>
-      </AuthProvider>
+        <AuthProvider>
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
+                <Route path="/settings" element={<UserSettingsPage />} />
+                <Route path="/property/:address" element={<PropertyDashboardPage />} />
+                <Route path="/results" element={<Navigate to="/" replace />} />
+                <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                <Route path="/test-dashboard-page" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </AppLayout>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

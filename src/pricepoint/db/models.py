@@ -1184,8 +1184,10 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     display_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, server_default=text("true"))
+    is_admin = Column(Boolean, default=False, server_default=text("false"))
     oauth_provider = Column(String, nullable=True)
     oauth_id = Column(String, nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

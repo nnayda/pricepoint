@@ -1,15 +1,29 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { loginUser, registerUser, getCurrentUser } from "../services/auth";
 import type { AuthUser } from "../services/auth";
+
+const TOKEN_KEY = "pricepoint-auth-token";
+
+function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // localStorage unavailable (SSR, private browsing, etc.)
+  }
+}
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -28,12 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const tokenRef = useRef<string | null>(null);
 
   const isAuthenticated = user !== null;
 
   const refreshAuth = useCallback(async () => {
-    const token = tokenRef.current;
+    const token = getStoredToken();
     if (!token) {
       setIsLoading(false);
       return;
@@ -42,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = await getCurrentUser(token);
       setUser(currentUser);
     } catch {
-      tokenRef.current = null;
+      storeToken(null);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -57,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const response = await loginUser(email, password);
-      tokenRef.current = response.access_token;
+      storeToken(response.access_token);
       setUser(response.user);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
@@ -70,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const response = await registerUser(email, password, displayName);
-      tokenRef.current = response.access_token;
+      storeToken(response.access_token);
       setUser(response.user);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
@@ -80,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    tokenRef.current = null;
+    storeToken(null);
     setUser(null);
     setError(null);
   }, []);
