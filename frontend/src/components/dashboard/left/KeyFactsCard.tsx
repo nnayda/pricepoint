@@ -18,9 +18,29 @@ function fmtUsd(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
+function fmtDuration(days: number): string {
+  if (days < 60) return `${days}d`;
+  if (days < 365) {
+    const months = Math.round(days / 30);
+    return `${months}mo`;
+  }
+  const years = Math.round((days / 365) * 10) / 10;
+  return years % 1 === 0 ? `${years}yr` : `${years}yr`;
+}
+
+function daysSince(dateStr: string): number {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return Math.max(0, Math.floor(diff / 86_400_000));
+}
 
 function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
-  const domColor = getDomColor(property.days_on_market);
+  const isSold = property.listing_status === "Sold";
+  const badgeDays =
+    isSold && property.sold_date ? daysSince(property.sold_date) : property.days_on_market;
+  const badgeLabel = isSold
+    ? `${fmtDuration(badgeDays)} since sold`
+    : `${fmtDuration(badgeDays)} on market`;
+  const domColor = getDomColor(badgeDays);
   const lotAcres = (property.lot_size_sqft / 43560).toFixed(2);
 
   return (
@@ -44,7 +64,7 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
             className="rounded-[var(--radius-db-xs)] px-2.5 py-1 text-xs font-medium"
             style={{ backgroundColor: domColor.bg, color: domColor.text }}
           >
-            {property.days_on_market}d on market
+            {badgeLabel}
           </div>
         </div>
 

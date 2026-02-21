@@ -90,7 +90,7 @@ describe("LandingPage", () => {
     const searchBar = screen.getByTestId("search-bar");
     await user.type(searchBar, "a");
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/property/${encodeURIComponent("123 Main St")}`,
+      `/property/${encodeURIComponent("123 Main St")}?lat=39.95&lon=-75.16`,
     );
   });
 

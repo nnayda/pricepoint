@@ -1,6 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useTheme } from "../../../contexts/ThemeContext";
 import { COLOR_INDIGO } from "../../../utils/chartTokens";
 
 export interface MapMarker {
@@ -107,6 +108,35 @@ function InteractiveMarker({
   );
 }
 
+const TILE_URLS: Record<string, string> = {
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+};
+
+/** Syncs the tile layer when resolvedTheme changes after initial mount. */
+function ThemeAwareTiles() {
+  const { resolvedTheme } = useTheme();
+  const map = useMap();
+  const layerRef = useRef<L.TileLayer | null>(null);
+
+  useEffect(() => {
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+    }
+    const layer = L.tileLayer(TILE_URLS[resolvedTheme] || TILE_URLS.dark, {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    });
+    layer.addTo(map);
+    layerRef.current = layer;
+    return () => {
+      map.removeLayer(layer);
+    };
+  }, [resolvedTheme, map]);
+
+  return null;
+}
+
 function DashboardMap({
   center,
   zoom = 14,
@@ -117,6 +147,8 @@ function DashboardMap({
   highlightedId,
   selectedId,
 }: DashboardMapProps) {
+  const { resolvedTheme } = useTheme();
+
   return (
     <div
       className="dashboard-map overflow-hidden rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)]"
@@ -130,9 +162,10 @@ function DashboardMap({
         attributionControl={true}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={TILE_URLS[resolvedTheme] || TILE_URLS.dark}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
         />
+        <ThemeAwareTiles />
         {markers.map((m) => (
           <InteractiveMarker
             key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}

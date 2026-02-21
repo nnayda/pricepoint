@@ -58,6 +58,10 @@ export interface PropertyDetails {
   highlights: string[];
   images: PropertyImage[];
   listing_status?: string;
+  price_per_sqft?: number;
+  days_on_market?: number;
+  listed_date?: string;
+  hoa_monthly?: number;
 }
 
 export interface ValuationData {
@@ -126,6 +130,11 @@ export interface ClimateRisk {
   fire_score: number;
 }
 
+export interface ApiListingQuality {
+  description_score?: number;
+  quality_reasoning?: string;
+}
+
 export interface PropertyResponse {
   property: PropertyDetails;
   valuation: ValuationData;
@@ -136,6 +145,7 @@ export interface PropertyResponse {
   sale_history: SaleHistoryEntry[];
   tax_history: TaxHistoryEntry[];
   climate_risk: ClimateRisk;
+  listing_quality?: ApiListingQuality;
 }
 
 // Crime types
@@ -347,6 +357,7 @@ export interface DashboardProperty {
   days_on_market: number;
   mls_number: string;
   listed_date: string;
+  sold_date?: string;
 }
 
 export interface DashboardValuation {
@@ -507,6 +518,21 @@ export interface ModelFeature {
   source: string;
 }
 
+// Data request types
+export interface DataRequestCreate {
+  address: string;
+  lat: number;
+  lon: number;
+  email?: string;
+}
+
+export interface DataRequestResponse {
+  id: number;
+  address: string;
+  status: string;
+  created_at: string;
+}
+
 export interface DashboardData {
   property: DashboardProperty;
   valuation: DashboardValuation;
@@ -527,7 +553,7 @@ export interface DashboardData {
   negative_pois: NegativePoi[];
   greenspace: DashboardGreenspace;
   mortgage_defaults: DashboardMortgage;
-  listing_quality: ListingQualityScore;
+  listing_quality?: ListingQualityScore;
   property_details: PropertyDetailSection[];
   model_features: ModelFeature[];
 }

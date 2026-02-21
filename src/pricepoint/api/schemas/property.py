@@ -32,6 +32,10 @@ class PropertyDetails(BaseModel):
     highlights: list[str]
     images: list[PropertyImage]
     listing_status: str | None = None
+    price_per_sqft: float | None = None
+    days_on_market: int | None = None
+    listed_date: str | None = None
+    hoa_monthly: float | None = None
 
 
 class ValuationData(BaseModel):
@@ -131,6 +135,13 @@ class ComparableProperty(BaseModel):
     lon: float
 
 
+class ListingQuality(BaseModel):
+    """LLM-generated listing quality scores."""
+
+    description_score: int | None = None
+    quality_reasoning: str | None = None
+
+
 class PropertyResponse(BaseModel):
     """Response body for property lookup."""
 
@@ -143,3 +154,4 @@ class PropertyResponse(BaseModel):
     sale_history: list[SaleHistoryEntry]
     tax_history: list[TaxHistoryEntry]
     climate_risk: ClimateRisk
+    listing_quality: ListingQuality | None = None

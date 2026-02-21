@@ -1213,6 +1213,21 @@ class SavedProperty(Base):
     )
 
 
+class DataRequest(Base):
+    """User request to populate data for a property not yet in the database."""
+
+    __tablename__ = "data_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    address = Column(String, nullable=False, index=True)
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    status = Column(String, nullable=False, server_default=text("'pending'"))
+    requested_by_email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class ApiKey(Base):
     """API key for programmatic access."""
 

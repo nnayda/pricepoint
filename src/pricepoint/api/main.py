@@ -15,6 +15,7 @@ from pricepoint.api.routes import (
     auth,
     cache,
     crime,
+    data_request,
     forecast,
     geocode,
     greenspace,
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(utilities.router, prefix="/api")
     app.include_router(saved.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
+    app.include_router(data_request.router, prefix="/api")
     app.include_router(cache.router, prefix="/api")
 
     Instrumentator().instrument(app).expose(app)

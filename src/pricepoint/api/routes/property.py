@@ -6,7 +6,7 @@ from typing import Annotated
 
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
 from sqlalchemy import func, select
@@ -19,6 +19,7 @@ from pricepoint.api.schemas.property import (
     ExteriorFeatures,
     FinancialDetails,
     InteriorFeatures,
+    ListingQuality,
     PropertyDetails,
     PropertyImage,
     PropertyResponse,
@@ -29,6 +30,7 @@ from pricepoint.api.schemas.property import (
 )
 from pricepoint.config.settings import get_settings
 from pricepoint.db.models import (
+    LlmQualityScore,
     PropertySchool,
     PropertyValuation,
     RedfinListing,
@@ -127,6 +129,14 @@ def _build_response_from_db(
         if rec.date
     ]
 
+    # Get LLM listing quality score (most recent)
+    llm_score = db.execute(
+        select(LlmQualityScore)
+        .where(LlmQualityScore.listing_id == prop.id)
+        .order_by(LlmQualityScore.extracted_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
     # Build images from S3 paths — prefix with /api/photos/ for browser access
     images = []
     if prop.property_photos:
@@ -139,18 +149,9 @@ def _build_response_from_db(
                 )
             )
 
-    # Build full address for display
-    full_address = prop.street_address or ""
-    if prop.city:
-        full_address += f", {prop.city}"
-    if prop.state:
-        full_address += f", {prop.state}"
-    if prop.zip_code:
-        full_address += f" {prop.zip_code}"
-
     return PropertyResponse(
         property=PropertyDetails(
-            address=full_address,
+            address=prop.street_address or "",
             city=prop.city or "",
             state=prop.state or "",
             zip_code=prop.zip_code or "",
@@ -168,6 +169,14 @@ def _build_response_from_db(
             highlights=[],
             images=images,
             listing_status=prop.listing_status,
+            price_per_sqft=prop.price_per_sqft,
+            days_on_market=(
+                (datetime.now(tz=UTC) - prop.contract_date.replace(tzinfo=UTC)).days
+                if prop.contract_date
+                else None
+            ),
+            listed_date=(prop.contract_date.strftime("%Y-%m-%d") if prop.contract_date else None),
+            hoa_monthly=(prop.association_fee / 12) if prop.association_fee else None,
         ),
         valuation=ValuationData(
             listed_price=prop.listing_price,
@@ -212,6 +221,14 @@ def _build_response_from_db(
             flood_score=prop.flood_score or 0,
             fire_risk=prop.fire_factor or "Unknown",
             fire_score=prop.fire_score or 0,
+        ),
+        listing_quality=(
+            ListingQuality(
+                description_score=llm_score.quality_score,
+                quality_reasoning=llm_score.quality_reasoning,
+            )
+            if llm_score and llm_score.quality_score is not None
+            else None
         ),
     )
 
@@ -453,7 +470,7 @@ async def get_property(
     if prop:
         return _build_response_from_db(prop, db, lat, lon)
 
-    return _build_stub_response(address, lat, lon)
+    raise HTTPException(status_code=404, detail="Property not found")
 
 
 @router.get("/photos/{path:path}")

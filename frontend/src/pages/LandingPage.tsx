@@ -653,7 +653,9 @@ function LandingPage() {
 
   function handleSelect(result: GeocodeResult) {
     startViewTransition(() => {
-      navigate(`/property/${encodeURIComponent(result.display_name)}`);
+      navigate(
+        `/property/${encodeURIComponent(result.display_name)}?lat=${result.lat}&lon=${result.lon}`,
+      );
     });
   }
 

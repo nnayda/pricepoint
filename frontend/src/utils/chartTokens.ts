@@ -29,13 +29,14 @@ export const CHART_PALETTE = [
 
 /* ------------------------------------------------------------------ */
 /*  Surface / text colors used in chart chrome                        */
+/*  Fallback hex values for SSR; at runtime CSS vars resolve per theme */
 /* ------------------------------------------------------------------ */
 
-export const COLOR_TOOLTIP_BG = "#1C2333";
-export const COLOR_TOOLTIP_BORDER = "#2E3553";
-export const COLOR_TEXT_PRIMARY = "#E8ECF4";
-export const COLOR_TEXT_SECONDARY = "#9BA3BF";
-export const COLOR_GRID_LINE = "#2E3553";
+export const COLOR_TOOLTIP_BG = "var(--th-tooltip-bg, #1C2333)";
+export const COLOR_TOOLTIP_BORDER = "var(--th-tooltip-border, #2E3553)";
+export const COLOR_TEXT_PRIMARY = "var(--th-text-primary, #E8ECF4)";
+export const COLOR_TEXT_SECONDARY = "var(--th-text-secondary, #9BA3BF)";
+export const COLOR_GRID_LINE = "var(--color-db-border, #2E3553)";
 
 /* ------------------------------------------------------------------ */
 /*  Tooltip styles                                                     */
@@ -58,13 +59,13 @@ export const TOOLTIP_LABEL_STYLE: React.CSSProperties = { color: COLOR_TEXT_SECO
 /* ------------------------------------------------------------------ */
 
 export const AXIS_TICK_MONO = {
-  fill: COLOR_TEXT_SECONDARY,
+  fill: "var(--color-db-text-secondary, #9BA3BF)",
   fontSize: 11,
   fontFamily: "var(--font-db-mono)",
 } as const;
 
 export const AXIS_TICK_SANS = {
-  fill: COLOR_TEXT_SECONDARY,
+  fill: "var(--color-db-text-secondary, #9BA3BF)",
   fontSize: 11,
   fontFamily: "var(--font-db-sans)",
 } as const;
@@ -79,10 +80,10 @@ export const AXIS_TICK_MONO_SM = {
 /*  Axis line & grid styles                                            */
 /* ------------------------------------------------------------------ */
 
-export const AXIS_LINE_STYLE = { stroke: COLOR_GRID_LINE } as const;
+export const AXIS_LINE_STYLE = { stroke: "var(--color-db-border, #2E3553)" } as const;
 
 export const GRID_STYLE = {
-  stroke: COLOR_GRID_LINE,
+  stroke: "var(--color-db-border, #2E3553)",
   strokeDasharray: "3 3",
   opacity: 0.25,
 } as const;

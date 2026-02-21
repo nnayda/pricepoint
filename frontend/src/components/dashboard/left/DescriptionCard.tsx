@@ -28,15 +28,17 @@ function DescriptionCard({ property, listingQuality }: DescriptionCardProps) {
           )}
         </div>
 
-        {/* AI Summary */}
-        <div className="flex items-start gap-2">
-          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--color-db-accent-muted)]">
-            <SparklesIcon size={12} className="text-[var(--color-db-accent)]" />
+        {/* AI Summary — only shown when LLM reasoning is available */}
+        {property.ai_summary && (
+          <div className="flex items-start gap-2">
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[var(--color-db-accent-muted)]">
+              <SparklesIcon size={12} className="text-[var(--color-db-accent)]" />
+            </div>
+            <p className="text-sm leading-relaxed text-[var(--color-db-text-secondary)]">
+              {property.ai_summary}
+            </p>
           </div>
-          <p className="text-sm leading-relaxed text-[var(--color-db-text-secondary)]">
-            {property.ai_summary}
-          </p>
-        </div>
+        )}
 
         {/* Feature Tags */}
         <div className="flex flex-wrap gap-1.5">
