@@ -25,8 +25,7 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
                 >
                   <span className="text-xs text-[var(--color-db-text-tertiary)]">{item.key}</span>
                   <span
-                    className="text-xs font-medium text-[var(--color-db-text-primary)]"
-                    style={{ fontFamily: "var(--font-db-mono)" }}
+                    className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]"
                   >
                     {item.value}
                   </span>
@@ -89,8 +88,7 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
                       className="border-b border-[var(--color-db-border-subtle)] last:border-b-0"
                     >
                       <td
-                        className="py-2 pr-4 font-medium text-[var(--color-db-text-primary)]"
-                        style={{ fontFamily: "var(--font-db-mono)" }}
+                        className="font-db-mono py-2 pr-4 font-medium text-[var(--color-db-text-primary)]"
                       >
                         {f.feature_name}
                       </td>
@@ -98,8 +96,7 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
                         {f.raw_value}
                       </td>
                       <td
-                        className="py-2 pr-4 text-[var(--color-db-text-secondary)]"
-                        style={{ fontFamily: "var(--font-db-mono)" }}
+                        className="font-db-mono py-2 pr-4 text-[var(--color-db-text-secondary)]"
                       >
                         {f.engineered_value}
                       </td>

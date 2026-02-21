@@ -3,6 +3,7 @@ import DashboardCard from "../DashboardCard";
 import StatusBadge from "../ui/StatusBadge";
 import MonoValue from "../ui/MonoValue";
 import { BedIcon, BathIcon, RulerIcon, CalendarIcon, LandPlotIcon, GarageIcon } from "../ui/Icons";
+import { getDomColor } from "../../../utils/chartTokens";
 
 interface KeyFactsCardProps {
   property: DashboardProperty;
@@ -17,11 +18,6 @@ function fmtUsd(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
-function getDomColor(days: number): { bg: string; text: string } {
-  if (days < 30) return { bg: "rgba(52, 211, 153, 0.15)", text: "#34D399" };
-  if (days <= 90) return { bg: "rgba(251, 191, 36, 0.15)", text: "#FBBF24" };
-  return { bg: "rgba(248, 113, 113, 0.15)", text: "#F87171" };
-}
 
 function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
   const domColor = getDomColor(property.days_on_market);
@@ -39,7 +35,7 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
             <div className="flex items-baseline gap-2">
               <MonoValue value={fmtUsd(valuation.listed_price)} size="xl" />
               <span className="text-xs text-[var(--color-db-text-tertiary)]">
-                <span style={{ fontFamily: "var(--font-db-mono)" }}>${valuation.price_per_sqft}</span>
+                <span className="font-db-mono">${valuation.price_per_sqft}</span>
                 /sqft
               </span>
             </div>

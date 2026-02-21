@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/Layout/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -24,6 +25,7 @@ function PageLoader() {
 function App() {
   return (
     <ErrorBoundary>
+      <ThemeProvider>
       <AuthProvider>
         <AppLayout>
           <Suspense fallback={<PageLoader />}>
@@ -38,6 +40,7 @@ function App() {
           </Suspense>
         </AppLayout>
       </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

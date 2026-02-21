@@ -16,23 +16,24 @@ import {
 import type { DashboardData, DemographicContext } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import SemiCircularGauge from "../charts/SemiCircularGauge";
+import {
+  TOOLTIP_CONTENT_STYLE,
+  TOOLTIP_ITEM_STYLE,
+  TOOLTIP_LABEL_STYLE,
+  AXIS_TICK_MONO,
+  AXIS_TICK_MONO_SM,
+  AXIS_LINE_STYLE,
+  GRID_STYLE,
+  CURSOR_BAR,
+  CURSOR_LINE_CYAN,
+  COLOR_INDIGO,
+  COLOR_CYAN,
+  COLOR_GRID_LINE,
+} from "../../../utils/chartTokens";
 
 interface DemographicsTabProps {
   data: DashboardData;
 }
-
-const TOOLTIP_STYLE = {
-  backgroundColor: "#1C2333",
-  border: "1px solid #2E3553",
-  borderRadius: "8px",
-  fontFamily: "var(--font-db-sans)",
-  fontSize: 12,
-  color: "#E8ECF4",
-};
-
-const TOOLTIP_ITEM = { color: "#E8ECF4" };
-const TOOLTIP_LABEL = { color: "#9BA3BF" };
-const CURSOR_STYLE = { fill: "rgba(99, 102, 241, 0.08)" };
 
 const CONTEXT_OPTIONS: { value: DemographicContext; label: string }[] = [
   { value: "subdivision", label: "Subdivision" },
@@ -94,9 +95,9 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    itemStyle={TOOLTIP_ITEM}
-                    labelStyle={TOOLTIP_LABEL}
+                    contentStyle={TOOLTIP_CONTENT_STYLE}
+                    itemStyle={TOOLTIP_ITEM_STYLE}
+                    labelStyle={TOOLTIP_LABEL_STYLE}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={((v: number, name: string) => [`${v}%`, name]) as any}
                   />
@@ -114,8 +115,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     {entry.label}
                   </span>
                   <span
-                    className="text-xs font-medium text-[var(--color-db-text-primary)]"
-                    style={{ fontFamily: "var(--font-db-mono)" }}
+                    className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]"
                   >
                     {entry.value}%
                   </span>
@@ -135,37 +135,35 @@ function DemographicsTab({ data }: DemographicsTabProps) {
               margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
             >
               <CartesianGrid
-                stroke="#2E3553"
-                strokeDasharray="3 3"
+                {...GRID_STYLE}
                 vertical={false}
-                opacity={0.25}
               />
               <XAxis
                 dataKey="range"
-                tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
-                axisLine={{ stroke: "#2E3553" }}
+                tick={AXIS_TICK_MONO}
+                axisLine={{ stroke: COLOR_GRID_LINE }}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
+                tick={AXIS_TICK_MONO}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `${v}%`}
                 width={40}
               />
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                itemStyle={TOOLTIP_ITEM}
-                labelStyle={TOOLTIP_LABEL}
-                cursor={CURSOR_STYLE}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                cursor={CURSOR_BAR}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((v: number, name: string) => [`${v}%`, name]) as any}
               />
-              <Bar dataKey="male" name="Male" fill="#6366F1" radius={[2, 2, 0, 0]} barSize={16} />
+              <Bar dataKey="male" name="Male" fill={COLOR_INDIGO} radius={[2, 2, 0, 0]} barSize={16} />
               <Bar
                 dataKey="female"
                 name="Female"
-                fill="#22D3EE"
+                fill={COLOR_CYAN}
                 radius={[2, 2, 0, 0]}
                 barSize={16}
               />
@@ -173,11 +171,11 @@ function DemographicsTab({ data }: DemographicsTabProps) {
           </ResponsiveContainer>
           <div className="mt-1 flex justify-center gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#6366F1]" />
+              <span className={`h-2.5 w-2.5 rounded-sm`} style={{ backgroundColor: COLOR_INDIGO }} />
               <span className="text-xs text-[var(--color-db-text-tertiary)]">Male</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#22D3EE]" />
+              <span className={`h-2.5 w-2.5 rounded-sm`} style={{ backgroundColor: COLOR_CYAN }} />
               <span className="text-xs text-[var(--color-db-text-tertiary)]">Female</span>
             </div>
           </div>
@@ -190,8 +188,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">Income</h3>
             <span
-              className="group relative rounded-full bg-[var(--color-db-accent)]/15 px-2.5 py-0.5 text-xs font-semibold text-[var(--color-db-accent)]"
-              style={{ fontFamily: "var(--font-db-mono)" }}
+              className="group relative rounded-full font-db-mono bg-[var(--color-db-accent)]/15 px-2.5 py-0.5 text-xs font-semibold text-[var(--color-db-accent)]"
             >
               ${d.median_income.toLocaleString()}
               <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--color-db-surface-alt)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-db-text-secondary)] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
@@ -214,8 +211,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                   </div>
                 </div>
                 <span
-                  className="w-10 text-right text-[11px] text-[var(--color-db-text-secondary)]"
-                  style={{ fontFamily: "var(--font-db-mono)" }}
+                  className="w-10 text-right font-db-mono text-[11px] text-[var(--color-db-text-secondary)]"
                 >
                   {b.value}%
                 </span>
@@ -246,8 +242,8 @@ function DemographicsTab({ data }: DemographicsTabProps) {
               Population Growth
             </h3>
             <span
-              className="rounded-full bg-[#22D3EE]/15 px-2.5 py-0.5 text-xs font-semibold text-[#22D3EE]"
-              style={{ fontFamily: "var(--font-db-mono)" }}
+              className="rounded-full font-db-mono px-2.5 py-0.5 text-xs font-semibold"
+              style={{ backgroundColor: `${COLOR_CYAN}26`, color: COLOR_CYAN }}
             >
               {d.population.toLocaleString()}
             </span>
@@ -259,41 +255,39 @@ function DemographicsTab({ data }: DemographicsTabProps) {
             >
               <defs>
                 <linearGradient id="popGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#22D3EE" stopOpacity={0} />
+                  <stop offset="0%" stopColor={COLOR_CYAN} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={COLOR_CYAN} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
-                stroke="#2E3553"
-                strokeDasharray="3 3"
+                {...GRID_STYLE}
                 vertical={false}
-                opacity={0.25}
               />
               <XAxis
                 dataKey="year"
-                tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-mono)" }}
-                axisLine={{ stroke: "#2E3553" }}
+                tick={AXIS_TICK_MONO_SM}
+                axisLine={AXIS_LINE_STYLE}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-mono)" }}
+                tick={AXIS_TICK_MONO_SM}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
                 width={35}
               />
               <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                itemStyle={TOOLTIP_ITEM}
-                labelStyle={TOOLTIP_LABEL}
-                cursor={{ stroke: "rgba(34, 211, 238, 0.3)", strokeWidth: 1 }}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                cursor={CURSOR_LINE_CYAN}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((v: number) => [v.toLocaleString(), "Population"]) as any}
               />
               <Area
                 type="monotone"
                 dataKey="population"
-                stroke="#22D3EE"
+                stroke={COLOR_CYAN}
                 strokeWidth={2}
                 fill="url(#popGradient)"
               />

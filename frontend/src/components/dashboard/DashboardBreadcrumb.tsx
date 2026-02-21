@@ -9,8 +9,8 @@ function DashboardBreadcrumb({ city, neighborhood, address }: DashboardBreadcrum
 
   return (
     <div
-      className="sticky top-16 z-40 flex h-9 items-center gap-2 border-b border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] px-6"
-      style={{ fontFamily: "var(--font-db-sans)", marginTop: "64px" }}
+      className="sticky top-16 z-40 flex h-9 items-center gap-2 border-b border-[var(--th-border-subtle)] bg-[var(--th-bg-surface)] px-6 font-db-sans"
+      style={{ marginTop: "64px" }}
     >
       {crumbs.map((crumb, i) => (
         <span key={crumb} className="flex items-center gap-2">

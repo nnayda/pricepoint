@@ -3,19 +3,11 @@ import type { DashboardData, DashboardPoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { POI_ICONS, ShoppingCartIcon } from "../ui/Icons";
+import { CATEGORY_COLORS, COLOR_INDIGO } from "../../../utils/chartTokens";
 
 interface PoisTabProps {
   data: DashboardData;
 }
-
-const CATEGORY_COLORS: Record<string, string> = {
-  Grocery: "#34D399",
-  Healthcare: "#F87171",
-  Recreation: "#6366F1",
-  Dining: "#FBBF24",
-  Shopping: "#22D3EE",
-  Services: "#A78BFA",
-};
 
 function PoisTab({ data }: PoisTabProps) {
   const { pois, property } = data;
@@ -50,7 +42,7 @@ function PoisTab({ data }: PoisTabProps) {
     lat: p.lat,
     lon: p.lon,
     label: `${p.name} (${p.distance_miles} mi)`,
-    color: CATEGORY_COLORS[p.category] || "#6366F1",
+    color: CATEGORY_COLORS[p.category] || COLOR_INDIGO,
   }));
 
   return (
@@ -154,7 +146,7 @@ function PoisTab({ data }: PoisTabProps) {
               center={[property.lat, property.lon]}
               zoom={13}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
                 ...mapMarkers,
               ]}
               height="100%"

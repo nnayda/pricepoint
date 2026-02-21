@@ -1,4 +1,9 @@
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import {
+  TOOLTIP_CONTENT_STYLE,
+  TOOLTIP_ITEM_STYLE,
+  TOOLTIP_LABEL_STYLE,
+} from "../../../utils/chartTokens";
 
 interface DonutSegment {
   label: string;
@@ -34,16 +39,9 @@ function DashboardDonut({ data, centerLabel, centerValue, size = 200 }: Dashboar
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{
-              backgroundColor: "#1C2333",
-              border: "1px solid #2E3553",
-              borderRadius: "8px",
-              fontFamily: "var(--font-db-sans)",
-              fontSize: 12,
-              color: "#E8ECF4",
-            }}
-            itemStyle={{ color: "#E8ECF4" }}
-            labelStyle={{ color: "#9BA3BF" }}
+            contentStyle={TOOLTIP_CONTENT_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            labelStyle={TOOLTIP_LABEL_STYLE}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             formatter={((value: number, name: string) => [`$${Math.round(value).toLocaleString()}`, name]) as any}
           />
@@ -52,8 +50,7 @@ function DashboardDonut({ data, centerLabel, centerValue, size = 200 }: Dashboar
       {centerLabel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className="text-lg font-bold text-[var(--color-db-text-primary)]"
-            style={{ fontFamily: "var(--font-db-mono)" }}
+            className="font-db-mono text-lg font-bold text-[var(--color-db-text-primary)]"
           >
             {centerValue}
           </span>

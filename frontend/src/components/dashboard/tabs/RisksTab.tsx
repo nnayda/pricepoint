@@ -13,6 +13,20 @@ import type { DashboardData } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { RISK_ICONS } from "../ui/Icons";
+import SectionHeading from "../ui/SectionHeading";
+import {
+  TOOLTIP_CONTENT_STYLE,
+  TOOLTIP_ITEM_STYLE,
+  TOOLTIP_LABEL_STYLE,
+  AXIS_TICK_MONO,
+  AXIS_TICK_SANS,
+  AXIS_LINE_STYLE,
+  GRID_STYLE,
+  CURSOR_BAR_LIGHT,
+  CRIME_PALETTE,
+  COLOR_RED,
+  COLOR_INDIGO,
+} from "../../../utils/chartTokens";
 
 interface RisksTabProps {
   data: DashboardData;
@@ -35,7 +49,7 @@ function RisksTab({ data }: RisksTabProps) {
     lat: inc.lat,
     lon: inc.lon,
     label: `${inc.incident_type} — ${inc.date}`,
-    color: "#F87171",
+    color: COLOR_RED,
   }));
 
   const visibleCategories = risks.categories.filter((c) => !HIDDEN_RISK_IDS.has(c.id));
@@ -45,9 +59,7 @@ function RisksTab({ data }: RisksTabProps) {
       {/* Left column — risks + crime stats + breakdown */}
       <div className="flex flex-col gap-4">
         <DashboardCard>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Risk Assessment
-          </h3>
+          <SectionHeading className="mb-3">Risk Assessment</SectionHeading>
           <div className="grid grid-cols-1 gap-3">
             {visibleCategories.map((cat) => {
               const IconComponent = RISK_ICONS[cat.icon] || RISK_ICONS.flood;
@@ -92,9 +104,7 @@ function RisksTab({ data }: RisksTabProps) {
         </DashboardCard>
 
         <DashboardCard>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Crime Breakdown
-          </h3>
+          <SectionHeading className="mb-3">Crime Breakdown</SectionHeading>
           <ResponsiveContainer width="100%" height={crime.breakdown.length * 36 + 10}>
             <BarChart
               data={crime.breakdown}
@@ -102,43 +112,34 @@ function RisksTab({ data }: RisksTabProps) {
               margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
             >
               <CartesianGrid
-                stroke="#2E3553"
-                strokeDasharray="3 3"
+                {...GRID_STYLE}
                 horizontal={false}
-                opacity={0.25}
               />
               <XAxis
                 type="number"
-                tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
-                axisLine={{ stroke: "#2E3553" }}
+                tick={{ ...AXIS_TICK_MONO }}
+                axisLine={AXIS_LINE_STYLE}
                 tickLine={false}
               />
               <YAxis
                 type="category"
                 dataKey="category"
-                tick={{ fill: "#9BA3BF", fontSize: 10, fontFamily: "var(--font-db-sans)" }}
+                tick={{ ...AXIS_TICK_SANS, fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
                 width={80}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#1C2333",
-                  border: "1px solid #2E3553",
-                  borderRadius: "8px",
-                  fontFamily: "var(--font-db-sans)",
-                  fontSize: 12,
-                  color: "#E8ECF4",
-                }}
-                itemStyle={{ color: "#E8ECF4" }}
-                labelStyle={{ color: "#9BA3BF" }}
-                cursor={{ fill: "rgba(99, 102, 241, 0.1)" }}
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                cursor={CURSOR_BAR_LIGHT}
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
                 {crime.breakdown.map((_, i) => (
                   <Cell
                     key={i}
-                    fill={["#6366F1", "#F87171", "#FB923C", "#FBBF24", "#A78BFA"][i % 5]}
+                    fill={CRIME_PALETTE[i % CRIME_PALETTE.length]}
                   />
                 ))}
               </Bar>
@@ -180,15 +181,13 @@ function RisksTab({ data }: RisksTabProps) {
                 className="flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
               >
                 <span
-                  className="text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
-                  style={{ fontFamily: "var(--font-db-sans)" }}
+                  className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
                 >
                   {stat.label}
                 </span>
                 <span
-                  className="text-xs font-semibold"
+                  className="font-db-mono text-xs font-semibold"
                   style={{
-                    fontFamily: "var(--font-db-mono)",
                     color:
                       stat.raw === null
                         ? "var(--color-db-text-primary)"
@@ -209,7 +208,7 @@ function RisksTab({ data }: RisksTabProps) {
               center={[property.lat, property.lon]}
               zoom={14}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
                 ...(mapMode === "incidents" ? crimeMarkers : []),
               ]}
               height="100%"

@@ -10,6 +10,15 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+    <script>
+      // Prevent FOUC: apply theme before first paint
+      (function() {
+        var stored = localStorage.getItem('pricepoint-theme');
+        var theme = stored === 'light' || stored === 'dark' ? stored :
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

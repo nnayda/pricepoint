@@ -150,14 +150,12 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
                 className="flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
               >
                 <span
-                  className="text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
-                  style={{ fontFamily: "var(--font-db-sans)" }}
+                  className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
                 >
                   {stat.label}
                 </span>
                 <span
-                  className="text-xs font-semibold text-[var(--color-db-text-primary)]"
-                  style={{ fontFamily: "var(--font-db-mono)" }}
+                  className="font-db-mono text-xs font-semibold text-[var(--color-db-text-primary)]"
                 >
                   {stat.value}
                 </span>

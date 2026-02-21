@@ -149,12 +149,11 @@ function DashboardTabs({ data }: DashboardTabsProps) {
               id={`tab-${tab.id}`}
               tabIndex={isActive ? 0 : -1}
               onClick={() => handleTabClick(tab.id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 font-db-sans text-sm font-medium transition-colors ${
                 isActive
                   ? "border-[var(--color-db-accent)] text-[var(--color-db-text-primary)]"
                   : "border-transparent text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
               }`}
-              style={{ fontFamily: "var(--font-db-sans)" }}
             >
               {dotColor && <TabDot color={dotColor} />}
               {tab.label}

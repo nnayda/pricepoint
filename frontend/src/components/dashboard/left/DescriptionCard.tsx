@@ -17,8 +17,7 @@ function DescriptionCard({ property, listingQuality }: DescriptionCardProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2
-            className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]"
-            style={{ fontFamily: "var(--font-db-sans)" }}
+            className="font-db-sans text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]"
           >
             About this Property
           </h2>

@@ -7,7 +7,7 @@ interface DashboardCardProps {
 function DashboardCard({ children, className = "", padding = true }: DashboardCardProps) {
   return (
     <div
-      className={`rounded-[var(--radius-db-md)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)] ${padding ? "p-5" : ""} ${className}`}
+      className={`rounded-[var(--radius-db-md)] border border-[var(--th-border-subtle)] bg-[var(--th-bg-surface)] shadow-[var(--th-shadow-card)] ${padding ? "p-5" : ""} ${className}`}
     >
       {children}
     </div>

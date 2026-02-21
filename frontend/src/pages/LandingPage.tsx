@@ -286,7 +286,7 @@ function DashboardPreview() {
                         For Sale
                       </span>
                     </div>
-                    <p className="text-lg font-bold text-[var(--color-db-text-primary)]" style={{ fontFamily: "var(--font-db-mono)" }}>
+                    <p className="font-db-mono text-lg font-bold text-[var(--color-db-text-primary)]">
                       $485,000
                     </p>
                     <p className="text-xs text-[var(--color-db-text-tertiary)]">
@@ -316,9 +316,9 @@ function DashboardPreview() {
                     </div>
                     {/* Range bar */}
                     <div className="mb-2 flex items-center justify-between text-xs text-[var(--color-db-text-tertiary)]">
-                      <span style={{ fontFamily: "var(--font-db-mono)" }}>$410K</span>
-                      <span className="text-sm font-bold text-[var(--color-db-accent)]" style={{ fontFamily: "var(--font-db-mono)" }}>$462K</span>
-                      <span style={{ fontFamily: "var(--font-db-mono)" }}>$520K</span>
+                      <span className="font-db-mono">$410K</span>
+                      <span className="font-db-mono text-sm font-bold text-[var(--color-db-accent)]">$462K</span>
+                      <span className="font-db-mono">$520K</span>
                     </div>
                     <div className="relative h-3 overflow-hidden rounded-full bg-[var(--color-db-surface-alt)]">
                       <div className="absolute inset-y-0 left-[15%] right-[20%] rounded-full bg-gradient-to-r from-[var(--color-db-accent)] to-[var(--color-db-cyan)] opacity-40" />
@@ -423,7 +423,7 @@ function DashboardPreview() {
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span className="text-[9px] text-[var(--color-db-text-tertiary)]">Monthly</span>
-                            <span className="text-sm font-bold text-[var(--color-db-text-primary)]" style={{ fontFamily: "var(--font-db-mono)" }}>$2,847</span>
+                            <span className="font-db-mono text-sm font-bold text-[var(--color-db-text-primary)]">$2,847</span>
                           </div>
                         </div>
                       </div>
@@ -683,8 +683,7 @@ function LandingPage() {
   return (
     <div
       ref={mainRef}
-      className="min-h-screen bg-[var(--color-db-bg)]"
-      style={{ fontFamily: "var(--font-db-sans)" }}
+      className="min-h-screen bg-[var(--color-db-bg)] font-db-sans"
     >
       <LandingNav />
       <HeroSection onSelect={handleSelect} />

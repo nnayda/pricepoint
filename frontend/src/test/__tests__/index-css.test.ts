@@ -84,6 +84,26 @@ describe("index.css design system", () => {
     });
   });
 
+  describe("theme token layer", () => {
+    it("defines :root dark theme tokens", () => {
+      expect(css).toContain("--th-bg-base:");
+      expect(css).toContain("--th-bg-surface:");
+      expect(css).toContain("--th-text-primary:");
+      expect(css).toContain("--th-nav-bg:");
+    });
+
+    it('defines [data-theme="light"] tokens', () => {
+      expect(css).toContain('[data-theme="light"]');
+      // Light theme should have different bg-base
+      expect(css).toContain("--th-bg-base: #F5F6FA");
+    });
+
+    it('defines [data-theme="dark"] tokens', () => {
+      expect(css).toContain('[data-theme="dark"]');
+      expect(css).toContain("--th-bg-base: #0F1117");
+    });
+  });
+
   describe("page cross-fade transition", () => {
     it("defines fade-in keyframes", () => {
       expect(css).toContain("@keyframes fade-in");
@@ -113,12 +133,12 @@ describe("index.css design system", () => {
       expect(css).toContain("font-family: var(--font-sans)");
     });
 
-    it("sets body background to var(--color-bg-main)", () => {
-      expect(css).toContain("background-color: var(--color-bg-main)");
+    it("sets body background with theme token fallback", () => {
+      expect(css).toContain("background-color: var(--th-bg-base");
     });
 
-    it("sets body color to var(--color-text-pri)", () => {
-      expect(css).toContain("color: var(--color-text-pri)");
+    it("sets body color with theme token fallback", () => {
+      expect(css).toContain("color: var(--th-text-primary");
     });
 
     it("enables smooth scrolling", () => {

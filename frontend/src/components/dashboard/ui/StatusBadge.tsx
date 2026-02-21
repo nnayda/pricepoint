@@ -1,24 +1,20 @@
+import Badge from "./Badge";
+
 interface StatusBadgeProps {
   status: "For Sale" | "Pending" | "Sold";
 }
 
-const statusStyles: Record<string, string> = {
-  "For Sale":
-    "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)] border-[var(--color-db-green)]",
-  Pending:
-    "bg-[var(--color-db-yellow-muted)] text-[var(--color-db-yellow)] border-[var(--color-db-yellow)]",
-  Sold: "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)] border-[var(--color-db-red)]",
+const statusVariant: Record<string, "success" | "warning" | "danger"> = {
+  "For Sale": "success",
+  Pending: "warning",
+  Sold: "danger",
 };
 
 function StatusBadge({ status }: StatusBadgeProps) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[status]}`}
-      style={{ fontFamily: "var(--font-db-sans)" }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+    <Badge variant={statusVariant[status]} dot>
       {status}
-    </span>
+    </Badge>
   );
 }
 

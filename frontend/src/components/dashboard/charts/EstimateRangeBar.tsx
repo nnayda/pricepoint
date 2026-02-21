@@ -1,4 +1,5 @@
 import type { DashboardValuation } from "../../../types";
+import { COLOR_PURPLE } from "../../../utils/chartTokens";
 
 interface EstimateRangeBarProps {
   valuation: DashboardValuation;
@@ -52,9 +53,9 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
 
   const tickMarks: TickMark[] = [
     { value: tax_assessment, color: "var(--color-db-orange)", label: "Assessment", prominent: false, position: "above" },
-    { value: confidence_low, color: "#A78BFA", label: "CI Low", prominent: false, position: "above" },
+    { value: confidence_low, color: COLOR_PURPLE, label: "CI Low", prominent: false, position: "above" },
     { value: predicted_value, color: "var(--color-db-accent)", label: "Estimate", prominent: true, position: "above" },
-    { value: confidence_high, color: "#A78BFA", label: "CI High", prominent: false, position: "above" },
+    { value: confidence_high, color: COLOR_PURPLE, label: "CI High", prominent: false, position: "above" },
     { value: listed_price, color: "var(--color-db-cyan)", label: "Listed", prominent: false, position: "above" },
     { value: neighborhood_median, color: "var(--color-db-text-secondary)", label: "Nbhd Median", prominent: false, position: "below" },
     { value: neighborhood_max, color: "var(--color-db-text-secondary)", label: "Nbhd Max", prominent: false, position: "below" },
@@ -81,20 +82,14 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span
-              className="text-xl font-bold"
-              style={{
-                color: "var(--color-db-accent)",
-                fontFamily: "var(--font-db-mono)",
-              }}
+              className="font-db-mono text-xl font-bold"
+              style={{ color: "var(--color-db-accent)" }}
             >
               {fmtUsd(predicted_value)}
             </span>
             <span
-              className="text-xs font-semibold"
-              style={{
-                color: delta >= 0 ? "var(--color-db-green)" : "var(--color-db-red, #F87171)",
-                fontFamily: "var(--font-db-mono)",
-              }}
+              className="font-db-mono text-xs font-semibold"
+              style={{ color: delta >= 0 ? "var(--color-db-green)" : "var(--color-db-red, #F87171)" }}
             >
               {deltaStr}
             </span>
@@ -112,11 +107,8 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
                 style={{ left: `${pct(m.value)}%` }}
               >
                 <span
-                  className={`block whitespace-nowrap ${m.prominent ? "text-base font-bold" : "text-xs font-medium"}`}
-                  style={{
-                    color: m.color,
-                    fontFamily: "var(--font-db-mono)",
-                  }}
+                  className={`block whitespace-nowrap font-db-mono ${m.prominent ? "text-base font-bold" : "text-xs font-medium"}`}
+                  style={{ color: m.color }}
                 >
                   {fmtShort(m.value)}
                 </span>
@@ -142,7 +134,7 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
                   height="6"
                   patternTransform="rotate(45)"
                 >
-                  <line x1="0" y1="0" x2="0" y2="6" stroke="#A78BFA" strokeWidth="1.5" strokeOpacity="0.5" />
+                  <line x1="0" y1="0" x2="0" y2="6" stroke={COLOR_PURPLE} strokeWidth="1.5" strokeOpacity="0.5" />
                 </pattern>
               </defs>
             </svg>
@@ -182,11 +174,8 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
                   {m.label}
                 </span>
                 <span
-                  className="block whitespace-nowrap text-xs font-medium"
-                  style={{
-                    color: m.color,
-                    fontFamily: "var(--font-db-mono)",
-                  }}
+                  className="block whitespace-nowrap font-db-mono text-xs font-medium"
+                  style={{ color: m.color }}
                 >
                   {fmtShort(m.value)}
                 </span>

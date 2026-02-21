@@ -1,6 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useRef, useCallback, useMemo } from "react";
+import { COLOR_INDIGO } from "../../../utils/chartTokens";
 
 export interface MapMarker {
   lat: number;
@@ -22,7 +23,7 @@ interface DashboardMapProps {
   selectedId?: string | null;
 }
 
-function createPropertyIcon(color: string = "#6366F1", highlighted: boolean = false) {
+function createPropertyIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) {
   const size = highlighted ? 32 : 28;
   const glow = highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`;
   return L.divIcon({
@@ -37,7 +38,7 @@ function createPropertyIcon(color: string = "#6366F1", highlighted: boolean = fa
   });
 }
 
-function createIcon(color: string = "#6366F1", highlighted: boolean = false) {
+function createIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) {
   const size = highlighted ? 18 : 12;
   const border = highlighted ? 3 : 2;
   const glow = highlighted ? `0 0 12px ${color}` : `0 0 6px ${color}80`;

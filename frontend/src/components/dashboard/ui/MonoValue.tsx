@@ -14,8 +14,7 @@ const sizeClasses = {
 function MonoValue({ value, className = "", size = "md" }: MonoValueProps) {
   return (
     <span
-      className={`font-[var(--font-db-mono)] font-medium tracking-tight text-[var(--color-db-text-primary)] ${sizeClasses[size]} ${className}`}
-      style={{ fontFamily: "var(--font-db-mono)" }}
+      className={`font-db-mono font-medium tracking-tight text-[var(--color-db-text-primary)] ${sizeClasses[size]} ${className}`}
     >
       {value}
     </span>

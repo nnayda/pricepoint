@@ -15,8 +15,7 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
 
   return (
     <div
-      className="min-h-screen bg-[var(--color-db-bg)]"
-      style={{ fontFamily: "var(--font-db-sans)" }}
+      className="min-h-screen bg-[var(--th-bg-base)] font-db-sans"
     >
       <DashboardNav />
       <DashboardBreadcrumb

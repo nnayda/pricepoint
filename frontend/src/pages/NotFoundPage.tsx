@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 function NotFoundPage() {
   return (
     <div
-      className="flex min-h-screen flex-col items-center justify-center px-4"
-      style={{ backgroundColor: "var(--color-db-bg)", fontFamily: "var(--font-db-sans)" }}
+      className="font-db-sans flex min-h-screen flex-col items-center justify-center px-4"
+      style={{ backgroundColor: "var(--th-bg-base)" }}
     >
       <h1
         className="mb-2 text-6xl font-bold"

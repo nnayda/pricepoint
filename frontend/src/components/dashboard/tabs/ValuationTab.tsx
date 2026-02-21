@@ -6,6 +6,8 @@ import EstimateRangeBar from "../charts/EstimateRangeBar";
 import PriceHistoryChart from "../charts/PriceHistoryChart";
 import ShapWaterfall from "../charts/ShapWaterfall";
 import DashboardDonut from "../charts/DashboardDonut";
+import SectionHeading from "../ui/SectionHeading";
+import { MORTGAGE_COLORS } from "../../../utils/chartTokens";
 
 interface ValuationTabProps {
   data: DashboardData;
@@ -84,11 +86,11 @@ function ValuationTab({ data }: ValuationTabProps) {
   );
 
   const donutData = [
-    { label: "Principal", value: mortgage.principal, color: "#6366F1" },
-    { label: "Interest", value: mortgage.interest, color: "#22D3EE" },
-    { label: "Tax", value: mortgage.tax, color: "#FBBF24" },
-    { label: "Insurance", value: mortgage.insurance, color: "#34D399" },
-    { label: "HOA", value: mortgage.hoa, color: "#A78BFA" },
+    { label: "Principal", value: mortgage.principal, color: MORTGAGE_COLORS.principal },
+    { label: "Interest", value: mortgage.interest, color: MORTGAGE_COLORS.interest },
+    { label: "Tax", value: mortgage.tax, color: MORTGAGE_COLORS.tax },
+    { label: "Insurance", value: mortgage.insurance, color: MORTGAGE_COLORS.insurance },
+    { label: "HOA", value: mortgage.hoa, color: MORTGAGE_COLORS.hoa },
   ];
 
   return (
@@ -187,9 +189,7 @@ function ValuationTab({ data }: ValuationTabProps) {
 
       {/* Mortgage Calculator */}
       <DashboardCard>
-        <h3 className="mb-4 text-sm font-semibold text-[var(--color-db-text-primary)]">
-          Mortgage Calculator
-        </h3>
+        <SectionHeading className="mb-4">Mortgage Calculator</SectionHeading>
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Sliders */}
           <div className="flex flex-col gap-3">

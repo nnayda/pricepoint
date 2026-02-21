@@ -9,6 +9,18 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { ShapFeature } from "../../../types";
+import {
+  TOOLTIP_CONTENT_STYLE,
+  TOOLTIP_ITEM_STYLE,
+  TOOLTIP_LABEL_STYLE,
+  AXIS_TICK_MONO,
+  AXIS_TICK_SANS,
+  AXIS_LINE_STYLE,
+  CURSOR_BAR,
+  COLOR_GREEN,
+  COLOR_RED,
+  COLOR_GRID_LINE,
+} from "../../../utils/chartTokens";
 
 interface ShapWaterfallProps {
   features: ShapFeature[];
@@ -29,8 +41,8 @@ function ShapWaterfall({ features }: ShapWaterfallProps) {
       >
         <XAxis
           type="number"
-          tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-mono)" }}
-          axisLine={{ stroke: "#2E3553" }}
+          tick={AXIS_TICK_MONO}
+          axisLine={AXIS_LINE_STYLE}
           tickLine={false}
           tickFormatter={(v: number) =>
             v >= 0 ? `+$${(v / 1000).toFixed(0)}k` : `-$${(Math.abs(v) / 1000).toFixed(0)}k`
@@ -39,34 +51,27 @@ function ShapWaterfall({ features }: ShapWaterfallProps) {
         <YAxis
           type="category"
           dataKey="display_name"
-          tick={{ fill: "#9BA3BF", fontSize: 11, fontFamily: "var(--font-db-sans)" }}
+          tick={AXIS_TICK_SANS}
           axisLine={false}
           tickLine={false}
           width={110}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: "#1C2333",
-            border: "1px solid #2E3553",
-            borderRadius: "8px",
-            fontFamily: "var(--font-db-sans)",
-            fontSize: 12,
-            color: "#E8ECF4",
-          }}
-          itemStyle={{ color: "#E8ECF4" }}
-          labelStyle={{ color: "#9BA3BF" }}
-          cursor={{ fill: "rgba(99, 102, 241, 0.08)" }}
+          contentStyle={TOOLTIP_CONTENT_STYLE}
+          itemStyle={TOOLTIP_ITEM_STYLE}
+          labelStyle={TOOLTIP_LABEL_STYLE}
+          cursor={CURSOR_BAR}
           formatter={
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ((value: number) => [`${value >= 0 ? "+" : ""}$${value.toLocaleString()}`, "Impact"]) as any
           }
         />
-        <ReferenceLine x={0} stroke="#2E3553" />
+        <ReferenceLine x={0} stroke={COLOR_GRID_LINE} />
         <Bar dataKey="impact_dollars" radius={[0, 4, 4, 0]} barSize={18}>
           {top10.map((f) => (
             <Cell
               key={f.feature}
-              fill={f.impact_dollars >= 0 ? "#34D399" : "#F87171"}
+              fill={f.impact_dollars >= 0 ? COLOR_GREEN : COLOR_RED}
               fillOpacity={0.8}
             />
           ))}

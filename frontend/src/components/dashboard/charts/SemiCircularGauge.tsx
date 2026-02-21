@@ -1,3 +1,12 @@
+import {
+  getGradeLabel,
+  getGaugeColor,
+  COLOR_RED,
+  COLOR_AMBER,
+  COLOR_BLUE,
+  COLOR_GREEN,
+} from "../../../utils/chartTokens";
+
 interface SemiCircularGaugeProps {
   value: number;
   max?: number;
@@ -6,21 +15,6 @@ interface SemiCircularGaugeProps {
   size?: number;
   suffix?: string;
   showGrade?: boolean;
-}
-
-function getGradeLabel(value: number): { text: string; color: string } {
-  if (value >= 80) return { text: "Excellent", color: "#34D399" };
-  if (value >= 60) return { text: "Good", color: "#5B7FFF" };
-  if (value >= 40) return { text: "Fair", color: "#FBBF24" };
-  return { text: "Poor", color: "#F87171" };
-}
-
-function getGaugeColor(pct: number): string {
-  // Gradient: red at low, amber in middle, green at high
-  if (pct <= 0.25) return "#F87171";
-  if (pct <= 0.5) return "#FBBF24";
-  if (pct <= 0.75) return "#5B7FFF";
-  return "#34D399";
 }
 
 function SemiCircularGauge({
@@ -57,10 +51,10 @@ function SemiCircularGauge({
       <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#F87171" />
-            <stop offset="40%" stopColor="#FBBF24" />
-            <stop offset="70%" stopColor="#5B7FFF" />
-            <stop offset="100%" stopColor="#34D399" />
+            <stop offset="0%" stopColor={COLOR_RED} />
+            <stop offset="40%" stopColor={COLOR_AMBER} />
+            <stop offset="70%" stopColor={COLOR_BLUE} />
+            <stop offset="100%" stopColor={COLOR_GREEN} />
           </linearGradient>
         </defs>
         {/* Background arc */}

@@ -189,6 +189,43 @@
   --radius-db-xs: 6px;
 }
 
+/* ── Theme Semantic Tokens (dark/light) ── */
+
+:root,
+[data-theme="dark"] {
+  --th-bg-base: #0F1117;
+  --th-bg-surface: #161B27;
+  --th-bg-surface-alt: #1C2333;
+  --th-bg-surface-hover: #232A3F;
+  --th-border: #2E3553;
+  --th-border-subtle: #242B42;
+  --th-text-primary: #E8ECF4;
+  --th-text-secondary: #9BA3BF;
+  --th-text-tertiary: #5C6480;
+  --th-text-muted: #4A5170;
+  --th-nav-bg: rgba(22, 27, 39, 0.95);
+  --th-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --th-tooltip-bg: #1C2333;
+  --th-tooltip-border: #2E3553;
+}
+
+[data-theme="light"] {
+  --th-bg-base: #F5F6FA;
+  --th-bg-surface: #FFFFFF;
+  --th-bg-surface-alt: #F0F1F5;
+  --th-bg-surface-hover: #E8E9F0;
+  --th-border: #D1D5E0;
+  --th-border-subtle: #E2E4EB;
+  --th-text-primary: #111827;
+  --th-text-secondary: #4B5563;
+  --th-text-tertiary: #6B7280;
+  --th-text-muted: #9CA3AF;
+  --th-nav-bg: rgba(255, 255, 255, 0.95);
+  --th-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --th-tooltip-bg: #FFFFFF;
+  --th-tooltip-border: #D1D5E0;
+}
+
 /* ── Base Styles ── */
 
 @layer base {
@@ -201,8 +238,8 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-bg-main);
-    color: var(--color-text-pri);
+    background-color: var(--th-bg-base, var(--color-bg-main));
+    color: var(--th-text-primary, var(--color-text-pri));
     line-height: 1.5;
     margin: 0;
   }
@@ -278,18 +315,18 @@
 /* ── Recharts dark mode tooltip & cursor overrides ── */
 
 .recharts-default-tooltip {
-  background-color: #1C2333 !important;
-  border: 1px solid #2E3553 !important;
+  background-color: var(--th-tooltip-bg, #1C2333) !important;
+  border: 1px solid var(--th-tooltip-border, #2E3553) !important;
   border-radius: 8px !important;
-  color: #E8ECF4 !important;
+  color: var(--th-text-primary, #E8ECF4) !important;
 }
 
 .recharts-tooltip-label {
-  color: #9BA3BF !important;
+  color: var(--th-text-secondary, #9BA3BF) !important;
 }
 
 .recharts-tooltip-item {
-  color: #E8ECF4 !important;
+  color: var(--th-text-primary, #E8ECF4) !important;
 }
 
 /* Scrollbar hiding utility for sidebar */

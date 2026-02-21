@@ -3,6 +3,7 @@ import type { DashboardData, DashboardSchool } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { MapPinIcon, CarIcon, WalkIcon } from "../ui/Icons";
+import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
 
 interface SchoolsTabProps {
   data: DashboardData;
@@ -47,8 +48,8 @@ function RatingGauge({ rating }: { rating: number }) {
         />
       </svg>
       <span
-        className="absolute inset-0 flex items-center justify-center text-base font-bold"
-        style={{ color, fontFamily: "var(--font-db-mono)" }}
+        className="absolute inset-0 flex items-center justify-center font-db-mono text-base font-bold"
+        style={{ color }}
       >
         {rating}
       </span>
@@ -134,7 +135,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     lat: s.lat,
     lon: s.lon,
     label: `${s.name} (${s.rating}/10)`,
-    color: s.rating >= 8 ? "#34D399" : s.rating >= 6 ? "#FBBF24" : "#F87171",
+    color: getSchoolMarkerColor(s.rating),
   }));
 
   return (
@@ -174,7 +175,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               center={[property.lat, property.lon]}
               zoom={13}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
                 ...mapMarkers,
               ]}
               height="100%"
