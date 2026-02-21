@@ -81,20 +81,12 @@ describe("NavBar mobile", () => {
     expect(btn).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("mobile menu contains Upload Listings and Settings links", async () => {
+  it("mobile menu contains Sign In button when not authenticated", async () => {
     const user = userEvent.setup();
     renderNavBar();
     await user.click(screen.getByRole("button", { name: "Toggle menu" }));
 
     const menu = screen.getByTestId("mobile-menu");
-    expect(menu).toHaveTextContent("Upload Listings");
-    expect(menu).toHaveTextContent("Settings");
-  });
-
-  it("desktop nav links have hidden sm:block classes", () => {
-    renderNavBar();
-    const uploadLink = screen.getByRole("link", { name: "Upload listings" });
-    expect(uploadLink.className).toContain("hidden");
-    expect(uploadLink.className).toContain("sm:block");
+    expect(menu).toHaveTextContent("Sign In");
   });
 });

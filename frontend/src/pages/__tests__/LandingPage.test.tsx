@@ -83,14 +83,14 @@ describe("LandingPage", () => {
     expect(screen.getByText(/2M\+ listings indexed/i)).toBeInTheDocument();
   });
 
-  it("navigates to results page on address selection", async () => {
+  it("navigates to property dashboard on address selection", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
     renderLandingPage();
     const searchBar = screen.getByTestId("search-bar");
     await user.type(searchBar, "a");
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/results?address=${encodeURIComponent("123 Main St")}&lat=39.95&lon=-75.16`,
+      `/property/${encodeURIComponent("123 Main St")}`,
     );
   });
 

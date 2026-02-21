@@ -652,9 +652,8 @@ function LandingPage() {
   const mainRef = useRef<HTMLDivElement>(null);
 
   function handleSelect(result: GeocodeResult) {
-    const url = `/results?address=${encodeURIComponent(result.display_name)}&lat=${result.lat}&lon=${result.lon}`;
     startViewTransition(() => {
-      navigate(url);
+      navigate(`/property/${encodeURIComponent(result.display_name)}`);
     });
   }
 

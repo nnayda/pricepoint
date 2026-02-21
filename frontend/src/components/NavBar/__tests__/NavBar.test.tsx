@@ -138,7 +138,7 @@ describe("NavBar", () => {
 
   // -- Navigation --
 
-  it("navigates to /results with lat/lon on address selection", async () => {
+  it("navigates to /property/:address on address selection", async () => {
     const mockResults: GeocodeResult[] = [
       {
         display_name: "123 Main St, Philadelphia, PA",
@@ -161,7 +161,7 @@ describe("NavBar", () => {
     await user.click(screen.getByText("123 Main St, Philadelphia, PA"));
 
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/results?address=${encodeURIComponent("123 Main St, Philadelphia, PA")}&lat=39.9526&lon=-75.1652`,
+      `/property/${encodeURIComponent("123 Main St, Philadelphia, PA")}`,
     );
   });
 

@@ -5,13 +5,8 @@ import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-
 const LandingPage = lazy(() => import("./pages/LandingPage"));
-const ForecastPage = lazy(() => import("./pages/ForecastPage"));
-const ResultsPage = lazy(() => import("./pages/ResultsPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const UploadPage = lazy(() => import("./pages/UploadPage"));
-const TestDashboardPage = lazy(() => import("./pages/TestDashboardPage"));
+const PropertyDashboardPage = lazy(() => import("./pages/PropertyDashboardPage"));
 
 function PageLoader() {
   return (
@@ -34,12 +29,10 @@ function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/forecast" element={<ForecastPage />} />
-              <Route path="/results" element={<ResultsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/test-dashboard-page" element={<TestDashboardPage />} />
+              <Route path="/property/:address" element={<PropertyDashboardPage />} />
+              <Route path="/results" element={<Navigate to="/" replace />} />
               <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              <Route path="/test-dashboard-page" element={<Navigate to="/" replace />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
