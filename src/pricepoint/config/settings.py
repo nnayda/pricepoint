@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     ollama_max_concurrent: int = 4
     ollama_timeout_seconds: int = 120
 
+    # Census ACS Demographics
+    census_api_key: str = ""
+    census_acs_base_url: str = "https://api.census.gov/data"
+    census_acs_vintages: list[int] = [2009, 2014, 2019, 2024]
+
     # FRED API (economic indicators)
     fred_api_key: str = ""
     fred_series_ids: list[str] = [

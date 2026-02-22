@@ -226,7 +226,6 @@ services:
       - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
       - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
-      - FRED_API_KEY=${FRED_API_KEY:-}
     volumes:
       - airflow-logs:/opt/airflow/logs
       - redfindata:/data/raw/redfin
@@ -264,7 +263,6 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-minioadmin}
       - S3_SECRET_KEY=${S3_SECRET_KEY:-minioadmin}
       - S3_BUCKET=${S3_BUCKET:-pricepoint-data}
-      - FRED_API_KEY=${FRED_API_KEY:-}
     depends_on:
       airflow-init:
         condition: service_completed_successfully

@@ -170,6 +170,30 @@ export const mockDashboardData: DashboardData = {
       { year: 2024, population: 12500 },
       { year: 2025, population: 12847 },
     ],
+    race_ethnicity_trend: [
+      { year: 2009, white: 68.1, black: 18.2, hispanic: 7.5, asian: 3.8, other: 2.4 },
+      { year: 2014, white: 64.0, black: 19.8, hispanic: 9.4, asian: 4.2, other: 2.6 },
+      { year: 2019, white: 60.5, black: 21.3, hispanic: 10.9, asian: 4.6, other: 2.7 },
+      { year: 2024, white: 58.2, black: 22.4, hispanic: 12.1, asian: 4.8, other: 2.5 },
+    ],
+    age_distribution_trend: [
+      { year: 2009, under18: 24.8, age18_34: 18.2, age35_54: 32.1, age55plus: 24.9 },
+      { year: 2014, under18: 25.5, age18_34: 19.4, age35_54: 30.8, age55plus: 24.3 },
+      { year: 2019, under18: 27.0, age18_34: 19.8, age35_54: 30.2, age55plus: 23.0 },
+      { year: 2024, under18: 28.0, age18_34: 20.0, age35_54: 29.6, age55plus: 22.4 },
+    ],
+    income_trend: [
+      { year: 2009, median_income: 52800 },
+      { year: 2014, median_income: 59400 },
+      { year: 2019, median_income: 68200 },
+      { year: 2024, median_income: 78500 },
+    ],
+    home_ownership_trend: [
+      { year: 2009, ownership_rate: 68.2 },
+      { year: 2014, ownership_rate: 65.8 },
+      { year: 2019, ownership_rate: 69.5 },
+      { year: 2024, ownership_rate: 72.4 },
+    ],
     contexts: {
       subdivision: {
         race_ethnicity: [
@@ -209,6 +233,30 @@ export const mockDashboardData: DashboardData = {
           { year: 2023, population: 2380 },
           { year: 2024, population: 2650 },
           { year: 2025, population: 2840 },
+        ],
+        race_ethnicity_trend: [
+          { year: 2009, white: 72.0, black: 14.5, hispanic: 7.8, asian: 3.9, other: 1.8 },
+          { year: 2014, white: 69.5, black: 15.8, hispanic: 8.6, asian: 4.3, other: 1.8 },
+          { year: 2019, white: 66.8, black: 17.0, hispanic: 9.5, asian: 4.8, other: 1.9 },
+          { year: 2024, white: 64.5, black: 18.1, hispanic: 10.3, asian: 5.2, other: 1.9 },
+        ],
+        age_distribution_trend: [
+          { year: 2009, under18: 28.2, age18_34: 20.5, age35_54: 35.8, age55plus: 15.5 },
+          { year: 2014, under18: 29.5, age18_34: 21.0, age35_54: 34.2, age55plus: 15.3 },
+          { year: 2019, under18: 30.8, age18_34: 22.2, age35_54: 32.0, age55plus: 15.0 },
+          { year: 2024, under18: 31.5, age18_34: 23.5, age35_54: 30.0, age55plus: 15.0 },
+        ],
+        income_trend: [
+          { year: 2009, median_income: 68500 },
+          { year: 2014, median_income: 75200 },
+          { year: 2019, median_income: 84800 },
+          { year: 2024, median_income: 95200 },
+        ],
+        home_ownership_trend: [
+          { year: 2009, ownership_rate: 88.5 },
+          { year: 2014, ownership_rate: 87.2 },
+          { year: 2019, ownership_rate: 89.8 },
+          { year: 2024, ownership_rate: 91.3 },
         ],
       },
       neighborhood: {
@@ -250,6 +298,30 @@ export const mockDashboardData: DashboardData = {
           { year: 2024, population: 12500 },
           { year: 2025, population: 12847 },
         ],
+        race_ethnicity_trend: [
+          { year: 2009, white: 68.1, black: 18.2, hispanic: 7.5, asian: 3.8, other: 2.4 },
+          { year: 2014, white: 64.0, black: 19.8, hispanic: 9.4, asian: 4.2, other: 2.6 },
+          { year: 2019, white: 60.5, black: 21.3, hispanic: 10.9, asian: 4.6, other: 2.7 },
+          { year: 2024, white: 58.2, black: 22.4, hispanic: 12.1, asian: 4.8, other: 2.5 },
+        ],
+        age_distribution_trend: [
+          { year: 2009, under18: 24.8, age18_34: 18.2, age35_54: 32.1, age55plus: 24.9 },
+          { year: 2014, under18: 25.5, age18_34: 19.4, age35_54: 30.8, age55plus: 24.3 },
+          { year: 2019, under18: 27.0, age18_34: 19.8, age35_54: 30.2, age55plus: 23.0 },
+          { year: 2024, under18: 28.0, age18_34: 20.0, age35_54: 29.6, age55plus: 22.4 },
+        ],
+        income_trend: [
+          { year: 2009, median_income: 52800 },
+          { year: 2014, median_income: 59400 },
+          { year: 2019, median_income: 68200 },
+          { year: 2024, median_income: 78500 },
+        ],
+        home_ownership_trend: [
+          { year: 2009, ownership_rate: 68.2 },
+          { year: 2014, ownership_rate: 65.8 },
+          { year: 2019, ownership_rate: 69.5 },
+          { year: 2024, ownership_rate: 72.4 },
+        ],
       },
       town: {
         race_ethnicity: [
@@ -289,6 +361,30 @@ export const mockDashboardData: DashboardData = {
           { year: 2023, population: 33100 },
           { year: 2024, population: 34500 },
           { year: 2025, population: 35420 },
+        ],
+        race_ethnicity_trend: [
+          { year: 2009, white: 62.5, black: 22.0, hispanic: 9.8, asian: 3.2, other: 2.5 },
+          { year: 2014, white: 58.8, black: 23.5, hispanic: 11.5, asian: 3.5, other: 2.7 },
+          { year: 2019, white: 55.4, black: 25.0, hispanic: 13.2, asian: 3.7, other: 2.7 },
+          { year: 2024, white: 52.8, black: 26.1, hispanic: 14.5, asian: 3.9, other: 2.7 },
+        ],
+        age_distribution_trend: [
+          { year: 2009, under18: 22.5, age18_34: 22.8, age35_54: 30.5, age55plus: 24.2 },
+          { year: 2014, under18: 23.2, age18_34: 23.5, age35_54: 29.0, age55plus: 24.3 },
+          { year: 2019, under18: 24.5, age18_34: 24.0, age35_54: 27.8, age55plus: 23.7 },
+          { year: 2024, under18: 25.7, age18_34: 25.5, age35_54: 26.5, age55plus: 22.3 },
+        ],
+        income_trend: [
+          { year: 2009, median_income: 44200 },
+          { year: 2014, median_income: 50800 },
+          { year: 2019, median_income: 58500 },
+          { year: 2024, median_income: 68200 },
+        ],
+        home_ownership_trend: [
+          { year: 2009, ownership_rate: 62.1 },
+          { year: 2014, ownership_rate: 58.5 },
+          { year: 2019, ownership_rate: 61.8 },
+          { year: 2024, ownership_rate: 64.8 },
         ],
       },
     },

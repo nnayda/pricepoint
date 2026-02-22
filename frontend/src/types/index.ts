@@ -412,6 +412,33 @@ export interface CrimeBreakdown {
   pct_change: number;
 }
 
+export interface RaceEthnicityTrendPoint {
+  year: number;
+  white: number;
+  black: number;
+  hispanic: number;
+  asian: number;
+  other: number;
+}
+
+export interface AgeDistributionTrendPoint {
+  year: number;
+  under18: number;
+  age18_34: number;
+  age35_54: number;
+  age55plus: number;
+}
+
+export interface IncomeTrendPoint {
+  year: number;
+  median_income: number;
+}
+
+export interface HomeOwnershipTrendPoint {
+  year: number;
+  ownership_rate: number;
+}
+
 export interface DemographicDataset {
   race_ethnicity: { label: string; value: number; color: string }[];
   age_distribution: { range: string; male: number; female: number }[];
@@ -421,9 +448,14 @@ export interface DemographicDataset {
   median_home_value: number;
   population: number;
   population_trend: { year: number; population: number }[];
+  race_ethnicity_trend: RaceEthnicityTrendPoint[];
+  age_distribution_trend: AgeDistributionTrendPoint[];
+  income_trend: IncomeTrendPoint[];
+  home_ownership_trend: HomeOwnershipTrendPoint[];
 }
 
 export type DemographicContext = "subdivision" | "neighborhood" | "town";
+export type DemographicSubTab = "population" | "race" | "age" | "income" | "ownership";
 
 export interface DemographicData {
   geography_level: string;
@@ -436,6 +468,10 @@ export interface DemographicData {
   median_home_value: number;
   population: number;
   population_trend: { year: number; population: number }[];
+  race_ethnicity_trend: RaceEthnicityTrendPoint[];
+  age_distribution_trend: AgeDistributionTrendPoint[];
+  income_trend: IncomeTrendPoint[];
+  home_ownership_trend: HomeOwnershipTrendPoint[];
 }
 
 export interface DashboardSchool {

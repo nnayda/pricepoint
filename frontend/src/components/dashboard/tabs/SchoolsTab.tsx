@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { DashboardData, DashboardSchool } from "../../../types";
+import { useSchoolsNearby } from "../../../hooks/useSchoolsNearby";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { MapPinIcon, CarIcon, WalkIcon } from "../ui/Icons";
@@ -7,6 +8,44 @@ import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
 
 interface SchoolsTabProps {
   data: DashboardData;
+}
+
+function mapSchool(s: {
+  name: string;
+  address?: string;
+  school_type: string;
+  school_level?: string;
+  rating: number;
+  grades?: string;
+  distance_miles: number;
+  drive_minutes: number;
+  walk_minutes?: number;
+  student_teacher_ratio?: number;
+  enrollment?: number;
+  assigned?: boolean;
+  lat?: number;
+  lon?: number;
+}): DashboardSchool {
+  return {
+    name: s.name,
+    address: s.address ?? "",
+    school_type: (s.school_level ?? s.school_type ?? "Elementary") as
+      | "Elementary"
+      | "Middle"
+      | "High"
+      | "K-8"
+      | "Charter",
+    rating: s.rating,
+    grades: s.grades ?? "",
+    distance_miles: s.distance_miles,
+    drive_minutes: s.drive_minutes,
+    walk_minutes: s.walk_minutes,
+    student_teacher_ratio: s.student_teacher_ratio ?? 0,
+    test_scores: 0,
+    assigned: s.assigned ?? false,
+    lat: s.lat ?? 0,
+    lon: s.lon ?? 0,
+  };
 }
 
 function ratingColor(rating: number): string {
@@ -77,9 +116,7 @@ function SchoolCard({
         backgroundColor: isSelected
           ? "var(--color-db-accent-muted)"
           : "var(--color-db-surface-alt)",
-        borderColor: isSelected
-          ? "var(--color-db-accent)"
-          : "var(--color-db-border-subtle)",
+        borderColor: isSelected ? "var(--color-db-accent)" : "var(--color-db-border-subtle)",
       }}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
@@ -107,9 +144,11 @@ function SchoolCard({
           <span className="inline-flex items-center gap-1">
             <MapPinIcon size={14} /> {school.distance_miles} mi
           </span>
-          <span className="inline-flex items-center gap-1">
-            <CarIcon size={14} /> {school.drive_minutes} min
-          </span>
+          {school.drive_minutes > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <CarIcon size={14} /> {school.drive_minutes} min
+            </span>
+          )}
           {school.walk_minutes && (
             <span className="inline-flex items-center gap-1">
               <WalkIcon size={14} /> {school.walk_minutes} min
@@ -126,9 +165,18 @@ function schoolId(s: DashboardSchool) {
 }
 
 function SchoolsTab({ data }: SchoolsTabProps) {
-  const { schools, property } = data;
+  const { property } = data;
+  const { schools: apiSchools, loading, error } = useSchoolsNearby(property.lat, property.lon);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Use API schools if available, fall back to bundled data
+  const schools = useMemo(() => {
+    if (apiSchools.length > 0) {
+      return apiSchools.map(mapSchool);
+    }
+    return data.schools;
+  }, [apiSchools, data.schools]);
 
   const mapMarkers = schools.map((s) => ({
     id: schoolId(s),
@@ -137,6 +185,42 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     label: `${s.name} (${s.rating}/10)`,
     color: getSchoolMarkerColor(s.rating),
   }));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent"
+            role="status"
+          >
+            <span className="sr-only">Loading schools...</span>
+          </div>
+          <p className="text-sm text-[var(--color-db-text-secondary)]">Loading nearby schools...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && schools.length === 0) {
+    return (
+      <DashboardCard>
+        <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
+          Unable to load nearby schools. Please try again later.
+        </p>
+      </DashboardCard>
+    );
+  }
+
+  if (schools.length === 0) {
+    return (
+      <DashboardCard>
+        <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
+          No schools found near this property.
+        </p>
+      </DashboardCard>
+    );
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -175,7 +259,13 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               center={[property.lat, property.lon]}
               zoom={13}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
+                {
+                  lat: property.lat,
+                  lon: property.lon,
+                  label: "Property",
+                  color: COLOR_INDIGO,
+                  isProperty: true,
+                },
                 ...mapMarkers,
               ]}
               height="100%"

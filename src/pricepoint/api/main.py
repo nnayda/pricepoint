@@ -23,6 +23,7 @@ from pricepoint.api.routes import (
     pois,
     property,
     saved,
+    schools,
     upload,
     utilities,
 )
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(forecast.router, prefix="/api")
     app.include_router(geocode.router, prefix="/api")
     app.include_router(property.router, prefix="/api")
+    app.include_router(schools.router, prefix="/api")
     app.include_router(crime.router, prefix="/api")
     app.include_router(pois.router, prefix="/api")
     app.include_router(greenspace.router, prefix="/api")
