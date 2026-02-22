@@ -14,6 +14,10 @@ up-all: ## Start everything including bundled Airflow + its database
 down: ## Stop all services
 	docker compose --profile infra --profile airflow down
 
+deploy: ## Build containers and start
+	docker compose --profile infra --profile airflow build
+	docker compose --profile infra --profile airflow up -d
+
 # --- Python -------------------------------------------------------------------
 
 lint: ## Run ruff linter and formatter check
@@ -55,6 +59,12 @@ dev-sync-frontend: ## Rebuild and restart frontend container with latest code
 	docker compose up -d frontend
 
 dev-sync: dev-sync-api ## Alias for dev-sync-api
+
+dev-sync-all:
+	docker cp src/. pricepoint-api-1:/app/src/
+	docker compose restart api
+	docker compose build frontend
+	docker compose up -d frontend
 
 # --- Docker Build -------------------------------------------------------------
 

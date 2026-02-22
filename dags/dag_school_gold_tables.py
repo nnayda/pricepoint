@@ -48,7 +48,11 @@ def school_gold_tables():
 
     @task()
     def build_property_schools_gold():
-        """Build gold property_schools table (incremental)."""
+        """Build gold property_schools table (incremental).
+
+        Each property is committed individually inside the builder so that
+        progress is durable and a single property error doesn't lose work.
+        """
         from pricepoint.data.housing.school_gold_builder import (
             build_property_schools_gold as _build,
         )
@@ -57,11 +61,9 @@ def school_gold_tables():
         session = SessionLocal()
         try:
             stats = _build(session)
-            session.commit()
             logger.info("Gold property_schools stats: %s", stats)
-        except Exception:
-            session.rollback()
-            raise
+            if stats.get("errors"):
+                raise RuntimeError(f"Completed with {stats['errors']} property errors — check logs")
         finally:
             session.close()
 

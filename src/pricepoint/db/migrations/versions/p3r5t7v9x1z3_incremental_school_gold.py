@@ -47,12 +47,10 @@ def upgrade() -> None:
         ),
     )
 
-    # Add missing GiST index on tiger_school_districts.geom
-    op.create_index(
-        "idx_tiger_school_districts_geom",
-        "tiger_school_districts",
-        ["geom"],
-        postgresql_using="gist",
+    # Add GiST index on tiger_school_districts.geom if not already present
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tiger_school_districts_geom "
+        "ON tiger_school_districts USING gist (geom)"
     )
 
 

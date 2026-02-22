@@ -11,9 +11,12 @@ property-school links (only dirty/new properties are reprocessed).
 from __future__ import annotations
 
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
 
+from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
 from geoalchemy2.types import Geography
 from sqlalchemy import cast, delete, func, or_, select
@@ -37,6 +40,16 @@ logger = logging.getLogger(__name__)
 
 # Meters per mile for ST_DWithin conversion
 _METERS_PER_MILE = 1609.344
+
+
+def _to_wkt_element(location: object) -> WKTElement:
+    """Convert a GeoAlchemy2 WKBElement to a WKTElement for use as a bind parameter.
+
+    PostGIS ``ST_GeogFromText`` expects WKT, but WKBElements produce WKB hex
+    strings, causing parse errors when cast to ``Geography``.
+    """
+    shape = to_shape(location)  # type: ignore[arg-type]
+    return WKTElement(shape.wkt, srid=4326)
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +191,10 @@ def _get_nearby_gold_schools(
     if location is None:
         return gold_schools
 
+    # Convert WKBElement to WKTElement so PostGIS uses ST_GeomFromText
+    # instead of failing with ST_GeogFromText on WKB hex data
+    loc_wkt = _to_wkt_element(location)
+
     radius_m = radius_miles * _METERS_PER_MILE
     nearby_ids: set[int] = set()
     rows = (
@@ -186,7 +203,7 @@ def _get_nearby_gold_schools(
                 School.location.isnot(None),
                 func.ST_DWithin(
                     cast(School.location, Geography),
-                    cast(location, Geography),
+                    cast(loc_wkt, Geography),
                     radius_m,
                 ),
             )
@@ -215,6 +232,11 @@ def build_schools_gold(session: Session) -> int:
 
     seen_nces_ids: set[str] = set()
     count = 0
+    total_nces = len(nces_records)
+    nces_start = time.monotonic()
+    nces_last_log = nces_start
+
+    logger.info("Building gold schools from %d NCES records", total_nces)
 
     for nces in nces_records:
         extras = _extract_nces_extras(nces.extras)  # type: ignore[arg-type]
@@ -288,6 +310,21 @@ def build_schools_gold(session: Session) -> int:
                 )
             )
         count += 1
+
+        now = time.monotonic()
+        if now - nces_last_log >= 30 or count == total_nces:
+            nces_last_log = now
+            elapsed = now - nces_start
+            rate = count / elapsed if elapsed > 0 else 0
+            remaining = (total_nces - count) / rate if rate > 0 else 0
+            logger.info(
+                "Schools progress: %d/%d (%.0f%%) | %.1f schools/sec | ETA: %.1f min",
+                count,
+                total_nces,
+                count / total_nces * 100,
+                rate,
+                remaining / 60,
+            )
 
     # Remove schools whose NCES records no longer exist (school closures)
     if seen_nces_ids:
@@ -368,10 +405,17 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
         stats["skipped"],
     )
 
-    for prop in dirty_listings:
+    start_time = time.monotonic()
+    total_dirty = len(dirty_listings)
+    last_log_time = start_time
+
+    for idx, prop in enumerate(dirty_listings, 1):
         try:
             prop_point = to_shape(prop.location)  # type: ignore[arg-type]
             prop_lat, prop_lon = prop_point.y, prop_point.x
+
+            # Convert WKBElement to WKTElement for use as bind parameter
+            prop_wkt = _to_wkt_element(prop.location)
 
             # Delete existing links for this property (rebuild them)
             session.execute(delete(PropertySchool).where(PropertySchool.property_id == prop.id))
@@ -406,7 +450,7 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
             district_ids = (
                 session.execute(
                     select(TigerSchoolDistrict.id).where(
-                        func.ST_Contains(TigerSchoolDistrict.geom, prop.location)
+                        func.ST_Contains(TigerSchoolDistrict.geom, prop_wkt)
                     )
                 )
                 .scalars()
@@ -432,21 +476,35 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
                 for _, s in schools_with_location
             ]
 
-            # Compute distances via PostGIS
+            # Compute distances via PostGIS (single query for all schools)
             distances_miles: dict[int, float] = {}
-            for idx, school in schools_with_location:
-                dist_m = session.execute(
-                    func.ST_Distance(
-                        cast(prop.location, Geography),
-                        cast(school.location, Geography),
-                    )
-                ).scalar()
-                if dist_m is not None:
-                    distances_miles[idx] = round(dist_m / _METERS_PER_MILE, 1)
+            if schools_with_location:
+                school_ids_for_dist = [s.id for _, s in schools_with_location]
+                dist_rows = session.execute(
+                    select(
+                        School.id,
+                        func.ST_Distance(
+                            cast(School.location, Geography),
+                            cast(prop_wkt, Geography),
+                        ).label("dist_m"),
+                    ).where(School.id.in_(school_ids_for_dist))
+                ).all()
+                dist_by_school_id = {row.id: row.dist_m for row in dist_rows}
+                for pair_idx, school in schools_with_location:
+                    dist_m = dist_by_school_id.get(school.id)
+                    if dist_m is not None:
+                        distances_miles[pair_idx] = round(dist_m / _METERS_PER_MILE, 1)
 
-            # Batch OSRM calls (1 call per profile instead of N)
-            car_times = get_travel_times_batch(prop_lat, prop_lon, dest_coords, profile="car")
-            foot_times = get_travel_times_batch(prop_lat, prop_lon, dest_coords, profile="foot")
+            # OSRM calls: car + foot in parallel (independent HTTP requests)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                car_future = pool.submit(
+                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="car"
+                )
+                foot_future = pool.submit(
+                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="walking"
+                )
+                car_times = car_future.result()
+                foot_times = foot_future.result()
 
             # Map batch results back to school indices
             drive_map: dict[int, int | None] = {}
@@ -462,6 +520,19 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
                 )
                 drive_map[pair_idx] = int(round(car_dur)) if car_dur is not None else None
                 walk_map[pair_idx] = int(round(foot_dur)) if foot_dur is not None else None
+
+            # If schools have locations but OSRM returned no travel times at all,
+            # leave the property dirty so it can be reprocessed later.
+            if schools_with_location and not any(
+                v is not None for v in drive_map.values()
+            ) and not any(v is not None for v in walk_map.values()):
+                session.rollback()
+                stats["errors"] += 1
+                logger.warning(
+                    "OSRM returned no travel times for property %s — leaving dirty for retry",
+                    prop.id,
+                )
+                continue
 
             # Create PropertySchool records
             for i, (school, assigned) in enumerate(all_pairs):
@@ -481,11 +552,28 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
             # Stamp schools_built_at so this property won't be reprocessed
             prop.schools_built_at = datetime.now(UTC)  # type: ignore[assignment]
 
+            # Commit per-property so progress is durable
+            session.commit()
+
+            now = time.monotonic()
+            if now - last_log_time >= 30 or idx == total_dirty:
+                last_log_time = now
+                elapsed = now - start_time
+                rate = idx / elapsed if elapsed > 0 else 0
+                remaining = (total_dirty - idx) / rate if rate > 0 else 0
+                logger.info(
+                    "Progress: %d/%d properties (%.0f%%) | %.1f props/sec | ETA: %.1f min",
+                    idx,
+                    total_dirty,
+                    idx / total_dirty * 100,
+                    rate,
+                    remaining / 60,
+                )
+
         except Exception:
+            session.rollback()
             logger.error("Error building gold schools for property %s", prop.id, exc_info=True)
             stats["errors"] += 1
-
-    session.flush()
     logger.info(
         "Built gold property_schools: %d assigned, %d district, %d total, %d skipped, %d errors",
         stats["assigned"],

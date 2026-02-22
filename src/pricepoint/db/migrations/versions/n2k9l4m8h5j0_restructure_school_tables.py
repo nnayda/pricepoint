@@ -24,7 +24,8 @@ def upgrade() -> None:
     op.rename_table("schools", "redfin_schools")
     op.rename_table("property_schools", "redfin_property_schools")
 
-    # Drop columns no longer needed on redfin_schools (bronze)
+    # Drop indexes and columns no longer needed on redfin_schools (bronze)
+    op.drop_index("idx_schools_location", table_name="redfin_schools")
     op.drop_index("ix_schools_nces_id", table_name="redfin_schools")
     op.drop_column("redfin_schools", "address")
     op.drop_column("redfin_schools", "nces_id")
@@ -42,6 +43,10 @@ def upgrade() -> None:
     op.drop_column("redfin_property_schools", "drive_minutes")
     op.drop_column("redfin_property_schools", "walk_minutes")
     op.drop_column("redfin_property_schools", "distance_miles")
+
+    # Drop old indexes that will conflict with gold table index names
+    op.drop_index("ix_property_schools_property_id", table_name="redfin_property_schools")
+    op.drop_index("ix_property_schools_school_id", table_name="redfin_property_schools")
 
     # Recreate unique index with new name and column
     op.drop_index("uq_property_school", table_name="redfin_property_schools")
@@ -88,7 +93,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_schools_nces_id", "schools", ["nces_id"])
     op.create_index("ix_schools_district_id", "schools", ["district_id"])
-    op.create_index("idx_schools_location", "schools", ["location"], postgresql_using="gist")
+    # idx_schools_location is auto-created by GeoAlchemy2 Geometry column
 
     # --- Gold: create new property_schools table ---
     op.create_table(
@@ -148,6 +153,8 @@ def downgrade() -> None:
         ["property_id", "school_id"],
         unique=True,
     )
+    op.create_index("ix_property_schools_property_id", "redfin_property_schools", ["property_id"])
+    op.create_index("ix_property_schools_school_id", "redfin_property_schools", ["school_id"])
 
     op.add_column(
         "redfin_schools",
@@ -164,6 +171,7 @@ def downgrade() -> None:
         ),
     )
     op.create_index("ix_schools_nces_id", "redfin_schools", ["nces_id"])
+    op.create_index("idx_schools_location", "redfin_schools", ["location"], postgresql_using="gist")
 
     op.rename_table("redfin_property_schools", "property_schools")
     op.rename_table("redfin_schools", "schools")

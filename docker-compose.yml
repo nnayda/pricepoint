@@ -215,6 +215,7 @@ services:
     ports:
       - "8080:8080"
     command: airflow api-server
+    env_file: .env
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -247,6 +248,7 @@ services:
       dockerfile: docker/airflow.Dockerfile
     profiles: [airflow]
     command: airflow scheduler
+    env_file: .env
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor

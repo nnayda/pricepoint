@@ -216,7 +216,7 @@ def get_travel_times(
     if car:
         result["drive_minutes"] = int(round(car["duration_minutes"]))
 
-    foot = get_osrm_route(origin_lat, origin_lon, dest_lat, dest_lon, profile="foot")
+    foot = get_osrm_route(origin_lat, origin_lon, dest_lat, dest_lon, profile="walking")
     if foot:
         result["walk_minutes"] = int(round(foot["duration_minutes"]))
 
@@ -228,32 +228,25 @@ def get_travel_times(
 # ---------------------------------------------------------------------------
 
 
-def get_travel_times_batch(
+# Track profiles that return 404 (not available on the server) to avoid
+# repeated failed requests.  Reset on process restart.
+_unavailable_profiles: set[str] = set()
+
+# Max destinations per OSRM Table API call to avoid URL length limits.
+_OSRM_CHUNK_SIZE = 50
+
+
+def _get_travel_times_chunk(
     origin_lat: float,
     origin_lon: float,
     destinations: list[tuple[float, float]],
-    profile: str = "car",
+    profile: str,
 ) -> list[dict[str, float | None]]:
-    """1-to-N travel times/distances in a single OSRM Table API call.
-
-    Args:
-        origin_lat: Origin latitude.
-        origin_lon: Origin longitude.
-        destinations: List of (lat, lon) tuples for each destination.
-        profile: OSRM routing profile ("car" or "foot").
-
-    Returns:
-        List of {"duration_minutes": float | None, "distance_miles": float | None}
-        in the same order as *destinations*. On total failure, returns a list of
-        None-valued dicts.
-    """
+    """Single OSRM Table API call for a chunk of destinations."""
     settings = get_settings()
     empty: list[dict[str, float | None]] = [
         {"duration_minutes": None, "distance_miles": None} for _ in destinations
     ]
-
-    if not destinations:
-        return []
 
     if settings.osrm_rate_limit_seconds > 0:
         time.sleep(settings.osrm_rate_limit_seconds)
@@ -267,6 +260,10 @@ def get_travel_times_batch(
             params={"sources": "0", "annotations": "duration,distance"},
             timeout=30,
         )
+        if resp.status_code == 404:
+            logger.warning("OSRM profile '%s' returned 404 — marking as unavailable", profile)
+            _unavailable_profiles.add(profile)
+            return empty
         resp.raise_for_status()
         data = resp.json()
 
@@ -301,3 +298,52 @@ def get_travel_times_batch(
             exc_info=True,
         )
         return empty
+
+
+def get_travel_times_batch(
+    origin_lat: float,
+    origin_lon: float,
+    destinations: list[tuple[float, float]],
+    profile: str = "car",
+) -> list[dict[str, float | None]]:
+    """1-to-N travel times/distances via OSRM Table API.
+
+    Automatically chunks large destination lists to stay within URL length
+    limits and skips profiles that have been marked unavailable (404).
+
+    Args:
+        origin_lat: Origin latitude.
+        origin_lon: Origin longitude.
+        destinations: List of (lat, lon) tuples for each destination.
+        profile: OSRM routing profile ("car" or "foot").
+
+    Returns:
+        List of {"duration_minutes": float | None, "distance_miles": float | None}
+        in the same order as *destinations*. On total failure, returns a list of
+        None-valued dicts.
+    """
+    if not destinations:
+        return []
+
+    empty: list[dict[str, float | None]] = [
+        {"duration_minutes": None, "distance_miles": None} for _ in destinations
+    ]
+
+    if profile in _unavailable_profiles:
+        return empty
+
+    # Process in chunks to avoid URL length limits
+    results: list[dict[str, float | None]] = []
+    for start in range(0, len(destinations), _OSRM_CHUNK_SIZE):
+        chunk = destinations[start : start + _OSRM_CHUNK_SIZE]
+        chunk_results = _get_travel_times_chunk(origin_lat, origin_lon, chunk, profile)
+        results.extend(chunk_results)
+        # Stop early if profile was just marked unavailable
+        if profile in _unavailable_profiles:
+            results.extend(
+                {"duration_minutes": None, "distance_miles": None}
+                for _ in destinations[start + _OSRM_CHUNK_SIZE :]
+            )
+            break
+
+    return results
