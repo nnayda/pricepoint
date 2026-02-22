@@ -89,10 +89,17 @@ class SchoolNearby(BaseModel):
     name: str
     address: str | None = None
     school_type: str
+    school_level: str | None = None
     rating: int
+    grades: str | None = None
     distance_miles: float
     drive_minutes: int
     walk_minutes: int | None = None
+    student_teacher_ratio: float | None = None
+    enrollment: int | None = None
+    assigned: bool = False
+    lat: float | None = None
+    lon: float | None = None
 
 
 class SaleHistoryEntry(BaseModel):

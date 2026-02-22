@@ -96,7 +96,29 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     risks: mockDashboardData.risks,
     crime: mockDashboardData.crime,
     demographics: mockDashboardData.demographics,
-    schools: mockDashboardData.schools,
+    schools:
+      resp.schools.length > 0
+        ? resp.schools.map((s) => ({
+            name: s.name,
+            address: s.address ?? "",
+            school_type: (s.school_level ?? s.school_type ?? "Elementary") as
+              | "Elementary"
+              | "Middle"
+              | "High"
+              | "K-8"
+              | "Charter",
+            rating: s.rating,
+            grades: s.grades ?? "",
+            distance_miles: s.distance_miles,
+            drive_minutes: s.drive_minutes,
+            walk_minutes: s.walk_minutes,
+            student_teacher_ratio: s.student_teacher_ratio ?? 0,
+            test_scores: 0,
+            assigned: s.assigned ?? false,
+            lat: s.lat ?? 0,
+            lon: s.lon ?? 0,
+          }))
+        : mockDashboardData.schools,
     pois: mockDashboardData.pois,
     negative_pois: mockDashboardData.negative_pois,
     greenspace: mockDashboardData.greenspace,

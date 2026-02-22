@@ -20,11 +20,11 @@ from sqlalchemy.orm import Session
 
 from pricepoint.db.engine import SessionLocal
 from pricepoint.db.models import (
-    PropertySchool,
     PropertyValuation,
     RedfinListing,
+    RedfinPropertySchool,
+    RedfinSchool,
     SaleHistoryRecord,
-    School,
     StagingRedfinListing,
     TaxHistoryRecord,
 )
@@ -1042,17 +1042,12 @@ def parse_tax_date(year: Any) -> datetime | None:
 def parse_school_desc(desc: str | None) -> dict[str, Any] | None:
     """Parse a school description like 'Public, PreK-5 Assigned 0.3mi'.
 
-    Returns dict with school_type, grades, distance_miles or None.
+    Returns dict with school_type, grades or None.
     """
     if not desc:
         return None
 
-    result: dict[str, Any] = {"school_type": None, "grades": None, "distance_miles": None}
-
-    dist_match = re.search(r"([\d.]+)\s*mi", desc)
-    if dist_match:
-        with contextlib.suppress(ValueError):
-            result["distance_miles"] = float(dist_match.group(1))
+    result: dict[str, Any] = {"school_type": None, "grades": None}
 
     parts = [p.strip() for p in desc.split(",")]
     if parts:
@@ -1122,11 +1117,11 @@ def upsert_school(
     school_type: str | None,
     rating: float | None,
     grades: str | None,
-    lat: float | None,
-    lon: float | None,
 ) -> int:
     """Deduplicate school on (name, school_type). Returns school_id."""
-    stmt = select(School).where(School.name == name, School.school_type == school_type)
+    stmt = select(RedfinSchool).where(
+        RedfinSchool.name == name, RedfinSchool.school_type == school_type
+    )
     existing = session.execute(stmt).scalar_one_or_none()
     if existing:
         if rating is not None:
@@ -1136,18 +1131,11 @@ def upsert_school(
         session.flush()
         return existing.id
 
-    from geoalchemy2.shape import from_shape
-    from shapely.geometry import Point
-
-    location = None
-    if lat is not None and lon is not None:
-        location = from_shape(Point(lon, lat), srid=4326)
-    school = School(
+    school = RedfinSchool(
         name=name,
         school_type=school_type,
         rating=rating,
         grades=grades,
-        location=location,
     )
     session.add(school)
     session.flush()
@@ -1158,7 +1146,6 @@ def transform_listing(
     session: Session,
     staging: StagingRedfinListing,
     geocode_fn: Any = None,
-    enrich_fn: Any = None,
 ) -> bool:
     """Transform a single staging record into production tables.
 
@@ -1460,11 +1447,11 @@ def transform_listing(
                 )
             )
 
-    # 8. Parse schools and create linkages
+    # 8. Parse schools and create linkages (bronze layer)
     if staging.schools:
         session.execute(
-            PropertySchool.__table__.delete().where(  # type: ignore[attr-defined]
-                PropertySchool.property_id == prop.id
+            RedfinPropertySchool.__table__.delete().where(  # type: ignore[attr-defined]
+                RedfinPropertySchool.property_id == prop.id
             )
         )
         session.flush()
@@ -1477,7 +1464,6 @@ def transform_listing(
             desc_info = parse_school_desc(school_data.get("description"))
             school_type = desc_info.get("school_type") if desc_info else None
             grades = desc_info.get("grades") if desc_info else None
-            distance = desc_info.get("distance_miles") if desc_info else None
 
             rating = school_data.get("rating")
             if isinstance(rating, str):
@@ -1492,29 +1478,14 @@ def transform_listing(
                 school_type=school_type,
                 rating=rating,
                 grades=grades,
-                lat=None,
-                lon=None,
             )
 
             session.add(
-                PropertySchool(
+                RedfinPropertySchool(
                     property_id=prop.id,
-                    school_id=school_id,
-                    distance_miles=distance,
+                    redfin_school_id=school_id,
                 )
             )
-
-    # 9. Enrich schools with addresses and travel times
-    if location is not None:
-        if enrich_fn is None:
-            from pricepoint.data.housing.school_enrichment import enrich_property_schools
-
-            enrich_fn = enrich_property_schools
-
-        from geoalchemy2.shape import to_shape
-
-        prop_point = to_shape(location)  # type: ignore[arg-type]
-        enrich_fn(session, prop.id, prop_point.y, prop_point.x)
 
     session.flush()
     return True

@@ -977,7 +977,7 @@ class TestParseSchoolDesc:
         result = parse_school_desc("Public, PreK-5 Assigned 0.3mi")
         assert result["school_type"] == "Public"
         assert result["grades"] == "PreK-5"
-        assert result["distance_miles"] == pytest.approx(0.3)
+        assert "distance_miles" not in result
 
     def test_private_school(self):
         result = parse_school_desc("Private, 9-12 Nearby 2.1mi")
@@ -1136,7 +1136,6 @@ class TestTransformListing:
         session.execute.return_value.scalar_one_or_none.return_value = None
 
         geocode_fn = MagicMock(return_value=(35.79, -78.78))
-        enrich_fn = MagicMock(return_value=0)
 
         with (
             patch("geoalchemy2.shape.from_shape", return_value="mocked_geom"),
@@ -1146,7 +1145,7 @@ class TestTransformListing:
             mock_point.y = 35.79
             mock_point.x = -78.78
             mock_to_shape.return_value = mock_point
-            result = transform_listing(session, staging, geocode_fn=geocode_fn, enrich_fn=enrich_fn)
+            result = transform_listing(session, staging, geocode_fn=geocode_fn)
 
         assert result is True
         session.add.assert_called()

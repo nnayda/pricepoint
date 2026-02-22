@@ -169,20 +169,16 @@ class StagingMorrisvillePoliceIncident(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class School(Base):
-    """School location and rating data."""
+class RedfinSchool(Base):
+    """Raw school data extracted from Redfin listings (bronze layer)."""
 
-    __tablename__ = "schools"
+    __tablename__ = "redfin_schools"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     school_type = Column(String)
     rating = Column(Float)
     grades = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    nces_id = Column(String, nullable=True, index=True)
-    needs_review = Column(Boolean, default=False, server_default=text("false"))
-    location = Column(Geometry("POINT", srid=4326))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -279,6 +275,8 @@ class TigerSchoolDistrict(Base):
     sdtyp = Column(String(1))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("idx_tiger_school_districts_geom", "geom", postgresql_using="gist"),)
 
 
 class TigerCounty(Base):
@@ -691,6 +689,7 @@ class RedfinListing(Base):
 
     # Metadata
     processed_at = Column(DateTime(timezone=True), server_default=func.now())
+    schools_built_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("idx_redfin_listings_location", "location", postgresql_using="gist"),
@@ -750,17 +749,69 @@ class PropertyValuation(Base):
     __table_args__ = (Index("idx_property_valuations_property_source", "property_id", "source"),)
 
 
+class RedfinPropertySchool(Base):
+    """Raw linkage between properties and Redfin-extracted schools (bronze layer)."""
+
+    __tablename__ = "redfin_property_schools"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(Integer, nullable=False, index=True)
+    redfin_school_id = Column(Integer, nullable=False, index=True)
+
+    __table_args__ = (
+        Index(
+            "uq_redfin_property_school",
+            "property_id",
+            "redfin_school_id",
+            unique=True,
+        ),
+    )
+
+
+class School(Base):
+    """Master school record built from NCES + Redfin data (gold layer)."""
+
+    __tablename__ = "schools"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nces_id = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    street = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String(2), nullable=True)
+    zip_code = Column(String(10), nullable=True)
+    school_type = Column(String, nullable=True)
+    school_level = Column(String, nullable=True)
+    grades = Column(String, nullable=True)
+    rating = Column(Float, nullable=True)
+    location = Column(Geometry("POINT", srid=4326), nullable=True)
+    enrollment = Column(Integer, nullable=True)
+    teachers = Column(Float, nullable=True)
+    student_teacher_ratio = Column(Float, nullable=True)
+    free_lunch_eligible = Column(Integer, nullable=True)
+    reduced_lunch_eligible = Column(Integer, nullable=True)
+    total_frl_eligible = Column(Integer, nullable=True)
+    pct_frl_eligible = Column(Float, nullable=True)
+    district_id = Column(Integer, nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (Index("idx_schools_location", "location", postgresql_using="gist"),)
+
+
 class PropertySchool(Base):
-    """Linkage between properties and nearby schools."""
+    """Linkage between properties and gold schools."""
 
     __tablename__ = "property_schools"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     property_id = Column(Integer, nullable=False, index=True)
     school_id = Column(Integer, nullable=False, index=True)
+    assigned = Column(Boolean, default=False, server_default=text("false"))
     distance_miles = Column(Float, nullable=True)
     drive_minutes = Column(Integer, nullable=True)
     walk_minutes = Column(Integer, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         Index(

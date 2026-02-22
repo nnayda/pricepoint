@@ -74,18 +74,43 @@ def _build_response_from_db(
         .where(PropertySchool.property_id == prop.id)
     ).all()
 
-    schools = [
-        SchoolNearby(
-            name=school.name,
-            address=school.address,
-            school_type=school.school_type or "Unknown",
-            rating=int(school.rating) if school.rating else 0,
-            distance_miles=link.distance_miles or 0.0,
-            drive_minutes=link.drive_minutes or 0,
-            walk_minutes=link.walk_minutes,
+    schools = []
+    for link, school in school_links:
+        # Build address from components
+        addr_parts = [p for p in [school.street, school.city, school.state, school.zip_code] if p]
+        address = ", ".join(addr_parts) if addr_parts else None
+
+        # Extract lat/lon from geometry
+        school_lat: float | None = None
+        school_lon: float | None = None
+        if school.location is not None:
+            coords = db.execute(
+                select(
+                    func.ST_Y(school.location).label("lat"),
+                    func.ST_X(school.location).label("lon"),
+                )
+            ).one()
+            school_lat = coords.lat
+            school_lon = coords.lon
+
+        schools.append(
+            SchoolNearby(
+                name=school.name,
+                address=address,
+                school_type=school.school_type or "Unknown",
+                school_level=school.school_level,
+                rating=int(school.rating) if school.rating else 0,
+                grades=school.grades,
+                distance_miles=link.distance_miles or 0.0,
+                drive_minutes=link.drive_minutes or 0,
+                walk_minutes=link.walk_minutes,
+                student_teacher_ratio=school.student_teacher_ratio,
+                enrollment=school.enrollment,
+                assigned=link.assigned or False,
+                lat=school_lat,
+                lon=school_lon,
+            )
         )
-        for link, school in school_links
-    ]
 
     # Build sale history from relational table
     sale_records = (
@@ -480,9 +505,7 @@ async def get_property(
             prop = db.execute(
                 select(RedfinListing)
                 .where(
-                    RedfinListing.street_address.ilike(
-                        f"{searched_house_num} {street_keyword}%"
-                    )
+                    RedfinListing.street_address.ilike(f"{searched_house_num} {street_keyword}%")
                 )
                 .limit(1)
             ).scalar_one_or_none()

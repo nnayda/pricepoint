@@ -60,13 +60,15 @@ class TestPoliceIncidentModel:
 
 
 class TestSchoolModel:
-    """Tests for the School ORM model."""
+    """Tests for the School ORM model (gold layer)."""
 
     def test_create_school_with_geometry(self, db_session):
-        """Create a school with a POINT geometry and rating."""
+        """Create a gold school with a POINT geometry and NCES data."""
         school = School(
+            nces_id="370001000001",
             name="Test Elementary",
-            school_type="elementary",
+            school_type="Regular",
+            school_level="Elementary",
             rating=8.5,
             location=from_shape(Point(-78.80, 35.82), srid=4326),
         )
@@ -74,6 +76,7 @@ class TestSchoolModel:
         db_session.flush()
 
         assert school.id is not None
+        assert school.nces_id == "370001000001"
         assert school.rating == 8.5
         point = to_shape(school.location)
         assert round(point.x, 2) == -78.80

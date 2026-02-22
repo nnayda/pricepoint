@@ -105,10 +105,17 @@ export interface SchoolNearby {
   name: string;
   address?: string;
   school_type: string;
+  school_level?: string;
   rating: number;
+  grades?: string;
   distance_miles: number;
   drive_minutes: number;
   walk_minutes?: number;
+  student_teacher_ratio?: number;
+  enrollment?: number;
+  assigned?: boolean;
+  lat?: number;
+  lon?: number;
 }
 
 export interface SaleHistoryEntry {

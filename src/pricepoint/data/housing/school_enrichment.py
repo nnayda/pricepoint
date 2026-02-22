@@ -12,14 +12,12 @@ from difflib import SequenceMatcher
 from typing import Any
 
 import httpx
-from geoalchemy2.shape import from_shape, to_shape
 from geoalchemy2.types import Geography
-from shapely.geometry import Point
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.config.settings import get_settings
-from pricepoint.db.models import NcesSchool, PropertySchool, School
+from pricepoint.db.models import NcesSchool
 
 logger = logging.getLogger(__name__)
 
@@ -226,91 +224,80 @@ def get_travel_times(
 
 
 # ---------------------------------------------------------------------------
-# Orchestrator
+# OSRM Table API — batch travel times
 # ---------------------------------------------------------------------------
 
 
-def enrich_school(
-    session: Session,
-    school: School,
-    property_lat: float,
-    property_lon: float,
-) -> bool:
-    """Enrich a single school with address and compute travel times.
+def get_travel_times_batch(
+    origin_lat: float,
+    origin_lon: float,
+    destinations: list[tuple[float, float]],
+    profile: str = "car",
+) -> list[dict[str, float | None]]:
+    """1-to-N travel times/distances in a single OSRM Table API call.
 
-    1. If school.address is already set, skip address lookup
-    2. Try NCES match -> set address, nces_id, location (if missing)
-    3. If no NCES match, try Nominatim -> set address, location
-    4. If both fail, set needs_review = True
-    5. If school has location, compute drive/walk times via OSRM
-    6. Return True if any enrichment was made
+    Args:
+        origin_lat: Origin latitude.
+        origin_lon: Origin longitude.
+        destinations: List of (lat, lon) tuples for each destination.
+        profile: OSRM routing profile ("car" or "foot").
+
+    Returns:
+        List of {"duration_minutes": float | None, "distance_miles": float | None}
+        in the same order as *destinations*. On total failure, returns a list of
+        None-valued dicts.
     """
-    changed = False
+    settings = get_settings()
+    empty: list[dict[str, float | None]] = [
+        {"duration_minutes": None, "distance_miles": None} for _ in destinations
+    ]
 
-    # Address lookup
-    if not school.address:
-        nces = match_nces_school(session, school.name, property_lat, property_lon)
-        if nces:
-            parts = [p for p in [nces.street, nces.city, nces.state, nces.zip_code] if p]
-            school.address = ", ".join(parts) if parts else None
-            school.nces_id = nces.nces_id
-            if school.location is None and nces.location is not None:
-                school.location = nces.location
-            changed = True
-        else:
-            nom = geocode_school_nominatim(school.name, property_lat, property_lon)
-            if nom:
-                school.address = nom["address"]
-                if school.location is None:
-                    school.location = from_shape(Point(nom["lon"], nom["lat"]), srid=4326)
-                changed = True
-            else:
-                school.needs_review = True
-                changed = True
+    if not destinations:
+        return []
 
-    # Travel times
-    if school.location is not None:
-        school_point = to_shape(school.location)
-        school_lat, school_lon = school_point.y, school_point.x
-        times = get_travel_times(property_lat, property_lon, school_lat, school_lon)
+    if settings.osrm_rate_limit_seconds > 0:
+        time.sleep(settings.osrm_rate_limit_seconds)
 
-        # Update PropertySchool linkages with travel times
-        links = (
-            session.execute(select(PropertySchool).where(PropertySchool.school_id == school.id))
-            .scalars()
-            .all()
+    coords = f"{origin_lon},{origin_lat}" + "".join(f";{lon},{lat}" for lat, lon in destinations)
+    url = f"{settings.osrm_base_url}/table/v1/{profile}/{coords}"
+
+    try:
+        resp = httpx.get(
+            url,
+            params={"sources": "0", "annotations": "duration,distance"},
+            timeout=30,
         )
-        for link in links:
-            if times["drive_minutes"] is not None:
-                link.drive_minutes = times["drive_minutes"]
-                changed = True
-            if times["walk_minutes"] is not None:
-                link.walk_minutes = times["walk_minutes"]
-                changed = True
+        resp.raise_for_status()
+        data = resp.json()
 
-    if changed:
-        session.flush()
+        if data.get("code") != "Ok":
+            logger.warning("OSRM table %s returned code=%s", profile, data.get("code"))
+            return empty
 
-    return changed
+        durations = data.get("durations", [[]])[0]
+        distances = data.get("distances", [[]])[0]
 
+        results: list[dict[str, float | None]] = []
+        for i in range(len(destinations)):
+            dur = durations[i + 1] if i + 1 < len(durations) else None
+            dist = distances[i + 1] if i + 1 < len(distances) else None
+            results.append(
+                {
+                    "duration_minutes": round(dur / 60, 1) if dur is not None else None,
+                    "distance_miles": round(dist / _METERS_PER_MILE, 1)
+                    if dist is not None
+                    else None,
+                }
+            )
+        return results
 
-def enrich_property_schools(
-    session: Session,
-    property_id: int,
-    property_lat: float,
-    property_lon: float,
-) -> int:
-    """Enrich all schools linked to a property. Returns count enriched."""
-    links = (
-        session.execute(select(PropertySchool).where(PropertySchool.property_id == property_id))
-        .scalars()
-        .all()
-    )
-
-    enriched = 0
-    for link in links:
-        school = session.get(School, link.school_id)
-        if school and enrich_school(session, school, property_lat, property_lon):
-            enriched += 1
-
-    return enriched
+    except Exception:
+        logger.warning(
+            "OSRM table %s call failed for origin (%s,%s) with %d destinations",
+            profile,
+            origin_lat,
+            origin_lon,
+            len(destinations),
+            exc_info=True,
+        )
+        return empty

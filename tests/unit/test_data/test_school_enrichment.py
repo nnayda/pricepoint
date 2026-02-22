@@ -6,11 +6,10 @@ import pytest
 
 from pricepoint.data.housing.school_enrichment import (
     _normalize_school_name,
-    enrich_property_schools,
-    enrich_school,
     geocode_school_nominatim,
     get_osrm_route,
     get_travel_times,
+    get_travel_times_batch,
     match_nces_school,
 )
 
@@ -256,172 +255,59 @@ class TestGetTravelTimes:
 
 
 # ---------------------------------------------------------------------------
-# TestEnrichSchool
+# TestGetTravelTimesBatch
 # ---------------------------------------------------------------------------
-class TestEnrichSchool:
-    def _make_school(self, name="Mills Park Elementary", address=None, location=None):
-        school = MagicMock()
-        school.id = 1
-        school.name = name
-        school.address = address
-        school.nces_id = None
-        school.needs_review = False
-        school.location = location
-        return school
-
-    @patch("pricepoint.data.housing.school_enrichment.to_shape")
-    @patch("pricepoint.data.housing.school_enrichment.get_travel_times")
-    @patch("pricepoint.data.housing.school_enrichment.match_nces_school")
-    def test_nces_match_enriches(self, mock_match, mock_travel, mock_to_shape):
-        nces = MagicMock()
-        nces.street = "100 Main St"
-        nces.city = "Cary"
-        nces.state = "NC"
-        nces.zip_code = "27513"
-        nces.nces_id = "001"
-        nces.location = MagicMock()
-        mock_match.return_value = nces
-        mock_travel.return_value = {"drive_minutes": 5, "walk_minutes": 20}
-
-        mock_point = MagicMock()
-        mock_point.y = 35.80
-        mock_point.x = -78.79
-        mock_to_shape.return_value = mock_point
-
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = []
-        school = self._make_school()
-
-        result = enrich_school(session, school, 35.79, -78.78)
-        assert result is True
-        assert school.address == "100 Main St, Cary, NC, 27513"
-        assert school.nces_id == "001"
-
-    @patch("pricepoint.data.housing.school_enrichment.to_shape")
-    @patch("pricepoint.data.housing.school_enrichment.geocode_school_nominatim")
-    @patch("pricepoint.data.housing.school_enrichment.match_nces_school")
-    def test_nominatim_fallback(self, mock_match, mock_nominatim, mock_to_shape):
-        mock_match.return_value = None
-        mock_nominatim.return_value = {
-            "address": "Mills Park Elementary, Cary, NC",
-            "lat": 35.79,
-            "lon": -78.78,
+class TestGetTravelTimesBatch:
+    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
+    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
+    def test_batch_returns_results(self, mock_get, mock_sleep):
+        """Batch call returns duration/distance for each destination."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "code": "Ok",
+            "durations": [[0, 300.0, 600.0]],
+            "distances": [[0, 5000.0, 10000.0]],
         }
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
 
-        mock_point = MagicMock()
-        mock_point.y = 35.79
-        mock_point.x = -78.78
-        mock_to_shape.return_value = mock_point
+        destinations = [(35.80, -78.79), (35.81, -78.80)]
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
 
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = []
-        school = self._make_school()
+        assert len(results) == 2
+        assert results[0]["duration_minutes"] == pytest.approx(5.0)
+        assert results[0]["distance_miles"] == pytest.approx(3.1, abs=0.1)
+        assert results[1]["duration_minutes"] == pytest.approx(10.0)
 
-        with patch("pricepoint.data.housing.school_enrichment.from_shape", return_value="geom"):
-            result = enrich_school(session, school, 35.79, -78.78)
+    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
+    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
+    def test_batch_error_returns_nones(self, mock_get, mock_sleep):
+        """On HTTP error, returns list of None-valued dicts."""
+        mock_get.side_effect = Exception("OSRM error")
 
-        assert result is True
-        assert school.address == "Mills Park Elementary, Cary, NC"
+        destinations = [(35.80, -78.79)]
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
 
-    @patch("pricepoint.data.housing.school_enrichment.geocode_school_nominatim")
-    @patch("pricepoint.data.housing.school_enrichment.match_nces_school")
-    def test_both_fail_sets_needs_review(self, mock_match, mock_nominatim):
-        mock_match.return_value = None
-        mock_nominatim.return_value = None
+        assert len(results) == 1
+        assert results[0]["duration_minutes"] is None
+        assert results[0]["distance_miles"] is None
 
-        session = MagicMock()
-        school = self._make_school()
+    def test_batch_empty_destinations(self):
+        """Empty destinations list returns empty list."""
+        results = get_travel_times_batch(35.79, -78.78, [], profile="car")
+        assert results == []
 
-        result = enrich_school(session, school, 35.79, -78.78)
-        assert result is True
-        assert school.needs_review is True
+    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
+    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
+    def test_batch_non_ok_code(self, mock_get, mock_sleep):
+        """Non-Ok OSRM response returns None-valued dicts."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"code": "InvalidOptions"}
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
 
-    @patch("pricepoint.data.housing.school_enrichment.get_travel_times")
-    @patch("pricepoint.data.housing.school_enrichment.to_shape")
-    @patch("pricepoint.data.housing.school_enrichment.match_nces_school")
-    def test_updates_travel_times(self, mock_match, mock_to_shape, mock_travel):
-        mock_match.return_value = None
+        destinations = [(35.80, -78.79)]
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
 
-        # School already has address and location
-        school = self._make_school(address="100 Main St", location="geom")
-
-        mock_point = MagicMock()
-        mock_point.y = 35.80
-        mock_point.x = -78.79
-        mock_to_shape.return_value = mock_point
-
-        mock_travel.return_value = {"drive_minutes": 5, "walk_minutes": 20}
-
-        link = MagicMock()
-        link.drive_minutes = None
-        link.walk_minutes = None
-
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = [link]
-
-        result = enrich_school(session, school, 35.79, -78.78)
-        assert result is True
-        assert link.drive_minutes == 5
-        assert link.walk_minutes == 20
-
-    def test_skip_address_lookup_if_already_set(self):
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = []
-        school = self._make_school(address="Already Set")
-
-        result = enrich_school(session, school, 35.79, -78.78)
-        # No location, so no travel times either
-        assert result is False
-
-
-# ---------------------------------------------------------------------------
-# TestEnrichPropertySchools
-# ---------------------------------------------------------------------------
-class TestEnrichPropertySchools:
-    @patch("pricepoint.data.housing.school_enrichment.enrich_school")
-    def test_enriches_all_linked_schools(self, mock_enrich):
-        mock_enrich.return_value = True
-
-        link1 = MagicMock()
-        link1.school_id = 1
-        link2 = MagicMock()
-        link2.school_id = 2
-
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = [link1, link2]
-
-        school1 = MagicMock()
-        school2 = MagicMock()
-        session.get.side_effect = [school1, school2]
-
-        count = enrich_property_schools(session, 100, 35.79, -78.78)
-        assert count == 2
-        assert mock_enrich.call_count == 2
-
-    @patch("pricepoint.data.housing.school_enrichment.enrich_school")
-    def test_no_links(self, mock_enrich):
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = []
-
-        count = enrich_property_schools(session, 100, 35.79, -78.78)
-        assert count == 0
-        mock_enrich.assert_not_called()
-
-    @patch("pricepoint.data.housing.school_enrichment.enrich_school")
-    def test_partial_enrichment(self, mock_enrich):
-        mock_enrich.side_effect = [True, False]
-
-        link1 = MagicMock()
-        link1.school_id = 1
-        link2 = MagicMock()
-        link2.school_id = 2
-
-        session = MagicMock()
-        session.execute.return_value.scalars.return_value.all.return_value = [link1, link2]
-
-        school1 = MagicMock()
-        school2 = MagicMock()
-        session.get.side_effect = [school1, school2]
-
-        count = enrich_property_schools(session, 100, 35.79, -78.78)
-        assert count == 1
+        assert len(results) == 1
+        assert results[0]["duration_minutes"] is None

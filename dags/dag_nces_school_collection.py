@@ -7,7 +7,7 @@ ArcGIS REST API and loads it into the nces_schools table.
 import logging
 from datetime import datetime, timedelta
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def nces_school_collection():
         count = fetch_nces_schools()
         logger.info("Loaded %d NCES schools", count)
 
-    @task()
+    @task(outlets=[Asset("nces_schools")])
     def verify_load():
         """Verify that records were loaded into the nces_schools table."""
         from sqlalchemy import func, select
