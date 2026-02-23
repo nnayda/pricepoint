@@ -6,18 +6,26 @@ import httpx
 import pytest
 
 from pricepoint.data.geospatial.census_demographics import (
+    _COUNT_FIELDS,
+    _MEDIAN_FIELDS,
     _aggregate_age_brackets,
     _aggregate_education,
     _extract_geoid,
     _fetch_acs_data,
-    _map_block_group_record,
-    _map_tract_record,
+    _level_exists,
+    _map_demographic_kwargs,
+    _map_record,
     _safe_float,
     _safe_int,
+    compute_subdivision_demographics,
     fetch_acs_block_group_demographics,
+    fetch_acs_county_sub_demographics,
+    fetch_acs_summary_demographics,
     fetch_acs_tract_demographics,
     verify_acs_demographics,
 )
+
+_PATCH_LEVEL_EXISTS = "pricepoint.data.geospatial.census_demographics._level_exists"
 
 # -- Helpers ------------------------------------------------------------------
 
@@ -28,6 +36,7 @@ def _make_settings(**overrides):
     s.census_api_key = "test-key"
     s.census_acs_base_url = "https://api.census.gov/data"
     s.census_acs_vintages = [2019]
+    s.census_acs_block_group_min_year = 2014
     s.tiger_state_fips = "37"
     s.tiger_county_fips = "183"
     for k, v in overrides.items():
@@ -164,6 +173,25 @@ class TestExtractGeoid:
         )
         assert len(geoid) == 12
 
+    def test_us_geoid(self):
+        row = {"us": "1"}
+        assert _extract_geoid(row, "us") == "1"
+
+    def test_us_geoid_default(self):
+        assert _extract_geoid({}, "us") == "1"
+
+    def test_state_geoid(self):
+        row = {"state": "37"}
+        assert _extract_geoid(row, "state") == "37"
+
+    def test_county_geoid(self):
+        row = {"state": "37", "county": "183"}
+        assert _extract_geoid(row, "county") == "37183"
+
+    def test_county_subdivision_geoid(self):
+        row = {"state": "37", "county": "183", "county subdivision": "90280"}
+        assert _extract_geoid(row, "county subdivision") == "3718390280"
+
 
 # -- _aggregate_age_brackets tests --------------------------------------------
 
@@ -297,54 +325,77 @@ class TestAggregateEducation:
         assert result["edu_less_than_hs"] is None
 
 
-# -- _map_tract_record tests --------------------------------------------------
+# -- _map_demographic_kwargs tests -------------------------------------------
 
 
-class TestMapTractRecord:
-    def test_maps_basic_fields(self):
+class TestMapDemographicKwargs:
+    def test_extracts_all_fields(self):
         row = _make_row()
-        record = _map_tract_record(row, 2019)
+        kwargs = _map_demographic_kwargs(row, 2019)
+        assert kwargs["acs_year"] == 2019
+        assert kwargs["total_population"] == 5000
+        assert kwargs["median_age"] == 35.2
+        assert kwargs["median_household_income"] == 65000
+        assert kwargs["housing_owner_occupied"] == 1200
+
+    def test_sentinel_values_become_none(self):
+        row = _make_row(**{"B19013_001E": "-666666666"})
+        kwargs = _map_demographic_kwargs(row, 2019)
+        assert kwargs["median_household_income"] is None
+
+
+# -- _map_record tests -------------------------------------------------------
+
+
+class TestMapRecord:
+    def test_maps_tract(self):
+        row = _make_row()
+        record = _map_record(row, 2019, "tract", "tract")
+        assert record.geography_level == "tract"
         assert record.geoid == "37183052801"
         assert record.acs_year == 2019
         assert record.total_population == 5000
-        assert record.male_population == 2400
-        assert record.female_population == 2600
-        assert record.median_age == 35.2
-        assert record.race_white == 3000
-        assert record.hispanic == 500
-        assert record.median_household_income == 65000
-        assert record.housing_owner_occupied == 1200
-        assert record.median_home_value == 285000
+
+    def test_maps_block_group(self):
+        row = _make_row(**{"block group": "2"})
+        record = _map_record(row, 2019, "block group", "block_group")
+        assert record.geography_level == "block_group"
+        assert record.geoid == "371830528012"
+
+    def test_maps_us(self):
+        row = _make_row(**{"us": "1"})
+        record = _map_record(row, 2019, "us", "us")
+        assert record.geography_level == "us"
+        assert record.geoid == "1"
+
+    def test_maps_state(self):
+        row = _make_row()
+        record = _map_record(row, 2019, "state", "state")
+        assert record.geography_level == "state"
+        assert record.geoid == "37"
+
+    def test_maps_county(self):
+        row = _make_row()
+        record = _map_record(row, 2019, "county", "county")
+        assert record.geography_level == "county"
+        assert record.geoid == "37183"
+
+    def test_maps_county_subdivision(self):
+        row = _make_row(**{"county subdivision": "90280"})
+        record = _map_record(row, 2019, "county subdivision", "county_subdivision")
+        assert record.geography_level == "county_subdivision"
+        assert record.geoid == "3718390280"
 
     def test_sentinel_values_become_none(self):
         row = _make_row(**{"B19013_001E": "-666666666", "B25077_001E": "-666666666"})
-        record = _map_tract_record(row, 2019)
+        record = _map_record(row, 2019, "tract", "tract")
         assert record.median_household_income is None
         assert record.median_home_value is None
 
     def test_name_field(self):
         row = _make_row()
-        record = _map_tract_record(row, 2019)
+        record = _map_record(row, 2019, "tract", "tract")
         assert record.name == "Census Tract 528.01"
-
-
-# -- _map_block_group_record tests --------------------------------------------
-
-
-class TestMapBlockGroupRecord:
-    def test_maps_basic_fields(self):
-        row = _make_row(**{"block group": "2"})
-        record = _map_block_group_record(row, 2019)
-        assert record.geoid == "371830528012"
-        assert record.acs_year == 2019
-        assert record.total_population == 5000
-
-    def test_missing_optional_fields(self):
-        row = {"state": "37", "county": "183", "tract": "052801", "block group": "1"}
-        record = _map_block_group_record(row, 2024)
-        assert record.geoid == "371830528011"
-        assert record.total_population is None
-        assert record.median_age is None
 
 
 # -- _fetch_acs_data tests ----------------------------------------------------
@@ -428,15 +479,99 @@ class TestFetchAcsData:
         assert len(result) == 1
         assert result[0]["block group"] == "1"
 
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch("pricepoint.data.geospatial.census_demographics.httpx.get")
+    def test_us_level_no_in_param(self, mock_get, mock_settings):
+        mock_settings.return_value = _make_settings()
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            ["NAME", "B01001_001E", "us"],
+            ["United States", "330000000", "1"],
+        ]
+        mock_get.return_value = mock_response
+
+        result = _fetch_acs_data(2019, ["B01001_001E"], "us")
+        assert len(result) == 1
+        assert result[0]["B01001_001E"] == "330000000"
+        # Verify no 'in' param was sent
+        _, kwargs = mock_get.call_args
+        assert "in" not in kwargs.get("params", {})
+
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch("pricepoint.data.geospatial.census_demographics.httpx.get")
+    def test_state_level(self, mock_get, mock_settings):
+        mock_settings.return_value = _make_settings()
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            ["NAME", "B01001_001E", "state"],
+            ["North Carolina", "10000000", "37"],
+        ]
+        mock_get.return_value = mock_response
+
+        result = _fetch_acs_data(2019, ["B01001_001E"], "state", "37")
+        assert len(result) == 1
+        assert result[0]["state"] == "37"
+
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch("pricepoint.data.geospatial.census_demographics.httpx.get")
+    def test_county_level(self, mock_get, mock_settings):
+        mock_settings.return_value = _make_settings()
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            ["NAME", "B01001_001E", "state", "county"],
+            ["Wake County", "1100000", "37", "183"],
+        ]
+        mock_get.return_value = mock_response
+
+        result = _fetch_acs_data(2019, ["B01001_001E"], "county", "37", "183")
+        assert len(result) == 1
+        assert result[0]["B01001_001E"] == "1100000"
+
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch("pricepoint.data.geospatial.census_demographics.httpx.get")
+    def test_county_subdivision_level(self, mock_get, mock_settings):
+        mock_settings.return_value = _make_settings()
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            ["NAME", "B01001_001E", "state", "county", "county subdivision"],
+            ["Cary township", "170000", "37", "183", "90280"],
+        ]
+        mock_get.return_value = mock_response
+
+        result = _fetch_acs_data(2019, ["B01001_001E"], "county subdivision", "37", "183")
+        assert len(result) == 1
+        assert result[0]["county subdivision"] == "90280"
+
+
+# -- _level_exists tests ------------------------------------------------------
+
+
+class TestLevelExists:
+    def test_returns_true_when_count_positive(self):
+        session = _mock_session()
+        session.execute.return_value.scalar.return_value = 5
+        assert _level_exists(session, 2019, "tract") is True
+
+    def test_returns_false_when_count_zero(self):
+        session = _mock_session()
+        session.execute.return_value.scalar.return_value = 0
+        assert _level_exists(session, 2019, "tract") is False
+
+    def test_returns_false_when_count_none(self):
+        session = _mock_session()
+        session.execute.return_value.scalar.return_value = None
+        assert _level_exists(session, 2019, "tract") is False
+
 
 # -- fetch_acs_tract_demographics tests ---------------------------------------
 
 
 class TestFetchAcsTractDemographics:
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
     @patch("pricepoint.data.geospatial.census_demographics.get_settings")
-    def test_iterates_all_vintages(self, mock_settings, mock_fetch, mock_session_cls):
+    def test_iterates_all_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
         settings = _make_settings(census_acs_vintages=[2009, 2014, 2019])
         mock_settings.return_value = settings
         mock_fetch.return_value = [_make_row()]
@@ -453,10 +588,11 @@ class TestFetchAcsTractDemographics:
         assert session.commit.call_count == 6
         assert session.add_all.call_count == 3
 
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
     @patch("pricepoint.data.geospatial.census_demographics.get_settings")
-    def test_rollback_on_error(self, mock_settings, mock_fetch, mock_session_cls):
+    def test_rollback_on_error(self, mock_settings, mock_fetch, mock_session_cls, _le):
         mock_settings.return_value = _make_settings()
         mock_fetch.side_effect = RuntimeError("API error")
         session = _mock_session()
@@ -468,15 +604,47 @@ class TestFetchAcsTractDemographics:
         session.rollback.assert_called_once()
         session.close.assert_called_once()
 
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_records_have_tract_geography_level(
+        self, mock_settings, mock_fetch, mock_session_cls, _le
+    ):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.return_value = [_make_row()]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_tract_demographics()
+
+        records = session.add_all.call_args[0][0]
+        assert all(r.geography_level == "tract" for r in records)
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=True)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_existing_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_tract_demographics()
+
+        mock_fetch.assert_not_called()
+        session.add_all.assert_not_called()
+
 
 # -- fetch_acs_block_group_demographics tests ---------------------------------
 
 
 class TestFetchAcsBlockGroupDemographics:
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
     @patch("pricepoint.data.geospatial.census_demographics.get_settings")
-    def test_iterates_vintages(self, mock_settings, mock_fetch, mock_session_cls):
+    def test_iterates_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
         settings = _make_settings(census_acs_vintages=[2019, 2024])
         mock_settings.return_value = settings
         mock_fetch.return_value = [_make_row(**{"block group": "1"})]
@@ -487,6 +655,337 @@ class TestFetchAcsBlockGroupDemographics:
 
         assert mock_fetch.call_count == 2
         assert session.commit.call_count == 4  # 2 deletes + 2 inserts
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_records_have_block_group_geography_level(
+        self, mock_settings, mock_fetch, mock_session_cls, _le
+    ):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.return_value = [_make_row(**{"block group": "1"})]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_block_group_demographics()
+
+        records = session.add_all.call_args[0][0]
+        assert all(r.geography_level == "block_group" for r in records)
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_vintages_below_min_year(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        settings = _make_settings(
+            census_acs_vintages=[2009, 2014, 2019],
+            census_acs_block_group_min_year=2014,
+        )
+        mock_settings.return_value = settings
+        mock_fetch.return_value = [_make_row(**{"block group": "1"})]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_block_group_demographics()
+
+        # Only 2014 and 2019 should be fetched (2009 skipped)
+        assert mock_fetch.call_count == 2
+        years_called = [c.args[0] for c in mock_fetch.call_args_list]
+        assert years_called == [2014, 2019]
+
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_no_eligible_vintages_returns_early(self, mock_settings, mock_fetch, mock_session_cls):
+        settings = _make_settings(
+            census_acs_vintages=[2009],
+            census_acs_block_group_min_year=2014,
+        )
+        mock_settings.return_value = settings
+
+        fetch_acs_block_group_demographics()
+
+        mock_fetch.assert_not_called()
+        mock_session_cls.assert_not_called()
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=True)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_existing_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_block_group_demographics()
+
+        mock_fetch.assert_not_called()
+        session.add_all.assert_not_called()
+
+
+# -- fetch_acs_summary_demographics tests ------------------------------------
+
+
+class TestFetchAcsSummaryDemographics:
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_fetches_three_levels_per_vintage(
+        self, mock_settings, mock_fetch, mock_session_cls, _le
+    ):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        mock_fetch.return_value = [_make_row(**{"us": "1"})]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_summary_demographics()
+
+        # 3 levels (us, state, county) × 1 vintage = 3 fetch calls
+        assert mock_fetch.call_count == 3
+        # 3 levels × (1 delete + 1 insert) = 6 commits
+        assert session.commit.call_count == 6
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_multiple_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2014, 2019])
+        mock_fetch.return_value = [_make_row(**{"us": "1"})]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_summary_demographics()
+
+        # 3 levels × 2 vintages = 6 calls
+        assert mock_fetch.call_count == 6
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_rollback_on_error(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.side_effect = RuntimeError("API error")
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        with pytest.raises(RuntimeError):
+            fetch_acs_summary_demographics()
+
+        session.rollback.assert_called_once()
+        session.close.assert_called_once()
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=True)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_existing_levels(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_summary_demographics()
+
+        mock_fetch.assert_not_called()
+        session.add_all.assert_not_called()
+
+
+# -- fetch_acs_county_sub_demographics tests ---------------------------------
+
+
+class TestFetchAcsCountySubDemographics:
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_iterates_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        mock_fetch.return_value = [
+            _make_row(**{"county subdivision": "90280"}),
+            _make_row(**{"county subdivision": "12345"}),
+        ]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_county_sub_demographics()
+
+        assert mock_fetch.call_count == 1
+        records = session.add_all.call_args[0][0]
+        assert len(records) == 2
+        assert all(r.geography_level == "county_subdivision" for r in records)
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_rollback_on_error(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.side_effect = RuntimeError("API error")
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        with pytest.raises(RuntimeError):
+            fetch_acs_county_sub_demographics()
+
+        session.rollback.assert_called_once()
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=True)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_existing_vintages(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_county_sub_demographics()
+
+        mock_fetch.assert_not_called()
+        session.add_all.assert_not_called()
+
+
+# -- compute_subdivision_demographics tests ----------------------------------
+
+
+class TestComputeSubdivisionDemographics:
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_basic_computation(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        # Mock SQL result with column names matching the query output
+        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        row_values = [329933, "Test Subdivision"]
+        # Set count fields to various values
+        for i, _ in enumerate(_COUNT_FIELDS):
+            row_values.append(1000 + i)
+        # Set median fields
+        row_values.append(35.5)  # median_age
+        row_values.append(65000)  # median_household_income
+        row_values.append(285000)  # median_home_value
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [tuple(row_values)]
+        mock_result.keys.return_value = columns
+        session.execute.return_value = mock_result
+
+        compute_subdivision_demographics()
+
+        # Verify records were created
+        assert session.add_all.call_count == 1
+        records = session.add_all.call_args[0][0]
+        assert len(records) == 1
+        assert records[0].geography_level == "subdivision"
+        assert records[0].geoid == "37183S329933"
+        assert records[0].name == "Test Subdivision"
+        assert records[0].total_population == 1000
+        assert records[0].median_age == 35.5
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_no_overlaps(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        mock_result.keys.return_value = []
+        session.execute.return_value = mock_result
+
+        compute_subdivision_demographics()
+
+        # Should still call add_all with empty list
+        records = session.add_all.call_args[0][0]
+        assert len(records) == 0
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_rollback_on_error(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        session = _mock_session()
+        mock_session_cls.return_value = session
+        session.execute.side_effect = RuntimeError("DB error")
+
+        with pytest.raises(RuntimeError):
+            compute_subdivision_demographics()
+
+        session.rollback.assert_called_once()
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_multiple_subdivisions(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        rows = []
+        for obj_id, name in [(100, "Sub A"), (200, "Sub B")]:
+            vals = [obj_id, name]
+            for _ in _COUNT_FIELDS:
+                vals.append(500)
+            vals.extend([30.0, 50000, 200000])  # medians
+            rows.append(tuple(vals))
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = rows
+        mock_result.keys.return_value = columns
+        session.execute.return_value = mock_result
+
+        compute_subdivision_demographics()
+
+        records = session.add_all.call_args[0][0]
+        assert len(records) == 2
+        geoids = {r.geoid for r in records}
+        assert geoids == {"37183S100", "37183S200"}
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_null_median_values(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings()
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        vals = [999, "Sparse Sub"]
+        for _ in _COUNT_FIELDS:
+            vals.append(0)
+        vals.extend([None, None, None])  # null medians
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [tuple(vals)]
+        mock_result.keys.return_value = columns
+        session.execute.return_value = mock_result
+
+        compute_subdivision_demographics()
+
+        records = session.add_all.call_args[0][0]
+        assert records[0].median_age is None
+        assert records[0].median_household_income is None
+        assert records[0].median_home_value is None
+
+    @patch(_PATCH_LEVEL_EXISTS, return_value=True)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_skips_existing_vintages(self, mock_settings, mock_session_cls, _le):
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        compute_subdivision_demographics()
+
+        session.add_all.assert_not_called()
 
 
 # -- verify_acs_demographics tests -------------------------------------------
@@ -507,10 +1006,10 @@ class TestVerifyAcsDemographics:
 
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics.get_settings")
-    def test_empty_tract_table_raises(self, mock_settings, mock_session_cls):
+    def test_empty_table_raises(self, mock_settings, mock_session_cls):
         mock_settings.return_value = _make_settings()
         session = _mock_session()
-        # First call (total count for tract) returns 0
+        # First call (total count) returns 0
         result_mock = MagicMock()
         result_mock.scalar.return_value = 0
         session.execute.return_value = result_mock

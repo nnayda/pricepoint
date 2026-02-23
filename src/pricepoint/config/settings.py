@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     census_api_key: str = ""
     census_acs_base_url: str = "https://api.census.gov/data"
     census_acs_vintages: list[int] = [2009, 2014, 2019, 2024]
+    census_acs_block_group_min_year: int = 2014
 
     # FRED API (economic indicators)
     fred_api_key: str = ""

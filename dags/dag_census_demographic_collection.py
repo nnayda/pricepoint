@@ -1,8 +1,11 @@
 """DAG: Collect Census ACS 5-Year demographic estimates.
 
 Manual-trigger DAG that downloads population, age, race, income, education,
-home ownership, and home value data at tract and block group levels for
+home ownership, and home value data at multiple geographic levels for
 multiple non-overlapping ACS vintages into PostGIS.
+
+Levels: national, state, county, county subdivision, tract, block group,
+and Wake subdivision (area-weighted from block groups).
 """
 
 import logging
@@ -46,6 +49,33 @@ def census_demographic_collection():
         fetch_acs_block_group_demographics()
 
     @task()
+    def fetch_summary_demographics():
+        """Fetch ACS national, state, and county demographics for all vintages."""
+        from pricepoint.data.geospatial.census_demographics import (
+            fetch_acs_summary_demographics,
+        )
+
+        fetch_acs_summary_demographics()
+
+    @task()
+    def fetch_county_sub_demographics():
+        """Fetch ACS county subdivision demographics for all vintages."""
+        from pricepoint.data.geospatial.census_demographics import (
+            fetch_acs_county_sub_demographics,
+        )
+
+        fetch_acs_county_sub_demographics()
+
+    @task()
+    def compute_subdivision_demo():
+        """Compute Wake subdivision demographics from block group data."""
+        from pricepoint.data.geospatial.census_demographics import (
+            compute_subdivision_demographics,
+        )
+
+        compute_subdivision_demographics()
+
+    @task()
     def verify_load():
         """Verify that ACS demographic records were loaded."""
         from pricepoint.data.geospatial.census_demographics import (
@@ -54,7 +84,18 @@ def census_demographic_collection():
 
         verify_acs_demographics()
 
-    [fetch_tract_demographics(), fetch_block_group_demographics()] >> verify_load()
+    t_tract = fetch_tract_demographics()
+    t_bg = fetch_block_group_demographics()
+    t_summary = fetch_summary_demographics()
+    t_cousub = fetch_county_sub_demographics()
+    t_subdiv = compute_subdivision_demo()
+    t_verify = verify_load()
+
+    # Block group data must be ready before subdivision computation
+    t_bg >> t_subdiv
+
+    # All tasks must complete before verification
+    [t_tract, t_bg, t_summary, t_cousub, t_subdiv] >> t_verify
 
 
 census_demographic_collection()

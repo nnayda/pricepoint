@@ -1,18 +1,23 @@
 """Collect ACS 5-Year demographic estimates from the Census Bureau API.
 
 Downloads population, age, race, income, education, home ownership, and
-home value data at tract and block group levels for multiple non-overlapping
+home value data at multiple geographic levels for multiple non-overlapping
 vintages (e.g. 2009, 2014, 2019, 2024) and loads them into PostGIS.
+
+Supported geography levels:
+  - us, state, county, county_subdivision (from Census API)
+  - tract, block_group (from Census API)
+  - subdivision (area-weighted aggregation from block group data)
 """
 
 import logging
 
 import httpx
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
-from pricepoint.db.models import AcsBlockGroupDemographic, AcsTractDemographic
+from pricepoint.db.models import AcsDemographic
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +36,6 @@ _CHUNK_1_VARS = (
     + _B01001_MALE_VARS
     + _B01001_FEMALE_VARS
     # B01002 median age
-    + ["B01002_001E"]
-    # B02001 race (8 vars)
-    + [f"B02001_{i:03d}E" for i in range(1, 9)]
-    # B03003 hispanic (3 vars)
-    + [f"B03003_{i:03d}E" for i in range(1, 4)]
-)  # 3+23+23+1+8+3 = 61 → split needed
-
-# Actually let's re-chunk to stay under 50 per request.
-# Chunk 1: B01001 totals + male age + female age + B01002 median age = 3+23+23+1 = 50
-_CHUNK_1_VARS = (
-    ["B01001_001E", "B01001_002E", "B01001_026E"]
-    + _B01001_MALE_VARS
-    + _B01001_FEMALE_VARS
     + ["B01002_001E"]
 )  # 50
 
@@ -85,7 +77,7 @@ _MALE_18_TO_22 = [f"B01001_{i:03d}E" for i in range(7, 10)]  # 007-009 (18-19, 2
 _MALE_23_TO_29 = [f"B01001_{i:03d}E" for i in range(10, 12)]  # 010-011 (22-24, 25-29)
 _MALE_30_TO_39 = [f"B01001_{i:03d}E" for i in range(12, 14)]  # 012-013 (30-34, 35-39)
 _MALE_40_TO_49 = [f"B01001_{i:03d}E" for i in range(14, 16)]  # 014-015 (40-44, 45-49)
-_MALE_50_TO_64 = [f"B01001_{i:03d}E" for i in range(16, 20)]  # 016-019 (50-54, 55-59, 60-61, 62-64)
+_MALE_50_TO_64 = [f"B01001_{i:03d}E" for i in range(16, 20)]  # 016-019 (50-54..62-64)
 _MALE_65_PLUS = [f"B01001_{i:03d}E" for i in range(20, 26)]  # 020-025
 
 # Female counterparts (offset by 24: female vars start at 027)
@@ -98,6 +90,109 @@ _FEMALE_50_TO_64 = [f"B01001_{i:03d}E" for i in range(40, 44)]  # 040-043
 _FEMALE_65_PLUS = [f"B01001_{i:03d}E" for i in range(44, 50)]
 
 _SENTINEL = "-666666666"
+
+# Geography parameter configurations for Census API
+_GEO_CONFIGS: dict[str, dict[str, str | list[str] | bool]] = {
+    "us": {
+        "geo_for": "us:*",
+        "geo_in": "",
+        "geo_cols": ["us"],
+        "needs_state": False,
+        "needs_county": False,
+    },
+    "state": {
+        "geo_for": "state:{state_fips}",
+        "geo_in": "",
+        "geo_cols": ["state"],
+        "needs_state": True,
+        "needs_county": False,
+    },
+    "county": {
+        "geo_for": "county:{county_fips}",
+        "geo_in": "state:{state_fips}",
+        "geo_cols": ["state", "county"],
+        "needs_state": True,
+        "needs_county": True,
+    },
+    "county subdivision": {
+        "geo_for": "county subdivision:*",
+        "geo_in": "state:{state_fips}+county:{county_fips}",
+        "geo_cols": ["state", "county", "county subdivision"],
+        "needs_state": True,
+        "needs_county": True,
+    },
+    "tract": {
+        "geo_for": "tract:*",
+        "geo_in": "state:{state_fips}+county:{county_fips}",
+        "geo_cols": ["state", "county", "tract"],
+        "needs_state": True,
+        "needs_county": True,
+    },
+    "block group": {
+        "geo_for": "block group:*",
+        "geo_in": "state:{state_fips}+county:{county_fips}+tract:*",
+        "geo_cols": ["state", "county", "tract", "block group"],
+        "needs_state": True,
+        "needs_county": True,
+    },
+}
+
+# Count fields that should be summed with area weights in subdivision aggregation
+_COUNT_FIELDS = [
+    "total_population",
+    "male_population",
+    "female_population",
+    "pop_under_18",
+    "pop_18_to_22",
+    "pop_23_to_29",
+    "pop_30_to_39",
+    "pop_40_to_49",
+    "pop_50_to_64",
+    "pop_65_plus",
+    "race_white",
+    "race_black",
+    "race_american_indian",
+    "race_asian",
+    "race_pacific_islander",
+    "race_other",
+    "race_two_or_more",
+    "hispanic_total",
+    "not_hispanic",
+    "hispanic",
+    "total_households",
+    "hh_income_under_10k",
+    "hh_income_10k_to_15k",
+    "hh_income_15k_to_20k",
+    "hh_income_20k_to_25k",
+    "hh_income_25k_to_30k",
+    "hh_income_30k_to_35k",
+    "hh_income_35k_to_40k",
+    "hh_income_40k_to_45k",
+    "hh_income_45k_to_50k",
+    "hh_income_50k_to_60k",
+    "hh_income_60k_to_75k",
+    "hh_income_75k_to_100k",
+    "hh_income_100k_to_125k",
+    "hh_income_125k_to_150k",
+    "hh_income_150k_to_200k",
+    "hh_income_200k_plus",
+    "edu_total",
+    "edu_less_than_hs",
+    "edu_high_school",
+    "edu_some_college",
+    "edu_bachelors",
+    "edu_graduate_plus",
+    "housing_total_occupied",
+    "housing_owner_occupied",
+    "housing_renter_occupied",
+]
+
+# Median fields that use population-weighted averaging in subdivision aggregation
+_MEDIAN_FIELDS = [
+    "median_age",
+    "median_household_income",
+    "median_home_value",
+]
 
 
 def _safe_int(value: str | None) -> int | None:
@@ -125,9 +220,19 @@ def _extract_geoid(row: dict[str, str], geo_level: str) -> str:
     state = row.get("state", "")
     county = row.get("county", "")
     tract = row.get("tract", "")
+    if geo_level == "us":
+        return row.get("us", "1")
+    if geo_level == "state":
+        return state
+    if geo_level == "county":
+        return f"{state}{county}"
+    if geo_level == "county subdivision":
+        cousub = row.get("county subdivision", "")
+        return f"{state}{county}{cousub}"
     if geo_level == "block group":
         block_group = row.get("block group", "")
         return f"{state}{county}{tract}{block_group}"
+    # Default: tract
     return f"{state}{county}{tract}"
 
 
@@ -203,123 +308,74 @@ def _aggregate_education(row: dict[str, str], year: int) -> dict[str, int | None
     }
 
 
-def _map_tract_record(row: dict[str, str], acs_year: int) -> AcsTractDemographic:
-    """Map a merged Census API row to an AcsTractDemographic model."""
+def _map_demographic_kwargs(row: dict[str, str], acs_year: int) -> dict:
+    """Extract shared demographic column values from a Census API row."""
     age = _aggregate_age_brackets(row)
     edu = _aggregate_education(row, acs_year)
-    return AcsTractDemographic(
-        geoid=_extract_geoid(row, "tract"),
-        name=row.get("NAME"),
-        acs_year=acs_year,
-        total_population=_safe_int(row.get("B01001_001E")),
-        male_population=_safe_int(row.get("B01001_002E")),
-        female_population=_safe_int(row.get("B01001_026E")),
-        pop_under_18=age["pop_under_18"],
-        pop_18_to_22=age["pop_18_to_22"],
-        pop_23_to_29=age["pop_23_to_29"],
-        pop_30_to_39=age["pop_30_to_39"],
-        pop_40_to_49=age["pop_40_to_49"],
-        pop_50_to_64=age["pop_50_to_64"],
-        pop_65_plus=age["pop_65_plus"],
-        median_age=_safe_float(row.get("B01002_001E")),
-        race_white=_safe_int(row.get("B02001_002E")),
-        race_black=_safe_int(row.get("B02001_003E")),
-        race_american_indian=_safe_int(row.get("B02001_004E")),
-        race_asian=_safe_int(row.get("B02001_005E")),
-        race_pacific_islander=_safe_int(row.get("B02001_006E")),
-        race_other=_safe_int(row.get("B02001_007E")),
-        race_two_or_more=_safe_int(row.get("B02001_008E")),
-        hispanic_total=_safe_int(row.get("B03003_001E")),
-        not_hispanic=_safe_int(row.get("B03003_002E")),
-        hispanic=_safe_int(row.get("B03003_003E")),
-        total_households=_safe_int(row.get("B19001_001E")),
-        hh_income_under_10k=_safe_int(row.get("B19001_002E")),
-        hh_income_10k_to_15k=_safe_int(row.get("B19001_003E")),
-        hh_income_15k_to_20k=_safe_int(row.get("B19001_004E")),
-        hh_income_20k_to_25k=_safe_int(row.get("B19001_005E")),
-        hh_income_25k_to_30k=_safe_int(row.get("B19001_006E")),
-        hh_income_30k_to_35k=_safe_int(row.get("B19001_007E")),
-        hh_income_35k_to_40k=_safe_int(row.get("B19001_008E")),
-        hh_income_40k_to_45k=_safe_int(row.get("B19001_009E")),
-        hh_income_45k_to_50k=_safe_int(row.get("B19001_010E")),
-        hh_income_50k_to_60k=_safe_int(row.get("B19001_011E")),
-        hh_income_60k_to_75k=_safe_int(row.get("B19001_012E")),
-        hh_income_75k_to_100k=_safe_int(row.get("B19001_013E")),
-        hh_income_100k_to_125k=_safe_int(row.get("B19001_014E")),
-        hh_income_125k_to_150k=_safe_int(row.get("B19001_015E")),
-        hh_income_150k_to_200k=_safe_int(row.get("B19001_016E")),
-        hh_income_200k_plus=_safe_int(row.get("B19001_017E")),
-        median_household_income=_safe_int(row.get("B19013_001E")),
-        edu_total=edu["edu_total"],
-        edu_less_than_hs=edu["edu_less_than_hs"],
-        edu_high_school=edu["edu_high_school"],
-        edu_some_college=edu["edu_some_college"],
-        edu_bachelors=edu["edu_bachelors"],
-        edu_graduate_plus=edu["edu_graduate_plus"],
-        housing_total_occupied=_safe_int(row.get("B25003_001E")),
-        housing_owner_occupied=_safe_int(row.get("B25003_002E")),
-        housing_renter_occupied=_safe_int(row.get("B25003_003E")),
-        median_home_value=_safe_int(row.get("B25077_001E")),
-    )
+    return {
+        "name": row.get("NAME"),
+        "acs_year": acs_year,
+        "total_population": _safe_int(row.get("B01001_001E")),
+        "male_population": _safe_int(row.get("B01001_002E")),
+        "female_population": _safe_int(row.get("B01001_026E")),
+        "pop_under_18": age["pop_under_18"],
+        "pop_18_to_22": age["pop_18_to_22"],
+        "pop_23_to_29": age["pop_23_to_29"],
+        "pop_30_to_39": age["pop_30_to_39"],
+        "pop_40_to_49": age["pop_40_to_49"],
+        "pop_50_to_64": age["pop_50_to_64"],
+        "pop_65_plus": age["pop_65_plus"],
+        "median_age": _safe_float(row.get("B01002_001E")),
+        "race_white": _safe_int(row.get("B02001_002E")),
+        "race_black": _safe_int(row.get("B02001_003E")),
+        "race_american_indian": _safe_int(row.get("B02001_004E")),
+        "race_asian": _safe_int(row.get("B02001_005E")),
+        "race_pacific_islander": _safe_int(row.get("B02001_006E")),
+        "race_other": _safe_int(row.get("B02001_007E")),
+        "race_two_or_more": _safe_int(row.get("B02001_008E")),
+        "hispanic_total": _safe_int(row.get("B03003_001E")),
+        "not_hispanic": _safe_int(row.get("B03003_002E")),
+        "hispanic": _safe_int(row.get("B03003_003E")),
+        "total_households": _safe_int(row.get("B19001_001E")),
+        "hh_income_under_10k": _safe_int(row.get("B19001_002E")),
+        "hh_income_10k_to_15k": _safe_int(row.get("B19001_003E")),
+        "hh_income_15k_to_20k": _safe_int(row.get("B19001_004E")),
+        "hh_income_20k_to_25k": _safe_int(row.get("B19001_005E")),
+        "hh_income_25k_to_30k": _safe_int(row.get("B19001_006E")),
+        "hh_income_30k_to_35k": _safe_int(row.get("B19001_007E")),
+        "hh_income_35k_to_40k": _safe_int(row.get("B19001_008E")),
+        "hh_income_40k_to_45k": _safe_int(row.get("B19001_009E")),
+        "hh_income_45k_to_50k": _safe_int(row.get("B19001_010E")),
+        "hh_income_50k_to_60k": _safe_int(row.get("B19001_011E")),
+        "hh_income_60k_to_75k": _safe_int(row.get("B19001_012E")),
+        "hh_income_75k_to_100k": _safe_int(row.get("B19001_013E")),
+        "hh_income_100k_to_125k": _safe_int(row.get("B19001_014E")),
+        "hh_income_125k_to_150k": _safe_int(row.get("B19001_015E")),
+        "hh_income_150k_to_200k": _safe_int(row.get("B19001_016E")),
+        "hh_income_200k_plus": _safe_int(row.get("B19001_017E")),
+        "median_household_income": _safe_int(row.get("B19013_001E")),
+        "edu_total": edu["edu_total"],
+        "edu_less_than_hs": edu["edu_less_than_hs"],
+        "edu_high_school": edu["edu_high_school"],
+        "edu_some_college": edu["edu_some_college"],
+        "edu_bachelors": edu["edu_bachelors"],
+        "edu_graduate_plus": edu["edu_graduate_plus"],
+        "housing_total_occupied": _safe_int(row.get("B25003_001E")),
+        "housing_owner_occupied": _safe_int(row.get("B25003_002E")),
+        "housing_renter_occupied": _safe_int(row.get("B25003_003E")),
+        "median_home_value": _safe_int(row.get("B25077_001E")),
+    }
 
 
-def _map_block_group_record(row: dict[str, str], acs_year: int) -> AcsBlockGroupDemographic:
-    """Map a merged Census API row to an AcsBlockGroupDemographic model."""
-    age = _aggregate_age_brackets(row)
-    edu = _aggregate_education(row, acs_year)
-    return AcsBlockGroupDemographic(
-        geoid=_extract_geoid(row, "block group"),
-        name=row.get("NAME"),
-        acs_year=acs_year,
-        total_population=_safe_int(row.get("B01001_001E")),
-        male_population=_safe_int(row.get("B01001_002E")),
-        female_population=_safe_int(row.get("B01001_026E")),
-        pop_under_18=age["pop_under_18"],
-        pop_18_to_22=age["pop_18_to_22"],
-        pop_23_to_29=age["pop_23_to_29"],
-        pop_30_to_39=age["pop_30_to_39"],
-        pop_40_to_49=age["pop_40_to_49"],
-        pop_50_to_64=age["pop_50_to_64"],
-        pop_65_plus=age["pop_65_plus"],
-        median_age=_safe_float(row.get("B01002_001E")),
-        race_white=_safe_int(row.get("B02001_002E")),
-        race_black=_safe_int(row.get("B02001_003E")),
-        race_american_indian=_safe_int(row.get("B02001_004E")),
-        race_asian=_safe_int(row.get("B02001_005E")),
-        race_pacific_islander=_safe_int(row.get("B02001_006E")),
-        race_other=_safe_int(row.get("B02001_007E")),
-        race_two_or_more=_safe_int(row.get("B02001_008E")),
-        hispanic_total=_safe_int(row.get("B03003_001E")),
-        not_hispanic=_safe_int(row.get("B03003_002E")),
-        hispanic=_safe_int(row.get("B03003_003E")),
-        total_households=_safe_int(row.get("B19001_001E")),
-        hh_income_under_10k=_safe_int(row.get("B19001_002E")),
-        hh_income_10k_to_15k=_safe_int(row.get("B19001_003E")),
-        hh_income_15k_to_20k=_safe_int(row.get("B19001_004E")),
-        hh_income_20k_to_25k=_safe_int(row.get("B19001_005E")),
-        hh_income_25k_to_30k=_safe_int(row.get("B19001_006E")),
-        hh_income_30k_to_35k=_safe_int(row.get("B19001_007E")),
-        hh_income_35k_to_40k=_safe_int(row.get("B19001_008E")),
-        hh_income_40k_to_45k=_safe_int(row.get("B19001_009E")),
-        hh_income_45k_to_50k=_safe_int(row.get("B19001_010E")),
-        hh_income_50k_to_60k=_safe_int(row.get("B19001_011E")),
-        hh_income_60k_to_75k=_safe_int(row.get("B19001_012E")),
-        hh_income_75k_to_100k=_safe_int(row.get("B19001_013E")),
-        hh_income_100k_to_125k=_safe_int(row.get("B19001_014E")),
-        hh_income_125k_to_150k=_safe_int(row.get("B19001_015E")),
-        hh_income_150k_to_200k=_safe_int(row.get("B19001_016E")),
-        hh_income_200k_plus=_safe_int(row.get("B19001_017E")),
-        median_household_income=_safe_int(row.get("B19013_001E")),
-        edu_total=edu["edu_total"],
-        edu_less_than_hs=edu["edu_less_than_hs"],
-        edu_high_school=edu["edu_high_school"],
-        edu_some_college=edu["edu_some_college"],
-        edu_bachelors=edu["edu_bachelors"],
-        edu_graduate_plus=edu["edu_graduate_plus"],
-        housing_total_occupied=_safe_int(row.get("B25003_001E")),
-        housing_owner_occupied=_safe_int(row.get("B25003_002E")),
-        housing_renter_occupied=_safe_int(row.get("B25003_003E")),
-        median_home_value=_safe_int(row.get("B25077_001E")),
+def _map_record(
+    row: dict[str, str], acs_year: int, geo_level: str, geography_level: str
+) -> AcsDemographic:
+    """Map a merged Census API row to an AcsDemographic model."""
+    kwargs = _map_demographic_kwargs(row, acs_year)
+    return AcsDemographic(
+        geography_level=geography_level,
+        geoid=_extract_geoid(row, geo_level),
+        **kwargs,
     )
 
 
@@ -327,8 +383,8 @@ def _fetch_acs_data(
     year: int,
     variables: list[str],
     geo_level: str,
-    state_fips: str,
-    county_fips: str,
+    state_fips: str = "",
+    county_fips: str = "",
 ) -> list[dict[str, str]]:
     """Fetch ACS data, chunking if >50 variables, and merge rows by GEOID.
 
@@ -341,15 +397,11 @@ def _fetch_acs_data(
 
     base_url = f"{settings.census_acs_base_url}/{year}/acs/acs5"
 
-    # Geography parameter
-    if geo_level == "block group":
-        geo_for = "block group:*"
-        geo_in = f"state:{state_fips}+county:{county_fips}+tract:*"
-        geo_cols = ["state", "county", "tract", "block group"]
-    else:
-        geo_for = "tract:*"
-        geo_in = f"state:{state_fips}+county:{county_fips}"
-        geo_cols = ["state", "county", "tract"]
+    # Geography parameter from config
+    config = _GEO_CONFIGS[geo_level]
+    geo_for = str(config["geo_for"]).format(state_fips=state_fips, county_fips=county_fips)
+    geo_in_raw = str(config["geo_in"]).format(state_fips=state_fips, county_fips=county_fips)
+    geo_cols: list[str] = list(config["geo_cols"])  # type: ignore[arg-type]
 
     # Split into chunks of 49 (leave room for NAME)
     chunk_size = 49
@@ -359,12 +411,13 @@ def _fetch_acs_data(
 
     for chunk in chunks:
         get_param = ",".join(["NAME"] + chunk)
-        params = {
+        params: dict[str, str] = {
             "get": get_param,
             "for": geo_for,
-            "in": geo_in,
             "key": settings.census_api_key,
         }
+        if geo_in_raw:
+            params["in"] = geo_in_raw
         response = httpx.get(base_url, params=params, timeout=120)
         response.raise_for_status()
         data = response.json()
@@ -395,6 +448,37 @@ def _get_all_vars(year: int) -> list[str]:
     return _CHUNK_1_VARS + _CHUNK_2_VARS + chunk_3
 
 
+def _level_exists(session, year: int, geography_level: str) -> bool:  # type: ignore[no-untyped-def]
+    """Return True if records already exist for this level+year."""
+    count = session.execute(
+        select(func.count())
+        .select_from(AcsDemographic)
+        .where(
+            AcsDemographic.geography_level == geography_level,
+            AcsDemographic.acs_year == year,
+        )
+    ).scalar()
+    return bool(count and count > 0)
+
+
+def _upsert_level(
+    session,  # type: ignore[no-untyped-def]
+    year: int,
+    geography_level: str,
+    records: list[AcsDemographic],
+) -> None:
+    """Delete existing records for a level+year, then insert new ones."""
+    session.execute(
+        delete(AcsDemographic).where(
+            AcsDemographic.geography_level == geography_level,
+            AcsDemographic.acs_year == year,
+        )
+    )
+    session.commit()
+    session.add_all(records)
+    session.commit()
+
+
 def fetch_acs_tract_demographics() -> None:
     """Fetch ACS tract demographics for all configured vintages."""
     settings = get_settings()
@@ -402,6 +486,9 @@ def fetch_acs_tract_demographics() -> None:
     session = SessionLocal()
     try:
         for year in settings.census_acs_vintages:
+            if _level_exists(session, year, "tract"):
+                logger.info("Skipping ACS tract vintage %d — already loaded", year)
+                continue
             logger.info("Fetching ACS tract demographics for vintage %d", year)
             all_vars = _get_all_vars(year)
             rows = _fetch_acs_data(
@@ -409,13 +496,8 @@ def fetch_acs_tract_demographics() -> None:
             )
             logger.info("Received %d tract records for vintage %d", len(rows), year)
 
-            # Delete existing rows for this vintage, then insert
-            session.execute(delete(AcsTractDemographic).where(AcsTractDemographic.acs_year == year))
-            session.commit()
-
-            records = [_map_tract_record(r, year) for r in rows]
-            session.add_all(records)
-            session.commit()
+            records = [_map_record(r, year, "tract", "tract") for r in rows]
+            _upsert_level(session, year, "tract", records)
             logger.info("Loaded %d tract records for vintage %d", len(records), year)
 
         logger.info("ACS tract demographics load complete")
@@ -427,12 +509,28 @@ def fetch_acs_tract_demographics() -> None:
 
 
 def fetch_acs_block_group_demographics() -> None:
-    """Fetch ACS block group demographics for all configured vintages."""
+    """Fetch ACS block group demographics for eligible vintages.
+
+    Block group geography is not available in the Census API for early ACS
+    5-year releases (e.g. 2009).  The ``census_acs_block_group_min_year``
+    setting controls which vintages are included.
+    """
     settings = get_settings()
+    min_year = settings.census_acs_block_group_min_year
+    vintages = [y for y in settings.census_acs_vintages if y >= min_year]
+    if not vintages:
+        logger.warning(
+            "No ACS vintages eligible for block group fetch (min_year=%d)",
+            settings.census_acs_block_group_min_year,
+        )
+        return
 
     session = SessionLocal()
     try:
-        for year in settings.census_acs_vintages:
+        for year in vintages:
+            if _level_exists(session, year, "block_group"):
+                logger.info("Skipping ACS block group vintage %d — already loaded", year)
+                continue
             logger.info("Fetching ACS block group demographics for vintage %d", year)
             all_vars = _get_all_vars(year)
             rows = _fetch_acs_data(
@@ -444,14 +542,8 @@ def fetch_acs_block_group_demographics() -> None:
             )
             logger.info("Received %d block group records for vintage %d", len(rows), year)
 
-            session.execute(
-                delete(AcsBlockGroupDemographic).where(AcsBlockGroupDemographic.acs_year == year)
-            )
-            session.commit()
-
-            records = [_map_block_group_record(r, year) for r in rows]
-            session.add_all(records)
-            session.commit()
+            records = [_map_record(r, year, "block group", "block_group") for r in rows]
+            _upsert_level(session, year, "block_group", records)
             logger.info("Loaded %d block group records for vintage %d", len(records), year)
 
         logger.info("ACS block group demographics load complete")
@@ -462,35 +554,223 @@ def fetch_acs_block_group_demographics() -> None:
         session.close()
 
 
-def verify_acs_demographics() -> None:
-    """Verify that ACS demographic records were loaded for all vintages."""
+def fetch_acs_summary_demographics() -> None:
+    """Fetch ACS demographics for national, state, and county levels."""
     settings = get_settings()
+
+    # Mapping of Census API geo_level to our geography_level value
+    levels = [
+        ("us", "us"),
+        ("state", "state"),
+        ("county", "county"),
+    ]
+
     session = SessionLocal()
     try:
-        # Tract demographics
-        total = session.execute(select(func.count()).select_from(AcsTractDemographic)).scalar()
-        if not total:
-            raise RuntimeError("No records found in acs_tract_demographics after load")
-        logger.info("Verified %d total records in acs_tract_demographics", total)
         for year in settings.census_acs_vintages:
-            count = session.execute(
-                select(func.count())
-                .select_from(AcsTractDemographic)
-                .where(AcsTractDemographic.acs_year == year)
-            ).scalar()
-            logger.info("  Vintage %d: %d records in acs_tract_demographics", year, count)
+            for api_level, db_level in levels:
+                if _level_exists(session, year, db_level):
+                    logger.info("Skipping ACS %s vintage %d — already loaded", db_level, year)
+                    continue
+                logger.info("Fetching ACS %s demographics for vintage %d", db_level, year)
+                all_vars = _get_all_vars(year)
+                rows = _fetch_acs_data(
+                    year,
+                    all_vars,
+                    api_level,
+                    settings.tiger_state_fips,
+                    settings.tiger_county_fips,
+                )
+                logger.info("Received %d %s records for vintage %d", len(rows), db_level, year)
 
-        # Block group demographics
-        total = session.execute(select(func.count()).select_from(AcsBlockGroupDemographic)).scalar()
-        if not total:
-            raise RuntimeError("No records found in acs_block_group_demographics after load")
-        logger.info("Verified %d total records in acs_block_group_demographics", total)
+                records = [_map_record(r, year, api_level, db_level) for r in rows]
+                _upsert_level(session, year, db_level, records)
+                logger.info("Loaded %d %s records for vintage %d", len(records), db_level, year)
+
+        logger.info("ACS summary demographics load complete")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def fetch_acs_county_sub_demographics() -> None:
+    """Fetch ACS county subdivision demographics for all configured vintages."""
+    settings = get_settings()
+
+    session = SessionLocal()
+    try:
         for year in settings.census_acs_vintages:
-            count = session.execute(
+            if _level_exists(session, year, "county_subdivision"):
+                logger.info(
+                    "Skipping ACS county subdivision vintage %d — already loaded", year
+                )
+                continue
+            logger.info("Fetching ACS county subdivision demographics for vintage %d", year)
+            all_vars = _get_all_vars(year)
+            rows = _fetch_acs_data(
+                year,
+                all_vars,
+                "county subdivision",
+                settings.tiger_state_fips,
+                settings.tiger_county_fips,
+            )
+            logger.info("Received %d county subdivision records for vintage %d", len(rows), year)
+
+            records = [
+                _map_record(r, year, "county subdivision", "county_subdivision") for r in rows
+            ]
+            _upsert_level(session, year, "county_subdivision", records)
+            logger.info("Loaded %d county subdivision records for vintage %d", len(records), year)
+
+        logger.info("ACS county subdivision demographics load complete")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def compute_subdivision_demographics() -> None:
+    """Compute Wake subdivision demographics via area-weighted aggregation from block groups.
+
+    For each Wake subdivision, overlaps with TIGER block groups are computed using
+    ST_Intersects. Count fields are summed with area-proportion weights. Median fields
+    use population-weighted averages (documented approximation).
+
+    The geoid pattern is ``<county_geoid>S<subdivision_objectid>``,
+    e.g. ``37183S329933``.
+    """
+    settings = get_settings()
+    county_geoid = f"{settings.tiger_state_fips}{settings.tiger_county_fips}"
+
+    # Build SQL column expressions for count and median fields
+    count_cols = ",\n".join(
+        f"        ROUND(SUM(o.weight * ad.{f}))::int AS {f}" for f in _COUNT_FIELDS
+    )
+    median_cols = ",\n".join(
+        f"        CASE WHEN SUM(o.weight * ad.total_population) > 0\n"
+        f"             THEN SUM(o.weight * ad.total_population * ad.{f})\n"
+        f"                  / SUM(o.weight * ad.total_population)\n"
+        f"             ELSE NULL END AS {f}"
+        for f in _MEDIAN_FIELDS
+    )
+
+    sql = text(f"""
+        WITH bg_overlaps AS (
+            SELECT
+                ws.objectid AS subdivision_objectid,
+                ws.name AS subdivision_name,
+                ad.geoid AS bg_geoid,
+                ST_Area(ST_Intersection(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))::geography)
+                    / NULLIF(ST_Area(tbg.geom::geography), 0) AS weight
+            FROM wake_subdivisions ws
+            JOIN tiger_block_groups tbg ON ST_Intersects(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))
+            JOIN acs_demographics ad
+                ON tbg.geoid = ad.geoid
+                AND ad.geography_level = 'block_group'
+                AND ad.acs_year = :year
+        )
+        SELECT
+            o.subdivision_objectid,
+            o.subdivision_name,
+    {count_cols},
+    {median_cols}
+        FROM bg_overlaps o
+        JOIN acs_demographics ad
+            ON o.bg_geoid = ad.geoid
+            AND ad.geography_level = 'block_group'
+            AND ad.acs_year = :year
+        GROUP BY o.subdivision_objectid, o.subdivision_name
+        HAVING SUM(o.weight * ad.total_population) > 0
+    """)
+
+    session = SessionLocal()
+    try:
+        for year in settings.census_acs_vintages:
+            if _level_exists(session, year, "subdivision"):
+                logger.info("Skipping subdivision vintage %d — already loaded", year)
+                continue
+            logger.info("Computing subdivision demographics for vintage %d", year)
+            result = session.execute(sql, {"year": year})
+            rows = result.fetchall()
+            columns = list(result.keys())
+            logger.info("Computed %d subdivision aggregations for vintage %d", len(rows), year)
+
+            records = []
+            for row in rows:
+                row_dict = dict(zip(columns, row, strict=False))
+                objectid = row_dict["subdivision_objectid"]
+                geoid = f"{county_geoid}S{objectid}"
+                kwargs: dict = {
+                    "geography_level": "subdivision",
+                    "geoid": geoid,
+                    "name": row_dict["subdivision_name"],
+                    "acs_year": year,
+                }
+                for f in _COUNT_FIELDS:
+                    val = row_dict.get(f)
+                    kwargs[f] = int(val) if val is not None else None
+                for f in _MEDIAN_FIELDS:
+                    val = row_dict.get(f)
+                    if val is not None:
+                        if f == "median_age":
+                            kwargs[f] = round(float(val), 2)
+                        else:
+                            kwargs[f] = int(round(float(val)))
+                    else:
+                        kwargs[f] = None
+                records.append(AcsDemographic(**kwargs))
+
+            _upsert_level(session, year, "subdivision", records)
+            logger.info("Loaded %d subdivision records for vintage %d", len(records), year)
+
+        logger.info("Subdivision demographics computation complete")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def verify_acs_demographics() -> None:
+    """Verify that ACS demographic records were loaded for all levels and vintages."""
+    settings = get_settings()
+    session = SessionLocal()
+
+    expected_levels = [
+        "us",
+        "state",
+        "county",
+        "county_subdivision",
+        "tract",
+        "block_group",
+        "subdivision",
+    ]
+
+    try:
+        total = session.execute(select(func.count()).select_from(AcsDemographic)).scalar()
+        if not total:
+            raise RuntimeError("No records found in acs_demographics after load")
+        logger.info("Verified %d total records in acs_demographics", total)
+
+        for level in expected_levels:
+            level_total = session.execute(
                 select(func.count())
-                .select_from(AcsBlockGroupDemographic)
-                .where(AcsBlockGroupDemographic.acs_year == year)
+                .select_from(AcsDemographic)
+                .where(AcsDemographic.geography_level == level)
             ).scalar()
-            logger.info("  Vintage %d: %d records in acs_block_group_demographics", year, count)
+            logger.info("  Level %s: %d total records", level, level_total)
+            for year in settings.census_acs_vintages:
+                count = session.execute(
+                    select(func.count())
+                    .select_from(AcsDemographic)
+                    .where(
+                        AcsDemographic.geography_level == level,
+                        AcsDemographic.acs_year == year,
+                    )
+                ).scalar()
+                logger.info("    Vintage %d: %d records", year, count)
     finally:
         session.close()

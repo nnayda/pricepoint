@@ -1208,16 +1208,19 @@ class LlmPhotoScore(Base):
     )
 
 
-class AcsTractDemographic(Base):
-    """ACS 5-Year demographic estimates at census tract level.
+class AcsDemographic(Base):
+    """ACS 5-Year demographic estimates at multiple geographic levels.
 
-    No geometry; join to tiger_tracts via geoid.
+    Stores demographics for: us, state, county, county_subdivision,
+    tract, block_group, and subdivision (area-weighted from block groups).
+    No geometry; join to appropriate TIGER table via geoid.
     """
 
-    __tablename__ = "acs_tract_demographics"
+    __tablename__ = "acs_demographics"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    geoid = Column(String(11), nullable=False, index=True)
+    geography_level = Column(String(25), nullable=False, index=True)
+    geoid = Column(String(15), nullable=False, index=True)
     name = Column(String, nullable=True)
     acs_year = Column(Integer, nullable=False, index=True)
 
@@ -1291,94 +1294,12 @@ class AcsTractDemographic(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("geoid", "acs_year", name="uq_acs_tract_geoid_year"),
-    )
-
-
-class AcsBlockGroupDemographic(Base):
-    """ACS 5-Year demographic estimates at block group level.
-
-    No geometry; join to tiger_block_groups via geoid.
-    """
-
-    __tablename__ = "acs_block_group_demographics"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    geoid = Column(String(12), nullable=False, index=True)
-    name = Column(String, nullable=True)
-    acs_year = Column(Integer, nullable=False, index=True)
-
-    # Population (B01001)
-    total_population = Column(Integer, nullable=True)
-    male_population = Column(Integer, nullable=True)
-    female_population = Column(Integer, nullable=True)
-
-    # Age (aggregated from B01001 sub-vars)
-    pop_under_18 = Column(Integer, nullable=True)
-    pop_18_to_22 = Column(Integer, nullable=True)
-    pop_23_to_29 = Column(Integer, nullable=True)
-    pop_30_to_39 = Column(Integer, nullable=True)
-    pop_40_to_49 = Column(Integer, nullable=True)
-    pop_50_to_64 = Column(Integer, nullable=True)
-    pop_65_plus = Column(Integer, nullable=True)
-    median_age = Column(Float, nullable=True)
-
-    # Race (B02001)
-    race_white = Column(Integer, nullable=True)
-    race_black = Column(Integer, nullable=True)
-    race_american_indian = Column(Integer, nullable=True)
-    race_asian = Column(Integer, nullable=True)
-    race_pacific_islander = Column(Integer, nullable=True)
-    race_other = Column(Integer, nullable=True)
-    race_two_or_more = Column(Integer, nullable=True)
-
-    # Hispanic (B03003)
-    hispanic_total = Column(Integer, nullable=True)
-    not_hispanic = Column(Integer, nullable=True)
-    hispanic = Column(Integer, nullable=True)
-
-    # Income brackets (B19001)
-    total_households = Column(Integer, nullable=True)
-    hh_income_under_10k = Column(Integer, nullable=True)
-    hh_income_10k_to_15k = Column(Integer, nullable=True)
-    hh_income_15k_to_20k = Column(Integer, nullable=True)
-    hh_income_20k_to_25k = Column(Integer, nullable=True)
-    hh_income_25k_to_30k = Column(Integer, nullable=True)
-    hh_income_30k_to_35k = Column(Integer, nullable=True)
-    hh_income_35k_to_40k = Column(Integer, nullable=True)
-    hh_income_40k_to_45k = Column(Integer, nullable=True)
-    hh_income_45k_to_50k = Column(Integer, nullable=True)
-    hh_income_50k_to_60k = Column(Integer, nullable=True)
-    hh_income_60k_to_75k = Column(Integer, nullable=True)
-    hh_income_75k_to_100k = Column(Integer, nullable=True)
-    hh_income_100k_to_125k = Column(Integer, nullable=True)
-    hh_income_125k_to_150k = Column(Integer, nullable=True)
-    hh_income_150k_to_200k = Column(Integer, nullable=True)
-    hh_income_200k_plus = Column(Integer, nullable=True)
-
-    # Median income (B19013)
-    median_household_income = Column(Integer, nullable=True)
-
-    # Education (B15003, aggregated into 5 buckets, pop 25+)
-    edu_total = Column(Integer, nullable=True)
-    edu_less_than_hs = Column(Integer, nullable=True)
-    edu_high_school = Column(Integer, nullable=True)
-    edu_some_college = Column(Integer, nullable=True)
-    edu_bachelors = Column(Integer, nullable=True)
-    edu_graduate_plus = Column(Integer, nullable=True)
-
-    # Home ownership (B25003)
-    housing_total_occupied = Column(Integer, nullable=True)
-    housing_owner_occupied = Column(Integer, nullable=True)
-    housing_renter_occupied = Column(Integer, nullable=True)
-
-    # Home value (B25077)
-    median_home_value = Column(Integer, nullable=True)
-
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (
-        UniqueConstraint("geoid", "acs_year", name="uq_acs_block_group_geoid_year"),
+        UniqueConstraint(
+            "geography_level",
+            "geoid",
+            "acs_year",
+            name="uq_acs_demo_level_geoid_year",
+        ),
     )
 
 
