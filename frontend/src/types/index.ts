@@ -424,9 +424,12 @@ export interface RaceEthnicityTrendPoint {
 export interface AgeDistributionTrendPoint {
   year: number;
   under18: number;
-  age18_34: number;
-  age35_54: number;
-  age55plus: number;
+  age18_22: number;
+  age23_29: number;
+  age30_39: number;
+  age40_49: number;
+  age50_64: number;
+  age65plus: number;
 }
 
 export interface IncomeTrendPoint {

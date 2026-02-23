@@ -32,9 +32,11 @@ def _create_acs_table(table_name: str, geoid_length: int, uq_name: str) -> None:
         sa.Column("female_population", sa.Integer(), nullable=True),
         # Age
         sa.Column("pop_under_18", sa.Integer(), nullable=True),
-        sa.Column("pop_18_to_34", sa.Integer(), nullable=True),
-        sa.Column("pop_35_to_54", sa.Integer(), nullable=True),
-        sa.Column("pop_55_to_64", sa.Integer(), nullable=True),
+        sa.Column("pop_18_to_22", sa.Integer(), nullable=True),
+        sa.Column("pop_23_to_29", sa.Integer(), nullable=True),
+        sa.Column("pop_30_to_39", sa.Integer(), nullable=True),
+        sa.Column("pop_40_to_49", sa.Integer(), nullable=True),
+        sa.Column("pop_50_to_64", sa.Integer(), nullable=True),
         sa.Column("pop_65_plus", sa.Integer(), nullable=True),
         sa.Column("median_age", sa.Float(), nullable=True),
         # Race

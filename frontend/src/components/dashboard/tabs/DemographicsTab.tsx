@@ -43,6 +43,8 @@ import {
   COLOR_CYAN,
   COLOR_GREEN,
   COLOR_AMBER,
+  COLOR_RED,
+  COLOR_BLUE,
   COLOR_PURPLE,
   COLOR_GRID_LINE,
 } from "../../../utils/chartTokens";
@@ -623,9 +625,12 @@ function RaceTrend({ d }: SubTabProps) {
 
 const AGE_COLORS = {
   under18: COLOR_INDIGO,
-  age18_34: COLOR_CYAN,
-  age35_54: COLOR_GREEN,
-  age55plus: COLOR_AMBER,
+  age18_22: COLOR_CYAN,
+  age23_29: COLOR_GREEN,
+  age30_39: COLOR_AMBER,
+  age40_49: COLOR_RED,
+  age50_64: COLOR_BLUE,
+  age65plus: COLOR_PURPLE,
 };
 
 function AgeTrend({ d }: SubTabProps) {
@@ -654,9 +659,12 @@ function AgeTrend({ d }: SubTabProps) {
             formatter={((v: number, name: string) => [`${v}%`, name]) as any}
           />
           <Line type="monotone" dataKey="under18" name="Under 18" stroke={AGE_COLORS.under18} strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="age18_34" name="18–34" stroke={AGE_COLORS.age18_34} strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="age35_54" name="35–54" stroke={AGE_COLORS.age35_54} strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="age55plus" name="55+" stroke={AGE_COLORS.age55plus} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age18_22" name="18–22" stroke={AGE_COLORS.age18_22} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age23_29" name="23–29" stroke={AGE_COLORS.age23_29} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age30_39" name="30–39" stroke={AGE_COLORS.age30_39} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age40_49" name="40–49" stroke={AGE_COLORS.age40_49} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age50_64" name="50–64" stroke={AGE_COLORS.age50_64} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="age65plus" name="65+" stroke={AGE_COLORS.age65plus} strokeWidth={2} dot={{ r: 3 }} />
           <Legend
             iconType="circle"
             iconSize={8}

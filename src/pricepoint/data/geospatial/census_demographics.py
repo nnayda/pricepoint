@@ -81,16 +81,20 @@ _B15003_MIN_YEAR = 2014
 # 55-59: 017, 60-61: 018, 62-64: 019
 # 65-66: 020, 67-69: 021, 70-74: 022, 75-79: 023, 80-84: 024, 85+: 025
 _MALE_UNDER_18 = [f"B01001_{i:03d}E" for i in range(3, 7)]  # 003-006
-_MALE_18_TO_34 = [f"B01001_{i:03d}E" for i in range(7, 13)]  # 007-012
-_MALE_35_TO_54 = [f"B01001_{i:03d}E" for i in range(13, 17)]  # 013-016
-_MALE_55_TO_64 = [f"B01001_{i:03d}E" for i in range(17, 20)]  # 017-019
+_MALE_18_TO_22 = [f"B01001_{i:03d}E" for i in range(7, 10)]  # 007-009 (18-19, 20, 21)
+_MALE_23_TO_29 = [f"B01001_{i:03d}E" for i in range(10, 12)]  # 010-011 (22-24, 25-29)
+_MALE_30_TO_39 = [f"B01001_{i:03d}E" for i in range(12, 14)]  # 012-013 (30-34, 35-39)
+_MALE_40_TO_49 = [f"B01001_{i:03d}E" for i in range(14, 16)]  # 014-015 (40-44, 45-49)
+_MALE_50_TO_64 = [f"B01001_{i:03d}E" for i in range(16, 20)]  # 016-019 (50-54, 55-59, 60-61, 62-64)
 _MALE_65_PLUS = [f"B01001_{i:03d}E" for i in range(20, 26)]  # 020-025
 
 # Female counterparts (offset by 24: female vars start at 027)
 _FEMALE_UNDER_18 = [f"B01001_{i:03d}E" for i in range(27, 31)]
-_FEMALE_18_TO_34 = [f"B01001_{i:03d}E" for i in range(31, 37)]
-_FEMALE_35_TO_54 = [f"B01001_{i:03d}E" for i in range(37, 41)]
-_FEMALE_55_TO_64 = [f"B01001_{i:03d}E" for i in range(41, 44)]
+_FEMALE_18_TO_22 = [f"B01001_{i:03d}E" for i in range(31, 34)]  # 031-033
+_FEMALE_23_TO_29 = [f"B01001_{i:03d}E" for i in range(34, 36)]  # 034-035
+_FEMALE_30_TO_39 = [f"B01001_{i:03d}E" for i in range(36, 38)]  # 036-037
+_FEMALE_40_TO_49 = [f"B01001_{i:03d}E" for i in range(38, 40)]  # 038-039
+_FEMALE_50_TO_64 = [f"B01001_{i:03d}E" for i in range(40, 44)]  # 040-043
 _FEMALE_65_PLUS = [f"B01001_{i:03d}E" for i in range(44, 50)]
 
 _SENTINEL = "-666666666"
@@ -128,7 +132,7 @@ def _extract_geoid(row: dict[str, str], geo_level: str) -> str:
 
 
 def _aggregate_age_brackets(row: dict[str, str]) -> dict[str, int | None]:
-    """Aggregate B01001 sub-variables into 5 age buckets."""
+    """Aggregate B01001 sub-variables into 7 age buckets."""
 
     def _sum_vars(var_list: list[str]) -> int | None:
         vals = [_safe_int(row.get(v)) for v in var_list]
@@ -137,9 +141,11 @@ def _aggregate_age_brackets(row: dict[str, str]) -> dict[str, int | None]:
 
     return {
         "pop_under_18": _sum_vars(_MALE_UNDER_18 + _FEMALE_UNDER_18),
-        "pop_18_to_34": _sum_vars(_MALE_18_TO_34 + _FEMALE_18_TO_34),
-        "pop_35_to_54": _sum_vars(_MALE_35_TO_54 + _FEMALE_35_TO_54),
-        "pop_55_to_64": _sum_vars(_MALE_55_TO_64 + _FEMALE_55_TO_64),
+        "pop_18_to_22": _sum_vars(_MALE_18_TO_22 + _FEMALE_18_TO_22),
+        "pop_23_to_29": _sum_vars(_MALE_23_TO_29 + _FEMALE_23_TO_29),
+        "pop_30_to_39": _sum_vars(_MALE_30_TO_39 + _FEMALE_30_TO_39),
+        "pop_40_to_49": _sum_vars(_MALE_40_TO_49 + _FEMALE_40_TO_49),
+        "pop_50_to_64": _sum_vars(_MALE_50_TO_64 + _FEMALE_50_TO_64),
         "pop_65_plus": _sum_vars(_MALE_65_PLUS + _FEMALE_65_PLUS),
     }
 
@@ -209,9 +215,11 @@ def _map_tract_record(row: dict[str, str], acs_year: int) -> AcsTractDemographic
         male_population=_safe_int(row.get("B01001_002E")),
         female_population=_safe_int(row.get("B01001_026E")),
         pop_under_18=age["pop_under_18"],
-        pop_18_to_34=age["pop_18_to_34"],
-        pop_35_to_54=age["pop_35_to_54"],
-        pop_55_to_64=age["pop_55_to_64"],
+        pop_18_to_22=age["pop_18_to_22"],
+        pop_23_to_29=age["pop_23_to_29"],
+        pop_30_to_39=age["pop_30_to_39"],
+        pop_40_to_49=age["pop_40_to_49"],
+        pop_50_to_64=age["pop_50_to_64"],
         pop_65_plus=age["pop_65_plus"],
         median_age=_safe_float(row.get("B01002_001E")),
         race_white=_safe_int(row.get("B02001_002E")),
@@ -267,9 +275,11 @@ def _map_block_group_record(row: dict[str, str], acs_year: int) -> AcsBlockGroup
         male_population=_safe_int(row.get("B01001_002E")),
         female_population=_safe_int(row.get("B01001_026E")),
         pop_under_18=age["pop_under_18"],
-        pop_18_to_34=age["pop_18_to_34"],
-        pop_35_to_54=age["pop_35_to_54"],
-        pop_55_to_64=age["pop_55_to_64"],
+        pop_18_to_22=age["pop_18_to_22"],
+        pop_23_to_29=age["pop_23_to_29"],
+        pop_30_to_39=age["pop_30_to_39"],
+        pop_40_to_49=age["pop_40_to_49"],
+        pop_50_to_64=age["pop_50_to_64"],
         pop_65_plus=age["pop_65_plus"],
         median_age=_safe_float(row.get("B01002_001E")),
         race_white=_safe_int(row.get("B02001_002E")),

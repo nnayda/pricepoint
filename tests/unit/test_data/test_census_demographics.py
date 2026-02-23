@@ -192,27 +192,35 @@ class TestAggregateAgeBrackets:
 
     def test_all_brackets_populated(self):
         row = {}
-        # under 18
+        # under 18: male 003-006, female 027-030 (8 vars)
         for i in list(range(3, 7)) + list(range(27, 31)):
             row[f"B01001_{i:03d}E"] = "10"
-        # 18-34
-        for i in list(range(7, 13)) + list(range(31, 37)):
+        # 18-22: male 007-009, female 031-033 (6 vars)
+        for i in list(range(7, 10)) + list(range(31, 34)):
             row[f"B01001_{i:03d}E"] = "20"
-        # 35-54
-        for i in list(range(13, 17)) + list(range(37, 41)):
+        # 23-29: male 010-011, female 034-035 (4 vars)
+        for i in list(range(10, 12)) + list(range(34, 36)):
             row[f"B01001_{i:03d}E"] = "30"
-        # 55-64
-        for i in list(range(17, 20)) + list(range(41, 44)):
+        # 30-39: male 012-013, female 036-037 (4 vars)
+        for i in list(range(12, 14)) + list(range(36, 38)):
             row[f"B01001_{i:03d}E"] = "40"
-        # 65+
-        for i in list(range(20, 26)) + list(range(44, 50)):
+        # 40-49: male 014-015, female 038-039 (4 vars)
+        for i in list(range(14, 16)) + list(range(38, 40)):
             row[f"B01001_{i:03d}E"] = "50"
+        # 50-64: male 016-019, female 040-043 (8 vars)
+        for i in list(range(16, 20)) + list(range(40, 44)):
+            row[f"B01001_{i:03d}E"] = "60"
+        # 65+: male 020-025, female 044-049 (12 vars)
+        for i in list(range(20, 26)) + list(range(44, 50)):
+            row[f"B01001_{i:03d}E"] = "70"
         result = _aggregate_age_brackets(row)
         assert result["pop_under_18"] == 80  # 8 * 10
-        assert result["pop_18_to_34"] == 240  # 12 * 20
-        assert result["pop_35_to_54"] == 240  # 8 * 30
-        assert result["pop_55_to_64"] == 240  # 6 * 40
-        assert result["pop_65_plus"] == 600  # 12 * 50
+        assert result["pop_18_to_22"] == 120  # 6 * 20
+        assert result["pop_23_to_29"] == 120  # 4 * 30
+        assert result["pop_30_to_39"] == 160  # 4 * 40
+        assert result["pop_40_to_49"] == 200  # 4 * 50
+        assert result["pop_50_to_64"] == 480  # 8 * 60
+        assert result["pop_65_plus"] == 840  # 12 * 70
 
 
 # -- _aggregate_education tests -----------------------------------------------

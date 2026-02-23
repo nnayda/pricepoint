@@ -1228,9 +1228,11 @@ class AcsTractDemographic(Base):
 
     # Age (aggregated from B01001 sub-vars)
     pop_under_18 = Column(Integer, nullable=True)
-    pop_18_to_34 = Column(Integer, nullable=True)
-    pop_35_to_54 = Column(Integer, nullable=True)
-    pop_55_to_64 = Column(Integer, nullable=True)
+    pop_18_to_22 = Column(Integer, nullable=True)
+    pop_23_to_29 = Column(Integer, nullable=True)
+    pop_30_to_39 = Column(Integer, nullable=True)
+    pop_40_to_49 = Column(Integer, nullable=True)
+    pop_50_to_64 = Column(Integer, nullable=True)
     pop_65_plus = Column(Integer, nullable=True)
     median_age = Column(Float, nullable=True)
 
@@ -1313,9 +1315,11 @@ class AcsBlockGroupDemographic(Base):
 
     # Age (aggregated from B01001 sub-vars)
     pop_under_18 = Column(Integer, nullable=True)
-    pop_18_to_34 = Column(Integer, nullable=True)
-    pop_35_to_54 = Column(Integer, nullable=True)
-    pop_55_to_64 = Column(Integer, nullable=True)
+    pop_18_to_22 = Column(Integer, nullable=True)
+    pop_23_to_29 = Column(Integer, nullable=True)
+    pop_30_to_39 = Column(Integer, nullable=True)
+    pop_40_to_49 = Column(Integer, nullable=True)
+    pop_50_to_64 = Column(Integer, nullable=True)
     pop_65_plus = Column(Integer, nullable=True)
     median_age = Column(Float, nullable=True)
 
