@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/dashboard/DashboardLayout";
 import PropertyNotFoundDialog from "../components/PropertyNotFoundDialog";
+import { useDemographics } from "../hooks/useDemographics";
 import { usePropertyLookup } from "../hooks/usePropertyLookup";
 import { mockDashboardData } from "../data/mockDashboardData";
+import { mapDemographicsResponse } from "../utils/mapDemographicsResponse";
 import { mapPropertyResponse } from "../utils/mapPropertyResponse";
 
 function PropertyDashboardPage() {
@@ -14,11 +16,15 @@ function PropertyDashboardPage() {
   const decodedAddress = address ? decodeURIComponent(address) : null;
 
   const { data, loading, notFound, error } = usePropertyLookup(lat, lon, decodedAddress);
+  const { data: demoApi } = useDemographics(lat, lon);
 
   const dashboardData = useMemo(() => {
-    if (data) return mapPropertyResponse(data);
-    return mockDashboardData;
-  }, [data]);
+    const base = data ? mapPropertyResponse(data) : mockDashboardData;
+    if (demoApi) {
+      return { ...base, demographics: mapDemographicsResponse(demoApi) };
+    }
+    return base;
+  }, [data, demoApi]);
 
   if (loading) {
     return (

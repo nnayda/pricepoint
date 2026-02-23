@@ -1,0 +1,77 @@
+"""Pydantic response models for the demographics endpoint."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class LabelValue(BaseModel):
+    label: str
+    value: float
+
+
+class PopulationTrendPoint(BaseModel):
+    year: int
+    population: int
+
+
+class RaceEthnicityTrendPoint(BaseModel):
+    year: int
+    white: float
+    black: float
+    hispanic: float
+    asian: float
+    other: float
+
+
+class AgeDistributionTrendPoint(BaseModel):
+    year: int
+    under18: float
+    age18_22: float
+    age23_29: float
+    age30_39: float
+    age40_49: float
+    age50_64: float
+    age65plus: float
+
+
+class IncomeTrendPoint(BaseModel):
+    year: int
+    median_income: int
+
+
+class HomeOwnershipTrendPoint(BaseModel):
+    year: int
+    ownership_rate: float
+
+
+class AgeBucket(BaseModel):
+    range: str
+    male: float
+    female: float
+
+
+class DemographicContextData(BaseModel):
+    """Snapshot + trend data for a single geographic context."""
+
+    race_ethnicity: list[LabelValue]
+    age_distribution: list[AgeBucket]
+    median_income: int
+    income_brackets: list[LabelValue]
+    home_ownership_rate: float
+    median_home_value: int
+    population: int
+    population_trend: list[PopulationTrendPoint]
+    race_ethnicity_trend: list[RaceEthnicityTrendPoint]
+    age_distribution_trend: list[AgeDistributionTrendPoint]
+    income_trend: list[IncomeTrendPoint]
+    home_ownership_trend: list[HomeOwnershipTrendPoint]
+
+
+class DemographicsResponse(BaseModel):
+    """Full demographics response with multiple geographic contexts."""
+
+    contexts: dict[str, DemographicContextData]
+    benchmarks: dict[str, DemographicContextData]
+    boundaries: dict[str, dict | None]
+    choropleth: dict[str, list[dict]]

@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   DataRequestCreate,
   DataRequestResponse,
+  DemographicsApiResponse,
   PropertyResponse,
   SchoolNearby,
 } from "../types";
@@ -30,6 +31,35 @@ export async function getSchoolsNearby(
 ): Promise<SchoolNearby[]> {
   const { data } = await client.get<SchoolNearby[]>("/api/schools/nearby", {
     params: { lat, lon, radius_miles: radiusMiles, limit },
+  });
+  return data;
+}
+
+export async function getDemographics(lat: number, lon: number): Promise<DemographicsApiResponse> {
+  const { data } = await client.get<DemographicsApiResponse>("/api/demographics", {
+    params: { lat, lon },
+  });
+  return data;
+}
+
+export async function getDemographicsChoropleth(
+  context: string,
+  swLat: number,
+  swLon: number,
+  neLat: number,
+  neLon: number,
+  homeLat?: number,
+  homeLon?: number,
+): Promise<GeoJSON.Feature[]> {
+  const { data } = await client.get<GeoJSON.Feature[]>("/api/demographics/choropleth", {
+    params: {
+      context,
+      sw_lat: swLat,
+      sw_lon: swLon,
+      ne_lat: neLat,
+      ne_lon: neLon,
+      ...(homeLat != null && homeLon != null ? { home_lat: homeLat, home_lon: homeLon } : {}),
+    },
   });
   return data;
 }

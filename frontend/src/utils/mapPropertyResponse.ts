@@ -95,7 +95,7 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     price_history: mockDashboardData.price_history,
     risks: mockDashboardData.risks,
     crime: mockDashboardData.crime,
-    demographics: mockDashboardData.demographics,
+    demographics: mockDashboardData.demographics, // overridden by useDemographics hook when API data available
     schools:
       resp.schools.length > 0
         ? resp.schools.map((s) => ({

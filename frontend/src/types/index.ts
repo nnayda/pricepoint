@@ -457,7 +457,7 @@ export interface DemographicDataset {
   home_ownership_trend: HomeOwnershipTrendPoint[];
 }
 
-export type DemographicContext = "subdivision" | "neighborhood" | "town";
+export type DemographicContext = "subdivision" | "block_group" | "neighborhood" | "town" | "county";
 export type DemographicSubTab = "population" | "race" | "age" | "income" | "ownership";
 
 export interface DemographicData {
@@ -475,6 +475,45 @@ export interface DemographicData {
   age_distribution_trend: AgeDistributionTrendPoint[];
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
+  benchmarks?: Record<string, DemographicDataset>;
+  boundaries?: Record<string, GeoJSON.GeoJsonObject | null>;
+  choropleth?: Record<DemographicContext, GeoJSON.FeatureCollection>;
+}
+
+export interface DemographicsApiContextData {
+  race_ethnicity: { label: string; value: number }[];
+  age_distribution: { range: string; male: number; female: number }[];
+  median_income: number;
+  income_brackets: { label: string; value: number }[];
+  home_ownership_rate: number;
+  median_home_value: number;
+  population: number;
+  population_trend: { year: number; population: number }[];
+  race_ethnicity_trend: RaceEthnicityTrendPoint[];
+  age_distribution_trend: AgeDistributionTrendPoint[];
+  income_trend: IncomeTrendPoint[];
+  home_ownership_trend: HomeOwnershipTrendPoint[];
+}
+
+export interface ChoroplethFeatureProperties {
+  geoid: string;
+  name: string;
+  is_home: boolean;
+  population: number;
+  median_income: number;
+  median_age: number;
+  home_ownership_rate: number;
+  dominant_race: string;
+  dominant_race_pct: number;
+  pct_under_18: number;
+  pct_65_plus: number;
+}
+
+export interface DemographicsApiResponse {
+  contexts: Record<string, DemographicsApiContextData>;
+  benchmarks: Record<string, DemographicsApiContextData>;
+  boundaries: Record<string, GeoJSON.GeoJsonObject | null>;
+  choropleth: Record<string, GeoJSON.Feature[]>;
 }
 
 export interface DashboardSchool {

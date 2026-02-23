@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -19,15 +19,16 @@ import {
   RadialBar,
   PolarAngleAxis,
 } from "recharts";
-import { GeoJSON } from "react-leaflet";
+import { GeoJSON, useMap, useMapEvents } from "react-leaflet";
+import type { Layer } from "leaflet";
 import type { DashboardData, DemographicContext, DemographicSubTab, DemographicData } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import ChoroplethLegend from "../maps/ChoroplethLegend";
 import SemiCircularGauge from "../charts/SemiCircularGauge";
-import {
-  MOCK_BOUNDARIES,
-  MOCK_CHOROPLETH,
-} from "../../../data/mockDemographicGeo";
+import { MOCK_CHOROPLETH_MAP } from "../../../data/mockDemographicGeo";
+import { getChoroplethStyle, getTooltipText, getLegendConfig } from "../../../utils/choroplethColors";
+import { useChoropleth, type Bbox } from "../../../hooks/useChoropleth";
 import {
   TOOLTIP_CONTENT_STYLE,
   TOOLTIP_ITEM_STYLE,
@@ -55,8 +56,10 @@ interface DemographicsTabProps {
 
 const CONTEXT_OPTIONS: { value: DemographicContext; label: string }[] = [
   { value: "subdivision", label: "Subdivision" },
+  { value: "block_group", label: "Block Group" },
   { value: "neighborhood", label: "Neighborhood" },
   { value: "town", label: "Town" },
+  { value: "county", label: "County" },
 ];
 
 const SUB_TAB_OPTIONS: { value: DemographicSubTab; label: string }[] = [
@@ -69,27 +72,111 @@ const SUB_TAB_OPTIONS: { value: DemographicSubTab; label: string }[] = [
 
 const CONTEXT_ZOOM: Record<DemographicContext, number> = {
   subdivision: 15,
+  block_group: 15,
   neighborhood: 14,
   town: 12,
+  county: 10,
 };
 
-function getIncomeColor(income: number): string {
-  if (income >= 85000) return COLOR_GREEN;
-  if (income >= 70000) return COLOR_CYAN;
-  if (income >= 55000) return COLOR_AMBER;
-  return COLOR_INDIGO;
+/** Reports map viewport bounds on mount and on every moveend. */
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    },
+  });
+
+  // Fire initial bounds after mount so the hook can fetch immediately
+  useEffect(() => {
+    // Small delay to let MapContainer finish initializing
+    const timer = setTimeout(() => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    }, 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
+/** Programmatically updates map center/zoom when props change (MapContainer ignores prop updates). */
+function MapViewController({
+  center,
+  zoom,
+  onBoundsChange,
+}: {
+  center: [number, number];
+  zoom: number;
+  onBoundsChange: (bbox: Bbox) => void;
+}) {
+  const map = useMap();
+  const prevRef = useRef({ center, zoom });
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (prev.center[0] !== center[0] || prev.center[1] !== center[1] || prev.zoom !== zoom) {
+      prevRef.current = { center, zoom };
+      map.flyTo(center, zoom, { duration: 0.5 });
+
+      // After the fly animation completes, report new bounds
+      const onMoveEnd = () => {
+        const b = map.getBounds();
+        onBoundsChange({
+          swLat: b.getSouth(),
+          swLon: b.getWest(),
+          neLat: b.getNorth(),
+          neLon: b.getEast(),
+        });
+        map.off("moveend", onMoveEnd);
+      };
+      map.on("moveend", onMoveEnd);
+    }
+  }, [center, zoom, map, onBoundsChange]);
+
+  return null;
 }
 
 function DemographicsTab({ data }: DemographicsTabProps) {
   const { demographics, property } = data;
   const [context, setContext] = useState<DemographicContext>("neighborhood");
   const [subTab, setSubTab] = useState<DemographicSubTab>("population");
+  const [mapBbox, setMapBbox] = useState<Bbox | null>(null);
 
   const d = demographics.contexts[context];
 
-  const boundary = MOCK_BOUNDARIES[context];
-  const boundaryKey = useMemo(() => `boundary-${context}`, [context]);
-  const choroplethKey = useMemo(() => `choropleth-${context}`, [context]);
+  const initialChoropleth =
+    demographics.choropleth?.[context] ?? MOCK_CHOROPLETH_MAP[context];
+
+  const { data: choroplethData } = useChoropleth(
+    context,
+    mapBbox,
+    property.lat,
+    property.lon,
+    initialChoropleth,
+  );
+
+  // Key must change when data, context, or subTab changes to force GeoJSON remount
+  const choroplethKey = useMemo(
+    () => `choropleth-${context}-${subTab}-${choroplethData.features.length}`,
+    [context, subTab, choroplethData],
+  );
+  const legendConfig = useMemo(() => getLegendConfig(subTab), [subTab]);
+
+  const handleBoundsChange = useCallback((bbox: Bbox) => {
+    setMapBbox(bbox);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -177,35 +264,30 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                 height="100%"
                 minHeight="400px"
               >
-                {/* Choropleth tracts */}
+                <MapBoundsTracker onBoundsChange={handleBoundsChange} />
+                <MapViewController
+                  center={[property.lat, property.lon]}
+                  zoom={CONTEXT_ZOOM[context]}
+                  onBoundsChange={handleBoundsChange}
+                />
+                {/* Choropleth features — context + subTab aware */}
                 <GeoJSON
                   key={choroplethKey}
-                  data={MOCK_CHOROPLETH}
-                  style={(feature) => {
-                    const income = feature?.properties?.median_income ?? 60000;
-                    return {
-                      fillColor: getIncomeColor(income),
-                      fillOpacity: 0.25,
-                      color: COLOR_GRID_LINE,
-                      weight: 1,
-                    };
+                  data={choroplethData}
+                  style={(feature) => getChoroplethStyle(feature, subTab)}
+                  onEachFeature={(feature: GeoJSON.Feature, layer: Layer) => {
+                    const text = getTooltipText(
+                      (feature.properties ?? {}) as Record<string, unknown>,
+                      subTab,
+                    );
+                    layer.bindTooltip(text, {
+                      sticky: true,
+                      className: "leaflet-tooltip-choropleth",
+                    });
                   }}
                 />
-                {/* Context boundary */}
-                {boundary && (
-                  <GeoJSON
-                    key={boundaryKey}
-                    data={boundary}
-                    style={{
-                      fillColor: COLOR_INDIGO,
-                      fillOpacity: 0.08,
-                      color: COLOR_INDIGO,
-                      weight: 2,
-                      dashArray: "6 4",
-                    }}
-                  />
-                )}
               </DashboardMap>
+              <ChoroplethLegend config={legendConfig} />
             </div>
           </DashboardCard>
         </div>
@@ -299,8 +381,8 @@ function RaceSnapshot({ d }: SubTabProps) {
   );
 }
 
-/* Reference race data for state (NC) and national benchmarks */
-const RACE_STATE: { label: string; value: number; color: string }[] = [
+/* Fallback race data for state (NC) and national benchmarks */
+const RACE_STATE_FALLBACK: { label: string; value: number; color: string }[] = [
   { label: "White", value: 62.6, color: COLOR_INDIGO },
   { label: "Black", value: 20.8, color: COLOR_CYAN },
   { label: "Hispanic", value: 10.2, color: COLOR_GREEN },
@@ -308,7 +390,7 @@ const RACE_STATE: { label: string; value: number; color: string }[] = [
   { label: "Other", value: 3.1, color: COLOR_PURPLE },
 ];
 
-const RACE_NATIONAL: { label: string; value: number; color: string }[] = [
+const RACE_NATIONAL_FALLBACK: { label: string; value: number; color: string }[] = [
   { label: "White", value: 57.8, color: COLOR_INDIGO },
   { label: "Black", value: 12.1, color: COLOR_CYAN },
   { label: "Hispanic", value: 18.7, color: COLOR_GREEN },
@@ -316,7 +398,7 @@ const RACE_NATIONAL: { label: string; value: number; color: string }[] = [
   { label: "Other", value: 5.5, color: COLOR_PURPLE },
 ];
 
-const GEO_LABELS = ["National", "State (NC)", "Town", "Neighborhood", "Subdivision"] as const;
+const GEO_LABELS = ["National", "State (NC)", "County", "Town", "Neighborhood", "Block Group", "Subdivision"] as const;
 
 interface RaceComparisonProps {
   demographics: DemographicData;
@@ -327,11 +409,15 @@ function RaceComparison({ demographics, context }: RaceComparisonProps) {
   const { contexts } = demographics;
 
   const geoRows = useMemo(() => {
+    const nationalRace = demographics.benchmarks?.national?.race_ethnicity ?? RACE_NATIONAL_FALLBACK;
+    const stateRace = demographics.benchmarks?.state?.race_ethnicity ?? RACE_STATE_FALLBACK;
     const rows = [
-      { name: "National", data: RACE_NATIONAL },
-      { name: "State (NC)", data: RACE_STATE },
+      { name: "National", data: nationalRace },
+      { name: "State (NC)", data: stateRace },
+      { name: "County", data: contexts.county.race_ethnicity },
       { name: "Town", data: contexts.town.race_ethnicity },
       { name: "Neighborhood", data: contexts.neighborhood.race_ethnicity },
+      { name: "Block Group", data: contexts.block_group.race_ethnicity },
       { name: "Subdivision", data: contexts.subdivision.race_ethnicity },
     ];
     // Build radial bar data: one entry per geography, one RadialBar per race
@@ -342,7 +428,7 @@ function RaceComparison({ demographics, context }: RaceComparisonProps) {
       }
       return obj;
     });
-  }, [contexts]);
+  }, [contexts, demographics.benchmarks]);
 
   const raceKeys = ["White", "Black", "Hispanic", "Asian", "Other"];
   const raceColors: Record<string, string> = {
@@ -354,8 +440,13 @@ function RaceComparison({ demographics, context }: RaceComparisonProps) {
   };
 
   // Highlight the active context row
-  const activeGeoName =
-    context === "subdivision" ? "Subdivision" : context === "neighborhood" ? "Neighborhood" : "Town";
+  const activeGeoName: Record<DemographicContext, string> = {
+    subdivision: "Subdivision",
+    block_group: "Block Group",
+    neighborhood: "Neighborhood",
+    town: "Town",
+    county: "County",
+  };
 
   return (
     <DashboardCard>
@@ -403,7 +494,7 @@ function RaceComparison({ demographics, context }: RaceComparisonProps) {
             <span
               key={label}
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors ${
-                label === activeGeoName
+                label === activeGeoName[context]
                   ? "bg-[var(--color-db-accent)]/20 text-[var(--color-db-accent)]"
                   : "text-[var(--color-db-text-tertiary)]"
               }`}
