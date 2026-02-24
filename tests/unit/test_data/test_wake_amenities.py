@@ -33,14 +33,14 @@ class TestMapFarmersMarket:
         feature = _make_point_feature(
             {
                 "OBJECTID": 1,
-                "Name": "State Farmers Market",
-                "Location_Desc": "1201 Agriculture St",
-                "Organization": "NCDA",
-                "Active_Day": "Saturday",
-                "Months": "Apr-Nov",
-                "Hours": "8am-1pm",
-                "Website": "http://example.com",
-                "Phone": "919-555-0100",
+                "NAME": "State Farmers Market",
+                "LOCATION": "1201 Agriculture St",
+                "ORGANIZATI": "NCDA",
+                "ACTIVEDAY": "Saturday",
+                "MONTHS": "Apr-Nov",
+                "HOURS": "8am-1pm",
+                "WEBSITE": "http://example.com",
+                "PHONE": "919-555-0100",
             }
         )
         record = _map_farmers_market(feature)
@@ -77,16 +77,16 @@ class TestMapLibrary:
             {
                 "OBJECTID": 2,
                 "NAME": "Eva H. Perry Regional Library",
-                "ADDRESS": "2100 Shepherd's Vineyard Dr",
+                "FAC_ADDRESS": "2100 Shepherd's Vineyard Dr",
                 "CITY": "Apex",
                 "CODE": "EP",
                 "LABEL": "Eva Perry",
                 "STATUS": "Open",
-                "FACILITY_TYPE": "Regional",
-                "HOURS_MT": "9am-9pm",
-                "HOURS_FRI": "9am-6pm",
-                "HOURS_SAT": "9am-5pm",
-                "HOURS_SUN": "1pm-5pm",
+                "TYPE": "Regional",
+                "M_T": "9am-9pm",
+                "FRI": "9am-6pm",
+                "SAT": "9am-5pm",
+                "SUN": "1pm-5pm",
             }
         )
         record = _map_library(feature)
@@ -119,7 +119,7 @@ class TestMapHospital:
                 "ACUTE_CARE": "Yes",
                 "URL": "http://wakemed.org",
                 "TELEPHONE": "919-350-8000",
-                "GIS_EDIT_DATE": 1609459200000,
+                "GIS_EDT_DT": 1609459200000,
             }
         )
         record = _map_hospital(feature)

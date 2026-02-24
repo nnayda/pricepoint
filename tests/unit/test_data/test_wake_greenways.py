@@ -46,6 +46,9 @@ class TestMapWakeGreenway:
                 "OPEN_DATE": 1609459200000,
                 "PUBLIC_ACCESS": "Yes",
                 "ACCESSIBILITY_STATUS": "Accessible",
+                "TRAIL_CONDITION": "Good",
+                "SLOPE": "Flat",
+                "SUBSEGMENT_NAME": "Section A",
             }
         )
         record = _map_wake_greenway(feature)
@@ -57,6 +60,9 @@ class TestMapWakeGreenway:
         assert record.length == 27.5
         assert record.width == 10.0
         assert record.open_date == datetime(2021, 1, 1, tzinfo=UTC)
+        assert record.trail_condition == "Good"
+        assert record.slope == "Flat"
+        assert record.subsegment_name == "Section A"
         assert record.geom is not None
 
     def test_none_geometry(self):
@@ -81,15 +87,15 @@ class TestMapRaleighGreenway:
             {
                 "OBJECTID": 2,
                 "TRAIL_NAME": "Walnut Creek Trail",
-                "GREENWAY_TYPE": "Paved",
-                "LOCATION_DESC": "South Raleigh",
+                "TYPE": "Paved",
+                "LOCATION": "South Raleigh",
                 "STATUS": "Open",
                 "MATERIAL": "Asphalt",
                 "MAP_MILES": 3.5,
                 "WIDTH_FT": 10.0,
                 "OWNER": "City of Raleigh",
                 "ADA": "Yes",
-                "GW_STATUS": "Existing",
+                "GWSTATUS": "Existing",
             }
         )
         record = _map_raleigh_greenway(feature)
@@ -120,11 +126,17 @@ class TestMapCaryGreenway:
                 "SEGMENT": "Phase 2",
                 "LENGTH": 2.1,
                 "WIDTH": 10.0,
-                "TRAIL_TYPE": "Greenway",
-                "SURFACE_TYPE": "Asphalt",
+                "TRAILTYPE": "Greenway",
+                "SURFTYPE": "Asphalt",
                 "STATUS": "Open",
-                "INSTALL_DATE": 1609459200000,
-                "OPEN_TO_PUBLIC": "Yes",
+                "INSTALLDATE": 1609459200000,
+                "OPENTOPUBLIC": "Yes",
+                "PROJNAME": "Western Cary Greenways",
+                "PROJNUM": "P-2024-001",
+                "NOTES": "Phase 2 extension",
+                "LOOPTRAIL": "Yes",
+                "LOOPNAME": "Black Creek Loop",
+                "CARYGWAYMICOUNT": 1.8,
             }
         )
         record = _map_cary_greenway(feature)
@@ -135,6 +147,12 @@ class TestMapCaryGreenway:
         assert record.surface_type == "Asphalt"
         assert record.install_date == datetime(2021, 1, 1, tzinfo=UTC)
         assert record.open_to_public == "Yes"
+        assert record.project_name == "Western Cary Greenways"
+        assert record.project_number == "P-2024-001"
+        assert record.notes == "Phase 2 extension"
+        assert record.loop_trail == "Yes"
+        assert record.loop_name == "Black Creek Loop"
+        assert record.official_cary_greenway_miles == 1.8
         assert record.geom is not None
 
     def test_none_geometry(self):

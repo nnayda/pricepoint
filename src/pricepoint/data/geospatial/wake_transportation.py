@@ -27,7 +27,7 @@ def _map_railroad(feature: dict) -> WakeRailroad:
     paths = geometry.get("paths") if geometry else None
     return WakeRailroad(
         objectid=attrs.get("OBJECTID"),
-        branch_or=attrs.get("BRANCH_OR"),
+        branch_or=attrs.get("BRANCH_OR_"),
         track_type=attrs.get("TRACK_TYPE"),
         track_owner=attrs.get("TRACK_OWNER"),
         shape_length=attrs.get("Shape__Length") or attrs.get("SHAPE__Length"),
@@ -61,15 +61,15 @@ def _map_major_road(feature: dict) -> WakeMajorRoad:
     paths = geometry.get("paths") if geometry else None
     return WakeMajorRoad(
         objectid=attrs.get("OBJECTID"),
-        street_name=attrs.get("STREET_NAME"),
-        street_type=attrs.get("STREET_TYPE"),
-        dir_prefix=attrs.get("DIR_PREFIX"),
-        dir_suffix=attrs.get("DIR_SUFFIX"),
-        state_road=attrs.get("STATE_ROAD"),
-        carto_name=attrs.get("CARTO_NAME"),
-        corporation=attrs.get("CORPORATION"),
-        class_name=attrs.get("CLASS_NAME"),
-        label_name=attrs.get("LABEL_NAME"),
+        street_name=attrs.get("STNAME"),
+        street_type=attrs.get("STYPE"),
+        dir_prefix=attrs.get("DIR_PRE"),
+        dir_suffix=attrs.get("DIR_SUF"),
+        state_road=attrs.get("STATEROAD"),
+        carto_name=attrs.get("CARTONAME"),
+        corporation=attrs.get("CORP"),
+        class_name=attrs.get("CLASSNAME"),
+        label_name=attrs.get("LABELNAME"),
         geom=build_multilinestring_wkb(paths),
     )
 
@@ -100,19 +100,19 @@ def _map_highway(feature: dict) -> WakeHighway:
     paths = geometry.get("paths") if geometry else None
     return WakeHighway(
         objectid=attrs.get("OBJECTID"),
-        street_name=attrs.get("STREET_NAME"),
-        street_type=attrs.get("STREET_TYPE"),
-        dir_prefix=attrs.get("DIR_PREFIX"),
-        dir_suffix=attrs.get("DIR_SUFFIX"),
-        from_left=attrs.get("FROM_LEFT"),
-        to_left=attrs.get("TO_LEFT"),
-        from_right=attrs.get("FROM_RIGHT"),
-        to_right=attrs.get("TO_RIGHT"),
-        state_road=attrs.get("STATE_ROAD"),
-        carto_name=attrs.get("CARTO_NAME"),
-        corporation=attrs.get("CORPORATION"),
-        class_name=attrs.get("CLASS_NAME"),
-        label_name=attrs.get("LABEL_NAME"),
+        street_name=attrs.get("STNAME"),
+        street_type=attrs.get("STYPE"),
+        dir_prefix=attrs.get("DIR_PRE"),
+        dir_suffix=attrs.get("DIR_SUF"),
+        from_left=attrs.get("FRLEFT"),
+        to_left=attrs.get("TOLEFT"),
+        from_right=attrs.get("FRRIGHT"),
+        to_right=attrs.get("TORIGHT"),
+        state_road=attrs.get("STATEROAD"),
+        carto_name=attrs.get("CARTONAME"),
+        corporation=attrs.get("CORP"),
+        class_name=attrs.get("CLASSNAME"),
+        label_name=attrs.get("LABELNAME"),
         geom=build_multilinestring_wkb(paths),
     )
 

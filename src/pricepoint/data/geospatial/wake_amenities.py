@@ -26,14 +26,14 @@ def _map_farmers_market(feature: dict) -> WakeFarmersMarket:
     geometry = feature.get("geometry")
     return WakeFarmersMarket(
         objectid=attrs.get("OBJECTID"),
-        name=attrs.get("Name"),
-        location_desc=attrs.get("Location_Desc") or attrs.get("Location_desc"),
-        organization=attrs.get("Organization"),
-        active_day=attrs.get("Active_Day") or attrs.get("Active_day"),
-        months=attrs.get("Months"),
-        hours=attrs.get("Hours"),
-        website=attrs.get("Website"),
-        phone=attrs.get("Phone"),
+        name=attrs.get("NAME"),
+        location_desc=attrs.get("LOCATION"),
+        organization=attrs.get("ORGANIZATI"),
+        active_day=attrs.get("ACTIVEDAY"),
+        months=attrs.get("MONTHS"),
+        hours=attrs.get("HOURS"),
+        website=attrs.get("WEBSITE"),
+        phone=attrs.get("PHONE"),
         geom=build_point_wkb(geometry),
     )
 
@@ -63,17 +63,17 @@ def _map_library(feature: dict) -> WakeLibrary:
     geometry = feature.get("geometry")
     return WakeLibrary(
         objectid=attrs.get("OBJECTID"),
-        name=attrs.get("NAME") or attrs.get("Name"),
-        address=attrs.get("ADDRESS") or attrs.get("Address"),
-        city=attrs.get("CITY") or attrs.get("City"),
-        code=attrs.get("CODE") or attrs.get("Code"),
-        label=attrs.get("LABEL") or attrs.get("Label"),
-        status=attrs.get("STATUS") or attrs.get("Status"),
-        facility_type=attrs.get("FACILITY_TYPE") or attrs.get("Facility_Type"),
-        hours_mt=attrs.get("HOURS_MT") or attrs.get("Hours_MT"),
-        hours_fri=attrs.get("HOURS_FRI") or attrs.get("Hours_Fri"),
-        hours_sat=attrs.get("HOURS_SAT") or attrs.get("Hours_Sat"),
-        hours_sun=attrs.get("HOURS_SUN") or attrs.get("Hours_Sun"),
+        name=attrs.get("NAME"),
+        address=attrs.get("FAC_ADDRESS"),
+        city=attrs.get("CITY"),
+        code=attrs.get("CODE"),
+        label=attrs.get("LABEL"),
+        status=attrs.get("STATUS"),
+        facility_type=attrs.get("TYPE"),
+        hours_mt=attrs.get("M_T"),
+        hours_fri=attrs.get("FRI"),
+        hours_sat=attrs.get("SAT"),
+        hours_sun=attrs.get("SUN"),
         geom=build_point_wkb(geometry),
     )
 
@@ -110,7 +110,7 @@ def _map_hospital(feature: dict) -> WakeHospital:
         acute_care=attrs.get("ACUTE_CARE") or attrs.get("Acute_Care"),
         url=attrs.get("URL") or attrs.get("Url"),
         telephone=attrs.get("TELEPHONE") or attrs.get("Telephone"),
-        gis_edit_date=parse_arcgis_timestamp(attrs.get("GIS_EDIT_DATE")),
+        gis_edit_date=parse_arcgis_timestamp(attrs.get("GIS_EDT_DT")),
         geom=build_point_wkb(geometry),
     )
 

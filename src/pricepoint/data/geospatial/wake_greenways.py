@@ -38,6 +38,9 @@ def _map_wake_greenway(feature: dict) -> WakeGreenway:
         open_date=parse_arcgis_timestamp(attrs.get("OPEN_DATE")),
         public_access=attrs.get("PUBLIC_ACCESS"),
         accessibility_status=attrs.get("ACCESSIBILITY_STATUS"),
+        trail_condition=attrs.get("TRAIL_CONDITION"),
+        slope=attrs.get("SLOPE"),
+        subsegment_name=attrs.get("SUBSEGMENT_NAME"),
         geom=build_multilinestring_wkb(paths),
     )
 
@@ -69,15 +72,15 @@ def _map_raleigh_greenway(feature: dict) -> RaleighGreenway:
     return RaleighGreenway(
         objectid=attrs.get("OBJECTID"),
         trail_name=attrs.get("TRAIL_NAME"),
-        greenway_type=attrs.get("GREENWAY_TYPE"),
-        location_desc=attrs.get("LOCATION_DESC"),
+        greenway_type=attrs.get("TYPE"),
+        location_desc=attrs.get("LOCATION"),
         status=attrs.get("STATUS"),
         material=attrs.get("MATERIAL"),
         map_miles=attrs.get("MAP_MILES"),
         width_ft=attrs.get("WIDTH_FT"),
         owner=attrs.get("OWNER"),
         ada=attrs.get("ADA"),
-        gw_status=attrs.get("GW_STATUS"),
+        gw_status=attrs.get("GWSTATUS"),
         geom=build_multilinestring_wkb(paths),
     )
 
@@ -112,11 +115,17 @@ def _map_cary_greenway(feature: dict) -> CaryGreenway:
         segment=attrs.get("SEGMENT"),
         length=attrs.get("LENGTH"),
         width=attrs.get("WIDTH"),
-        trail_type=attrs.get("TRAIL_TYPE"),
-        surface_type=attrs.get("SURFACE_TYPE"),
+        trail_type=attrs.get("TRAILTYPE"),
+        surface_type=attrs.get("SURFTYPE"),
         status=attrs.get("STATUS"),
-        install_date=parse_arcgis_timestamp(attrs.get("INSTALL_DATE")),
-        open_to_public=attrs.get("OPEN_TO_PUBLIC"),
+        install_date=parse_arcgis_timestamp(attrs.get("INSTALLDATE")),
+        open_to_public=attrs.get("OPENTOPUBLIC"),
+        project_name=attrs.get("PROJNAME"),
+        project_number=attrs.get("PROJNUM"),
+        notes=attrs.get("NOTES"),
+        loop_trail=attrs.get("LOOPTRAIL"),
+        loop_name=attrs.get("LOOPNAME"),
+        official_cary_greenway_miles=attrs.get("CARYGWAYMICOUNT"),
         geom=build_multilinestring_wkb(paths),
     )
 

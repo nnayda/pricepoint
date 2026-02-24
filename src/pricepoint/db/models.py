@@ -968,6 +968,9 @@ class WakeGreenway(Base):
     open_date = Column(DateTime(timezone=True))
     public_access = Column(String)
     accessibility_status = Column(String)
+    trail_condition = Column(String)
+    slope = Column(String)
+    subsegment_name = Column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -1009,6 +1012,12 @@ class CaryGreenway(Base):
     status = Column(String)
     install_date = Column(DateTime(timezone=True))
     open_to_public = Column(String)
+    project_name = Column(String)
+    project_number = Column(String)
+    notes = Column(String)
+    loop_trail = Column(String)
+    loop_name = Column(String)
+    official_cary_greenway_miles = Column(Float)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -36,7 +36,7 @@ class TestMapRailroad:
         feature = _make_line_feature(
             {
                 "OBJECTID": 1,
-                "BRANCH_OR": "CSX Main",
+                "BRANCH_OR_": "CSX Main",
                 "TRACK_TYPE": "Main",
                 "TRACK_OWNER": "CSX",
                 "Shape__Length": 12345.6,
@@ -71,15 +71,15 @@ class TestMapMajorRoad:
         feature = _make_line_feature(
             {
                 "OBJECTID": 2,
-                "STREET_NAME": "GLENWOOD",
-                "STREET_TYPE": "AVE",
-                "DIR_PREFIX": "N",
-                "DIR_SUFFIX": "",
-                "STATE_ROAD": "SR-1002",
-                "CARTO_NAME": "Glenwood Ave",
-                "CORPORATION": "Raleigh",
-                "CLASS_NAME": "Major Arterial",
-                "LABEL_NAME": "N Glenwood Ave",
+                "STNAME": "GLENWOOD",
+                "STYPE": "AVE",
+                "DIR_PRE": "N",
+                "DIR_SUF": "",
+                "STATEROAD": "SR-1002",
+                "CARTONAME": "Glenwood Ave",
+                "CORP": "Raleigh",
+                "CLASSNAME": "Major Arterial",
+                "LABELNAME": "N Glenwood Ave",
             }
         )
         record = _map_major_road(feature)
@@ -113,19 +113,19 @@ class TestMapHighway:
         feature = _make_line_feature(
             {
                 "OBJECTID": 3,
-                "STREET_NAME": "WADE",
-                "STREET_TYPE": "AVE",
-                "DIR_PREFIX": "",
-                "DIR_SUFFIX": "",
-                "FROM_LEFT": 100,
-                "TO_LEFT": 200,
-                "FROM_RIGHT": 101,
-                "TO_RIGHT": 201,
-                "STATE_ROAD": "US-1",
-                "CARTO_NAME": "Wade Ave",
-                "CORPORATION": "Raleigh",
-                "CLASS_NAME": "Highway",
-                "LABEL_NAME": "Wade Ave",
+                "STNAME": "WADE",
+                "STYPE": "AVE",
+                "DIR_PRE": "",
+                "DIR_SUF": "",
+                "FRLEFT": 100,
+                "TOLEFT": 200,
+                "FRRIGHT": 101,
+                "TORIGHT": 201,
+                "STATEROAD": "US-1",
+                "CARTONAME": "Wade Ave",
+                "CORP": "Raleigh",
+                "CLASSNAME": "Highway",
+                "LABELNAME": "Wade Ave",
             }
         )
         record = _map_highway(feature)
