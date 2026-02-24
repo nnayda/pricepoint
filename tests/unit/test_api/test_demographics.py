@@ -112,7 +112,7 @@ class TestConsolidateIncome:
         row = _make_acs_row()
         result = consolidate_income(row)
         labels = [b.label for b in result]
-        assert labels == ["<$25k", "$25-50k", "$50-75k", "$75-100k", "$100-150k", "$150k+"]
+        assert labels == ["<$25k", "$25-50k", "$50-100k", "$100-150k", "$150-200k", "$200k+"]
 
     def test_sums_to_approximately_100(self):
         # Ensure bracket values sum to total_households for a clean 100%
@@ -152,6 +152,58 @@ class TestConsolidateIncome:
         result = consolidate_income(row)
         assert result[0].value == 100.0  # <$25k
         assert all(b.value == 0 for b in result[1:])
+
+    def test_50_to_100_merged(self):
+        """$50-100k bracket merges old $50-75k and $75-100k ranges."""
+        row = _make_acs_row(
+            total_households=100,
+            hh_income_under_10k=0,
+            hh_income_10k_to_15k=0,
+            hh_income_15k_to_20k=0,
+            hh_income_20k_to_25k=0,
+            hh_income_25k_to_30k=0,
+            hh_income_30k_to_35k=0,
+            hh_income_35k_to_40k=0,
+            hh_income_40k_to_45k=0,
+            hh_income_45k_to_50k=0,
+            hh_income_50k_to_60k=20,
+            hh_income_60k_to_75k=30,
+            hh_income_75k_to_100k=50,
+            hh_income_100k_to_125k=0,
+            hh_income_125k_to_150k=0,
+            hh_income_150k_to_200k=0,
+            hh_income_200k_plus=0,
+        )
+        result = consolidate_income(row)
+        assert result[2].label == "$50-100k"
+        assert result[2].value == 100.0
+
+    def test_150_200_and_200_plus_split(self):
+        """$150-200k and $200k+ are separate brackets."""
+        row = _make_acs_row(
+            total_households=100,
+            hh_income_under_10k=0,
+            hh_income_10k_to_15k=0,
+            hh_income_15k_to_20k=0,
+            hh_income_20k_to_25k=0,
+            hh_income_25k_to_30k=0,
+            hh_income_30k_to_35k=0,
+            hh_income_35k_to_40k=0,
+            hh_income_40k_to_45k=0,
+            hh_income_45k_to_50k=0,
+            hh_income_50k_to_60k=0,
+            hh_income_60k_to_75k=0,
+            hh_income_75k_to_100k=0,
+            hh_income_100k_to_125k=0,
+            hh_income_125k_to_150k=0,
+            hh_income_150k_to_200k=60,
+            hh_income_200k_plus=40,
+        )
+        result = consolidate_income(row)
+        assert result[4].label == "$150-200k"
+        assert result[4].value == 60.0
+        assert result[5].label == "$200k+"
+        assert result[5].value == 40.0
 
 
 # ── estimate_age_split tests ──
@@ -231,6 +283,19 @@ class TestBuildContextData:
         assert len(result.population_trend) == 1
         assert result.population_trend[0].year == 2024
 
+    def test_median_age_trend(self):
+        rows = [
+            _make_acs_row(acs_year=2019, median_age=34.5),
+            _make_acs_row(acs_year=2024, median_age=36.8),
+        ]
+        result = build_context_data(rows)
+        assert result is not None
+        assert len(result.median_age_trend) == 2
+        assert result.median_age_trend[0].year == 2019
+        assert result.median_age_trend[0].median_age == 34.5
+        assert result.median_age_trend[1].year == 2024
+        assert result.median_age_trend[1].median_age == 36.8
+
 
 # ── _compute_feature_props tests ──
 
@@ -258,6 +323,16 @@ class TestComputeFeatureProps:
         assert props["pct_65_plus"] == 14.0
         assert props["dominant_race"] in ("White", "Black", "Hispanic", "Asian", "Other")
         assert props["dominant_race_pct"] > 0
+        # Per-race percentages should be present and sum to ~100%
+        race_sum = (
+            props["pct_white"]
+            + props["pct_black"]
+            + props["pct_hispanic"]
+            + props["pct_asian"]
+            + props["pct_other"]
+        )
+        assert abs(race_sum - 100.0) < 0.5
+        assert props["pct_white"] > 0
 
     def test_none_row_returns_zeros(self):
         props = _compute_feature_props(None, "37000", "Unknown", False)
@@ -268,6 +343,11 @@ class TestComputeFeatureProps:
         assert props["dominant_race"] == "Unknown"
         assert props["dominant_race_pct"] == 0
         assert props["is_home"] is False
+        assert props["pct_white"] == 0
+        assert props["pct_black"] == 0
+        assert props["pct_hispanic"] == 0
+        assert props["pct_asian"] == 0
+        assert props["pct_other"] == 0
 
     def test_zero_population_edge_case(self):
         row = _make_acs_row(total_population=0, housing_total_occupied=0)

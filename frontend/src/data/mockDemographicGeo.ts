@@ -21,6 +21,11 @@ const BASE_PROPS = {
   dominant_race_pct: 62.4,
   pct_under_18: 22.0,
   pct_65_plus: 14.0,
+  pct_white: 62.4,
+  pct_black: 18.3,
+  pct_hispanic: 11.5,
+  pct_asian: 4.9,
+  pct_other: 2.9,
 };
 
 /** Per-context mock choropleth data with full demographic properties */

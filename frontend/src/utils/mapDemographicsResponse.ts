@@ -37,6 +37,7 @@ function apiContextToDataset(ctx: DemographicsApiContextData): DemographicDatase
     age_distribution_trend: ctx.age_distribution_trend,
     income_trend: ctx.income_trend,
     home_ownership_trend: ctx.home_ownership_trend,
+    median_age_trend: ctx.median_age_trend,
   };
 }
 
@@ -87,6 +88,7 @@ export function mapDemographicsResponse(resp: DemographicsApiResponse): Demograp
     age_distribution_trend: nb.age_distribution_trend,
     income_trend: nb.income_trend,
     home_ownership_trend: nb.home_ownership_trend,
+    median_age_trend: nb.median_age_trend,
     benchmarks,
     boundaries: resp.boundaries,
     choropleth,
@@ -107,5 +109,6 @@ function emptyDataset(): DemographicDataset {
     age_distribution_trend: [],
     income_trend: [],
     home_ownership_trend: [],
+    median_age_trend: [],
   };
 }

@@ -1,31 +1,18 @@
-import { useState, useMemo } from "react";
-import type { DashboardData, DashboardSchool } from "../../../types";
+import { useState, useMemo, useCallback } from "react";
+import { GeoJSON } from "react-leaflet";
+import type { DashboardData, DashboardSchool, SchoolNearby, SchoolDistrictInfo } from "../../../types";
 import { useSchoolsNearby } from "../../../hooks/useSchoolsNearby";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import { MapPinIcon, CarIcon, WalkIcon } from "../ui/Icons";
+import { MapPinIcon, CarIcon, WalkIcon, UsersIcon } from "../ui/Icons";
 import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
+import type { Layer, PathOptions } from "leaflet";
 
 interface SchoolsTabProps {
   data: DashboardData;
 }
 
-function mapSchool(s: {
-  name: string;
-  address?: string;
-  school_type: string;
-  school_level?: string;
-  rating: number;
-  grades?: string;
-  distance_miles: number;
-  drive_minutes: number;
-  walk_minutes?: number;
-  student_teacher_ratio?: number;
-  enrollment?: number;
-  assigned?: boolean;
-  lat?: number;
-  lon?: number;
-}): DashboardSchool {
+function mapSchool(s: SchoolNearby): DashboardSchool {
   return {
     name: s.name,
     address: s.address ?? "",
@@ -41,24 +28,52 @@ function mapSchool(s: {
     drive_minutes: s.drive_minutes,
     walk_minutes: s.walk_minutes,
     student_teacher_ratio: s.student_teacher_ratio ?? 0,
+    enrollment: s.enrollment,
     test_scores: 0,
     assigned: s.assigned ?? false,
     lat: s.lat ?? 0,
     lon: s.lon ?? 0,
+    pct_frl_eligible: s.pct_frl_eligible,
+    in_district: s.in_district ?? false,
   };
 }
 
-function ratingColor(rating: number): string {
+function ratingColor(rating: number | null): string {
+  if (rating == null) return "#94A3B8";
   if (rating >= 8) return "var(--color-db-green)";
   if (rating >= 6) return "var(--color-db-yellow)";
   return "var(--color-db-red)";
 }
 
-function RatingGauge({ rating }: { rating: number }) {
+function RatingGauge({ rating }: { rating: number | null }) {
   const size = 52;
   const stroke = 4;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
+
+  if (rating == null) {
+    return (
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="var(--color-db-border-subtle)"
+            strokeWidth={stroke}
+          />
+        </svg>
+        <span
+          className="absolute inset-0 flex items-center justify-center font-db-mono text-base font-bold"
+          style={{ color: "#94A3B8" }}
+        >
+          ?
+        </span>
+      </div>
+    );
+  }
+
   const pct = rating / 10;
   const dashOffset = circumference * (1 - pct);
   const color = ratingColor(rating);
@@ -149,10 +164,24 @@ function SchoolCard({
               <CarIcon size={14} /> {school.drive_minutes} min
             </span>
           )}
-          {school.walk_minutes && (
+          {school.walk_minutes != null && school.walk_minutes < 20 && (
             <span className="inline-flex items-center gap-1">
               <WalkIcon size={14} /> {school.walk_minutes} min
             </span>
+          )}
+        </div>
+        {/* Extra stats row */}
+        <div className="mt-1 flex flex-wrap gap-4 text-[12px] text-[var(--color-db-text-tertiary)]">
+          {school.student_teacher_ratio > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <UsersIcon size={13} /> 1:{Math.round(school.student_teacher_ratio)}
+            </span>
+          )}
+          {school.enrollment != null && school.enrollment > 0 && (
+            <span>{school.enrollment.toLocaleString()} students</span>
+          )}
+          {school.pct_frl_eligible != null && school.pct_frl_eligible > 0 && (
+            <span>{Math.round(school.pct_frl_eligible)}% FRL</span>
           )}
         </div>
       </div>
@@ -164,27 +193,97 @@ function schoolId(s: DashboardSchool) {
   return `school-${s.lat}-${s.lon}`;
 }
 
+/* ── District boundary styles ── */
+
+const HOME_DISTRICT_STYLE: PathOptions = {
+  color: "#6366F1",
+  weight: 3,
+  fillColor: "#6366F1",
+  fillOpacity: 0.08,
+};
+
+const NEIGHBOR_DISTRICT_STYLE: PathOptions = {
+  color: "#94A3B8",
+  weight: 1.5,
+  dashArray: "6 4",
+  fillColor: "#94A3B8",
+  fillOpacity: 0.03,
+};
+
+/** Renders a single district boundary with an optional permanent label. */
+function DistrictBoundary({ district }: { district: SchoolDistrictInfo }) {
+  const isHome = district.is_home;
+
+  const onEachFeature = useCallback(
+    (_feature: GeoJSON.Feature, layer: Layer) => {
+      if (!isHome) {
+        layer.bindTooltip(district.name, {
+          permanent: true,
+          direction: "center",
+          className: "district-label",
+        });
+      }
+    },
+    [district.name, isHome],
+  );
+
+  if (!district.geojson) return null;
+
+  return (
+    <GeoJSON
+      key={district.geoid}
+      data={district.geojson}
+      style={isHome ? HOME_DISTRICT_STYLE : NEIGHBOR_DISTRICT_STYLE}
+      onEachFeature={onEachFeature}
+    />
+  );
+}
+
 function SchoolsTab({ data }: SchoolsTabProps) {
   const { property } = data;
-  const { schools: apiSchools, loading, error } = useSchoolsNearby(property.lat, property.lon);
+  const {
+    schools: apiSchools,
+    schoolDistricts,
+    loading,
+    error,
+  } = useSchoolsNearby(property.lat, property.lon);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const homeDistrict = useMemo(
+    () => schoolDistricts.find((d) => d.is_home) ?? null,
+    [schoolDistricts],
+  );
+
   // Use API schools if available, fall back to bundled data
-  const schools = useMemo(() => {
+  const allSchools = useMemo(() => {
     if (apiSchools.length > 0) {
       return apiSchools.map(mapSchool);
     }
     return data.schools;
   }, [apiSchools, data.schools]);
 
-  const mapMarkers = schools.map((s) => ({
+  // Filter to in-district schools for cards; fall back to all if none match
+  const cardSchools = useMemo(() => {
+    const inDistrict = allSchools.filter((s) => s.in_district);
+    const base = inDistrict.length > 0 ? inDistrict : allSchools;
+    // Sort assigned schools first
+    return [...base].sort((a, b) => {
+      if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;
+      return 0;
+    });
+  }, [allSchools]);
+
+  // All schools go on the map
+  const mapMarkers = allSchools.map((s) => ({
     id: schoolId(s),
     lat: s.lat,
     lon: s.lon,
-    label: `${s.name} (${s.rating}/10)`,
+    label: `${s.name} (${s.rating != null ? `${s.rating}/10` : "N/R"})`,
     color: getSchoolMarkerColor(s.rating),
   }));
+
+  const headerText = homeDistrict ? `${homeDistrict.name} Schools` : "Schools";
 
   if (loading) {
     return (
@@ -202,7 +301,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     );
   }
 
-  if (error && schools.length === 0) {
+  if (error && allSchools.length === 0) {
     return (
       <DashboardCard>
         <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
@@ -212,7 +311,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     );
   }
 
-  if (schools.length === 0) {
+  if (allSchools.length === 0) {
     return (
       <DashboardCard>
         <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
@@ -228,10 +327,10 @@ function SchoolsTab({ data }: SchoolsTabProps) {
       <div className="flex flex-col gap-4">
         <DashboardCard>
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Schools
+            {headerText}
           </h3>
           <div className="flex flex-col gap-2">
-            {schools.map((s) => {
+            {cardSchools.map((s) => {
               const id = schoolId(s);
               return (
                 <SchoolCard
@@ -272,7 +371,19 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
-            />
+            >
+              {/* Render neighbor districts first (below), then home district on top */}
+              {schoolDistricts
+                .filter((d) => !d.is_home)
+                .map((d) => (
+                  <DistrictBoundary key={d.geoid} district={d} />
+                ))}
+              {schoolDistricts
+                .filter((d) => d.is_home)
+                .map((d) => (
+                  <DistrictBoundary key={d.geoid} district={d} />
+                ))}
+            </DashboardMap>
           </div>
         </DashboardCard>
       </div>

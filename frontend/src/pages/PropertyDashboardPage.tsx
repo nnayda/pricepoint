@@ -3,8 +3,13 @@ import { useParams, useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/dashboard/DashboardLayout";
 import PropertyNotFoundDialog from "../components/PropertyNotFoundDialog";
 import { useDemographics } from "../hooks/useDemographics";
+import {
+  useNeighborhoodValuation,
+  useNeighborhoodValuationHistory,
+} from "../hooks/useNeighborhoodValuation";
 import { usePropertyLookup } from "../hooks/usePropertyLookup";
 import { mockDashboardData } from "../data/mockDashboardData";
+import type { PriceHistoryPoint } from "../types";
 import { mapDemographicsResponse } from "../utils/mapDemographicsResponse";
 import { mapPropertyResponse } from "../utils/mapPropertyResponse";
 
@@ -17,14 +22,44 @@ function PropertyDashboardPage() {
 
   const { data, loading, notFound, error } = usePropertyLookup(lat, lon, decodedAddress);
   const { data: demoApi } = useDemographics(lat, lon);
+  const { data: neighborhoodVal } = useNeighborhoodValuation(lat, lon);
+  const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
 
   const dashboardData = useMemo(() => {
-    const base = data ? mapPropertyResponse(data) : mockDashboardData;
+    let result = data ? mapPropertyResponse(data) : mockDashboardData;
     if (demoApi) {
-      return { ...base, demographics: mapDemographicsResponse(demoApi) };
+      result = { ...result, demographics: mapDemographicsResponse(demoApi) };
     }
-    return base;
-  }, [data, demoApi]);
+    if (neighborhoodVal && neighborhoodVal.median_value != null) {
+      result = {
+        ...result,
+        valuation: {
+          ...result.valuation,
+          neighborhood_median: neighborhoodVal.median_value,
+          neighborhood_max: neighborhoodVal.max_value ?? result.valuation.neighborhood_max,
+        },
+      };
+    }
+    // Merge neighborhood history medians into price_history points
+    if (neighborhoodHistory && neighborhoodHistory.monthly_medians.length > 0) {
+      const medianMap = new Map(
+        neighborhoodHistory.monthly_medians.map((m) => [m.date, m.median_value]),
+      );
+      const merged: PriceHistoryPoint[] = result.price_history.map((pt) => ({
+        ...pt,
+        neighborhood_median: medianMap.get(pt.date) ?? pt.neighborhood_median,
+      }));
+      // Add any neighborhood months not already in price_history
+      for (const m of neighborhoodHistory.monthly_medians) {
+        if (!merged.some((pt) => pt.date === m.date)) {
+          merged.push({ date: m.date, neighborhood_median: m.median_value });
+        }
+      }
+      merged.sort((a, b) => a.date.localeCompare(b.date));
+      result = { ...result, price_history: merged };
+    }
+    return result;
+  }, [data, demoApi, neighborhoodVal, neighborhoodHistory]);
 
   if (loading) {
     return (

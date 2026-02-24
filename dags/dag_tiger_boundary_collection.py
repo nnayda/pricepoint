@@ -2,7 +2,10 @@
 
 Manual-trigger DAG that downloads TIGER/Line shapefiles for census blocks,
 block groups, tracts, school districts, counties, and county subdivisions
-into PostGIS tables.
+into PostGIS tables.  Downloads data for all US states (50 states + DC).
+
+Each state-level layer is processed one state at a time within its task to
+keep memory usage manageable.  Counties use a single national file.
 """
 
 import logging
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dag(
     dag_id="tiger_boundary_collection",
-    description="Load US Census TIGER/Line boundary shapefiles into PostGIS",
+    description="Load US Census TIGER/Line boundary shapefiles into PostGIS (all US states)",
     schedule=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
@@ -29,42 +32,42 @@ logger = logging.getLogger(__name__)
 def tiger_boundary_collection():
     @task()
     def fetch_census_blocks():
-        """Fetch TIGER/Line census block boundaries."""
+        """Fetch TIGER/Line census block boundaries for all US states."""
         from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_census_blocks
 
         fetch_tiger_census_blocks()
 
     @task()
     def fetch_block_groups():
-        """Fetch TIGER/Line block group boundaries."""
+        """Fetch TIGER/Line block group boundaries for all US states."""
         from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_block_groups
 
         fetch_tiger_block_groups()
 
     @task()
     def fetch_tracts():
-        """Fetch TIGER/Line census tract boundaries."""
+        """Fetch TIGER/Line census tract boundaries for all US states."""
         from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_tracts
 
         fetch_tiger_tracts()
 
     @task()
     def fetch_school_districts():
-        """Fetch TIGER/Line school district boundaries."""
+        """Fetch TIGER/Line school district boundaries for all US states."""
         from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_school_districts
 
         fetch_tiger_school_districts()
 
     @task()
     def fetch_counties():
-        """Fetch TIGER/Line county boundaries."""
+        """Fetch TIGER/Line county boundaries (national file)."""
         from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_counties
 
         fetch_tiger_counties()
 
     @task()
     def fetch_county_subdivisions():
-        """Fetch TIGER/Line county subdivision boundaries."""
+        """Fetch TIGER/Line county subdivision boundaries for all US states."""
         from pricepoint.data.geospatial.tiger_boundaries import (
             fetch_tiger_county_subdivisions,
         )

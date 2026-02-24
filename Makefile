@@ -1,4 +1,4 @@
-.PHONY: up up-infra up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build build-no-cache frontend-install frontend-lint frontend-test frontend-test-coverage
+.PHONY: up up-infra up-all down lint test test-unit test-integration test-docker test-all test-coverage migrate migration build build-no-cache frontend-install frontend-lint frontend-test frontend-test-coverage dev-sync-frontend-fast dev-rebuild
 
 # --- Docker Compose -----------------------------------------------------------
 
@@ -58,6 +58,11 @@ dev-sync-frontend: ## Rebuild and restart frontend container with latest code
 	docker compose build frontend
 	docker compose up -d frontend
 
+dev-sync-frontend-fast: ## Build frontend locally and copy into running container (~5s)
+	cd frontend && npm run build
+	docker cp frontend/dist/. pricepoint-frontend-1:/usr/share/nginx/html/
+	docker compose exec frontend nginx -s reload
+
 dev-sync: dev-sync-api ## Alias for dev-sync-api
 
 dev-sync-all:
@@ -67,6 +72,10 @@ dev-sync-all:
 	docker compose up -d frontend
 
 # --- Docker Build -------------------------------------------------------------
+
+dev-rebuild: ## Build api + frontend images and recreate their containers
+	docker compose build api frontend
+	docker compose up -d --force-recreate api frontend
 
 build: ## Build all Docker images
 	docker compose --profile infra --profile airflow build

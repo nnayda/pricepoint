@@ -1,4 +1,10 @@
-import type { DemographicSubTab } from "../types";
+import type { DemographicContext, DemographicSubTab } from "../types";
+
+/** Actual min/max range computed from visible GeoJSON features. */
+export interface DataRange {
+  min: number;
+  max: number;
+}
 
 /** Race → color mapping (matches chart tokens) */
 const RACE_COLORS: Record<string, string> = {
@@ -12,10 +18,7 @@ const RACE_COLORS: Record<string, string> = {
 
 /* ── Sequential / diverging color ramps ── */
 
-const CYAN_RAMP = ["#cffafe", "#67e8f9", "#22d3ee", "#0891b2", "#155e75"];
-const GREEN_RAMP = ["#dcfce7", "#86efac", "#22c55e", "#16a34a", "#14532d"];
-const AGE_RAMP = ["#22d3ee", "#67e8f9", "#e5e7eb", "#fbbf24", "#f59e0b"]; // cyan→neutral→amber
-const OWN_RAMP = ["#ef4444", "#fca5a5", "#e5e7eb", "#86efac", "#22c55e"]; // red→neutral→green
+const MAGMA_RAMP = ["#221150", "#5F187F", "#B63679", "#E8765C", "#FCFDBF"];
 
 function interpolateRamp(ramp: string[], t: number): string {
   const idx = Math.min(Math.floor(t * (ramp.length - 1)), ramp.length - 2);
@@ -27,12 +30,108 @@ function quantilePosition(value: number, min: number, max: number): number {
   return Math.max(0, Math.min(1, (value - min) / (max - min)));
 }
 
+/** Map race filter key to the property name on feature props */
+const RACE_PCT_KEY: Record<string, string> = {
+  white: "pct_white",
+  black: "pct_black",
+  hispanic: "pct_hispanic",
+  asian: "pct_asian",
+  other: "pct_other",
+};
+
+/** Map race filter key to the race's display color */
+const RACE_FILTER_COLOR: Record<string, string> = {
+  white: RACE_COLORS.White,
+  black: RACE_COLORS.Black,
+  hispanic: RACE_COLORS.Hispanic,
+  asian: RACE_COLORS.Asian,
+  other: RACE_COLORS.Other,
+};
+
+/** Property key used per subTab for numeric choropleth value. */
+const SUBTAB_PROP_KEY: Record<string, string> = {
+  population: "population",
+  income: "median_income",
+  age: "median_age",
+  ownership: "home_ownership_rate",
+};
+
+/** Hardcoded fallback ranges (used when no DataRange is supplied). */
+const FALLBACK_RANGES: Record<string, { min: number; max: number }> = {
+  population: { min: 1000, max: 10000 },
+  income: { min: 30000, max: 150000 },
+  age: { min: 25, max: 55 },
+  ownership: { min: 30, max: 90 },
+};
+
+/**
+ * Scan GeoJSON features and return the actual min/max for the given subTab.
+ * Returns `null` for the race subTab (already normalised 0-100%).
+ */
+export function computeDataRange(
+  features: GeoJSON.Feature[],
+  subTab: DemographicSubTab,
+): DataRange | null {
+  if (subTab === "race") return null;
+
+  const key = SUBTAB_PROP_KEY[subTab];
+  if (!key) return null;
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (const f of features) {
+    const v = f.properties?.[key];
+    if (typeof v !== "number" || !isFinite(v)) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+
+  // No valid numeric values — return safe fallback
+  if (!isFinite(min) || !isFinite(max)) return { min: 0, max: 1 };
+
+  // All identical — add small epsilon so legend labels can differ
+  if (min === max) {
+    const eps = Math.abs(min) * 0.01 || 1;
+    return { min: min - eps, max: max + eps };
+  }
+
+  return { min, max };
+}
+
+/** Compact number formatting: 1200 → "1.2k", 3400000 → "3.4M" */
+function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    const v = value / 1_000_000;
+    return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}M`;
+  }
+  if (abs >= 1000) {
+    const v = value / 1000;
+    return `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}k`;
+  }
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
+/** Format a range boundary with the appropriate prefix/suffix for the metric. */
+function formatLabel(value: number, subTab: DemographicSubTab): string {
+  switch (subTab) {
+    case "income":
+      return `$${formatCompact(value)}`;
+    case "ownership":
+      return `${formatCompact(value)}%`;
+    default:
+      return formatCompact(value);
+  }
+}
+
 /**
  * Return a Leaflet-compatible style object for a choropleth feature.
  */
 export function getChoroplethStyle(
   feature: GeoJSON.Feature | undefined,
   subTab: DemographicSubTab,
+  raceFilter?: string,
+  dataRange?: DataRange | null,
 ): Record<string, string | number> {
   const props = feature?.properties ?? {};
   const isHome = props.is_home === true;
@@ -41,29 +140,43 @@ export function getChoroplethStyle(
 
   switch (subTab) {
     case "population": {
-      const t = quantilePosition(props.population ?? 0, 1000, 10000);
-      fillColor = interpolateRamp(CYAN_RAMP, t);
+      const range = dataRange ?? FALLBACK_RANGES.population;
+      const t = quantilePosition(props.population ?? 0, range.min, range.max);
+      fillColor = interpolateRamp(MAGMA_RAMP, t);
       break;
     }
     case "income": {
-      const t = quantilePosition(props.median_income ?? 0, 30000, 150000);
-      fillColor = interpolateRamp(GREEN_RAMP, t);
+      const range = dataRange ?? FALLBACK_RANGES.income;
+      const t = quantilePosition(props.median_income ?? 0, range.min, range.max);
+      fillColor = interpolateRamp(MAGMA_RAMP, t);
       break;
     }
     case "age": {
-      // Diverging around 38 (national median)
+      const range = dataRange ?? FALLBACK_RANGES.age;
       const age = props.median_age ?? 38;
-      const t = quantilePosition(age, 25, 55);
-      fillColor = interpolateRamp(AGE_RAMP, t);
+      const t = quantilePosition(age, range.min, range.max);
+      fillColor = interpolateRamp(MAGMA_RAMP, t);
       break;
     }
     case "ownership": {
+      const range = dataRange ?? FALLBACK_RANGES.ownership;
       const rate = props.home_ownership_rate ?? 65;
-      const t = quantilePosition(rate, 30, 90);
-      fillColor = interpolateRamp(OWN_RAMP, t);
+      const t = quantilePosition(rate, range.min, range.max);
+      fillColor = interpolateRamp(MAGMA_RAMP, t);
       break;
     }
     case "race": {
+      if (raceFilter && raceFilter !== "all") {
+        const pctKey = RACE_PCT_KEY[raceFilter];
+        const pct = (pctKey ? (props[pctKey] as number) : 0) ?? 0;
+        fillColor = RACE_FILTER_COLOR[raceFilter] ?? RACE_COLORS.Unknown;
+        return {
+          fillColor,
+          fillOpacity: 0.1 + (pct / 100) * 0.6,
+          color: isHome ? "#6366f1" : "#475569",
+          weight: isHome ? 3 : 1,
+        };
+      }
       const race = props.dominant_race ?? "Unknown";
       const pct = props.dominant_race_pct ?? 0;
       fillColor = RACE_COLORS[race] ?? RACE_COLORS.Unknown;
@@ -87,25 +200,48 @@ export function getChoroplethStyle(
   };
 }
 
+/** Contexts where the name is just a geoid — don't display it. */
+const NAMELESS_CONTEXTS = new Set<DemographicContext>(["block_group", "neighborhood"]);
+
+/** Map race filter key to display label */
+const RACE_FILTER_LABEL: Record<string, string> = {
+  white: "White",
+  black: "Black",
+  hispanic: "Hispanic",
+  asian: "Asian",
+  other: "Other",
+};
+
 /**
  * Format a tooltip string for the hovered feature.
  */
 export function getTooltipText(
   props: Record<string, unknown>,
   subTab: DemographicSubTab,
+  context?: DemographicContext,
+  raceFilter?: string,
 ): string {
-  const name = (props.name as string) ?? (props.geoid as string) ?? "";
+  const rawName = (props.name as string) ?? (props.geoid as string) ?? "";
+  const name = context && NAMELESS_CONTEXTS.has(context) ? "" : rawName;
+  const prefix = name ? `${name}\n` : "";
   switch (subTab) {
     case "population":
-      return `${name}\nPop: ${((props.population as number) ?? 0).toLocaleString()}`;
+      return `${prefix}Pop: ${((props.population as number) ?? 0).toLocaleString()}`;
     case "income":
-      return `${name}\nMedian Income: $${((props.median_income as number) ?? 0).toLocaleString()}`;
+      return `${prefix}Median Income: $${((props.median_income as number) ?? 0).toLocaleString()}`;
     case "age":
-      return `${name}\nMedian Age: ${props.median_age ?? 0}`;
+      return `${prefix}Median Age: ${props.median_age ?? 0}`;
     case "ownership":
-      return `${name}\nOwnership: ${props.home_ownership_rate ?? 0}%`;
-    case "race":
-      return `${name}\n${props.dominant_race ?? "Unknown"}: ${props.dominant_race_pct ?? 0}%`;
+      return `${prefix}Ownership: ${props.home_ownership_rate ?? 0}%`;
+    case "race": {
+      if (raceFilter && raceFilter !== "all") {
+        const pctKey = RACE_PCT_KEY[raceFilter];
+        const pct = pctKey ? (props[pctKey] as number) ?? 0 : 0;
+        const label = RACE_FILTER_LABEL[raceFilter] ?? raceFilter;
+        return `${prefix}${label}: ${pct}%`;
+      }
+      return `${prefix}${props.dominant_race ?? "Unknown"}: ${props.dominant_race_pct ?? 0}%`;
+    }
     default:
       return name;
   }
@@ -118,37 +254,59 @@ export interface LegendConfig {
   labels: string[];
 }
 
-export function getLegendConfig(subTab: DemographicSubTab): LegendConfig {
+export function getLegendConfig(
+  subTab: DemographicSubTab,
+  raceFilter?: string,
+  dataRange?: DataRange | null,
+): LegendConfig {
   switch (subTab) {
-    case "population":
+    case "population": {
+      const range = dataRange ?? FALLBACK_RANGES.population;
       return {
         type: "sequential",
         title: "Population",
-        colors: CYAN_RAMP,
-        labels: ["1k", "10k+"],
+        colors: MAGMA_RAMP,
+        labels: [formatLabel(range.min, "population"), formatLabel(range.max, "population")],
       };
-    case "income":
+    }
+    case "income": {
+      const range = dataRange ?? FALLBACK_RANGES.income;
       return {
         type: "sequential",
         title: "Median Income",
-        colors: GREEN_RAMP,
-        labels: ["$30k", "$150k+"],
+        colors: MAGMA_RAMP,
+        labels: [formatLabel(range.min, "income"), formatLabel(range.max, "income")],
       };
-    case "age":
+    }
+    case "age": {
+      const range = dataRange ?? FALLBACK_RANGES.age;
       return {
-        type: "diverging",
+        type: "sequential",
         title: "Median Age",
-        colors: AGE_RAMP,
-        labels: ["25", "38", "55+"],
+        colors: MAGMA_RAMP,
+        labels: [formatLabel(range.min, "age"), formatLabel(range.max, "age")],
       };
-    case "ownership":
+    }
+    case "ownership": {
+      const range = dataRange ?? FALLBACK_RANGES.ownership;
       return {
-        type: "diverging",
+        type: "sequential",
         title: "Ownership Rate",
-        colors: OWN_RAMP,
-        labels: ["30%", "65%", "90%+"],
+        colors: MAGMA_RAMP,
+        labels: [formatLabel(range.min, "ownership"), formatLabel(range.max, "ownership")],
       };
-    case "race":
+    }
+    case "race": {
+      if (raceFilter && raceFilter !== "all") {
+        const baseColor = RACE_FILTER_COLOR[raceFilter] ?? RACE_COLORS.Unknown;
+        const label = RACE_FILTER_LABEL[raceFilter] ?? raceFilter;
+        return {
+          type: "sequential",
+          title: `% ${label}`,
+          colors: [`${baseColor}1A`, `${baseColor}4D`, `${baseColor}80`, `${baseColor}B3`, baseColor],
+          labels: ["0%", "100%"],
+        };
+      }
       return {
         type: "categorical",
         title: "Dominant Race",
@@ -161,5 +319,6 @@ export function getLegendConfig(subTab: DemographicSubTab): LegendConfig {
         ],
         labels: ["White", "Black", "Hispanic", "Asian", "Other"],
       };
+    }
   }
 }

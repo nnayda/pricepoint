@@ -1,13 +1,5 @@
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import { useMemo } from "react";
+import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip } from "recharts";
 import type { PriceHistoryPoint } from "../../../types";
 import {
   TOOLTIP_CONTENT_STYLE,
@@ -15,88 +7,234 @@ import {
   TOOLTIP_LABEL_STYLE,
   AXIS_TICK_MONO,
   AXIS_LINE_STYLE,
-  GRID_STYLE,
   CURSOR_LINE,
   COLOR_INDIGO,
   COLOR_CYAN,
+  COLOR_AMBER,
 } from "../../../utils/chartTokens";
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Format a "YYYY-MM" date key for display. */
+function formatDateShort(d: string): string {
+  const [y, m] = d.split("-");
+  return `${MONTH_SHORT[parseInt(m, 10) - 1]} '${y.slice(2)}`;
+}
+
+function formatDateFull(d: string): string {
+  const [y, m] = d.split("-");
+  return `${MONTH_SHORT[parseInt(m, 10) - 1]} ${y}`;
+}
+
+/** Trim leading points that have neither sale nor tax data. */
+function trimLeadingEmpty(data: PriceHistoryPoint[]): PriceHistoryPoint[] {
+  const firstIdx = data.findIndex((d) => d.price != null || d.tax_assessed != null);
+  return firstIdx <= 0 ? data : data.slice(firstIdx);
+}
+
+/**
+ * Pick evenly-spaced tick indices so labels never overlap.
+ * Returns a Set of data indices that should show a label.
+ */
+function buildTickIndices(data: PriceHistoryPoint[], maxTicks: number): Set<number> {
+  const n = data.length;
+  if (n <= maxTicks) {
+    return new Set(Array.from({ length: n }, (_, i) => i));
+  }
+  const step = (n - 1) / (maxTicks - 1);
+  const indices = new Set<number>();
+  for (let i = 0; i < maxTicks; i++) {
+    indices.add(Math.round(i * step));
+  }
+  return indices;
+}
+
+/** Pick a tick formatter and interval that avoids overlapping labels. */
+function useXAxisConfig(data: PriceHistoryPoint[]) {
+  return useMemo(() => {
+    const n = data.length;
+    const MAX_TICKS = 8;
+    const tickIndices = buildTickIndices(data, MAX_TICKS);
+
+    if (n <= MAX_TICKS) {
+      return {
+        formatter: (_d: string, index: number) =>
+          tickIndices.has(index) ? formatDateFull(data[index].date) : "",
+      };
+    }
+
+    if (n <= 24) {
+      return {
+        formatter: (_d: string, index: number) =>
+          tickIndices.has(index) ? formatDateShort(data[index].date) : "",
+      };
+    }
+
+    // Long history — show just years at tick positions
+    return {
+      formatter: (_d: string, index: number) => {
+        if (!tickIndices.has(index)) return "";
+        return data[index].date.split("-")[0];
+      },
+    };
+  }, [data]);
+}
 
 interface PriceHistoryChartProps {
   data: PriceHistoryPoint[];
   showNeighborhood?: boolean;
 }
 
-function PriceHistoryChart({ data, showNeighborhood = true }: PriceHistoryChartProps) {
+/** Render a filled dot with an event label at sale event points. */
+function SaleDot(props: Record<string, unknown>) {
+  const { cx, cy, payload } = props as {
+    cx?: number;
+    cy?: number;
+    payload?: PriceHistoryPoint;
+  };
+  if (!payload?.sale_price || cx == null || cy == null) return null;
+  const label = payload.sale_event ?? payload.event ?? "Sale";
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={5} fill={COLOR_INDIGO} fillOpacity={0.2} />
+      <circle cx={cx} cy={cy} r={3.5} fill={COLOR_INDIGO} stroke="#fff" strokeWidth={1.5} />
+      <text
+        x={cx}
+        y={cy - 12}
+        textAnchor="middle"
+        fill="var(--color-db-text-secondary, #9BA3BF)"
+        fontSize={10}
+        fontFamily="var(--font-db-sans)"
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function formatSeriesName(name: string): string {
+  if (name === "price") return "Property";
+  if (name === "tax_assessed") return "Tax Assessment";
+  if (name === "neighborhood_median") return "Neighborhood";
+  return name;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const tooltipFormatter: any = (value: number | undefined, name: string) => {
+  if (value == null) return [null, null];
+  return [`$${value.toLocaleString()}`, formatSeriesName(name)];
+};
+
+function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHistoryChartProps) {
+  const data = useMemo(() => trimLeadingEmpty(rawData), [rawData]);
+  const hasTaxData = data.some((d) => d.tax_assessed != null);
+  const hasNeighborhoodData = showNeighborhood && data.some((d) => d.neighborhood_median != null);
+  const xAxis = useXAxisConfig(data);
+
   return (
     <div className="flex flex-col">
       {/* Legend */}
-      <div className="mb-2 flex items-center gap-4">
+      <div className="mb-2 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded-full" style={{ backgroundColor: COLOR_INDIGO }} />
+          <span
+            className="inline-block h-0.5 w-4 rounded-full"
+            style={{ backgroundColor: COLOR_INDIGO }}
+          />
           <span className="text-[11px] text-[var(--color-db-text-secondary)]">Property</span>
         </div>
-        {showNeighborhood && (
+        {hasTaxData && (
+          <div className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-0.5 w-4 rounded-full"
+              style={{ backgroundColor: COLOR_AMBER }}
+            />
+            <span className="text-[11px] text-[var(--color-db-text-secondary)]">
+              Tax Assessment
+            </span>
+          </div>
+        )}
+        {hasNeighborhoodData && (
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block h-0.5 w-4"
-              style={{ backgroundImage: `repeating-linear-gradient(to right, ${COLOR_CYAN} 0, ${COLOR_CYAN} 3px, transparent 3px, transparent 6px)` }}
+              style={{
+                backgroundImage: `repeating-linear-gradient(to right, ${COLOR_CYAN} 0, ${COLOR_CYAN} 3px, transparent 3px, transparent 6px)`,
+              }}
             />
-            <span className="text-[11px] text-[var(--color-db-text-secondary)]">Neighborhood Median</span>
+            <span className="text-[11px] text-[var(--color-db-text-secondary)]">
+              Neighborhood Median
+            </span>
           </div>
         )}
       </div>
-    <ResponsiveContainer width="100%" height={280}>
-      <ComposedChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-        <defs>
-          <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={COLOR_INDIGO} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={COLOR_INDIGO} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid {...GRID_STYLE} vertical={false} />
-        <XAxis
-          dataKey="date"
-          tick={AXIS_TICK_MONO}
-          axisLine={AXIS_LINE_STYLE}
-          tickLine={false}
-          interval={2}
-        />
-        <YAxis
-          tick={AXIS_TICK_MONO}
-          axisLine={false}
-          tickLine={false}
-          tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-          width={55}
-        />
-        <Tooltip
-          contentStyle={TOOLTIP_CONTENT_STYLE}
-          itemStyle={TOOLTIP_ITEM_STYLE}
-          labelStyle={TOOLTIP_LABEL_STYLE}
-          cursor={CURSOR_LINE}
-          formatter={
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ((value: number, name: string) => [`$${value.toLocaleString()}`, name === "price" ? "Property" : "Neighborhood"]) as any
-          }
-        />
-        <Area
-          type="monotone"
-          dataKey="price"
-          stroke={COLOR_INDIGO}
-          strokeWidth={2}
-          fill="url(#priceGradient)"
-        />
-        {showNeighborhood && (
-          <Line
-            type="monotone"
-            dataKey="neighborhood_median"
-            stroke={COLOR_CYAN}
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            dot={false}
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={data} margin={{ top: 22, right: 10, left: 10, bottom: 5 }}>
+          <defs>
+            <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COLOR_INDIGO} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={COLOR_INDIGO} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis
+            dataKey="date"
+            tick={AXIS_TICK_MONO}
+            axisLine={AXIS_LINE_STYLE}
+            tickLine={false}
+            interval={0}
+            tickFormatter={xAxis.formatter}
           />
-        )}
-      </ComposedChart>
-    </ResponsiveContainer>
+          <YAxis
+            tick={AXIS_TICK_MONO}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+            width={55}
+          />
+          <Tooltip
+            contentStyle={TOOLTIP_CONTENT_STYLE}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            labelStyle={TOOLTIP_LABEL_STYLE}
+            cursor={CURSOR_LINE}
+            formatter={tooltipFormatter}
+            labelFormatter={(d) => {
+              const s = String(d);
+              const [y, m] = s.split("-");
+              return `${MONTH_SHORT[parseInt(m, 10) - 1]} ${y}`;
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="price"
+            stroke={COLOR_INDIGO}
+            strokeWidth={2}
+            fill="url(#priceGradient)"
+            dot={<SaleDot />}
+            activeDot={false}
+            connectNulls
+          />
+          {hasTaxData && (
+            <Line
+              type="monotone"
+              dataKey="tax_assessed"
+              stroke={COLOR_AMBER}
+              strokeWidth={1.5}
+              dot={false}
+              connectNulls
+            />
+          )}
+          {hasNeighborhoodData && (
+            <Line
+              type="monotone"
+              dataKey="neighborhood_median"
+              stroke={COLOR_CYAN}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              dot={false}
+              connectNulls
+            />
+          )}
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }

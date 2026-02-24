@@ -7,7 +7,7 @@ interface ChoroplethLegendProps {
 export default function ChoroplethLegend({ config }: ChoroplethLegendProps) {
   return (
     <div
-      className="absolute bottom-3 left-3 z-[1000] rounded-lg px-3 py-2"
+      className="absolute bottom-3 left-3 z-[1000] max-h-[40%] overflow-auto rounded-lg px-3 py-2"
       style={{
         backgroundColor: "rgba(15, 23, 42, 0.85)",
         backdropFilter: "blur(8px)",

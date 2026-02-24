@@ -90,7 +90,7 @@ class SchoolNearby(BaseModel):
     address: str | None = None
     school_type: str
     school_level: str | None = None
-    rating: int
+    rating: int | None = None
     grades: str | None = None
     distance_miles: float
     drive_minutes: int
@@ -100,6 +100,26 @@ class SchoolNearby(BaseModel):
     assigned: bool = False
     lat: float | None = None
     lon: float | None = None
+    pct_frl_eligible: float | None = None
+    in_district: bool = False
+
+
+class SchoolDistrictInfo(BaseModel):
+    """School district boundary info."""
+
+    name: str
+    geoid: str
+    geojson: dict | None = None
+    is_home: bool = False
+    label_lat: float | None = None
+    label_lon: float | None = None
+
+
+class SchoolsNearbyResponse(BaseModel):
+    """Wrapper response for nearby schools with district boundaries."""
+
+    schools: list[SchoolNearby]
+    school_districts: list[SchoolDistrictInfo] = []
 
 
 class SaleHistoryEntry(BaseModel):

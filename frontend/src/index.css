@@ -330,6 +330,12 @@
 
 /* ── Dashboard Map Theme Overrides ── */
 
+/* Fix sub-pixel tile boundary lines */
+.dashboard-map .leaflet-tile {
+  outline: none;
+  backface-visibility: hidden;
+}
+
 .dashboard-map .leaflet-control-zoom a {
   background-color: var(--color-db-surface);
   color: var(--color-db-text-primary);
@@ -362,6 +368,22 @@
   background-color: var(--color-db-surface);
 }
 
+.district-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #94A3B8;
+  font-family: var(--font-db-sans);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7), 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.district-label::before {
+  display: none !important;
+}
+
 /* ── Recharts dark mode tooltip & cursor overrides ── */
 
 .recharts-default-tooltip {
@@ -387,6 +409,29 @@
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Themed thin scrollbar */
+.scrollbar-themed {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-db-border, #2E3553) transparent;
+}
+
+.scrollbar-themed::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-themed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-themed::-webkit-scrollbar-thumb {
+  background-color: var(--color-db-border, #2E3553);
+  border-radius: 3px;
+}
+
+.scrollbar-themed::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-db-text-tertiary, #5C6480);
 }
 
 /* ── Focus Ring ── */

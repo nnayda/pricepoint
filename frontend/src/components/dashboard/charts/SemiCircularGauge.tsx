@@ -7,6 +7,11 @@ import {
   COLOR_GREEN,
 } from "../../../utils/chartTokens";
 
+interface GradientStop {
+  offset: string;
+  color: string;
+}
+
 interface SemiCircularGaugeProps {
   value: number;
   max?: number;
@@ -15,6 +20,7 @@ interface SemiCircularGaugeProps {
   size?: number;
   suffix?: string;
   showGrade?: boolean;
+  gradientStops?: GradientStop[];
 }
 
 function SemiCircularGauge({
@@ -25,6 +31,7 @@ function SemiCircularGauge({
   size = 160,
   suffix = "",
   showGrade = true,
+  gradientStops,
 }: SemiCircularGaugeProps) {
   const pct = Math.min(value / max, 1);
   const r = (size - 20) / 2;
@@ -51,10 +58,18 @@ function SemiCircularGauge({
       <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={COLOR_RED} />
-            <stop offset="40%" stopColor={COLOR_AMBER} />
-            <stop offset="70%" stopColor={COLOR_BLUE} />
-            <stop offset="100%" stopColor={COLOR_GREEN} />
+            {gradientStops ? (
+              gradientStops.map((stop, i) => (
+                <stop key={i} offset={stop.offset} stopColor={stop.color} />
+              ))
+            ) : (
+              <>
+                <stop offset="0%" stopColor={COLOR_RED} />
+                <stop offset="40%" stopColor={COLOR_AMBER} />
+                <stop offset="70%" stopColor={COLOR_BLUE} />
+                <stop offset="100%" stopColor={COLOR_GREEN} />
+              </>
+            )}
           </linearGradient>
         </defs>
         {/* Background arc */}
@@ -86,18 +101,18 @@ function SemiCircularGauge({
           fontWeight={700}
           fontFamily="var(--font-db-mono)"
         >
-          {Math.round(value)}{suffix}
+          {Math.round(value)}
+          {suffix}
         </text>
       </svg>
       {showGrade && (
-        <span
-          className="text-xs font-semibold"
-          style={{ color: grade.color }}
-        >
+        <span className="text-xs font-semibold" style={{ color: grade.color }}>
           {grade.text}
         </span>
       )}
-      <span className="mt-0.5 text-xs font-medium text-[var(--color-db-text-secondary)]">{label}</span>
+      <span className="mt-0.5 text-xs font-medium text-[var(--color-db-text-secondary)]">
+        {label}
+      </span>
     </div>
   );
 }

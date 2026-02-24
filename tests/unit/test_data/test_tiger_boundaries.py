@@ -11,6 +11,7 @@ import pytest
 from shapely.geometry import MultiPolygon, Polygon
 
 from pricepoint.data.geospatial.tiger_boundaries import (
+    US_STATE_FIPS,
     _read_shapefile,
     _tiger_url,
     _to_multipolygon_wkb,
@@ -50,6 +51,19 @@ def _make_tiger_zip(columns, data):
                     zf.writestr(fname, f.read())
 
         return zip_buf.getvalue()
+
+
+# -- US_STATE_FIPS tests ------------------------------------------------------
+
+
+def test_us_state_fips_has_51_entries():
+    """US_STATE_FIPS should contain 50 states + DC."""
+    assert len(US_STATE_FIPS) == 51
+
+
+def test_us_state_fips_contains_nc():
+    """US_STATE_FIPS should include North Carolina (37)."""
+    assert "37" in US_STATE_FIPS
 
 
 # -- _tiger_url tests ---------------------------------------------------------
@@ -124,13 +138,11 @@ def test_read_shapefile_from_zip_missing_component():
 @patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
 @patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
-def test_fetch_tiger_tracts_filters_by_county(mock_settings, mock_session_cls, mock_download):
-    """fetch_tiger_tracts should only load records matching the configured county FIPS."""
+def test_fetch_tiger_tracts_loads_all_records(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_tracts should load all records from the state file (no county filter)."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="183",
     )
 
     columns = {
@@ -155,25 +167,24 @@ def test_fetch_tiger_tracts_filters_by_county(mock_settings, mock_session_cls, m
 
     from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_tracts
 
-    fetch_tiger_tracts()
+    fetch_tiger_tracts(state_fips="37")
 
-    # Should only add records for county 183, not 063
+    # Should load both records (no county filter)
     mock_session.add_all.assert_called_once()
     added_records = mock_session.add_all.call_args[0][0]
-    assert len(added_records) == 1
-    assert added_records[0].geoid == "37183050100"
+    assert len(added_records) == 2
+    geoids = {r.geoid for r in added_records}
+    assert geoids == {"37183050100", "37063050200"}
 
 
 @patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
 @patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
-def test_fetch_tiger_tracts_empty_result(mock_settings, mock_session_cls, mock_download):
-    """fetch_tiger_tracts should handle empty results (no matching county)."""
+def test_fetch_tiger_tracts_single_state(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_tracts with state_fips downloads only that state."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="999",
     )
 
     columns = {
@@ -198,10 +209,11 @@ def test_fetch_tiger_tracts_empty_result(mock_settings, mock_session_cls, mock_d
 
     from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_tracts
 
-    fetch_tiger_tracts()
+    fetch_tiger_tracts(state_fips="37")
 
-    # add_all should not have been called since no records match
-    mock_session.add_all.assert_not_called()
+    # Should download only one file (state 37)
+    mock_download.assert_called_once()
+    assert "37" in mock_download.call_args[0][0]
 
 
 @patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
@@ -212,8 +224,6 @@ def test_fetch_tiger_tracts_rollback_on_exception(mock_settings, mock_session_cl
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="183",
     )
     mock_download.side_effect = RuntimeError("Network error")
 
@@ -223,10 +233,62 @@ def test_fetch_tiger_tracts_rollback_on_exception(mock_settings, mock_session_cl
     from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_tracts
 
     with pytest.raises(RuntimeError, match="Network error"):
-        fetch_tiger_tracts()
+        fetch_tiger_tracts(state_fips="37")
 
     mock_session.rollback.assert_called_once()
     mock_session.close.assert_called_once()
+
+
+@patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
+@patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
+@patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
+def test_fetch_tiger_tracts_skips_404_state(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_tracts should skip states that return 404."""
+    import httpx
+
+    mock_settings.return_value = MagicMock(
+        tiger_base_url="https://www2.census.gov/geo/tiger",
+        tiger_year=2025,
+    )
+
+    mock_response_404 = MagicMock()
+    mock_response_404.status_code = 404
+    http_error = httpx.HTTPStatusError("Not Found", request=MagicMock(), response=mock_response_404)
+
+    columns = {
+        "STATEFP": ["06"],
+        "COUNTYFP": ["037"],
+        "TRACTCE": ["050100"],
+        "GEOID": ["06037050100"],
+        "NAME": ["501"],
+        "NAMELSAD": ["Census Tract 501"],
+        "ALAND": [1000000],
+        "AWATER": [500],
+        "INTPTLAT": ["+34.0000"],
+        "INTPTLON": ["-118.0000"],
+        "FUNCSTAT": ["S"],
+        "MTFCC": ["G5020"],
+    }
+    zip_bytes = _make_tiger_zip(columns, [_make_simple_polygon()])
+
+    # First state 404s, second succeeds
+    mock_download.side_effect = [http_error, zip_bytes]
+
+    mock_session = MagicMock()
+    mock_session_cls.return_value = mock_session
+
+    from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_tracts
+
+    fetch_tiger_tracts.__wrapped__ if hasattr(fetch_tiger_tracts, "__wrapped__") else None
+
+    # Patch US_STATE_FIPS to only have 2 states for this test
+    with patch("pricepoint.data.geospatial.tiger_boundaries.US_STATE_FIPS", ["01", "06"]):
+        fetch_tiger_tracts()
+
+    # Only second state loaded records
+    mock_session.add_all.assert_called_once()
+    added_records = mock_session.add_all.call_args[0][0]
+    assert len(added_records) == 1
 
 
 # -- fetch_tiger_school_districts tests ----------------------------------------
@@ -240,8 +302,6 @@ def test_fetch_school_districts_loads_all_types(mock_settings, mock_session_cls,
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="183",
     )
 
     columns = {
@@ -267,7 +327,7 @@ def test_fetch_school_districts_loads_all_types(mock_settings, mock_session_cls,
 
     from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_school_districts
 
-    fetch_tiger_school_districts()
+    fetch_tiger_school_districts(state_fips="37")
 
     # Should be called 3 times (once per district type), each adding records
     assert mock_session.add_all.call_count == 3
@@ -290,8 +350,6 @@ def test_fetch_school_districts_handles_404(mock_settings, mock_session_cls, moc
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="183",
     )
 
     columns = {
@@ -323,7 +381,7 @@ def test_fetch_school_districts_handles_404(mock_settings, mock_session_cls, moc
 
     from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_school_districts
 
-    fetch_tiger_school_districts()
+    fetch_tiger_school_districts(state_fips="37")
 
     # Only 2 district types should have been loaded (ELSD skipped)
     assert mock_session.add_all.call_count == 2
@@ -335,22 +393,20 @@ def test_fetch_school_districts_handles_404(mock_settings, mock_session_cls, moc
 @patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
 @patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
-def test_fetch_tiger_counties_dual_filter(mock_settings, mock_session_cls, mock_download):
-    """fetch_tiger_counties should filter by both state and county FIPS."""
+def test_fetch_tiger_counties_loads_all(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_counties should load all counties from the national file."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
-        tiger_state_fips="37",
-        tiger_county_fips="183",
     )
 
     columns = {
         "STATEFP": ["37", "37", "06"],
-        "COUNTYFP": ["183", "063", "183"],
+        "COUNTYFP": ["183", "063", "037"],
         "COUNTYNS": ["01008591", "01008557", "00277310"],
-        "GEOID": ["37183", "37063", "06183"],
-        "NAME": ["Wake", "Durham", "Test CA"],
-        "NAMELSAD": ["Wake County", "Durham County", "Test CA County"],
+        "GEOID": ["37183", "37063", "06037"],
+        "NAME": ["Wake", "Durham", "Los Angeles"],
+        "NAMELSAD": ["Wake County", "Durham County", "Los Angeles County"],
         "LSAD": ["06", "06", "06"],
         "CLASSFP": ["H1", "H1", "H1"],
         "ALAND": [2200000000, 750000000, 100000000],
@@ -373,9 +429,100 @@ def test_fetch_tiger_counties_dual_filter(mock_settings, mock_session_cls, mock_
 
     fetch_tiger_counties()
 
-    # Only Wake County (state=37, county=183) should match
+    # All 3 counties should be loaded (no state/county filter)
     mock_session.add_all.assert_called_once()
     added_records = mock_session.add_all.call_args[0][0]
-    assert len(added_records) == 1
-    assert added_records[0].geoid == "37183"
-    assert added_records[0].name == "Wake"
+    assert len(added_records) == 3
+    geoids = {r.geoid for r in added_records}
+    assert geoids == {"37183", "37063", "06037"}
+
+
+# -- fetch_tiger_block_groups tests -------------------------------------------
+
+
+@patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
+@patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
+@patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
+def test_fetch_tiger_block_groups_loads_all_records(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_block_groups should load all records without county filter."""
+    mock_settings.return_value = MagicMock(
+        tiger_base_url="https://www2.census.gov/geo/tiger",
+        tiger_year=2025,
+    )
+
+    columns = {
+        "STATEFP": ["37", "37"],
+        "COUNTYFP": ["183", "063"],
+        "TRACTCE": ["050100", "050200"],
+        "BLKGRPCE": ["1", "2"],
+        "GEOID": ["371830501001", "370630502002"],
+        "NAMELSAD": ["Block Group 1", "Block Group 2"],
+        "ALAND": [1000000, 2000000],
+        "AWATER": [500, 300],
+        "INTPTLAT": ["+35.7796", "+35.5000"],
+        "INTPTLON": ["-078.6382", "-079.1000"],
+        "FUNCSTAT": ["S", "S"],
+        "MTFCC": ["G5030", "G5030"],
+    }
+    shapes = [_make_simple_polygon(), _make_simple_polygon()]
+    mock_download.return_value = _make_tiger_zip(columns, shapes)
+
+    mock_session = MagicMock()
+    mock_session_cls.return_value = mock_session
+
+    from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_block_groups
+
+    fetch_tiger_block_groups(state_fips="37")
+
+    mock_session.add_all.assert_called_once()
+    added_records = mock_session.add_all.call_args[0][0]
+    assert len(added_records) == 2
+
+
+# -- fetch_tiger_county_subdivisions tests ------------------------------------
+
+
+@patch("pricepoint.data.geospatial.tiger_boundaries._download_tiger_zip")
+@patch("pricepoint.data.geospatial.tiger_boundaries.SessionLocal")
+@patch("pricepoint.data.geospatial.tiger_boundaries.get_settings")
+def test_fetch_tiger_county_subdivisions_loads_all(mock_settings, mock_session_cls, mock_download):
+    """fetch_tiger_county_subdivisions should load all records without county filter."""
+    mock_settings.return_value = MagicMock(
+        tiger_base_url="https://www2.census.gov/geo/tiger",
+        tiger_year=2025,
+    )
+
+    columns = {
+        "STATEFP": ["37", "37"],
+        "COUNTYFP": ["183", "063"],
+        "COUSUBFP": ["00100", "00200"],
+        "COUSUBNS": ["01234567", "01234568"],
+        "GEOID": ["3718300100", "3706300200"],
+        "NAME": ["Raleigh", "Durham"],
+        "NAMELSAD": ["Raleigh township", "Durham township"],
+        "LSAD": ["44", "44"],
+        "CLASSFP": ["T1", "T1"],
+        "ALAND": [1000000, 2000000],
+        "AWATER": [500, 300],
+        "INTPTLAT": ["+35.7796", "+35.5000"],
+        "INTPTLON": ["-078.6382", "-079.1000"],
+        "FUNCSTAT": ["A", "A"],
+        "MTFCC": ["G4040", "G4040"],
+        "CNECTAFP": ["", ""],
+        "NECTAFP": ["", ""],
+    }
+    shapes = [_make_simple_polygon(), _make_simple_polygon()]
+    mock_download.return_value = _make_tiger_zip(columns, shapes)
+
+    mock_session = MagicMock()
+    mock_session_cls.return_value = mock_session
+
+    from pricepoint.data.geospatial.tiger_boundaries import fetch_tiger_county_subdivisions
+
+    fetch_tiger_county_subdivisions(state_fips="37")
+
+    mock_session.add_all.assert_called_once()
+    added_records = mock_session.add_all.call_args[0][0]
+    assert len(added_records) == 2
+    geoids = {r.geoid for r in added_records}
+    assert geoids == {"3718300100", "3706300200"}

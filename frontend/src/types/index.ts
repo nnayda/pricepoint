@@ -106,7 +106,7 @@ export interface SchoolNearby {
   address?: string;
   school_type: string;
   school_level?: string;
-  rating: number;
+  rating: number | null;
   grades?: string;
   distance_miles: number;
   drive_minutes: number;
@@ -116,6 +116,22 @@ export interface SchoolNearby {
   assigned?: boolean;
   lat?: number;
   lon?: number;
+  pct_frl_eligible?: number;
+  in_district?: boolean;
+}
+
+export interface SchoolDistrictInfo {
+  name: string;
+  geoid: string;
+  geojson: GeoJSON.GeoJsonObject | null;
+  is_home: boolean;
+  label_lat: number | null;
+  label_lon: number | null;
+}
+
+export interface SchoolsNearbyResponse {
+  schools: SchoolNearby[];
+  school_districts: SchoolDistrictInfo[];
 }
 
 export interface SaleHistoryEntry {
@@ -375,8 +391,8 @@ export interface DashboardValuation {
   redfin_estimate: number;
   tax_assessment: number;
   price_per_sqft: number;
-  neighborhood_median: number;
-  neighborhood_max: number;
+  neighborhood_median?: number;
+  neighborhood_max?: number;
   model_version: string;
   prediction_date: string;
   verdict: string;
@@ -392,9 +408,23 @@ export interface ShapFeature {
 
 export interface PriceHistoryPoint {
   date: string;
-  price: number;
+  price?: number;
   neighborhood_median?: number;
   event?: string;
+  sale_price?: number;
+  sale_event?: string;
+  tax_assessed?: number;
+}
+
+export interface NeighborhoodMedianPoint {
+  date: string;
+  median_value: number;
+}
+
+export interface NeighborhoodValuationHistory {
+  tract_geoid: string;
+  sample_size: number;
+  monthly_medians: NeighborhoodMedianPoint[];
 }
 
 export interface RiskCategory {
@@ -442,6 +472,11 @@ export interface HomeOwnershipTrendPoint {
   ownership_rate: number;
 }
 
+export interface MedianAgeTrendPoint {
+  year: number;
+  median_age: number;
+}
+
 export interface DemographicDataset {
   race_ethnicity: { label: string; value: number; color: string }[];
   age_distribution: { range: string; male: number; female: number }[];
@@ -455,6 +490,7 @@ export interface DemographicDataset {
   age_distribution_trend: AgeDistributionTrendPoint[];
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
+  median_age_trend: MedianAgeTrendPoint[];
 }
 
 export type DemographicContext = "subdivision" | "block_group" | "neighborhood" | "town" | "county";
@@ -475,6 +511,7 @@ export interface DemographicData {
   age_distribution_trend: AgeDistributionTrendPoint[];
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
+  median_age_trend: MedianAgeTrendPoint[];
   benchmarks?: Record<string, DemographicDataset>;
   boundaries?: Record<string, GeoJSON.GeoJsonObject | null>;
   choropleth?: Record<DemographicContext, GeoJSON.FeatureCollection>;
@@ -493,6 +530,7 @@ export interface DemographicsApiContextData {
   age_distribution_trend: AgeDistributionTrendPoint[];
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
+  median_age_trend: MedianAgeTrendPoint[];
 }
 
 export interface ChoroplethFeatureProperties {
@@ -507,6 +545,11 @@ export interface ChoroplethFeatureProperties {
   dominant_race_pct: number;
   pct_under_18: number;
   pct_65_plus: number;
+  pct_white: number;
+  pct_black: number;
+  pct_hispanic: number;
+  pct_asian: number;
+  pct_other: number;
 }
 
 export interface DemographicsApiResponse {
@@ -520,16 +563,19 @@ export interface DashboardSchool {
   name: string;
   address: string;
   school_type: "Elementary" | "Middle" | "High" | "K-8" | "Charter";
-  rating: number;
+  rating: number | null;
   grades: string;
   distance_miles: number;
   drive_minutes: number;
   walk_minutes?: number;
   student_teacher_ratio: number;
+  enrollment?: number;
   test_scores: number;
   assigned: boolean;
   lat: number;
   lon: number;
+  pct_frl_eligible?: number;
+  in_district: boolean;
 }
 
 export interface DashboardPoi {

@@ -5,6 +5,7 @@ import type {
   DashboardValuation,
 } from "../types";
 import { mockDashboardData } from "../data/mockDashboardData";
+import { buildPriceHistory } from "./buildPriceHistory";
 
 /**
  * Normalize listing status from the API ("FOR SALE", "SOLD", "PENDING")
@@ -92,7 +93,10 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     valuation,
     // Tabs that don't have real API endpoints yet — use mock data
     shap_features: mockDashboardData.shap_features,
-    price_history: mockDashboardData.price_history,
+    price_history:
+      resp.sale_history.length > 0 || resp.tax_history.length > 0
+        ? buildPriceHistory(resp.sale_history, resp.tax_history, [])
+        : mockDashboardData.price_history,
     risks: mockDashboardData.risks,
     crime: mockDashboardData.crime,
     demographics: mockDashboardData.demographics, // overridden by useDemographics hook when API data available
@@ -113,10 +117,13 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
             drive_minutes: s.drive_minutes,
             walk_minutes: s.walk_minutes,
             student_teacher_ratio: s.student_teacher_ratio ?? 0,
+            enrollment: s.enrollment,
             test_scores: 0,
             assigned: s.assigned ?? false,
             lat: s.lat ?? 0,
             lon: s.lon ?? 0,
+            pct_frl_eligible: s.pct_frl_eligible,
+            in_district: s.in_district ?? false,
           }))
         : mockDashboardData.schools,
     pois: mockDashboardData.pois,

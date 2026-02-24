@@ -45,6 +45,11 @@ class HomeOwnershipTrendPoint(BaseModel):
     ownership_rate: float
 
 
+class MedianAgeTrendPoint(BaseModel):
+    year: int
+    median_age: float
+
+
 class AgeBucket(BaseModel):
     range: str
     male: float
@@ -66,6 +71,7 @@ class DemographicContextData(BaseModel):
     age_distribution_trend: list[AgeDistributionTrendPoint]
     income_trend: list[IncomeTrendPoint]
     home_ownership_trend: list[HomeOwnershipTrendPoint]
+    median_age_trend: list[MedianAgeTrendPoint]
 
 
 class DemographicsResponse(BaseModel):

@@ -1,16 +1,17 @@
 """Schools endpoint — returns nearby schools via spatial proximity."""
 
+import json
 import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_AsGeoJSON, ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
-from pricepoint.api.schemas.property import SchoolNearby
-from pricepoint.db.models import PropertySchool, RedfinListing, School
+from pricepoint.api.schemas.property import SchoolDistrictInfo, SchoolNearby, SchoolsNearbyResponse
+from pricepoint.db.models import PropertySchool, RedfinListing, School, TigerSchoolDistrict
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +20,20 @@ router = APIRouter(tags=["schools"])
 _MILES_TO_METERS = 1609.344
 
 
-@router.get("/schools/nearby", response_model=list[SchoolNearby])
+@router.get("/schools/nearby", response_model=SchoolsNearbyResponse)
 async def get_nearby_schools(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
     db: Annotated[Session, Depends(get_db)],
     radius_miles: Annotated[float, Query(gt=0, le=50)] = 10.0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
-) -> list[SchoolNearby]:
+) -> SchoolsNearbyResponse:
     """Return schools near a given location, ordered by distance.
 
     Uses a spatial query on the schools table (gold layer).
     If a property is found at the given coordinates, enriches results
     with assigned status and travel times from the property_schools linkage.
+    Also returns school district boundaries near the property.
     """
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
     radius_meters = radius_miles * _MILES_TO_METERS
@@ -57,6 +59,38 @@ async def get_nearby_schools(
     )
 
     rows = db.execute(stmt).all()
+
+    # Query all school districts within the search radius (single query)
+    contains_flag = ST_Contains(TigerSchoolDistrict.geom, point).label("is_home")
+    geojson_col = ST_AsGeoJSON(TigerSchoolDistrict.geom).label("geojson")
+
+    district_stmt = select(TigerSchoolDistrict, contains_flag, geojson_col).where(
+        ST_DWithin(
+            func.cast(TigerSchoolDistrict.geom, func.geography),
+            func.cast(point, func.geography),
+            radius_meters,
+        )
+    )
+    district_rows = db.execute(district_stmt).all()
+
+    home_district_id: int | None = None
+    school_districts: list[SchoolDistrictInfo] = []
+    for district, is_home, geojson_str in district_rows:
+        if is_home:
+            home_district_id = district.id
+        geojson = json.loads(geojson_str) if geojson_str else None
+        label_lat = float(district.intptlat) if district.intptlat else None
+        label_lon = float(district.intptlon) if district.intptlon else None
+        school_districts.append(
+            SchoolDistrictInfo(
+                name=district.name,
+                geoid=district.geoid,
+                geojson=geojson,
+                is_home=bool(is_home),
+                label_lat=label_lat,
+                label_lon=label_lon,
+            )
+        )
 
     # Try to find a property at this location for linkage enrichment
     tolerance = 0.001  # ~111 m
@@ -109,13 +143,18 @@ async def get_nearby_schools(
         if link and link.distance_miles:
             distance_miles = link.distance_miles
 
+        # Determine if school is in the same district
+        in_district = bool(
+            home_district_id and school.district_id and school.district_id == home_district_id
+        )
+
         schools.append(
             SchoolNearby(
                 name=school.name,
                 address=address,
                 school_type=school.school_type or "Unknown",
                 school_level=school.school_level,
-                rating=int(school.rating) if school.rating else 0,
+                rating=int(school.rating) if school.rating else None,
                 grades=school.grades,
                 distance_miles=round(distance_miles, 1),
                 drive_minutes=drive_minutes,
@@ -125,7 +164,9 @@ async def get_nearby_schools(
                 assigned=assigned,
                 lat=school_lat,
                 lon=school_lon,
+                pct_frl_eligible=school.pct_frl_eligible,
+                in_district=in_district,
             )
         )
 
-    return schools
+    return SchoolsNearbyResponse(schools=schools, school_districts=school_districts)

@@ -1,6 +1,6 @@
 """Tests for the schools/nearby endpoint."""
 
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 
 class TestSchoolsNearbyParams:
@@ -37,17 +37,26 @@ class TestSchoolsNearbyParams:
 
 class TestSchoolsNearbyEmpty:
     def test_returns_empty_list_when_no_schools(self, client):
-        """Returns empty list when no schools are in the DB."""
+        """Returns empty wrapper when no schools are in the DB."""
         resp = client.get(
             "/api/schools/nearby",
             params={"lat": 35.79, "lon": -78.78},
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json() == {"schools": [], "school_districts": []}
 
 
 class TestSchoolsNearbyWithData:
-    def _make_school(self, school_id=1, name="Test Elementary", lat=35.79, lon=-78.78):
+    def _make_school(
+        self,
+        school_id=1,
+        name="Test Elementary",
+        lat=35.79,
+        lon=-78.78,
+        rating=8.0,
+        district_id=None,
+        pct_frl_eligible=None,
+    ):
         """Create a mock School object."""
         school = MagicMock()
         school.id = school_id
@@ -58,11 +67,13 @@ class TestSchoolsNearbyWithData:
         school.zip_code = "27513"
         school.school_type = "Regular"
         school.school_level = "Elementary"
-        school.rating = 8.0
+        school.rating = rating
         school.grades = "K-5"
         school.enrollment = 500
         school.student_teacher_ratio = 15.0
         school.location = MagicMock()  # non-None geometry
+        school.district_id = district_id
+        school.pct_frl_eligible = pct_frl_eligible
         return school
 
     def test_returns_schools_with_correct_fields(self, app):
@@ -72,14 +83,13 @@ class TestSchoolsNearbyWithData:
         from pricepoint.api.dependencies import get_db
 
         mock_db = MagicMock()
-        school = self._make_school()
+        school = self._make_school(pct_frl_eligible=42.5)
 
-        # First execute: spatial school query → returns [(school, distance_m)]
-        # Second execute: property lookup → returns None
-        # Third execute: ST_Y/ST_X coord extraction
-        school_row = MagicMock()
-        school_row.__iter__ = MagicMock(return_value=iter([school, 1609.0]))
-
+        # Call order:
+        # 1: spatial school query
+        # 2: district DWithin query → empty
+        # 3: property lookup → None
+        # 4: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -92,6 +102,10 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # District DWithin query — no districts found
+                result.all.return_value = []
+                return result
+            elif call_count == 3:
                 # Property lookup
                 result.scalar_one_or_none.return_value = None
                 return result
@@ -117,9 +131,10 @@ class TestSchoolsNearbyWithData:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
+        assert data["school_districts"] == []
+        assert len(data["schools"]) == 1
 
-        s = data[0]
+        s = data["schools"][0]
         assert s["name"] == "Test Elementary"
         assert s["address"] == "100 School Rd, Cary, NC, 27513"
         assert s["school_type"] == "Regular"
@@ -132,6 +147,8 @@ class TestSchoolsNearbyWithData:
         assert s["enrollment"] == 500
         assert s["student_teacher_ratio"] == 15.0
         assert s["assigned"] is False
+        assert s["pct_frl_eligible"] == 42.5
+        assert s["in_district"] is False
 
         app.dependency_overrides.clear()
 
@@ -155,6 +172,12 @@ class TestSchoolsNearbyWithData:
         link.drive_minutes = 3
         link.walk_minutes = 16
 
+        # Call order:
+        # 1: spatial school query
+        # 2: district DWithin query → empty
+        # 3: property lookup → prop
+        # 4: PropertySchool linkage query
+        # 5: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -167,10 +190,14 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # District DWithin query — empty
+                result.all.return_value = []
+                return result
+            elif call_count == 3:
                 # Property lookup
                 result.scalar_one_or_none.return_value = prop
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 # PropertySchool linkage query
                 result.scalars.return_value.all.return_value = [link]
                 return result
@@ -196,12 +223,219 @@ class TestSchoolsNearbyWithData:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
+        assert len(data["schools"]) == 1
 
-        s = data[0]
+        s = data["schools"][0]
         assert s["assigned"] is True
         assert s["distance_miles"] == 0.8  # Uses linkage distance
         assert s["drive_minutes"] == 3
         assert s["walk_minutes"] == 16
+
+        app.dependency_overrides.clear()
+
+    def test_null_rating_returned_as_none(self, app):
+        """School with no rating returns null in response."""
+        from fastapi.testclient import TestClient
+
+        from pricepoint.api.dependencies import get_db
+
+        mock_db = MagicMock()
+        school = self._make_school(rating=None)
+
+        call_count = 0
+
+        def mock_execute(stmt):
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+
+            if call_count == 1:
+                result.all.return_value = [(school, 1609.0)]
+                return result
+            elif call_count == 2:
+                # Districts — empty
+                result.all.return_value = []
+                return result
+            elif call_count == 3:
+                result.scalar_one_or_none.return_value = None
+                return result
+            else:
+                coord = MagicMock()
+                coord.lat = 35.79
+                coord.lon = -78.78
+                result.one.return_value = coord
+                return result
+
+        mock_db.execute = mock_execute
+
+        def _override():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = _override
+        client = TestClient(app)
+
+        resp = client.get(
+            "/api/schools/nearby",
+            params={"lat": 35.79, "lon": -78.78},
+        )
+        assert resp.status_code == 200
+        s = resp.json()["schools"][0]
+        assert s["rating"] is None
+
+        app.dependency_overrides.clear()
+
+    def test_school_districts_returned_with_geojson(self, app):
+        """District boundaries are returned when property is near districts."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from pricepoint.api.dependencies import get_db
+
+        mock_db = MagicMock()
+        school = self._make_school(district_id=10)
+
+        home_district = MagicMock()
+        home_district.id = 10
+        home_district.name = "Wake County Schools"
+        home_district.geoid = "3700390"
+        home_district.geom = MagicMock()
+        home_district.intptlat = "35.790000"
+        home_district.intptlon = "-78.780000"
+
+        neighbor_district = MagicMock()
+        neighbor_district.id = 20
+        neighbor_district.name = "Durham Public Schools"
+        neighbor_district.geoid = "3701170"
+        neighbor_district.geom = MagicMock()
+        neighbor_district.intptlat = "36.000000"
+        neighbor_district.intptlon = "-78.900000"
+
+        home_geojson = {"type": "MultiPolygon", "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 0]]]]}
+        neighbor_geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [[[[1, 0], [2, 0], [2, 1], [1, 0]]]],
+        }
+
+        call_count = 0
+
+        def mock_execute(stmt):
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+
+            if call_count == 1:
+                result.all.return_value = [(school, 1609.0)]
+                return result
+            elif call_count == 2:
+                # District DWithin query — home + neighbor
+                result.all.return_value = [
+                    (home_district, True, json.dumps(home_geojson)),
+                    (neighbor_district, False, json.dumps(neighbor_geojson)),
+                ]
+                return result
+            elif call_count == 3:
+                # Property lookup
+                result.scalar_one_or_none.return_value = None
+                return result
+            else:
+                coord = MagicMock()
+                coord.lat = 35.79
+                coord.lon = -78.78
+                result.one.return_value = coord
+                return result
+
+        mock_db.execute = mock_execute
+
+        def _override():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = _override
+        client = TestClient(app)
+
+        resp = client.get(
+            "/api/schools/nearby",
+            params={"lat": 35.79, "lon": -78.78},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        districts = data["school_districts"]
+        assert len(districts) == 2
+
+        home = next(d for d in districts if d["is_home"])
+        assert home["name"] == "Wake County Schools"
+        assert home["geoid"] == "3700390"
+        assert home["geojson"]["type"] == "MultiPolygon"
+        assert home["label_lat"] == 35.79
+        assert home["label_lon"] == -78.78
+
+        neighbor = next(d for d in districts if not d["is_home"])
+        assert neighbor["name"] == "Durham Public Schools"
+        assert neighbor["geojson"]["type"] == "MultiPolygon"
+
+        app.dependency_overrides.clear()
+
+    def test_in_district_flag(self, app):
+        """School with matching district_id gets in_district=true."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from pricepoint.api.dependencies import get_db
+
+        mock_db = MagicMock()
+        school = self._make_school(district_id=10)
+
+        district = MagicMock()
+        district.id = 10
+        district.name = "Wake County Schools"
+        district.geoid = "3700390"
+        district.geom = MagicMock()
+        district.intptlat = "35.790000"
+        district.intptlon = "-78.780000"
+
+        geojson_dict = {"type": "MultiPolygon", "coordinates": []}
+
+        call_count = 0
+
+        def mock_execute(stmt):
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+
+            if call_count == 1:
+                result.all.return_value = [(school, 1609.0)]
+                return result
+            elif call_count == 2:
+                # District DWithin — home district found
+                result.all.return_value = [
+                    (district, True, json.dumps(geojson_dict)),
+                ]
+                return result
+            elif call_count == 3:
+                result.scalar_one_or_none.return_value = None
+                return result
+            else:
+                coord = MagicMock()
+                coord.lat = 35.79
+                coord.lon = -78.78
+                result.one.return_value = coord
+                return result
+
+        mock_db.execute = mock_execute
+
+        def _override():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = _override
+        client = TestClient(app)
+
+        resp = client.get(
+            "/api/schools/nearby",
+            params={"lat": 35.79, "lon": -78.78},
+        )
+        assert resp.status_code == 200
+        s = resp.json()["schools"][0]
+        assert s["in_district"] is True
 
         app.dependency_overrides.clear()

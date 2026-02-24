@@ -4,6 +4,8 @@ Manual-trigger DAG that downloads population, age, race, income, education,
 home ownership, and home value data at multiple geographic levels for
 multiple non-overlapping ACS vintages into PostGIS.
 
+Data is fetched nationwide (all 50 US states + DC) for each geography level.
+
 Levels: national, state, county, county subdivision, tract, block group,
 and Wake subdivision (area-weighted from block groups).
 """

@@ -4,6 +4,9 @@ Downloads population, age, race, income, education, home ownership, and
 home value data at multiple geographic levels for multiple non-overlapping
 vintages (e.g. 2009, 2014, 2019, 2024) and loads them into PostGIS.
 
+Data is fetched for all 50 US states plus DC, iterating per state for
+sub-national geographies (tract, block group, county subdivision).
+
 Supported geography levels:
   - us, state, county, county_subdivision (from Census API)
   - tract, block_group (from Census API)
@@ -91,49 +94,49 @@ _FEMALE_65_PLUS = [f"B01001_{i:03d}E" for i in range(44, 50)]
 
 _SENTINEL = "-666666666"
 
-# Geography parameter configurations for Census API
-_GEO_CONFIGS: dict[str, dict[str, str | list[str] | bool]] = {
+# All 50 US states + DC FIPS codes (used for per-state iteration)
+_US_STATE_FIPS = [
+    "01", "02", "04", "05", "06", "08", "09", "10", "11", "12",
+    "13", "15", "16", "17", "18", "19", "20", "21", "22", "23",
+    "24", "25", "26", "27", "28", "29", "30", "31", "32", "33",
+    "34", "35", "36", "37", "38", "39", "40", "41", "42", "44",
+    "45", "46", "47", "48", "49", "50", "51", "53", "54", "55",
+    "56",
+]
+
+# Geography parameter configurations for Census API.
+# Sub-national levels use state:{state_fips} in the "in" clause,
+# iterated per state for nationwide collection.
+_GEO_CONFIGS: dict[str, dict[str, str | list[str]]] = {
     "us": {
         "geo_for": "us:*",
         "geo_in": "",
         "geo_cols": ["us"],
-        "needs_state": False,
-        "needs_county": False,
     },
     "state": {
-        "geo_for": "state:{state_fips}",
+        "geo_for": "state:*",
         "geo_in": "",
         "geo_cols": ["state"],
-        "needs_state": True,
-        "needs_county": False,
     },
     "county": {
-        "geo_for": "county:{county_fips}",
+        "geo_for": "county:*",
         "geo_in": "state:{state_fips}",
         "geo_cols": ["state", "county"],
-        "needs_state": True,
-        "needs_county": True,
     },
     "county subdivision": {
         "geo_for": "county subdivision:*",
-        "geo_in": "state:{state_fips}+county:{county_fips}",
+        "geo_in": "state:{state_fips}",
         "geo_cols": ["state", "county", "county subdivision"],
-        "needs_state": True,
-        "needs_county": True,
     },
     "tract": {
         "geo_for": "tract:*",
-        "geo_in": "state:{state_fips}+county:{county_fips}",
+        "geo_in": "state:{state_fips}",
         "geo_cols": ["state", "county", "tract"],
-        "needs_state": True,
-        "needs_county": True,
     },
     "block group": {
         "geo_for": "block group:*",
-        "geo_in": "state:{state_fips}+county:{county_fips}+tract:*",
+        "geo_in": "state:{state_fips} county:*",
         "geo_cols": ["state", "county", "tract", "block group"],
-        "needs_state": True,
-        "needs_county": True,
     },
 }
 
@@ -475,12 +478,35 @@ def _upsert_level(
         )
     )
     session.commit()
-    session.add_all(records)
-    session.commit()
+    # Batch inserts for large record sets
+    batch_size = 5000
+    for i in range(0, len(records), batch_size):
+        session.add_all(records[i : i + batch_size])
+        session.commit()
+
+
+def _fetch_nationwide(
+    year: int,
+    geo_level: str,
+    geography_level: str,
+) -> list[AcsDemographic]:
+    """Fetch ACS data for all US states at the given geography level.
+
+    Iterates over all 51 state FIPS codes (50 states + DC), fetching
+    data per state and combining results.
+    """
+    all_vars = _get_all_vars(year)
+    records: list[AcsDemographic] = []
+    for state_fips in _US_STATE_FIPS:
+        rows = _fetch_acs_data(year, all_vars, geo_level, state_fips=state_fips)
+        for r in rows:
+            records.append(_map_record(r, year, geo_level, geography_level))
+        logger.info("  State %s: %d %s records", state_fips, len(rows), geography_level)
+    return records
 
 
 def fetch_acs_tract_demographics() -> None:
-    """Fetch ACS tract demographics for all configured vintages."""
+    """Fetch ACS tract demographics for all configured vintages (nationwide)."""
     settings = get_settings()
 
     session = SessionLocal()
@@ -489,14 +515,8 @@ def fetch_acs_tract_demographics() -> None:
             if _level_exists(session, year, "tract"):
                 logger.info("Skipping ACS tract vintage %d — already loaded", year)
                 continue
-            logger.info("Fetching ACS tract demographics for vintage %d", year)
-            all_vars = _get_all_vars(year)
-            rows = _fetch_acs_data(
-                year, all_vars, "tract", settings.tiger_state_fips, settings.tiger_county_fips
-            )
-            logger.info("Received %d tract records for vintage %d", len(rows), year)
-
-            records = [_map_record(r, year, "tract", "tract") for r in rows]
+            logger.info("Fetching ACS tract demographics for vintage %d (all states)", year)
+            records = _fetch_nationwide(year, "tract", "tract")
             _upsert_level(session, year, "tract", records)
             logger.info("Loaded %d tract records for vintage %d", len(records), year)
 
@@ -509,7 +529,7 @@ def fetch_acs_tract_demographics() -> None:
 
 
 def fetch_acs_block_group_demographics() -> None:
-    """Fetch ACS block group demographics for eligible vintages.
+    """Fetch ACS block group demographics for eligible vintages (nationwide).
 
     Block group geography is not available in the Census API for early ACS
     5-year releases (e.g. 2009).  The ``census_acs_block_group_min_year``
@@ -531,18 +551,8 @@ def fetch_acs_block_group_demographics() -> None:
             if _level_exists(session, year, "block_group"):
                 logger.info("Skipping ACS block group vintage %d — already loaded", year)
                 continue
-            logger.info("Fetching ACS block group demographics for vintage %d", year)
-            all_vars = _get_all_vars(year)
-            rows = _fetch_acs_data(
-                year,
-                all_vars,
-                "block group",
-                settings.tiger_state_fips,
-                settings.tiger_county_fips,
-            )
-            logger.info("Received %d block group records for vintage %d", len(rows), year)
-
-            records = [_map_record(r, year, "block group", "block_group") for r in rows]
+            logger.info("Fetching ACS block group demographics for vintage %d (all states)", year)
+            records = _fetch_nationwide(year, "block group", "block_group")
             _upsert_level(session, year, "block_group", records)
             logger.info("Loaded %d block group records for vintage %d", len(records), year)
 
@@ -555,37 +565,46 @@ def fetch_acs_block_group_demographics() -> None:
 
 
 def fetch_acs_summary_demographics() -> None:
-    """Fetch ACS demographics for national, state, and county levels."""
-    settings = get_settings()
+    """Fetch ACS demographics for national, state, and county levels (nationwide).
 
-    # Mapping of Census API geo_level to our geography_level value
-    levels = [
-        ("us", "us"),
-        ("state", "state"),
-        ("county", "county"),
-    ]
+    US and state levels are fetched in a single API call each.
+    County level iterates per state.
+    """
+    settings = get_settings()
 
     session = SessionLocal()
     try:
         for year in settings.census_acs_vintages:
-            for api_level, db_level in levels:
-                if _level_exists(session, year, db_level):
-                    logger.info("Skipping ACS %s vintage %d — already loaded", db_level, year)
-                    continue
-                logger.info("Fetching ACS %s demographics for vintage %d", db_level, year)
-                all_vars = _get_all_vars(year)
-                rows = _fetch_acs_data(
-                    year,
-                    all_vars,
-                    api_level,
-                    settings.tiger_state_fips,
-                    settings.tiger_county_fips,
-                )
-                logger.info("Received %d %s records for vintage %d", len(rows), db_level, year)
+            all_vars = _get_all_vars(year)
 
-                records = [_map_record(r, year, api_level, db_level) for r in rows]
-                _upsert_level(session, year, db_level, records)
-                logger.info("Loaded %d %s records for vintage %d", len(records), db_level, year)
+            # US level — single request
+            if not _level_exists(session, year, "us"):
+                logger.info("Fetching ACS us demographics for vintage %d", year)
+                rows = _fetch_acs_data(year, all_vars, "us")
+                records = [_map_record(r, year, "us", "us") for r in rows]
+                _upsert_level(session, year, "us", records)
+                logger.info("Loaded %d us records for vintage %d", len(records), year)
+            else:
+                logger.info("Skipping ACS us vintage %d — already loaded", year)
+
+            # State level — single request returns all states
+            if not _level_exists(session, year, "state"):
+                logger.info("Fetching ACS state demographics for vintage %d", year)
+                rows = _fetch_acs_data(year, all_vars, "state")
+                records = [_map_record(r, year, "state", "state") for r in rows]
+                _upsert_level(session, year, "state", records)
+                logger.info("Loaded %d state records for vintage %d", len(records), year)
+            else:
+                logger.info("Skipping ACS state vintage %d — already loaded", year)
+
+            # County level — iterate per state
+            if not _level_exists(session, year, "county"):
+                logger.info("Fetching ACS county demographics for vintage %d (all states)", year)
+                records = _fetch_nationwide(year, "county", "county")
+                _upsert_level(session, year, "county", records)
+                logger.info("Loaded %d county records for vintage %d", len(records), year)
+            else:
+                logger.info("Skipping ACS county vintage %d — already loaded", year)
 
         logger.info("ACS summary demographics load complete")
     except Exception:
@@ -596,7 +615,7 @@ def fetch_acs_summary_demographics() -> None:
 
 
 def fetch_acs_county_sub_demographics() -> None:
-    """Fetch ACS county subdivision demographics for all configured vintages."""
+    """Fetch ACS county subdivision demographics for all configured vintages (nationwide)."""
     settings = get_settings()
 
     session = SessionLocal()
@@ -607,20 +626,10 @@ def fetch_acs_county_sub_demographics() -> None:
                     "Skipping ACS county subdivision vintage %d — already loaded", year
                 )
                 continue
-            logger.info("Fetching ACS county subdivision demographics for vintage %d", year)
-            all_vars = _get_all_vars(year)
-            rows = _fetch_acs_data(
-                year,
-                all_vars,
-                "county subdivision",
-                settings.tiger_state_fips,
-                settings.tiger_county_fips,
+            logger.info(
+                "Fetching ACS county subdivision demographics for vintage %d (all states)", year
             )
-            logger.info("Received %d county subdivision records for vintage %d", len(rows), year)
-
-            records = [
-                _map_record(r, year, "county subdivision", "county_subdivision") for r in rows
-            ]
+            records = _fetch_nationwide(year, "county subdivision", "county_subdivision")
             _upsert_level(session, year, "county_subdivision", records)
             logger.info("Loaded %d county subdivision records for vintage %d", len(records), year)
 

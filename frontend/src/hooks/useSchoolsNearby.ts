@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { getSchoolsNearby } from "../services/property";
-import type { SchoolNearby } from "../types";
+import type { SchoolDistrictInfo, SchoolNearby } from "../types";
 
 interface UseSchoolsNearbyResult {
   schools: SchoolNearby[];
+  schoolDistricts: SchoolDistrictInfo[];
   loading: boolean;
   error: string | null;
 }
 
 export function useSchoolsNearby(lat: number | null, lon: number | null): UseSchoolsNearbyResult {
   const [schools, setSchools] = useState<SchoolNearby[]>([]);
+  const [schoolDistricts, setSchoolDistricts] = useState<SchoolDistrictInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,8 @@ export function useSchoolsNearby(lat: number | null, lon: number | null): UseSch
       try {
         const result = await getSchoolsNearby(lat!, lon!);
         if (!cancelled) {
-          setSchools(result);
+          setSchools(result.schools);
+          setSchoolDistricts(result.school_districts);
         }
       } catch {
         if (!cancelled) {
@@ -47,5 +50,5 @@ export function useSchoolsNearby(lat: number | null, lon: number | null): UseSch
     };
   }, [lat, lon]);
 
-  return { schools, loading, error };
+  return { schools, schoolDistricts, loading, error };
 }

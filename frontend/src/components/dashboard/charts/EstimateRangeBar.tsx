@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DashboardValuation } from "../../../types";
 import { COLOR_PURPLE } from "../../../utils/chartTokens";
 
@@ -20,6 +21,84 @@ interface TickMark {
   label: string;
   prominent: boolean;
   position: "above" | "below";
+  hoverOnly?: boolean;
+}
+
+interface NudgedLabel {
+  tick: TickMark;
+  /** Original percent position along the bar */
+  originPct: number;
+  /** Nudged pixel position (center of label) */
+  nudgedPx: number;
+  /** Measured or estimated width in pixels */
+  width: number;
+}
+
+const MIN_GAP = 8;
+
+/** Estimate label width from text content */
+function estimateWidth(tick: TickMark): number {
+  const valueText = fmtShort(tick.value);
+  const labelText = tick.label;
+  const longer = Math.max(valueText.length, labelText.length);
+  const charWidth = tick.prominent ? 9.5 : 7;
+  return longer * charWidth + 4;
+}
+
+/**
+ * Nudge labels so none overlap. Greedy left-to-right spreading.
+ * Returns nudged pixel center positions.
+ */
+function nudgeLabels(
+  ticks: TickMark[],
+  originPcts: number[],
+  containerWidth: number,
+  measuredWidths: Map<string, number>,
+): NudgedLabel[] {
+  if (ticks.length === 0 || containerWidth <= 0) return [];
+
+  // Build items sorted by origin position
+  const items: NudgedLabel[] = ticks.map((tick, i) => {
+    const w = measuredWidths.get(tick.label) ?? estimateWidth(tick);
+    return {
+      tick,
+      originPct: originPcts[i],
+      nudgedPx: (originPcts[i] / 100) * containerWidth,
+      width: w,
+    };
+  });
+
+  items.sort((a, b) => a.nudgedPx - b.nudgedPx);
+
+  // Forward pass: push right if overlapping
+  for (let i = 1; i < items.length; i++) {
+    const prev = items[i - 1];
+    const curr = items[i];
+    const minCenter = prev.nudgedPx + prev.width / 2 + MIN_GAP + curr.width / 2;
+    if (curr.nudgedPx < minCenter) {
+      curr.nudgedPx = minCenter;
+    }
+  }
+
+  // Backward pass: if last item exceeds container, push everything left
+  const last = items[items.length - 1];
+  const maxCenter = containerWidth - last.width / 2;
+  if (last.nudgedPx > maxCenter) {
+    const shift = last.nudgedPx - maxCenter;
+    for (const item of items) {
+      item.nudgedPx -= shift;
+    }
+  }
+
+  // Forward clamp: ensure nothing goes below 0
+  for (let i = 0; i < items.length; i++) {
+    const minCenter = i === 0 ? items[i].width / 2 : items[i - 1].nudgedPx + items[i - 1].width / 2 + MIN_GAP + items[i].width / 2;
+    if (items[i].nudgedPx < minCenter) {
+      items[i].nudgedPx = minCenter;
+    }
+  }
+
+  return items;
 }
 
 function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
@@ -29,9 +108,12 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
     predicted_value,
     confidence_high,
     listed_price,
+    redfin_estimate,
     neighborhood_median,
     neighborhood_max,
   } = valuation;
+
+  const hasNbhd = neighborhood_median != null && neighborhood_max != null;
 
   const allValues = [
     tax_assessment,
@@ -39,8 +121,8 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
     predicted_value,
     confidence_high,
     listed_price,
-    neighborhood_median,
-    neighborhood_max,
+    ...(redfin_estimate != null ? [redfin_estimate] : []),
+    ...(hasNbhd ? [neighborhood_median, neighborhood_max] : []),
   ];
   const min = Math.min(...allValues) * 0.95;
   const max = Math.max(...allValues) * 1.05;
@@ -52,17 +134,149 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`;
 
   const tickMarks: TickMark[] = [
-    { value: tax_assessment, color: "var(--color-db-orange)", label: "Assessment", prominent: false, position: "above" },
-    { value: confidence_low, color: COLOR_PURPLE, label: "CI Low", prominent: false, position: "above" },
-    { value: predicted_value, color: "var(--color-db-accent)", label: "Estimate", prominent: true, position: "above" },
-    { value: confidence_high, color: COLOR_PURPLE, label: "CI High", prominent: false, position: "above" },
-    { value: listed_price, color: "var(--color-db-cyan)", label: "Listed", prominent: false, position: "above" },
-    { value: neighborhood_median, color: "var(--color-db-text-secondary)", label: "Nbhd Median", prominent: false, position: "below" },
-    { value: neighborhood_max, color: "var(--color-db-text-secondary)", label: "Nbhd Max", prominent: false, position: "below" },
+    {
+      value: tax_assessment,
+      color: "var(--color-db-orange)",
+      label: "Assessment",
+      prominent: false,
+      position: "above",
+    },
+    {
+      value: confidence_low,
+      color: COLOR_PURPLE,
+      label: "CI Low",
+      prominent: false,
+      position: "above",
+      hoverOnly: true,
+    },
+    {
+      value: predicted_value,
+      color: "var(--color-db-accent)",
+      label: "Estimate",
+      prominent: true,
+      position: "above",
+    },
+    {
+      value: confidence_high,
+      color: COLOR_PURPLE,
+      label: "CI High",
+      prominent: false,
+      position: "above",
+      hoverOnly: true,
+    },
+    {
+      value: listed_price,
+      color: "var(--color-db-cyan)",
+      label: "Listed",
+      prominent: false,
+      position: "above",
+    },
+    ...(redfin_estimate != null
+      ? [
+          {
+            value: redfin_estimate,
+            color: "var(--color-db-red)",
+            label: "Redfin",
+            prominent: false,
+            position: "below" as const,
+          },
+        ]
+      : []),
+    ...(hasNbhd
+      ? [
+          {
+            value: neighborhood_median,
+            color: "var(--color-db-text-secondary)",
+            label: "Nbhd Median",
+            prominent: false,
+            position: "below" as const,
+          },
+          {
+            value: neighborhood_max,
+            color: "var(--color-db-text-secondary)",
+            label: "Nbhd Max",
+            prominent: false,
+            position: "below" as const,
+          },
+        ]
+      : []),
   ];
 
+  // Split by row, excluding hoverOnly from nudging
   const aboveTicks = tickMarks.filter((m) => m.position === "above");
   const belowTicks = tickMarks.filter((m) => m.position === "below");
+  const aboveVisible = aboveTicks.filter((m) => !m.hoverOnly);
+  const aboveHidden = aboveTicks.filter((m) => m.hoverOnly);
+
+  // Refs for measuring
+  const aboveContainerRef = useRef<HTMLDivElement>(null);
+  const belowContainerRef = useRef<HTMLDivElement>(null);
+  const aboveLabelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const belowLabelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [measuredAbove, setMeasuredAbove] = useState<Map<string, number>>(new Map());
+  const [measuredBelow, setMeasuredBelow] = useState<Map<string, number>>(new Map());
+
+  // Observe container width
+  useEffect(() => {
+    const container = aboveContainerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
+  // Measure label widths after render
+  const measureLabels = useCallback(() => {
+    const aboveMap = new Map<string, number>();
+    aboveLabelRefs.current.forEach((el, key) => {
+      if (el) aboveMap.set(key, el.offsetWidth);
+    });
+    setMeasuredAbove(aboveMap);
+
+    const belowMap = new Map<string, number>();
+    belowLabelRefs.current.forEach((el, key) => {
+      if (el) belowMap.set(key, el.offsetWidth);
+    });
+    setMeasuredBelow(belowMap);
+  }, []);
+
+  useEffect(() => {
+    measureLabels();
+  }, [measureLabels, containerWidth, valuation]);
+
+  // Compute nudged positions
+  const aboveNudged = nudgeLabels(
+    aboveVisible,
+    aboveVisible.map((m) => pct(m.value)),
+    containerWidth,
+    measuredAbove,
+  );
+
+  const belowNudged = nudgeLabels(
+    belowTicks,
+    belowTicks.map((m) => pct(m.value)),
+    containerWidth,
+    measuredBelow,
+  );
+
+  const setAboveRef = (label: string) => (el: HTMLDivElement | null) => {
+    if (el) aboveLabelRefs.current.set(label, el);
+    else aboveLabelRefs.current.delete(label);
+  };
+
+  const setBelowRef = (label: string) => (el: HTMLDivElement | null) => {
+    if (el) belowLabelRefs.current.set(label, el);
+    else belowLabelRefs.current.delete(label);
+  };
+
+  /** Threshold in px for showing a leader line */
+  const LEADER_THRESHOLD = 2;
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,7 +303,9 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
             </span>
             <span
               className="font-db-mono text-xs font-semibold"
-              style={{ color: delta >= 0 ? "var(--color-db-green)" : "var(--color-db-red, #F87171)" }}
+              style={{
+                color: delta >= 0 ? "var(--color-db-green)" : "var(--color-db-red, #F87171)",
+              }}
             >
               {deltaStr}
             </span>
@@ -99,21 +315,72 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
         {/* Range bar with tick labels */}
         <div className="flex flex-col gap-2">
           {/* Tick labels above bar */}
-          <div className="relative h-11">
-            {aboveTicks.map((m) => (
+          <div ref={aboveContainerRef} className="relative h-11">
+            {/* Leader lines SVG for above labels */}
+            {containerWidth > 0 && (
+              <svg
+                className="pointer-events-none absolute inset-0"
+                width={containerWidth}
+                height="100%"
+                style={{ overflow: "visible" }}
+              >
+                {aboveNudged.map((item) => {
+                  const originPx = (item.originPct / 100) * containerWidth;
+                  const diff = Math.abs(item.nudgedPx - originPx);
+                  if (diff < LEADER_THRESHOLD) return null;
+                  // Line from nudged label bottom-center to tick origin at bottom
+                  return (
+                    <line
+                      key={`leader-above-${item.tick.label}`}
+                      x1={item.nudgedPx}
+                      y1="75%"
+                      x2={originPx}
+                      y2="100%"
+                      stroke={item.tick.color}
+                      strokeWidth={1}
+                      opacity={0.4}
+                    />
+                  );
+                })}
+              </svg>
+            )}
+            {/* Nudged visible labels */}
+            {aboveNudged.map((item) => (
+              <div
+                key={item.tick.label}
+                ref={setAboveRef(item.tick.label)}
+                className="absolute bottom-0 -translate-x-1/2"
+                style={{ left: `${item.nudgedPx}px` }}
+              >
+                <span
+                  className={`block whitespace-nowrap font-db-mono ${item.tick.prominent ? "text-base font-bold" : "text-xs font-medium"}`}
+                  style={{ color: item.tick.color }}
+                >
+                  {fmtShort(item.tick.value)}
+                </span>
+                <span
+                  className={`block whitespace-nowrap uppercase tracking-wider ${item.tick.prominent ? "text-[11px] font-semibold" : "text-[9px]"}`}
+                  style={{ color: item.tick.color }}
+                >
+                  {item.tick.label}
+                </span>
+              </div>
+            ))}
+            {/* HoverOnly labels — positioned at their true percent (not nudged) */}
+            {aboveHidden.map((m) => (
               <div
                 key={m.label}
-                className="absolute bottom-0 -translate-x-1/2"
+                className="group absolute bottom-0 -translate-x-1/2"
                 style={{ left: `${pct(m.value)}%` }}
               >
                 <span
-                  className={`block whitespace-nowrap font-db-mono ${m.prominent ? "text-base font-bold" : "text-xs font-medium"}`}
+                  className="block whitespace-nowrap font-db-mono text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
                   style={{ color: m.color }}
                 >
                   {fmtShort(m.value)}
                 </span>
                 <span
-                  className={`block whitespace-nowrap uppercase tracking-wider ${m.prominent ? "text-[11px] font-semibold" : "text-[9px]"}`}
+                  className="block whitespace-nowrap text-[9px] uppercase tracking-wider opacity-0 transition-opacity group-hover:opacity-100"
                   style={{ color: m.color }}
                 >
                   {m.label}
@@ -134,7 +401,15 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
                   height="6"
                   patternTransform="rotate(45)"
                 >
-                  <line x1="0" y1="0" x2="0" y2="6" stroke={COLOR_PURPLE} strokeWidth="1.5" strokeOpacity="0.5" />
+                  <line
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="6"
+                    stroke={COLOR_PURPLE}
+                    strokeWidth="1.5"
+                    strokeOpacity="0.5"
+                  />
                 </pattern>
               </defs>
             </svg>
@@ -160,28 +435,58 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
           </div>
 
           {/* Tick labels below bar */}
-          <div className="relative h-8">
-            {belowTicks.map((m) => (
-              <div
-                key={m.label}
-                className="absolute top-0 -translate-x-1/2"
-                style={{ left: `${pct(m.value)}%` }}
-              >
-                <span
-                  className="block whitespace-nowrap text-[9px] uppercase tracking-wider"
-                  style={{ color: m.color }}
+          {belowTicks.length > 0 && (
+            <div ref={belowContainerRef} className="relative h-8">
+              {/* Leader lines SVG for below labels */}
+              {containerWidth > 0 && (
+                <svg
+                  className="pointer-events-none absolute inset-0"
+                  width={containerWidth}
+                  height="100%"
+                  style={{ overflow: "visible" }}
                 >
-                  {m.label}
-                </span>
-                <span
-                  className="block whitespace-nowrap font-db-mono text-xs font-medium"
-                  style={{ color: m.color }}
+                  {belowNudged.map((item) => {
+                    const originPx = (item.originPct / 100) * containerWidth;
+                    const diff = Math.abs(item.nudgedPx - originPx);
+                    if (diff < LEADER_THRESHOLD) return null;
+                    return (
+                      <line
+                        key={`leader-below-${item.tick.label}`}
+                        x1={originPx}
+                        y1="0%"
+                        x2={item.nudgedPx}
+                        y2="25%"
+                        stroke={item.tick.color}
+                        strokeWidth={1}
+                        opacity={0.4}
+                      />
+                    );
+                  })}
+                </svg>
+              )}
+              {belowNudged.map((item) => (
+                <div
+                  key={item.tick.label}
+                  ref={setBelowRef(item.tick.label)}
+                  className="absolute top-0 -translate-x-1/2"
+                  style={{ left: `${item.nudgedPx}px` }}
                 >
-                  {fmtShort(m.value)}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span
+                    className="block whitespace-nowrap text-[9px] uppercase tracking-wider"
+                    style={{ color: item.tick.color }}
+                  >
+                    {item.tick.label}
+                  </span>
+                  <span
+                    className="block whitespace-nowrap font-db-mono text-xs font-medium"
+                    style={{ color: item.tick.color }}
+                  >
+                    {fmtShort(item.tick.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -31,12 +31,16 @@ const TABS: TabDef[] = [
 function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, string>> {
   const dots: Partial<Record<DashboardTab, string>> = {};
 
-  // Amber dot on Valuation if confidence is not "High"
-  const ciWidth = data.valuation.confidence_high - data.valuation.confidence_low;
-  const ciPct = ciWidth / data.valuation.predicted_value;
-  if (ciPct > 0.05) {
-    dots.valuation = "#FBBF24";
+  // Dot color on Valuation matches outcome label
+  const v = data.valuation;
+  if (v.listed_price < v.confidence_low) {
+    dots.valuation = "#34D399"; // Bargain → green
+  } else if (v.listed_price >= v.confidence_high) {
+    dots.valuation = "#F87171"; // Overpriced → red
+  } else if (v.listed_price >= v.predicted_value) {
+    dots.valuation = "#FBBF24"; // Fair → amber
   }
+  // Value (listed < predicted but >= CI low) → no dot
 
   // Red dot on Risks if any risk score > 70
   if (data.risks.categories.some((c) => c.score > 70)) {
@@ -44,7 +48,7 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   }
 
   // Green dot on Schools if any school rated 8+
-  if (data.schools.some((s) => s.rating >= 8)) {
+  if (data.schools.some((s) => s.rating != null && s.rating >= 8)) {
     dots.schools = "#34D399";
   }
 

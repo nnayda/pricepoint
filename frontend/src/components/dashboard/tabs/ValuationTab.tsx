@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { DashboardData, MortgageBreakdown } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import MonoValue from "../ui/MonoValue";
@@ -53,17 +53,29 @@ type Outcome = { label: string; style: string };
 
 function getOutcome(v: DashboardData["valuation"]): Outcome {
   if (v.listed_price < v.confidence_low)
-    return { label: "Bargain", style: "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)]" };
+    return {
+      label: "Bargain",
+      style: "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)]",
+    };
   if (v.listed_price < v.predicted_value)
-    return { label: "Value", style: "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-secondary)]" };
+    return {
+      label: "Value",
+      style: "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-secondary)]",
+    };
   if (v.listed_price < v.confidence_high)
-    return { label: "Fair", style: "bg-[var(--color-db-orange-muted,rgba(251,146,60,0.15))] text-[var(--color-db-orange)]" };
-  return { label: "Overpriced", style: "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)]" };
+    return {
+      label: "Fair",
+      style:
+        "bg-[var(--color-db-orange-muted,rgba(251,146,60,0.15))] text-[var(--color-db-orange)]",
+    };
+  return {
+    label: "Overpriced",
+    style: "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)]",
+  };
 }
 
 function ValuationTab({ data }: ValuationTabProps) {
   const { valuation, shap_features, price_history, mortgage_defaults } = data;
-  const [timeRange, setTimeRange] = useState<"W" | "M">("M");
   const outcome = getOutcome(valuation);
 
   const [homePrice, setHomePrice] = useState(mortgage_defaults.home_price);
@@ -134,26 +146,10 @@ function ValuationTab({ data }: ValuationTabProps) {
       {/* Price History + SHAP side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Price History
             </h3>
-            <div className="flex overflow-hidden rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)]">
-              {(["W", "M"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTimeRange(t)}
-                  className={`px-3 py-1 text-[11px] font-semibold transition-colors ${
-                    timeRange === t
-                      ? "bg-[var(--color-db-accent-muted)] text-[var(--color-db-accent)]"
-                      : "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-tertiary)] hover:bg-[var(--color-db-surface-hover)]"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
           </div>
           <PriceHistoryChart data={price_history} showNeighborhood={true} />
         </DashboardCard>

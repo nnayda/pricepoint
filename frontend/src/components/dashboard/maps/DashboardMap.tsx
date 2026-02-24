@@ -1,6 +1,6 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { COLOR_INDIGO } from "../../../utils/chartTokens";
 
@@ -12,6 +12,8 @@ export interface MapMarker {
   id?: string;
   isProperty?: boolean;
 }
+
+export type MapStyle = "street" | "satellite" | "dark" | "light";
 
 interface DashboardMapProps {
   center: [number, number];
@@ -108,14 +110,46 @@ function InteractiveMarker({
   );
 }
 
-const TILE_URLS: Record<string, string> = {
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+const TILE_CONFIGS: Record<MapStyle, { url: string; attribution: string; maxZoom: number }> = {
+  street: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 20,
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution:
+      '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+    maxZoom: 19,
+  },
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 20,
+  },
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 20,
+  },
 };
 
-/** Syncs the tile layer when resolvedTheme changes after initial mount. */
-function ThemeAwareTiles() {
-  const { resolvedTheme } = useTheme();
+const STYLE_LABELS: Record<MapStyle, string> = {
+  street: "Street",
+  satellite: "Satellite",
+  dark: "Dark",
+  light: "Light",
+};
+
+function getDefaultStyle(resolvedTheme: string): MapStyle {
+  return resolvedTheme === "light" ? "light" : "dark";
+}
+
+/** Syncs the tile layer when style or theme changes. */
+function TileLayerController({ style }: { style: MapStyle }) {
   const map = useMap();
   const layerRef = useRef<L.TileLayer | null>(null);
 
@@ -123,18 +157,128 @@ function ThemeAwareTiles() {
     if (layerRef.current) {
       map.removeLayer(layerRef.current);
     }
-    const layer = L.tileLayer(TILE_URLS[resolvedTheme] || TILE_URLS.dark, {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    const config = TILE_CONFIGS[style];
+    const layer = L.tileLayer(config.url, {
+      attribution: config.attribution,
+      maxZoom: config.maxZoom,
     });
     layer.addTo(map);
+    map.setMaxZoom(config.maxZoom);
     layerRef.current = layer;
     return () => {
       map.removeLayer(layer);
     };
-  }, [resolvedTheme, map]);
+  }, [style, map]);
 
   return null;
+}
+
+const MAP_STYLES: MapStyle[] = ["street", "satellite", "dark", "light"];
+
+function MapStyleControl({
+  style,
+  onChange,
+}: {
+  style: MapStyle;
+  onChange: (s: MapStyle) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "absolute", top: 10, right: 10, zIndex: 1000, pointerEvents: "none" }}
+    >
+      <div
+        style={{ margin: 0, pointerEvents: "auto" }}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Map style"
+          title="Map style"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "5px 10px",
+            background: "var(--color-db-surface, #1C2333)",
+            color: "var(--color-db-text-primary, #E8ECF4)",
+            border: "1px solid var(--color-db-border, #2E3553)",
+            borderRadius: "var(--radius-db-sm, 6px)",
+            cursor: "pointer",
+            fontSize: 12,
+            fontFamily: "var(--font-db-sans)",
+            lineHeight: 1,
+            whiteSpace: "nowrap",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </svg>
+          {STYLE_LABELS[style]}
+        </button>
+        {open && (
+          <div
+            style={{
+              marginTop: 4,
+              background: "var(--color-db-surface, #1C2333)",
+              border: "1px solid var(--color-db-border, #2E3553)",
+              borderRadius: "var(--radius-db-sm, 6px)",
+              overflow: "hidden",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+            }}
+          >
+            {MAP_STYLES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  onChange(s);
+                  setOpen(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "6px 12px",
+                  background: s === style ? "var(--color-db-surface-hover, #252D44)" : "transparent",
+                  color: "var(--color-db-text-primary, #E8ECF4)",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontFamily: "var(--font-db-sans)",
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => {
+                  if (s !== style) e.currentTarget.style.background = "var(--color-db-surface-hover, #252D44)";
+                }}
+                onMouseLeave={(e) => {
+                  if (s !== style) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {STYLE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function DashboardMap({
@@ -148,11 +292,25 @@ function DashboardMap({
   selectedId,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
+  const [mapStyle, setMapStyle] = useState<MapStyle>(() => getDefaultStyle(resolvedTheme));
+  const userChoseStyle = useRef(false);
+
+  // Follow theme changes unless user explicitly picked a style
+  useEffect(() => {
+    if (!userChoseStyle.current) {
+      setMapStyle(getDefaultStyle(resolvedTheme));
+    }
+  }, [resolvedTheme]);
+
+  const handleStyleChange = useCallback((s: MapStyle) => {
+    userChoseStyle.current = true;
+    setMapStyle(s);
+  }, []);
 
   return (
     <div
       className="dashboard-map overflow-hidden rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)]"
-      style={{ height, minHeight }}
+      style={{ height, minHeight, position: "relative" }}
     >
       <MapContainer
         center={center}
@@ -161,11 +319,7 @@ function DashboardMap({
         zoomControl={true}
         attributionControl={true}
       >
-        <TileLayer
-          url={TILE_URLS[resolvedTheme] || TILE_URLS.dark}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-        />
-        <ThemeAwareTiles />
+        <TileLayerController style={mapStyle} />
         {markers.map((m) => (
           <InteractiveMarker
             key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}
@@ -176,6 +330,7 @@ function DashboardMap({
         ))}
         {children}
       </MapContainer>
+      <MapStyleControl style={mapStyle} onChange={handleStyleChange} />
     </div>
   );
 }

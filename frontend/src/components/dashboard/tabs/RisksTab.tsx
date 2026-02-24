@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Cell,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import type { DashboardData } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
@@ -21,7 +12,6 @@ import {
   AXIS_TICK_MONO,
   AXIS_TICK_SANS,
   AXIS_LINE_STYLE,
-  GRID_STYLE,
   CURSOR_BAR_LIGHT,
   CRIME_PALETTE,
   COLOR_RED,
@@ -111,10 +101,6 @@ function RisksTab({ data }: RisksTabProps) {
               layout="vertical"
               margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
             >
-              <CartesianGrid
-                {...GRID_STYLE}
-                horizontal={false}
-              />
               <XAxis
                 type="number"
                 tick={{ ...AXIS_TICK_MONO }}

@@ -28,6 +28,7 @@ from pricepoint.api.schemas.demographics import (
     HomeOwnershipTrendPoint,
     IncomeTrendPoint,
     LabelValue,
+    MedianAgeTrendPoint,
     PopulationTrendPoint,
     RaceEthnicityTrendPoint,
 )
@@ -56,8 +57,8 @@ _LEVEL_TO_CONTEXT: dict[str, str] = {
 _BENCHMARK_LEVELS = ("us", "state")
 
 # Choropleth config per context key
-_ChoroCfg = tuple[Any, str, float, int, str, str | None, str]
-# (model_cls, acs_level, default_buffer, limit, geoid_attr, name_attr, geoid_prefix)
+_ChoroCfg = tuple[Any, str, float, str, str | None, str]
+# (model_cls, acs_level, default_buffer, geoid_attr, name_attr, geoid_prefix)
 _CHOROPLETH_CONFIG: dict[str, _ChoroCfg] = {}
 
 
@@ -67,19 +68,18 @@ def _init_choropleth_config() -> None:
         return
     _CHOROPLETH_CONFIG.update(
         {
-            "neighborhood": (TigerTract, "tract", 0.05, 100, "geoid", None, ""),
-            "block_group": (TigerBlockGroup, "block_group", 0.03, 150, "geoid", None, ""),
+            "neighborhood": (TigerTract, "tract", 0.05, "geoid", None, ""),
+            "block_group": (TigerBlockGroup, "block_group", 0.03, "geoid", None, ""),
             "town": (
                 TigerCountySubdivision,
                 "county_subdivision",
                 0.15,
-                60,
                 "geoid",
                 "name",
                 "",
             ),
-            "county": (TigerCounty, "county", 0.5, 30, "geoid", "name", ""),
-            "subdivision": (WakeSubdivision, "subdivision", 0.03, 200, "id", "name", "subdiv_"),
+            "county": (TigerCounty, "county", 0.5, "geoid", "name", ""),
+            "subdivision": (WakeSubdivision, "subdivision", 0.03, "id", "name", "subdiv_"),
         }
     )
 
@@ -131,7 +131,7 @@ def consolidate_income(row: Any) -> list[LabelValue]:
     if total == 0:
         return [
             LabelValue(label=lbl, value=0)
-            for lbl in ("<$25k", "$25-50k", "$50-75k", "$75-100k", "$100-150k", "$150k+")
+            for lbl in ("<$25k", "$25-50k", "$50-100k", "$100-150k", "$150-200k", "$200k+")
         ]
 
     under_25k = sum(
@@ -153,24 +153,27 @@ def consolidate_income(row: Any) -> list[LabelValue]:
             "hh_income_45k_to_50k",
         )
     )
-    b50_75 = sum(
-        getattr(row, attr, 0) or 0 for attr in ("hh_income_50k_to_60k", "hh_income_60k_to_75k")
+    b50_100 = sum(
+        getattr(row, attr, 0) or 0
+        for attr in (
+            "hh_income_50k_to_60k",
+            "hh_income_60k_to_75k",
+            "hh_income_75k_to_100k",
+        )
     )
-    b75_100 = row.hh_income_75k_to_100k or 0
     b100_150 = sum(
         getattr(row, attr, 0) or 0 for attr in ("hh_income_100k_to_125k", "hh_income_125k_to_150k")
     )
-    b150_plus = sum(
-        getattr(row, attr, 0) or 0 for attr in ("hh_income_150k_to_200k", "hh_income_200k_plus")
-    )
+    b150_200 = getattr(row, "hh_income_150k_to_200k", 0) or 0
+    b200_plus = getattr(row, "hh_income_200k_plus", 0) or 0
 
     brackets = [
         ("<$25k", under_25k),
         ("$25-50k", b25_50),
-        ("$50-75k", b50_75),
-        ("$75-100k", b75_100),
+        ("$50-100k", b50_100),
         ("$100-150k", b100_150),
-        ("$150k+", b150_plus),
+        ("$150-200k", b150_200),
+        ("$200k+", b200_plus),
     ]
     return [LabelValue(label=lbl, value=round(val / total * 100, 1)) for lbl, val in brackets]
 
@@ -289,6 +292,11 @@ def build_context_data(rows: list[Any]) -> DemographicContextData | None:
         rate = round(o_occ / t_occ * 100, 1) if t_occ > 0 else 0.0
         ownership_trend.append(HomeOwnershipTrendPoint(year=r.acs_year, ownership_rate=rate))
 
+    median_age_trend = [
+        MedianAgeTrendPoint(year=r.acs_year, median_age=r.median_age or 0)
+        for r in sorted_rows
+    ]
+
     return DemographicContextData(
         race_ethnicity=race,
         age_distribution=age,
@@ -302,6 +310,7 @@ def build_context_data(rows: list[Any]) -> DemographicContextData | None:
         age_distribution_trend=age_trend,
         income_trend=income_trend,
         home_ownership_trend=ownership_trend,
+        median_age_trend=median_age_trend,
     )
 
 
@@ -309,7 +318,7 @@ def _empty_context() -> DemographicContextData:
     """Return an empty context with zero values for all fields."""
     labels = ["White", "Black", "Hispanic", "Asian", "Other"]
     age_labels = ["<18", "18-22", "23-29", "30-39", "40-49", "50-64", "65+"]
-    income_labels = ["<$25k", "$25-50k", "$50-75k", "$75-100k", "$100-150k", "$150k+"]
+    income_labels = ["<$25k", "$25-50k", "$50-100k", "$100-150k", "$150-200k", "$200k+"]
     return DemographicContextData(
         race_ethnicity=[LabelValue(label=lb, value=0) for lb in labels],
         age_distribution=[AgeBucket(range=lb, male=0, female=0) for lb in age_labels],
@@ -323,6 +332,7 @@ def _empty_context() -> DemographicContextData:
         age_distribution_trend=[],
         income_trend=[],
         home_ownership_trend=[],
+        median_age_trend=[],
     )
 
 
@@ -346,6 +356,11 @@ def _compute_feature_props(
             "dominant_race_pct": 0,
             "pct_under_18": 0,
             "pct_65_plus": 0,
+            "pct_white": 0,
+            "pct_black": 0,
+            "pct_hispanic": 0,
+            "pct_asian": 0,
+            "pct_other": 0,
         }
 
     total_pop = row.total_population or 0
@@ -353,9 +368,10 @@ def _compute_feature_props(
     owner_occ = row.housing_owner_occupied or 0
     ownership_rate = round(owner_occ / total_occ * 100, 1) if total_occ > 0 else 0
 
-    # Dominant race
+    # Dominant race + per-race percentages
     race_vals = consolidate_race(row)
     dominant = max(race_vals, key=lambda r: r.value) if race_vals else None
+    race_map = {rv.label.lower(): rv.value for rv in race_vals}
 
     pct_under_18 = round((row.pop_under_18 or 0) / total_pop * 100, 1) if total_pop > 0 else 0
     pct_65_plus = round((row.pop_65_plus or 0) / total_pop * 100, 1) if total_pop > 0 else 0
@@ -372,6 +388,11 @@ def _compute_feature_props(
         "dominant_race_pct": dominant.value if dominant else 0,
         "pct_under_18": pct_under_18,
         "pct_65_plus": pct_65_plus,
+        "pct_white": race_map.get("white", 0),
+        "pct_black": race_map.get("black", 0),
+        "pct_hispanic": race_map.get("hispanic", 0),
+        "pct_asian": race_map.get("asian", 0),
+        "pct_other": race_map.get("other", 0),
     }
 
 
@@ -380,7 +401,6 @@ def _build_choropleth_level(
     model_cls: Any,
     acs_level: str,
     envelope: Any,
-    limit: int,
     home_geoid: str | None,
     *,
     geoid_attr: str = "geoid",
@@ -404,7 +424,7 @@ def _build_choropleth_level(
 
     # Query geometries intersecting the envelope
     nearby = db.execute(
-        select(*columns).where(ST_Intersects(geom_col, envelope)).limit(limit)
+        select(*columns).where(ST_Intersects(geom_col, envelope))
     ).all()
 
     if not nearby:
@@ -601,7 +621,6 @@ async def get_demographics(
         model_cls,
         acs_level,
         buf,
-        lim,
         geoid_attr,
         name_col,
         prefix,
@@ -623,7 +642,6 @@ async def get_demographics(
             model_cls,
             acs_level,
             envelope,
-            lim,
             home,
             geoid_attr=geoid_attr,
             name_attr=name_col,
@@ -659,7 +677,7 @@ async def get_demographics_choropleth(
     if context not in _CHOROPLETH_CONFIG:
         return []
 
-    model_cls, acs_level, _default_buf, limit, geoid_attr, name_col, prefix = _CHOROPLETH_CONFIG[
+    model_cls, acs_level, _default_buf, geoid_attr, name_col, prefix = _CHOROPLETH_CONFIG[
         context
     ]
     envelope = ST_MakeEnvelope(sw_lon, sw_lat, ne_lon, ne_lat, 4326)
@@ -681,7 +699,6 @@ async def get_demographics_choropleth(
         model_cls,
         acs_level,
         envelope,
-        limit,
         home_geoid,
         geoid_attr=geoid_attr,
         name_attr=name_col,

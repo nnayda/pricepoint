@@ -3,8 +3,9 @@ import type {
   DataRequestCreate,
   DataRequestResponse,
   DemographicsApiResponse,
+  NeighborhoodValuationHistory,
   PropertyResponse,
-  SchoolNearby,
+  SchoolsNearbyResponse,
 } from "../types";
 
 const client = axios.create({
@@ -28,8 +29,8 @@ export async function getSchoolsNearby(
   lon: number,
   radiusMiles: number = 10,
   limit: number = 20,
-): Promise<SchoolNearby[]> {
-  const { data } = await client.get<SchoolNearby[]>("/api/schools/nearby", {
+): Promise<SchoolsNearbyResponse> {
+  const { data } = await client.get<SchoolsNearbyResponse>("/api/schools/nearby", {
     params: { lat, lon, radius_miles: radiusMiles, limit },
   });
   return data;
@@ -61,6 +62,34 @@ export async function getDemographicsChoropleth(
       ...(homeLat != null && homeLon != null ? { home_lat: homeLat, home_lon: homeLon } : {}),
     },
   });
+  return data;
+}
+
+export interface NeighborhoodValuation {
+  tract_geoid: string;
+  median_value: number | null;
+  max_value: number | null;
+  sample_size: number;
+}
+
+export async function getNeighborhoodValuation(
+  lat: number,
+  lon: number,
+): Promise<NeighborhoodValuation> {
+  const { data } = await client.get<NeighborhoodValuation>("/api/neighborhood/valuation", {
+    params: { lat, lon },
+  });
+  return data;
+}
+
+export async function getNeighborhoodValuationHistory(
+  lat: number,
+  lon: number,
+): Promise<NeighborhoodValuationHistory> {
+  const { data } = await client.get<NeighborhoodValuationHistory>(
+    "/api/neighborhood/valuation/history",
+    { params: { lat, lon } },
+  );
   return data;
 }
 

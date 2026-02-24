@@ -15,6 +15,7 @@ export const COLOR_RED = "#F87171";
 export const COLOR_BLUE = "#5B7FFF";
 export const COLOR_PURPLE = "#A78BFA";
 export const COLOR_ORANGE = "#FB923C";
+export const COLOR_PINK = "#EC4899";
 
 /** Ordered palette per design guidelines Section 7.3 */
 export const CHART_PALETTE = [
@@ -162,7 +163,8 @@ export const MORTGAGE_COLORS = {
 } as const;
 
 /** School marker color based on rating */
-export function getSchoolMarkerColor(rating: number): string {
+export function getSchoolMarkerColor(rating: number | null): string {
+  if (rating == null) return "#94A3B8";
   if (rating >= 8) return COLOR_GREEN;
   if (rating >= 6) return COLOR_AMBER;
   return COLOR_RED;

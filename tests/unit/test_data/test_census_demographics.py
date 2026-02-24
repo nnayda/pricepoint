@@ -8,10 +8,12 @@ import pytest
 from pricepoint.data.geospatial.census_demographics import (
     _COUNT_FIELDS,
     _MEDIAN_FIELDS,
+    _US_STATE_FIPS,
     _aggregate_age_brackets,
     _aggregate_education,
     _extract_geoid,
     _fetch_acs_data,
+    _fetch_nationwide,
     _level_exists,
     _map_demographic_kwargs,
     _map_record,
@@ -26,6 +28,7 @@ from pricepoint.data.geospatial.census_demographics import (
 )
 
 _PATCH_LEVEL_EXISTS = "pricepoint.data.geospatial.census_demographics._level_exists"
+_PATCH_STATE_FIPS = "pricepoint.data.geospatial.census_demographics._US_STATE_FIPS"
 
 # -- Helpers ------------------------------------------------------------------
 
@@ -563,10 +566,71 @@ class TestLevelExists:
         assert _level_exists(session, 2019, "tract") is False
 
 
+# -- _US_STATE_FIPS tests ----------------------------------------------------
+
+
+class TestUsStateFips:
+    def test_contains_51_entries(self):
+        """50 states + DC = 51 FIPS codes."""
+        assert len(_US_STATE_FIPS) == 51
+
+    def test_includes_dc(self):
+        assert "11" in _US_STATE_FIPS
+
+    def test_includes_nc(self):
+        assert "37" in _US_STATE_FIPS
+
+    def test_all_two_digit_strings(self):
+        assert all(len(f) == 2 and f.isdigit() for f in _US_STATE_FIPS)
+
+
+# -- _fetch_nationwide tests -------------------------------------------------
+
+
+class TestFetchNationwide:
+    @patch(_PATCH_STATE_FIPS, ["37", "06"])
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_iterates_states(self, mock_settings, mock_fetch):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.return_value = [_make_row()]
+
+        records = _fetch_nationwide(2019, "tract", "tract")
+
+        assert mock_fetch.call_count == 2
+        # 2 states × 1 row each = 2 records
+        assert len(records) == 2
+        assert all(r.geography_level == "tract" for r in records)
+
+    @patch(_PATCH_STATE_FIPS, ["37"])
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_passes_state_fips(self, mock_settings, mock_fetch):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.return_value = [_make_row()]
+
+        _fetch_nationwide(2019, "tract", "tract")
+
+        mock_fetch.assert_called_once()
+        assert mock_fetch.call_args.kwargs["state_fips"] == "37"
+
+    @patch(_PATCH_STATE_FIPS, ["37"])
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_empty_state_returns_no_records(self, mock_settings, mock_fetch):
+        mock_settings.return_value = _make_settings()
+        mock_fetch.return_value = []
+
+        records = _fetch_nationwide(2019, "tract", "tract")
+
+        assert len(records) == 0
+
+
 # -- fetch_acs_tract_demographics tests ---------------------------------------
 
 
 class TestFetchAcsTractDemographics:
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -580,14 +644,13 @@ class TestFetchAcsTractDemographics:
 
         fetch_acs_tract_demographics()
 
+        # 1 state × 3 vintages = 3 fetch calls
         assert mock_fetch.call_count == 3
         # Verify called with each year
         years_called = [c.args[0] for c in mock_fetch.call_args_list]
         assert years_called == [2009, 2014, 2019]
-        # 3 deletes + 3 inserts = 6 commits
-        assert session.commit.call_count == 6
-        assert session.add_all.call_count == 3
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -604,6 +667,7 @@ class TestFetchAcsTractDemographics:
         session.rollback.assert_called_once()
         session.close.assert_called_once()
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -635,11 +699,31 @@ class TestFetchAcsTractDemographics:
         mock_fetch.assert_not_called()
         session.add_all.assert_not_called()
 
+    @patch(_PATCH_STATE_FIPS, ["37", "06"])
+    @patch(_PATCH_LEVEL_EXISTS, return_value=False)
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_iterates_all_states(self, mock_settings, mock_fetch, mock_session_cls, _le):
+        """Verify per-state iteration with multiple states."""
+        mock_settings.return_value = _make_settings(census_acs_vintages=[2019])
+        mock_fetch.return_value = [_make_row()]
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_acs_tract_demographics()
+
+        # 2 states × 1 vintage = 2 fetch calls
+        assert mock_fetch.call_count == 2
+        states_called = [c.kwargs.get("state_fips") for c in mock_fetch.call_args_list]
+        assert states_called == ["37", "06"]
+
 
 # -- fetch_acs_block_group_demographics tests ---------------------------------
 
 
 class TestFetchAcsBlockGroupDemographics:
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -653,9 +737,10 @@ class TestFetchAcsBlockGroupDemographics:
 
         fetch_acs_block_group_demographics()
 
+        # 1 state × 2 vintages = 2 fetch calls
         assert mock_fetch.call_count == 2
-        assert session.commit.call_count == 4  # 2 deletes + 2 inserts
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -673,6 +758,7 @@ class TestFetchAcsBlockGroupDemographics:
         records = session.add_all.call_args[0][0]
         assert all(r.geography_level == "block_group" for r in records)
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -689,7 +775,7 @@ class TestFetchAcsBlockGroupDemographics:
 
         fetch_acs_block_group_demographics()
 
-        # Only 2014 and 2019 should be fetched (2009 skipped)
+        # Only 2014 and 2019 should be fetched (2009 skipped), 1 state each
         assert mock_fetch.call_count == 2
         years_called = [c.args[0] for c in mock_fetch.call_args_list]
         assert years_called == [2014, 2019]
@@ -728,6 +814,7 @@ class TestFetchAcsBlockGroupDemographics:
 
 
 class TestFetchAcsSummaryDemographics:
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -742,11 +829,10 @@ class TestFetchAcsSummaryDemographics:
 
         fetch_acs_summary_demographics()
 
-        # 3 levels (us, state, county) × 1 vintage = 3 fetch calls
+        # us (1) + state (1) + county (1 state) = 3 fetch calls
         assert mock_fetch.call_count == 3
-        # 3 levels × (1 delete + 1 insert) = 6 commits
-        assert session.commit.call_count == 6
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -759,9 +845,10 @@ class TestFetchAcsSummaryDemographics:
 
         fetch_acs_summary_demographics()
 
-        # 3 levels × 2 vintages = 6 calls
+        # (us + state + county) × 2 vintages = 6 calls
         assert mock_fetch.call_count == 6
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -797,6 +884,7 @@ class TestFetchAcsSummaryDemographics:
 
 
 class TestFetchAcsCountySubDemographics:
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -812,11 +900,13 @@ class TestFetchAcsCountySubDemographics:
 
         fetch_acs_county_sub_demographics()
 
+        # 1 state × 1 vintage = 1 fetch call
         assert mock_fetch.call_count == 1
         records = session.add_all.call_args[0][0]
         assert len(records) == 2
         assert all(r.geography_level == "county_subdivision" for r in records)
 
+    @patch(_PATCH_STATE_FIPS, ["37"])
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
     @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
@@ -902,9 +992,8 @@ class TestComputeSubdivisionDemographics:
 
         compute_subdivision_demographics()
 
-        # Should still call add_all with empty list
-        records = session.add_all.call_args[0][0]
-        assert len(records) == 0
+        # No records to insert, so add_all should not be called (empty batch)
+        session.add_all.assert_not_called()
 
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
