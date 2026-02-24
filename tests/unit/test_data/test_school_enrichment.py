@@ -103,66 +103,69 @@ class TestMatchNcesSchool:
 # TestGeocodeSchoolNominatim
 # ---------------------------------------------------------------------------
 class TestGeocodeSchoolNominatim:
-    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
-    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
-    def test_returns_result(self, mock_get, mock_sleep):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = [
+    @patch("pricepoint.data.housing.school_enrichment.geocode_sync")
+    def test_returns_result(self, mock_geocode_sync):
+        mock_geocode_sync.return_value = [
             {
-                "lat": "35.79",
-                "lon": "-78.78",
                 "display_name": "Mills Park Elementary, Cary, NC",
+                "lat": 35.79,
+                "lon": -78.78,
+                "place_id": 12345,
+                "osm_type": "way",
+                "osm_id": 67890,
+                "boundingbox": [],
             }
         ]
-        mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
 
         result = geocode_school_nominatim("Mills Park Elementary", 35.79, -78.78)
         assert result is not None
         assert result["lat"] == pytest.approx(35.79)
         assert result["lon"] == pytest.approx(-78.78)
         assert "Mills Park" in result["address"]
+        mock_geocode_sync.assert_called_once_with(
+            "Mills Park Elementary",
+            limit=1,
+            bias_lat=35.79,
+            bias_lon=-78.78,
+        )
 
-    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
-    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
-    def test_no_results(self, mock_get, mock_sleep):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = []
-        mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
+    @patch("pricepoint.data.housing.school_enrichment.geocode_sync")
+    def test_no_results(self, mock_geocode_sync):
+        mock_geocode_sync.return_value = []
 
         result = geocode_school_nominatim("Nonexistent School", 35.79, -78.78)
         assert result is None
 
-    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
-    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
-    def test_viewbox_passed(self, mock_get, mock_sleep):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = []
-        mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
+    @patch("pricepoint.data.housing.school_enrichment.geocode_sync")
+    def test_bias_coords_passed(self, mock_geocode_sync):
+        mock_geocode_sync.return_value = []
 
         geocode_school_nominatim("Test School", 35.79, -78.78)
-        call_args = mock_get.call_args
-        assert "viewbox" in call_args[1]["params"]
+        mock_geocode_sync.assert_called_once_with(
+            "Test School",
+            limit=1,
+            bias_lat=35.79,
+            bias_lon=-78.78,
+        )
 
-    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
-    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
-    def test_error_returns_none(self, mock_get, mock_sleep):
-        mock_get.side_effect = Exception("Network error")
-        result = geocode_school_nominatim("Test School", 35.79, -78.78)
-        assert result is None
+    @patch("pricepoint.data.housing.school_enrichment.geocode_sync")
+    def test_photon_result_accepted(self, mock_geocode_sync):
+        """Photon-style result with place_id=None works correctly."""
+        mock_geocode_sync.return_value = [
+            {
+                "display_name": "Mills Park, Cary, NC",
+                "lat": 35.79,
+                "lon": -78.78,
+                "place_id": None,
+                "osm_type": "R",
+                "osm_id": 67890,
+                "boundingbox": [],
+            }
+        ]
 
-    @patch("pricepoint.data.housing.school_enrichment.time.sleep")
-    @patch("pricepoint.data.housing.school_enrichment.httpx.get")
-    def test_respects_rate_limit(self, mock_get, mock_sleep):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = []
-        mock_resp.raise_for_status = MagicMock()
-        mock_get.return_value = mock_resp
-
-        geocode_school_nominatim("Test School", 35.79, -78.78)
-        mock_sleep.assert_called_once_with(1)
+        result = geocode_school_nominatim("Mills Park Elementary", 35.79, -78.78)
+        assert result is not None
+        assert result["lat"] == pytest.approx(35.79)
 
 
 # ---------------------------------------------------------------------------

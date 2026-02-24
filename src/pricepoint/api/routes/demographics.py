@@ -293,8 +293,7 @@ def build_context_data(rows: list[Any]) -> DemographicContextData | None:
         ownership_trend.append(HomeOwnershipTrendPoint(year=r.acs_year, ownership_rate=rate))
 
     median_age_trend = [
-        MedianAgeTrendPoint(year=r.acs_year, median_age=r.median_age or 0)
-        for r in sorted_rows
+        MedianAgeTrendPoint(year=r.acs_year, median_age=r.median_age or 0) for r in sorted_rows
     ]
 
     return DemographicContextData(
@@ -423,9 +422,7 @@ def _build_choropleth_level(
         has_name = True
 
     # Query geometries intersecting the envelope
-    nearby = db.execute(
-        select(*columns).where(ST_Intersects(geom_col, envelope))
-    ).all()
+    nearby = db.execute(select(*columns).where(ST_Intersects(geom_col, envelope))).all()
 
     if not nearby:
         return []
@@ -677,9 +674,7 @@ async def get_demographics_choropleth(
     if context not in _CHOROPLETH_CONFIG:
         return []
 
-    model_cls, acs_level, _default_buf, geoid_attr, name_col, prefix = _CHOROPLETH_CONFIG[
-        context
-    ]
+    model_cls, acs_level, _default_buf, geoid_attr, name_col, prefix = _CHOROPLETH_CONFIG[context]
     envelope = ST_MakeEnvelope(sw_lon, sw_lat, ne_lon, ne_lat, 4326)
 
     # Determine home geoid if property coords provided

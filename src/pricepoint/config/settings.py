@@ -49,6 +49,12 @@ class Settings(BaseSettings):
         "/EDGE_ADMINDATA_PUBLICSCH_2223/MapServer/0"
     )
 
+    # Geocoding
+    geocode_provider: str = "nominatim"  # "nominatim" or "photon"
+    geocode_url: str = "https://nominatim.openstreetmap.org/search"
+    geocode_timeout: float = 5.0
+    geocode_rate_limit_seconds: float = 1.0  # 0 = no limit (self-hosted)
+
     # OSRM routing
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_rate_limit_seconds: float = 1.0
@@ -70,14 +76,8 @@ class Settings(BaseSettings):
     wake_hospitals_base_url: str = (
         "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Hospital/FeatureServer/0"
     )
-    wake_parks_base_url: str = (
+    wake_open_space_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/OpenSpace/MapServer/0"
-    )
-    raleigh_parks_base_url: str = (
-        "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Parks/FeatureServer/0"
-    )
-    cary_parks_base_url: str = (
-        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/0"
     )
     wake_greenways_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/Greenways/MapServer/0"

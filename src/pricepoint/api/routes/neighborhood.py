@@ -95,12 +95,9 @@ async def get_neighborhood_valuation(
     effective_price_cast = cast(effective_price, Float).label("effective_price")
 
     # 3. Query listings in tract with effective price
-    base_q = (
-        select(effective_price_cast)
-        .where(
-            ST_Contains(tract_geom, RedfinListing.location),
-            RedfinListing.location.isnot(None),
-        )
+    base_q = select(effective_price_cast).where(
+        ST_Contains(tract_geom, RedfinListing.location),
+        RedfinListing.location.isnot(None),
     )
 
     # Sub-select only rows with non-null effective price
@@ -248,12 +245,9 @@ async def get_neighborhood_valuation_history(
     tract_geom = tract_row.geom
 
     # 2. Get property IDs within tract
-    prop_ids_q = (
-        select(RedfinListing.id)
-        .where(
-            ST_Contains(tract_geom, RedfinListing.location),
-            RedfinListing.location.isnot(None),
-        )
+    prop_ids_q = select(RedfinListing.id).where(
+        ST_Contains(tract_geom, RedfinListing.location),
+        RedfinListing.location.isnot(None),
     )
     prop_id_rows = db.execute(prop_ids_q).all()
     prop_ids = [r[0] for r in prop_id_rows]
@@ -309,9 +303,7 @@ async def get_neighborhood_valuation_history(
         values = [interp[mk] for interp in all_interp if mk in interp]
         if len(values) >= _MIN_PROPERTIES_PER_MONTH:
             monthly_medians.append(
-                NeighborhoodMedianPoint(
-                    date=mk, median_value=round(median(values), 2)
-                )
+                NeighborhoodMedianPoint(date=mk, median_value=round(median(values), 2))
             )
 
     return NeighborhoodValuationHistoryResponse(

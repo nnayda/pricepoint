@@ -21,7 +21,7 @@ export interface GeocodeResult {
   display_name: string;
   lat: number;
   lon: number;
-  place_id: number;
+  place_id: number | null;
   osm_type: string;
   osm_id: number;
   boundingbox: number[];

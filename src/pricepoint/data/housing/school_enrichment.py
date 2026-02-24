@@ -16,6 +16,7 @@ from geoalchemy2.types import Geography
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
+from pricepoint.api.services.geocoding import geocode_sync
 from pricepoint.config.settings import get_settings
 from pricepoint.db.models import NcesSchool
 
@@ -119,37 +120,22 @@ def geocode_school_nominatim(
     near_lat: float,
     near_lon: float,
 ) -> dict[str, Any] | None:
-    """Search Nominatim for a school near given coords.
+    """Search for a school near given coords using the configured geocoding provider.
 
     Returns {"address": str, "lat": float, "lon": float} or None.
     """
-    time.sleep(1)  # Respect Nominatim rate limit
-    try:
-        # Bias results with a viewbox around the property (~10 mile box)
-        delta = 0.15  # ~10 miles in degrees
-        viewbox = f"{near_lon - delta},{near_lat + delta},{near_lon + delta},{near_lat - delta}"
-        resp = httpx.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={
-                "q": school_name,
-                "format": "json",
-                "limit": 1,
-                "viewbox": viewbox,
-                "bounded": 0,
-            },
-            headers={"User-Agent": "PricePoint/1.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if data:
-            return {
-                "address": data[0].get("display_name", ""),
-                "lat": float(data[0]["lat"]),
-                "lon": float(data[0]["lon"]),
-            }
-    except Exception:
-        logger.warning("Nominatim geocoding failed for %s", school_name, exc_info=True)
+    results = geocode_sync(
+        school_name,
+        limit=1,
+        bias_lat=near_lat,
+        bias_lon=near_lon,
+    )
+    if results:
+        return {
+            "address": results[0].get("display_name", ""),
+            "lat": results[0]["lat"],
+            "lon": results[0]["lon"],
+        }
     return None
 
 

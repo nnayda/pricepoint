@@ -4,7 +4,6 @@ import json
 import logging
 from typing import Annotated
 
-import httpx
 from fastapi import APIRouter, Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
@@ -16,14 +15,13 @@ from pricepoint.api.schemas.forecast import (
     ForecastRequest,
     ForecastResponse,
 )
+from pricepoint.api.services.geocoding import geocode_async
 from pricepoint.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["forecast"])
 
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_TIMEOUT = 5.0
 FORECAST_CACHE_TTL = 86400  # 24 hours
 
 FEATURE_DISPLAY_NAMES: dict[str, str] = {
@@ -66,7 +64,7 @@ _STUB_IMPORTANCES: list[dict[str, object]] = [
 
 
 async def _geocode_address(request: ForecastRequest) -> tuple[float, float] | None:
-    """Geocode the address via Nominatim, returning (lat, lon) or None."""
+    """Geocode the address via configured provider, returning (lat, lon) or None."""
     parts = [request.address]
     if request.city:
         parts.append(request.city)
@@ -76,28 +74,11 @@ async def _geocode_address(request: ForecastRequest) -> tuple[float, float] | No
         parts.append(request.zip_code)
     query = ", ".join(parts)
 
-    try:
-        async with httpx.AsyncClient(timeout=NOMINATIM_TIMEOUT) as client:
-            resp = await client.get(
-                NOMINATIM_URL,
-                params={
-                    "q": query,
-                    "format": "json",
-                    "limit": 1,
-                    "countrycodes": "us",
-                },
-                headers={"User-Agent": "PricePoint/0.1.0"},
-            )
-            resp.raise_for_status()
-    except httpx.HTTPError:
-        logger.warning("Geocoding failed for %r", query, exc_info=True)
-        return None
-
-    results = resp.json()
+    results = await geocode_async(query, limit=1)
     if not results:
         return None
 
-    return float(results[0]["lat"]), float(results[0]["lon"])
+    return results[0]["lat"], results[0]["lon"]
 
 
 def _build_features_for_property(

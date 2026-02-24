@@ -9,10 +9,10 @@ class GeocodeResult(BaseModel):
     display_name: str
     lat: float
     lon: float
-    place_id: int
+    place_id: int | None = None
     osm_type: str
     osm_id: int
-    boundingbox: list[float]
+    boundingbox: list[float] = []
 
 
 class GeocodeResponse(BaseModel):

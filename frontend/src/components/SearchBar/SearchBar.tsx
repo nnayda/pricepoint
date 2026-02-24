@@ -177,7 +177,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address...", variant
           )}
           {results.map((result, index) => (
             <li
-              key={result.place_id}
+              key={result.place_id ?? result.osm_id}
               id={`searchbar-option-${index}`}
               role="option"
               aria-selected={index === activeIndex}

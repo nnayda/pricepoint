@@ -14,12 +14,9 @@ from sqlalchemy.orm import Session
 from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.schemas.pois import PointOfInterest, PoisMetrics, PoisResponse
 from pricepoint.db.models import (
-    CaryPark,
-    RaleighPark,
     WakeFarmersMarket,
     WakeHospital,
     WakeLibrary,
-    WakePark,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,14 +52,11 @@ _POI_TABLES: list[tuple] = [
     (WakeFarmersMarket, "name", "grocery", False),
     (WakeLibrary, "name", "library", False),
     (WakeHospital, "facility", "medical", False),
-    (WakePark, "name", "park", True),  # MULTIPOLYGON
-    (RaleighPark, "name", "park", True),  # MULTIPOLYGON
-    (CaryPark, "name", "park", False),  # POINT
 ]
 
 
 def _build_poi_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
-    """Build a UNION ALL query across all 6 POI tables."""
+    """Build a UNION ALL query across all 3 POI tables."""
     queries = []
     for model, name_attr, category, needs_centroid in _POI_TABLES:
         geom_col = model.geom

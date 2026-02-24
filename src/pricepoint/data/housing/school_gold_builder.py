@@ -523,9 +523,11 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
 
             # If schools have locations but OSRM returned no travel times at all,
             # leave the property dirty so it can be reprocessed later.
-            if schools_with_location and not any(
-                v is not None for v in drive_map.values()
-            ) and not any(v is not None for v in walk_map.values()):
+            if (
+                schools_with_location
+                and not any(v is not None for v in drive_map.values())
+                and not any(v is not None for v in walk_map.values())
+            ):
                 session.rollback()
                 stats["errors"] += 1
                 logger.warning(

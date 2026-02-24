@@ -61,6 +61,30 @@ class TestGeocodeResult:
         )
         assert result.boundingbox == []
 
+    def test_place_id_optional(self) -> None:
+        """place_id defaults to None when not provided (Photon provider)."""
+        result = GeocodeResult(
+            display_name="123 Main St",
+            lat=35.7796,
+            lon=-78.6382,
+            osm_type="R",
+            osm_id=67890,
+        )
+        assert result.place_id is None
+        assert result.boundingbox == []
+
+    def test_place_id_none_explicit(self) -> None:
+        """place_id can be explicitly set to None."""
+        result = GeocodeResult(
+            display_name="123 Main St",
+            lat=35.7796,
+            lon=-78.6382,
+            place_id=None,
+            osm_type="R",
+            osm_id=67890,
+        )
+        assert result.place_id is None
+
 
 class TestGeocodeResponse:
     def test_valid_response(self) -> None:
@@ -126,3 +150,24 @@ class TestGeocodeResponse:
         data = response.model_dump()
         restored = GeocodeResponse.model_validate(data)
         assert restored == response
+
+    def test_serialization_roundtrip_null_place_id(self) -> None:
+        """Photon-style result with null place_id round-trips correctly."""
+        response = GeocodeResponse(
+            results=[
+                GeocodeResult(
+                    display_name="123 Main St",
+                    lat=35.7796,
+                    lon=-78.6382,
+                    place_id=None,
+                    osm_type="R",
+                    osm_id=67890,
+                    boundingbox=[],
+                )
+            ],
+            cached=False,
+        )
+        data = response.model_dump()
+        restored = GeocodeResponse.model_validate(data)
+        assert restored == response
+        assert restored.results[0].place_id is None

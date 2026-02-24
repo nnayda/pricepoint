@@ -77,12 +77,7 @@ dist_high AS (
     ) s
 ),
 all_parks AS (
-    SELECT ST_Centroid(geom) AS location, acres FROM wake_parks WHERE geom IS NOT NULL
-    UNION ALL
-    SELECT ST_Centroid(geom) AS location, map_acres AS acres
-    FROM raleigh_parks WHERE geom IS NOT NULL
-    UNION ALL
-    SELECT geom AS location, park_area AS acres FROM cary_parks WHERE geom IS NOT NULL
+    SELECT ST_Centroid(geom) AS location, acres FROM staging_wake_open_space WHERE geom IS NOT NULL
 ),
 dist_park AS (
     SELECT p.property_id,
@@ -96,11 +91,11 @@ dist_park AS (
     ) pk
 ),
 all_greenways AS (
-    SELECT geom FROM wake_greenways WHERE geom IS NOT NULL
+    SELECT geom FROM staging_wake_greenways WHERE geom IS NOT NULL
     UNION ALL
-    SELECT geom FROM raleigh_greenways WHERE geom IS NOT NULL
+    SELECT geom FROM staging_raleigh_greenways WHERE geom IS NOT NULL
     UNION ALL
-    SELECT geom FROM cary_greenways WHERE geom IS NOT NULL
+    SELECT geom FROM staging_cary_greenways WHERE geom IS NOT NULL
 ),
 dist_greenway AS (
     SELECT p.property_id,
@@ -232,12 +227,7 @@ crime_agg AS (
     GROUP BY p.property_id
 ),
 park_centroids AS (
-    SELECT ST_Centroid(geom) AS location, acres FROM wake_parks WHERE geom IS NOT NULL
-    UNION ALL
-    SELECT ST_Centroid(geom) AS location, map_acres AS acres
-    FROM raleigh_parks WHERE geom IS NOT NULL
-    UNION ALL
-    SELECT geom AS location, park_area AS acres FROM cary_parks WHERE geom IS NOT NULL
+    SELECT ST_Centroid(geom) AS location, acres FROM staging_wake_open_space WHERE geom IS NOT NULL
 ),
 park_agg AS (
     SELECT

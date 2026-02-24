@@ -707,7 +707,7 @@ export interface components {
       /** Lon */
       lon: number;
       /** Place Id */
-      place_id: number;
+      place_id: number | null;
       /** Osm Type */
       osm_type: string;
       /** Osm Id */

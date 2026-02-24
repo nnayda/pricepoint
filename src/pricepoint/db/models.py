@@ -927,10 +927,10 @@ class WakeHospital(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class WakePark(Base):
-    """Wake County open space / park from ArcGIS MapServer."""
+class StagingWakeOpenSpace(Base):
+    """Wake County open space from ArcGIS MapServer (bronze/staging)."""
 
-    __tablename__ = "wake_parks"
+    __tablename__ = "staging_wake_open_space"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -938,9 +938,10 @@ class WakePark(Base):
     acres = Column(Float)
     owner = Column(String)
     jurisdiction = Column(String)
-    park_type = Column(String)
+    type = Column(String)
     manager = Column(String)
     comments = Column(String)
+    bldgcode = Column(String)
     corridor = Column(String)
     os_number = Column(String)
     created_date = Column(DateTime(timezone=True))
@@ -949,75 +950,10 @@ class WakePark(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class RaleighPark(Base):
-    """City of Raleigh park from ArcGIS FeatureServer."""
-
-    __tablename__ = "raleigh_parks"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    park_type = Column(String)
-    developed = Column(String)
-    map_acres = Column(Float)
-    address = Column(String)
-    zip_code = Column(String)
-    park_id = Column(String)
-    initial_acquisition_date = Column(DateTime(timezone=True))
-    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class CaryPark(Base):
-    """Town of Cary park with amenity details from ArcGIS FeatureServer."""
-
-    __tablename__ = "cary_parks"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    facility_id = Column(String)
-    address = Column(String)
-    park_area = Column(Float)
-    park_url = Column(String)
-    num_parking = Column(Integer)
-    restroom = Column(String)
-    ada_compliant = Column(String)
-    camping = Column(String)
-    swimming = Column(String)
-    hiking = Column(String)
-    fishing = Column(String)
-    picnic = Column(String)
-    boating = Column(String)
-    road_cycle = Column(String)
-    mtb_cycle = Column(String)
-    playground = Column(String)
-    golf = Column(String)
-    soccer = Column(String)
-    baseball = Column(String)
-    basketball = Column(String)
-    skatepark = Column(String)
-    tennis_court = Column(String)
-    volleyball = Column(String)
-    fitness_trail = Column(String)
-    nature_trail = Column(String)
-    trailhead = Column(String)
-    open_space = Column(String)
-    lake = Column(String)
-    amphitheater = Column(String)
-    dog_park = Column(String)
-    disc_golf = Column(String)
-    climbing_rocks = Column(String)
-    climbing_ropes = Column(String)
-    batting_cages = Column(String)
-    geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
 class WakeGreenway(Base):
     """Wake County greenway trail from ArcGIS MapServer."""
 
-    __tablename__ = "wake_greenways"
+    __tablename__ = "staging_wake_greenways"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1039,7 +975,7 @@ class WakeGreenway(Base):
 class RaleighGreenway(Base):
     """City of Raleigh greenway trail from ArcGIS FeatureServer."""
 
-    __tablename__ = "raleigh_greenways"
+    __tablename__ = "staging_raleigh_greenways"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1060,7 +996,7 @@ class RaleighGreenway(Base):
 class CaryGreenway(Base):
     """Town of Cary greenway trail from ArcGIS FeatureServer."""
 
-    __tablename__ = "cary_greenways"
+    __tablename__ = "staging_cary_greenways"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
