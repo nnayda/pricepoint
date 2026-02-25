@@ -1038,6 +1038,30 @@ class PetroleumPipeline(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Airport(Base):
+    """Airport location from OurAirports."""
+
+    __tablename__ = "airports"
+    __table_args__ = (
+        Index("ix_airports_geom", "geom", postgresql_using="gist"),
+        UniqueConstraint("ident", name="uq_airports_ident"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ident = Column(String, nullable=False, index=True)
+    airport_type = Column(String)
+    name = Column(String, index=True)
+    elevation_ft = Column(Integer)
+    iso_region = Column(String)
+    municipality = Column(String)
+    scheduled_service = Column(Boolean)
+    iata_code = Column(String)
+    home_link = Column(String)
+    wikipedia_link = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class StagingPlace(Base):
     """Staging table for Overture Maps places (bronze).
 

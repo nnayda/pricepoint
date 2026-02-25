@@ -99,6 +99,11 @@ class Settings(BaseSettings):
         "/Petroleum_Products_Pipelines_1/FeatureServer/0"
     )
 
+    # OurAirports
+    ourairports_csv_url: str = (
+        "https://davidmegginson.github.io/ourairports-data/airports.csv"
+    )
+
     # Overture Maps Places
     overture_places_s3_path: str = (
         "s3://overturemaps-us-west-2/release/2026-02-18.0/theme=places/type=place/*"
