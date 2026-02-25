@@ -248,6 +248,23 @@ class TestRedfinListingTransformDag:
         assert not _has_external_task_sensor(tree)
 
 
+class TestRiskBoundaryBuildDag:
+    """Validate the risk_boundary_build DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_risk_boundary_build.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "risk_boundary_build"
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_risk_boundary_build.py")
+        assert _count_task_decorators(tree) == 2
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_risk_boundary_build.py")
+        assert not _has_external_task_sensor(tree)
+
+
 class TestWakeSubdivisionCollectionDag:
     """Validate the wake_subdivision_collection DAG structure."""
 

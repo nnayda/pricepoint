@@ -1038,6 +1038,23 @@ class PetroleumPipeline(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class RiskBoundary(Base):
+    """Pre-computed risk buffer polygon around infrastructure."""
+
+    __tablename__ = "risk_boundaries"
+    __table_args__ = (
+        Index("ix_risk_boundaries_geom", "geom", postgresql_using="gist"),
+        Index("ix_risk_boundaries_infra", "infrastructure_type", "infrastructure_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    infrastructure_type = Column(String, nullable=False)
+    infrastructure_id = Column(Integer, nullable=False)
+    severity = Column(String, nullable=False)
+    geom = Column(Geometry("GEOMETRY", srid=4326))
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Airport(Base):
     """Airport location from OurAirports."""
 

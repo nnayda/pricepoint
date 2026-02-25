@@ -99,10 +99,29 @@ class Settings(BaseSettings):
         "/Petroleum_Products_Pipelines_1/FeatureServer/0"
     )
 
+    # Risk boundary distances (feet) — converted to meters at runtime
+    risk_boundary_distances_ft: dict = {
+        "cell_towers": {"critical": 1300, "caution": 3000},
+        "transmission_lines": {"critical": 50, "caution": 300},
+        "petroleum_pipelines": {"critical": 300, "caution": 1000},
+        "nat_gas_pipelines": {"critical": 300, "caution": 1000},
+        "power_plants": {
+            "wind": {"critical": 2500, "caution": 7920},
+            "solar": {"critical": 300, "caution": 1000},
+            "geothermal": {"critical": 5280, "caution": 15840},
+            "pumped storage": {"critical": 100, "caution": 2640},
+            "petroleum": {"critical": 15840, "caution": 52800},
+            "natural gas": {"critical": 10560, "caution": 26400},
+            "biomass": {"critical": 10560, "caution": 26400},
+            "batteries": {"critical": 500, "caution": 5280},
+            "nuclear": {"critical": 52800, "caution": 264000},
+            "coal": {"critical": 26400, "caution": 158400},
+            "_default": {"critical": 2640, "caution": 10560},
+        },
+    }
+
     # OurAirports
-    ourairports_csv_url: str = (
-        "https://davidmegginson.github.io/ourairports-data/airports.csv"
-    )
+    ourairports_csv_url: str = "https://davidmegginson.github.io/ourairports-data/airports.csv"
 
     # BTS National Transportation Noise Map
     bts_noise_tile_url: str = (

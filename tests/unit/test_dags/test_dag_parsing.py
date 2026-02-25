@@ -39,4 +39,5 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_overture_places_collection.py" in names
     assert "dag_ourairports_collection.py" in names
     assert "dag_bts_noise_collection.py" in names
-    assert len(dag_files) == 24
+    assert "dag_risk_boundary_build.py" in names
+    assert len(dag_files) == 25

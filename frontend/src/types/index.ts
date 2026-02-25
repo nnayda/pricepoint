@@ -356,6 +356,7 @@ export interface RecentlyViewedItem {
 export type DashboardTab =
   | "valuation"
   | "risks"
+  | "crime"
   | "demographics"
   | "schools"
   | "pois"
