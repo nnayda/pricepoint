@@ -7,6 +7,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 
 from pricepoint.data.housing.description_scorer import (
     build_system_prompt,
@@ -17,6 +18,7 @@ from pricepoint.data.housing.description_scorer import (
     parse_llm_response,
     score_all_descriptions,
     score_descriptions_batch,
+    verify_description_scores,
 )
 
 BASIC_RAW = {
@@ -408,3 +410,29 @@ class TestScoreAllDescriptions:
         result = score_all_descriptions(batch_size=10)
         assert result["skipped"] == 1
         assert result["scored"] == 0
+
+
+# ---------------------------------------------------------------------------
+# TestVerifyDescriptionScores
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyDescriptionScores:
+    @patch(f"{_SCORER}.SessionLocal")
+    def test_raises_when_empty(self, mock_session_cls):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.execute.return_value.scalar.return_value = 0
+
+        with pytest.raises(RuntimeError, match="No records found"):
+            verify_description_scores()
+        mock_session.close.assert_called_once()
+
+    @patch(f"{_SCORER}.SessionLocal")
+    def test_passes_with_records(self, mock_session_cls):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.execute.return_value.scalar.return_value = 100
+
+        verify_description_scores()
+        mock_session.close.assert_called_once()

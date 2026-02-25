@@ -26,7 +26,7 @@ DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
         "retries": 1,
         "retry_delay": timedelta(minutes=10),
     },
-    tags=["data", "transform", "housing", "llm", "quality", "photos"],
+    tags=["data", "transform", "housing", "llm", "quality", "photos", "vision"],
 )
 def photo_quality_scoring():
     """Score Redfin listing photos using LLM vision analysis."""
@@ -47,13 +47,16 @@ def photo_quality_scoring():
 
     @task()
     def verify_scoring(result):
-        """Verify scoring completed without excessive errors."""
+        """Verify scoring completed without excessive errors and DB has records."""
+        from pricepoint.data.housing.photo_scorer import verify_photo_scores
+
         total = result["scored"] + result["skipped"] + result["errors"]
         if total > 0 and result["errors"] / total > 0.5:
             raise RuntimeError(
                 f"Too many errors: {result['errors']}/{total} "
                 f"({result['errors'] / total:.0%}) failed"
             )
+        verify_photo_scores()
         logger.info(
             "Verification passed: %d scored, %d skipped, %d errors",
             result["scored"],

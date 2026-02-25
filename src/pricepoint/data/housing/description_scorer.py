@@ -16,7 +16,8 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from pricepoint.config.settings import get_settings
 from pricepoint.db.engine import SessionLocal
@@ -583,35 +584,20 @@ def score_all_descriptions(
                     batch_errors += 1
                     continue
 
-                # Upsert: delete existing then insert
-                session.execute(
-                    select(LlmQualityScore)
-                    .where(
-                        LlmQualityScore.listing_id == result["listing_id"],
-                        LlmQualityScore.model_name == result["model_name"],
-                        LlmQualityScore.model_version == result["model_version"],
-                    )
-                    .with_for_update()
+                stmt = pg_insert(LlmQualityScore).values(result)
+                stmt = stmt.on_conflict_do_update(
+                    constraint="uq_llm_score_listing_model",
+                    set_={
+                        "description_hash": stmt.excluded.description_hash,
+                        "quality_score": stmt.excluded.quality_score,
+                        "quality_reasoning": stmt.excluded.quality_reasoning,
+                        "positive_factors": stmt.excluded.positive_factors,
+                        "negative_factors": stmt.excluded.negative_factors,
+                        "raw_response": stmt.excluded.raw_response,
+                        "extracted_at": func.now(),
+                    },
                 )
-                existing = (
-                    session.query(LlmQualityScore)
-                    .filter(
-                        LlmQualityScore.listing_id == result["listing_id"],
-                        LlmQualityScore.model_name == result["model_name"],
-                        LlmQualityScore.model_version == result["model_version"],
-                    )
-                    .first()
-                )
-
-                if existing:
-                    existing.description_hash = result["description_hash"]
-                    existing.quality_score = result["quality_score"]
-                    existing.quality_reasoning = result["quality_reasoning"]
-                    existing.positive_factors = result["positive_factors"]
-                    existing.negative_factors = result["negative_factors"]
-                    existing.raw_response = result["raw_response"]
-                else:
-                    session.add(LlmQualityScore(**result))
+                session.execute(stmt)
 
                 scored += 1
                 batch_scored += 1
@@ -669,5 +655,23 @@ def score_all_descriptions(
             total_listings,
         )
         return {"scored": scored, "skipped": skipped, "errors": errors}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def verify_description_scores() -> None:
+    """Verify description scores exist in the database.
+
+    Raises RuntimeError if the llm_quality_scores table is empty.
+    """
+    session = SessionLocal()
+    try:
+        count = session.execute(select(func.count()).select_from(LlmQualityScore)).scalar()
+        if not count:
+            raise RuntimeError("No records found in llm_quality_scores after scoring")
+        logger.info("Verified %d records in llm_quality_scores", count)
     finally:
         session.close()

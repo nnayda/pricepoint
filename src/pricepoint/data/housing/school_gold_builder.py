@@ -38,6 +38,10 @@ from pricepoint.db.models import (
 
 logger = logging.getLogger(__name__)
 
+# Minimum NCES record count required before rebuilding gold tables.
+# Prevents catastrophic purge if NCES collection failed or is mid-refresh.
+_MINIMUM_EXPECTED_SCHOOLS = 100
+
 # Meters per mile for ST_DWithin conversion
 _METERS_PER_MILE = 1609.344
 
@@ -226,7 +230,17 @@ def build_schools_gold(session: Session) -> int:
 
     Uses UPSERT by nces_id to keep School.id stable across rebuilds.
     Returns the number of gold school records created or updated.
+
+    Raises RuntimeError if there are fewer than _MINIMUM_EXPECTED_SCHOOLS
+    NCES records, which likely indicates a failed or partial collection.
     """
+    nces_count = session.scalar(select(func.count()).select_from(NcesSchool))
+    if (nces_count or 0) < _MINIMUM_EXPECTED_SCHOOLS:
+        raise RuntimeError(
+            f"Only {nces_count} NCES records found, expected >= {_MINIMUM_EXPECTED_SCHOOLS}. "
+            "Aborting gold build to prevent data loss — check NCES collection."
+        )
+
     nces_records = session.execute(select(NcesSchool)).scalars().all()
     all_redfin_schools = session.execute(select(RedfinSchool)).scalars().all()
 
@@ -327,21 +341,17 @@ def build_schools_gold(session: Session) -> int:
             )
 
     # Remove schools whose NCES records no longer exist (school closures)
-    if seen_nces_ids:
-        stale_schools = (
-            session.execute(select(School).where(School.nces_id.notin_(seen_nces_ids)))
-            .scalars()
-            .all()
-        )
-        for stale in stale_schools:
-            # Cascade-delete their PropertySchool links
-            session.execute(delete(PropertySchool).where(PropertySchool.school_id == stale.id))
-            session.delete(stale)
-            logger.info("Removed stale gold school: %s (nces_id=%s)", stale.name, stale.nces_id)
-    else:
-        # No NCES records at all — clear everything
-        session.execute(delete(PropertySchool))
-        session.execute(delete(School))
+    # The minimum-count guard above ensures seen_nces_ids is never empty here.
+    stale_schools = (
+        session.execute(select(School).where(School.nces_id.notin_(seen_nces_ids)))
+        .scalars()
+        .all()
+    )
+    for stale in stale_schools:
+        # Cascade-delete their PropertySchool links
+        session.execute(delete(PropertySchool).where(PropertySchool.school_id == stale.id))
+        session.delete(stale)
+        logger.info("Removed stale gold school: %s (nces_id=%s)", stale.name, stale.nces_id)
 
     session.flush()
     logger.info("Built %d gold school records (upsert)", count)
@@ -585,3 +595,21 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
         stats["errors"],
     )
     return stats
+
+
+def verify_schools_gold(session: Session) -> dict[str, int]:
+    """Verify gold school tables have been populated.
+
+    Returns a dict with 'schools' and 'property_schools' counts.
+    Raises RuntimeError if the schools table is empty.
+    """
+    school_count = session.scalar(select(func.count()).select_from(School)) or 0
+    link_count = session.scalar(select(func.count()).select_from(PropertySchool)) or 0
+    if not school_count:
+        raise RuntimeError("No records in gold schools table after build")
+    logger.info(
+        "Verified gold tables: %d schools, %d property_schools",
+        school_count,
+        link_count,
+    )
+    return {"schools": school_count, "property_schools": link_count}

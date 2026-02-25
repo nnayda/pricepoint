@@ -16,7 +16,8 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from pricepoint.config.settings import get_settings
 from pricepoint.data.housing.description_scorer import (
@@ -256,53 +257,6 @@ def download_photos_as_base64(
 # ---------------------------------------------------------------------------
 # Async I/O
 # ---------------------------------------------------------------------------
-
-
-def merge_photo_results(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Merge per-photo LLM results into a single listing-level score.
-
-    Takes the median score, concatenates reasoning, unions detected features,
-    and picks the most common renovation level.
-    """
-    scores = [
-        r["visual_quality_score"] for r in results if r.get("visual_quality_score") is not None
-    ]
-    reasonings = [r["visual_reasoning"] for r in results if r.get("visual_reasoning")]
-    renovation_levels = [r["renovation_level"] for r in results if r.get("renovation_level")]
-
-    # Merge detected features: union all lists per category
-    merged_features: dict[str, list[str]] = {}
-    for r in results:
-        feats = r.get("detected_features") or {}
-        for category, items in feats.items():
-            if isinstance(items, list):
-                existing = merged_features.setdefault(category, [])
-                for item in items:
-                    if item not in existing:
-                        existing.append(item)
-
-    # Median score
-    if scores:
-        scores.sort()
-        mid = len(scores) // 2
-        median_score = scores[mid] if len(scores) % 2 else (scores[mid - 1] + scores[mid]) // 2
-    else:
-        median_score = None
-
-    # Most common renovation level
-    if renovation_levels:
-        from collections import Counter
-
-        renovation = Counter(renovation_levels).most_common(1)[0][0]
-    else:
-        renovation = None
-
-    return {
-        "visual_quality_score": median_score,
-        "visual_reasoning": " | ".join(reasonings) if reasonings else None,
-        "detected_features": merged_features or None,
-        "renovation_level": renovation,
-    }
 
 
 async def call_ollama_vision(
@@ -642,25 +596,20 @@ def score_all_photos(
                 continue
 
             # Upsert and commit immediately
-            existing = (
-                session.query(LlmPhotoScore)
-                .filter(
-                    LlmPhotoScore.listing_id == result["listing_id"],
-                    LlmPhotoScore.model_name == result["model_name"],
-                    LlmPhotoScore.model_version == result["model_version"],
-                )
-                .first()
+            stmt = pg_insert(LlmPhotoScore).values(result)
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_llm_photo_score_listing_model",
+                set_={
+                    "photos_hash": stmt.excluded.photos_hash,
+                    "visual_quality_score": stmt.excluded.visual_quality_score,
+                    "visual_reasoning": stmt.excluded.visual_reasoning,
+                    "detected_features": stmt.excluded.detected_features,
+                    "renovation_level": stmt.excluded.renovation_level,
+                    "raw_response": stmt.excluded.raw_response,
+                    "extracted_at": func.now(),
+                },
             )
-
-            if existing:
-                existing.photos_hash = result["photos_hash"]
-                existing.visual_quality_score = result["visual_quality_score"]
-                existing.visual_reasoning = result["visual_reasoning"]
-                existing.detected_features = result["detected_features"]
-                existing.renovation_level = result["renovation_level"]
-                existing.raw_response = result["raw_response"]
-            else:
-                session.add(LlmPhotoScore(**result))
+            session.execute(stmt)
 
             session.commit()
             key = (result["listing_id"], result["model_name"], result["model_version"])
@@ -705,5 +654,23 @@ def score_all_photos(
             total_photos,
         )
         return {"scored": scored, "skipped": skipped, "errors": errors}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def verify_photo_scores() -> None:
+    """Verify photo scores exist in the database.
+
+    Raises RuntimeError if the llm_photo_scores table is empty.
+    """
+    session = SessionLocal()
+    try:
+        count = session.execute(select(func.count()).select_from(LlmPhotoScore)).scalar()
+        if not count:
+            raise RuntimeError("No records found in llm_photo_scores after scoring")
+        logger.info("Verified %d records in llm_photo_scores", count)
     finally:
         session.close()

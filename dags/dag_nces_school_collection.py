@@ -37,19 +37,9 @@ def nces_school_collection():
     @task(outlets=[Asset("nces_schools")])
     def verify_load():
         """Verify that records were loaded into the nces_schools table."""
-        from sqlalchemy import func, select
+        from pricepoint.data.geospatial.nces_schools import verify_nces_schools
 
-        from pricepoint.db import SessionLocal
-        from pricepoint.db.models import NcesSchool
-
-        session = SessionLocal()
-        try:
-            count = session.execute(select(func.count()).select_from(NcesSchool)).scalar()
-            if not count:
-                raise RuntimeError("No records found in nces_schools after load")
-            logger.info("Verified %d NCES school records", count)
-        finally:
-            session.close()
+        verify_nces_schools()
 
     fetch_schools() >> verify_load()
 

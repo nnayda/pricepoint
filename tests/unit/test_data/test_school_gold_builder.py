@@ -207,6 +207,7 @@ class TestBuildSchoolsGold:
         nces.extras = {"MEMBER": "500", "FTE": "30", "STUTERATIO": "16.7"}
 
         session = MagicMock()
+        session.scalar.return_value = 500  # minimum-count guard
         # First execute: NCES records, second: RedfinSchools, third: upsert lookup,
         # fourth: stale schools cleanup
         call_count = [0]
@@ -268,6 +269,7 @@ class TestBuildSchoolsGold:
         existing_school.nces_id = "370001000001"
 
         session = MagicMock()
+        session.scalar.return_value = 500  # minimum-count guard
         call_count = [0]
 
         def mock_execute(stmt):
@@ -323,6 +325,7 @@ class TestBuildSchoolsGold:
         stale_school.name = "Closed School"
 
         session = MagicMock()
+        session.scalar.return_value = 500  # minimum-count guard
         call_count = [0]
 
         def mock_execute(stmt):
@@ -366,6 +369,7 @@ class TestBuildSchoolsGold:
         nces.extras = {"MEMBER": "200", "TOTFRL": "100"}
 
         session = MagicMock()
+        session.scalar.return_value = 500  # minimum-count guard
         call_count = [0]
 
         def mock_execute(stmt):

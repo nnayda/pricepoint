@@ -2,17 +2,22 @@
 
 Downloads public school data for a configured state and loads it into the
 nces_schools table. Uses pagination to handle large result sets.
+
+Uses direct upsert (pg_insert ... ON CONFLICT DO UPDATE) keyed on nces_id
+to avoid any window where the table is empty.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Point
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
@@ -55,6 +60,22 @@ _EXTRA_FIELDS = [
 
 _ALL_FIELDS = _CORE_FIELDS + _EXTRA_FIELDS
 _PAGE_SIZE = 1000
+
+# Columns to update on conflict (everything except nces_id and id)
+_UPDATABLE_COLUMNS = [
+    "name",
+    "street",
+    "city",
+    "state",
+    "zip_code",
+    "school_type",
+    "school_level",
+    "grades_low",
+    "grades_high",
+    "location",
+    "extras",
+    "loaded_at",
+]
 
 # FIPS state code -> USPS abbreviation (used by NCES STABR field)
 _FIPS_TO_ABBR: dict[str, str] = {
@@ -184,18 +205,20 @@ def _parse_nces_record(feature: dict[str, Any]) -> dict[str, Any]:
 def fetch_nces_schools() -> int:
     """Download all NCES schools for the configured state and upsert into DB.
 
-    Deletes existing records first, then bulk inserts.
+    Uses pg_insert ... ON CONFLICT DO UPDATE keyed on nces_id so that the
+    table is never emptied.  After all pages are upserted, stale rows
+    (loaded_at < run start) are cleaned up.
+
     Returns the total record count.
     """
     settings = get_settings()
     base_url = settings.nces_edge_base_url
     state_abbr = _fips_to_state_abbr(settings.tiger_state_fips)
 
+    run_started = datetime.now(UTC)
+
     session = SessionLocal()
     try:
-        session.execute(delete(NcesSchool))
-        session.commit()
-
         offset = 0
         total = 0
 
@@ -204,7 +227,7 @@ def fetch_nces_schools() -> int:
             if not features:
                 break
 
-            records = []
+            values: list[dict[str, Any]] = []
             for feature in features:
                 parsed = _parse_nces_record(feature)
                 if not parsed["nces_id"]:
@@ -214,33 +237,48 @@ def fetch_nces_schools() -> int:
                 if parsed["lat"] is not None and parsed["lon"] is not None:
                     location = from_shape(Point(parsed["lon"], parsed["lat"]), srid=4326)
 
-                records.append(
-                    NcesSchool(
-                        nces_id=parsed["nces_id"],
-                        name=parsed["name"],
-                        street=parsed["street"],
-                        city=parsed["city"],
-                        state=parsed["state"],
-                        zip_code=parsed["zip_code"],
-                        school_type=parsed["school_type"],
-                        school_level=parsed["school_level"],
-                        grades_low=parsed["grades_low"],
-                        grades_high=parsed["grades_high"],
-                        location=location,
-                        extras=parsed["extras"],
-                    )
+                values.append(
+                    {
+                        "nces_id": parsed["nces_id"],
+                        "name": parsed["name"],
+                        "street": parsed["street"],
+                        "city": parsed["city"],
+                        "state": parsed["state"],
+                        "zip_code": parsed["zip_code"],
+                        "school_type": parsed["school_type"],
+                        "school_level": parsed["school_level"],
+                        "grades_low": parsed["grades_low"],
+                        "grades_high": parsed["grades_high"],
+                        "location": location,
+                        "extras": parsed["extras"],
+                        "loaded_at": run_started,
+                    }
                 )
 
-            if records:
-                session.add_all(records)
+            if values:
+                stmt = pg_insert(NcesSchool).values(values)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["nces_id"],
+                    set_={col: stmt.excluded[col] for col in _UPDATABLE_COLUMNS},
+                )
+                session.execute(stmt)
                 session.commit()
 
-            total += len(records)
-            logger.info("NCES schools page at offset %d: %d records", offset, len(records))
+            total += len(values)
+            logger.info("NCES schools page at offset %d: %d records", offset, len(values))
 
             if len(features) < _PAGE_SIZE:
                 break
             offset += _PAGE_SIZE
+
+        # Remove stale rows not seen in this run
+        if total > 0:
+            stale_count = session.execute(
+                delete(NcesSchool).where(NcesSchool.loaded_at < run_started)
+            ).rowcount  # type: ignore[union-attr]
+            session.commit()
+            if stale_count:
+                logger.info("Removed %d stale NCES school records", stale_count)
 
         logger.info("NCES schools total loaded: %d records", total)
         return total
@@ -248,5 +286,21 @@ def fetch_nces_schools() -> int:
     except Exception:
         session.rollback()
         raise
+    finally:
+        session.close()
+
+
+def verify_nces_schools() -> int:
+    """Verify that records were loaded into the nces_schools table.
+
+    Returns the record count. Raises RuntimeError if the table is empty.
+    """
+    session = SessionLocal()
+    try:
+        count = session.execute(select(func.count()).select_from(NcesSchool)).scalar() or 0
+        if not count:
+            raise RuntimeError("No records found in nces_schools after load")
+        logger.info("Verified %d NCES school records", count)
+        return count
     finally:
         session.close()

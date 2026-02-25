@@ -2,7 +2,8 @@
 
 Auto-triggered DAG that builds the gold ``schools`` and ``property_schools``
 tables from NCES reference data and Redfin-extracted school information.
-Runs automatically after the Redfin transform DAG produces new listings.
+Runs automatically after either the Redfin transform or NCES collection
+DAG produces new data.
 """
 
 import logging
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 @dag(
     dag_id="school_gold_tables",
     description="Build gold schools and property_schools from NCES + Redfin data",
-    schedule=[Asset("redfin_listings")],
+    schedule=[Asset("redfin_listings"), Asset("nces_schools")],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -70,22 +71,12 @@ def school_gold_tables():
     @task()
     def verify_gold():
         """Verify gold tables have been populated."""
-        from sqlalchemy import func, select
-
+        from pricepoint.data.housing.school_gold_builder import verify_schools_gold
         from pricepoint.db.engine import SessionLocal
-        from pricepoint.db.models import PropertySchool, School
 
         session = SessionLocal()
         try:
-            school_count = session.execute(select(func.count()).select_from(School)).scalar()
-            link_count = session.execute(select(func.count()).select_from(PropertySchool)).scalar()
-            if not school_count:
-                raise RuntimeError("No records in gold schools table after build")
-            logger.info(
-                "Verified gold tables: %d schools, %d property_schools",
-                school_count,
-                link_count,
-            )
+            verify_schools_gold(session)
         finally:
             session.close()
 

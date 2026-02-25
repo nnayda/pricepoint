@@ -7,6 +7,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 
 from pricepoint.data.housing.photo_scorer import (
     build_system_prompt,
@@ -15,10 +16,10 @@ from pricepoint.data.housing.photo_scorer import (
     compute_photos_hash,
     compute_prompt_version,
     download_photos_as_base64,
-    merge_photo_results,
     parse_llm_response,
     score_all_photos,
     score_photos_batch,
+    verify_photo_scores,
 )
 
 BASIC_RAW = {
@@ -330,55 +331,33 @@ class TestCallOllamaVision:
         assert result is None
 
 
+_SCORER = "pricepoint.data.housing.photo_scorer"
+
+
 # ---------------------------------------------------------------------------
-# TestMergePhotoResults
+# TestVerifyPhotoScores
 # ---------------------------------------------------------------------------
 
 
-class TestMergePhotoResults:
-    def test_median_score_odd(self):
-        results = [
-            _make_raw(score=40, reasoning="Low"),
-            _make_raw(score=60, reasoning="Mid"),
-            _make_raw(score=80, reasoning="High"),
-        ]
-        merged = merge_photo_results([parse_llm_response(r) for r in results])
-        assert merged["visual_quality_score"] == 60
+class TestVerifyPhotoScores:
+    @patch(f"{_SCORER}.SessionLocal")
+    def test_raises_when_empty(self, mock_session_cls):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.execute.return_value.scalar.return_value = 0
 
-    def test_median_score_even(self):
-        results = [
-            _make_raw(score=40, reasoning="Low"),
-            _make_raw(score=60, reasoning="High"),
-        ]
-        merged = merge_photo_results([parse_llm_response(r) for r in results])
-        assert merged["visual_quality_score"] == 50
+        with pytest.raises(RuntimeError, match="No records found"):
+            verify_photo_scores()
+        mock_session.close.assert_called_once()
 
-    def test_features_merged(self):
-        results = [
-            _make_raw(features={"kitchen_features": ["granite"], "flooring": ["hardwood"]}),
-            _make_raw(
-                features={"kitchen_features": ["island", "granite"], "exterior_features": ["pool"]}
-            ),
-        ]
-        merged = merge_photo_results([parse_llm_response(r) for r in results])
-        assert set(merged["detected_features"]["kitchen_features"]) == {"granite", "island"}
-        assert merged["detected_features"]["flooring"] == ["hardwood"]
-        assert merged["detected_features"]["exterior_features"] == ["pool"]
+    @patch(f"{_SCORER}.SessionLocal")
+    def test_passes_with_records(self, mock_session_cls):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_session.execute.return_value.scalar.return_value = 42
 
-    def test_most_common_renovation(self):
-        results = [
-            _make_raw(renovation="fully_renovated"),
-            _make_raw(renovation="original_maintained"),
-            _make_raw(renovation="fully_renovated"),
-        ]
-        merged = merge_photo_results([parse_llm_response(r) for r in results])
-        assert merged["renovation_level"] == "fully_renovated"
-
-    def test_all_none_scores(self):
-        results = [_make_raw(score=None, reasoning=None, renovation=None)]
-        # score=None with other fields present → parse_llm_response sets score=None
-        merged = merge_photo_results([parse_llm_response(r) for r in results])
-        assert merged["visual_quality_score"] is None
+        verify_photo_scores()
+        mock_session.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -510,8 +489,6 @@ class TestScorePhotosBatch:
 # ---------------------------------------------------------------------------
 # TestScoreAllPhotos
 # ---------------------------------------------------------------------------
-
-_SCORER = "pricepoint.data.housing.photo_scorer"
 
 
 class TestComputePromptVersion:

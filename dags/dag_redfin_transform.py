@@ -8,7 +8,6 @@ import logging
 from datetime import datetime, timedelta
 
 from airflow.sdk import Asset, dag, task
-from sqlalchemy import func, select
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,8 @@ def redfin_listing_transform():
     @task()
     def verify_transform(result):
         """Verify at least one production record exists."""
+        from sqlalchemy import func, select
+
         from pricepoint.db import SessionLocal
         from pricepoint.db.models import RedfinListing
 

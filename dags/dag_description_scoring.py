@@ -26,7 +26,7 @@ DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
         "retries": 1,
         "retry_delay": timedelta(minutes=10),
     },
-    tags=["data", "transform", "housing", "llm", "quality"],
+    tags=["data", "transform", "housing", "llm", "quality", "description"],
 )
 def description_quality_scoring():
     """Score Redfin listing descriptions using LLM quality analysis."""
@@ -47,13 +47,18 @@ def description_quality_scoring():
 
     @task(outlets=[DESCRIPTION_SCORING_DATASET])
     def verify_scoring(result):
-        """Verify scoring completed without excessive errors."""
+        """Verify scoring completed without excessive errors and DB has records."""
+        from pricepoint.data.housing.description_scorer import (
+            verify_description_scores,
+        )
+
         total = result["scored"] + result["skipped"] + result["errors"]
         if total > 0 and result["errors"] / total > 0.5:
             raise RuntimeError(
                 f"Too many errors: {result['errors']}/{total} "
                 f"({result['errors'] / total:.0%}) failed"
             )
+        verify_description_scores()
         logger.info(
             "Verification passed: %d scored, %d skipped, %d errors",
             result["scored"],

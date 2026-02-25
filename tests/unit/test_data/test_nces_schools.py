@@ -9,6 +9,7 @@ from pricepoint.data.geospatial.nces_schools import (
     _fips_to_state_abbr,
     _parse_nces_record,
     fetch_nces_schools,
+    verify_nces_schools,
 )
 
 
@@ -178,16 +179,29 @@ class TestFetchNcesPage:
 
 
 # ---------------------------------------------------------------------------
-# TestFetchNcesSchools
+# TestFetchNcesSchools (upsert-based)
 # ---------------------------------------------------------------------------
 class TestFetchNcesSchools:
+    @patch("pricepoint.data.geospatial.nces_schools.pg_insert")
     @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
     @patch("pricepoint.data.geospatial.nces_schools._fetch_nces_page")
     @patch("pricepoint.data.geospatial.nces_schools.from_shape")
-    def test_loads_records(self, mock_from_shape, mock_fetch_page, mock_session_cls):
+    def test_loads_records_via_upsert(
+        self, mock_from_shape, mock_fetch_page, mock_session_cls, mock_pg_insert
+    ):
         mock_from_shape.return_value = "mocked_geom"
         session = MagicMock()
         mock_session_cls.return_value = session
+
+        # Set up pg_insert chain
+        mock_stmt = MagicMock()
+        mock_pg_insert.return_value.values.return_value = mock_stmt
+        mock_stmt.on_conflict_do_update.return_value = mock_stmt
+
+        # Mock delete result for stale cleanup
+        mock_delete_result = MagicMock()
+        mock_delete_result.rowcount = 0
+        session.execute.return_value = mock_delete_result
 
         # Return one page of 2 records, then empty page
         mock_fetch_page.side_effect = [
@@ -232,12 +246,22 @@ class TestFetchNcesSchools:
 
         count = fetch_nces_schools()
         assert count == 2
-        session.add_all.assert_called_once()
+
+        # Verify pg_insert was called with NcesSchool model
+        from pricepoint.db.models import NcesSchool
+
+        mock_pg_insert.assert_called_with(NcesSchool)
+
+        # Verify on_conflict_do_update was called with nces_id index
+        conflict_call = mock_stmt.on_conflict_do_update.call_args
+        assert conflict_call[1]["index_elements"] == ["nces_id"]
+
+        # Verify commit was called (upsert page + stale cleanup)
         session.commit.assert_called()
 
     @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
     @patch("pricepoint.data.geospatial.nces_schools._fetch_nces_page")
-    def test_zero_records(self, mock_fetch_page, mock_session_cls):
+    def test_zero_records_no_stale_cleanup(self, mock_fetch_page, mock_session_cls):
         session = MagicMock()
         mock_session_cls.return_value = session
 
@@ -245,10 +269,13 @@ class TestFetchNcesSchools:
 
         count = fetch_nces_schools()
         assert count == 0
+        # With zero records, no delete for stale cleanup should happen
+        session.execute.assert_not_called()
 
+    @patch("pricepoint.data.geospatial.nces_schools.pg_insert")
     @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
     @patch("pricepoint.data.geospatial.nces_schools._fetch_nces_page")
-    def test_skips_empty_nces_id(self, mock_fetch_page, mock_session_cls):
+    def test_skips_empty_nces_id(self, mock_fetch_page, mock_session_cls, mock_pg_insert):
         session = MagicMock()
         mock_session_cls.return_value = session
 
@@ -259,6 +286,8 @@ class TestFetchNcesSchools:
 
         count = fetch_nces_schools()
         assert count == 0
+        # pg_insert should not be called since the only record was skipped
+        mock_pg_insert.assert_not_called()
 
     @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
     @patch("pricepoint.data.geospatial.nces_schools._fetch_nces_page")
@@ -273,3 +302,79 @@ class TestFetchNcesSchools:
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()
+
+    @patch("pricepoint.data.geospatial.nces_schools.pg_insert")
+    @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
+    @patch("pricepoint.data.geospatial.nces_schools._fetch_nces_page")
+    @patch("pricepoint.data.geospatial.nces_schools.from_shape")
+    def test_stale_rows_deleted_after_upsert(
+        self, mock_from_shape, mock_fetch_page, mock_session_cls, mock_pg_insert
+    ):
+        """After upserting, rows with loaded_at < run_started are removed."""
+        mock_from_shape.return_value = "mocked_geom"
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        mock_stmt = MagicMock()
+        mock_pg_insert.return_value.values.return_value = mock_stmt
+        mock_stmt.on_conflict_do_update.return_value = mock_stmt
+
+        mock_delete_result = MagicMock()
+        mock_delete_result.rowcount = 3
+        session.execute.return_value = mock_delete_result
+
+        mock_fetch_page.side_effect = [
+            [
+                {
+                    "attributes": {
+                        "NCESSCH": "001",
+                        "SCH_NAME": "School A",
+                        "LSTREET1": "100 Main",
+                        "LCITY": "Raleigh",
+                        "LSTATE": "NC",
+                        "LZIP": "27601",
+                        "LATCOD": 35.78,
+                        "LONCOD": -78.64,
+                        "SCHOOL_TYPE_TEXT": "Regular",
+                        "SCHOOL_LEVEL": "Elementary",
+                        "GSLO": "PK",
+                        "GSHI": "05",
+                        "STATUS": "1",
+                    }
+                },
+            ],
+            [],
+        ]
+
+        count = fetch_nces_schools()
+        assert count == 1
+
+        # Should have 2 commits: upsert page + stale cleanup
+        assert session.commit.call_count == 2
+
+        # The second execute call should be the stale DELETE
+        # (first is the upsert stmt)
+        assert session.execute.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# TestVerifyNcesSchools
+# ---------------------------------------------------------------------------
+class TestVerifyNcesSchools:
+    @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
+    def test_returns_count(self, mock_session_cls):
+        session = MagicMock()
+        mock_session_cls.return_value = session
+        session.execute.return_value.scalar.return_value = 500
+
+        count = verify_nces_schools()
+        assert count == 500
+
+    @patch("pricepoint.data.geospatial.nces_schools.SessionLocal")
+    def test_raises_on_empty(self, mock_session_cls):
+        session = MagicMock()
+        mock_session_cls.return_value = session
+        session.execute.return_value.scalar.return_value = 0
+
+        with pytest.raises(RuntimeError, match="No records found"):
+            verify_nces_schools()
