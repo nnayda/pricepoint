@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 1,
+        "retries": 0,
         "retry_delay": timedelta(minutes=10),
     },
     tags=["data", "collection", "overture", "places", "pois"],

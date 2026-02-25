@@ -132,6 +132,7 @@ class Settings(BaseSettings):
         "s3://overturemaps-us-west-2/release/2026-02-18.0/theme=places/type=place/*"
     )
     overture_places_min_confidence: float = 0.5
+    overture_places_country: str = "US"
 
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
