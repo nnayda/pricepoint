@@ -22,6 +22,7 @@ from pricepoint.api.routes import (
     greenspace,
     health,
     neighborhood,
+    nuisances,
     pois,
     property,
     saved,
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(upload.router, prefix="/api")
     app.include_router(data_request.router, prefix="/api")
     app.include_router(neighborhood.router, prefix="/api")
+    app.include_router(nuisances.router, prefix="/api")
     app.include_router(cache.router, prefix="/api")
 
     Instrumentator().instrument(app).expose(app)

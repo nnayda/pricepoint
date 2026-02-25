@@ -1064,7 +1064,7 @@ export const mockDashboardData: DashboardData = {
     },
   ],
 
-  negative_pois: [
+  nuisances: [
     {
       id: "n1",
       name: "US-401 Highway",

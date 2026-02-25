@@ -359,7 +359,7 @@ export type DashboardTab =
   | "demographics"
   | "schools"
   | "pois"
-  | "negative-pois"
+  | "nuisances"
   | "greenspace"
   | "property-details";
 
@@ -688,7 +688,7 @@ export interface DashboardData {
   demographics: DemographicData;
   schools: DashboardSchool[];
   pois: DashboardPoi[];
-  negative_pois: NegativePoi[];
+  nuisances: NegativePoi[];
   greenspace: DashboardGreenspace;
   mortgage_defaults: DashboardMortgage;
   listing_quality?: ListingQualityScore;

@@ -7,7 +7,7 @@ const RisksTab = lazy(() => import("./tabs/RisksTab"));
 const DemographicsTab = lazy(() => import("./tabs/DemographicsTab"));
 const SchoolsTab = lazy(() => import("./tabs/SchoolsTab"));
 const PoisTab = lazy(() => import("./tabs/PoisTab"));
-const NegativePoisTab = lazy(() => import("./tabs/NegativePoisTab"));
+const NuisancesTab = lazy(() => import("./tabs/NuisancesTab"));
 const GreenspaceTab = lazy(() => import("./tabs/GreenspaceTab"));
 const PropertyDetailsTab = lazy(() => import("./tabs/PropertyDetailsTab"));
 
@@ -22,7 +22,7 @@ const TABS: TabDef[] = [
   { id: "demographics", label: "Demographics" },
   { id: "schools", label: "Schools" },
   { id: "pois", label: "Points of Interest" },
-  { id: "negative-pois", label: "Negative POIs" },
+  { id: "nuisances", label: "Nuisances" },
   { id: "greenspace", label: "Greenspace" },
   { id: "property-details", label: "Property Details" },
 ];
@@ -53,10 +53,10 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   }
 
   // Red dot on Negative POIs if any Concern, yellow if any Caution
-  if (data.negative_pois.some((n) => n.severity === "Concern")) {
-    dots["negative-pois"] = "#F87171";
-  } else if (data.negative_pois.some((n) => n.severity === "Caution")) {
-    dots["negative-pois"] = "#FBBF24";
+  if (data.nuisances.some((n) => n.severity === "Concern")) {
+    dots["nuisances"] = "#F87171";
+  } else if (data.nuisances.some((n) => n.severity === "Caution")) {
+    dots["nuisances"] = "#FBBF24";
   }
 
   return dots;
@@ -71,7 +71,7 @@ const TAB_COMPONENTS: Record<
   demographics: DemographicsTab,
   schools: SchoolsTab,
   pois: PoisTab,
-  "negative-pois": NegativePoisTab,
+  nuisances: NuisancesTab,
   greenspace: GreenspaceTab,
   "property-details": PropertyDetailsTab,
 };

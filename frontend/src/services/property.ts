@@ -107,6 +107,32 @@ export async function searchPois(
   return data;
 }
 
+export interface NoiseResponse {
+  type: string;
+  features: {
+    type: string;
+    geometry: object;
+    properties: {
+      noise_band: string;
+      noise_min_db: number;
+      noise_max_db: number | null;
+      source_layer: string;
+      area_sq_m: number | null;
+    };
+  }[];
+}
+
+export async function getNoiseData(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 2,
+): Promise<NoiseResponse> {
+  const { data } = await client.get<NoiseResponse>("/api/nuisances/noise", {
+    params: { lat, lon, radius_miles: radiusMiles },
+  });
+  return data;
+}
+
 export async function submitDataRequest(request: DataRequestCreate): Promise<DataRequestResponse> {
   const { data } = await client.post<DataRequestResponse>("/api/data-requests", request);
   return data;

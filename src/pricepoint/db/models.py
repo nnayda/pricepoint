@@ -1062,6 +1062,25 @@ class Airport(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class TransportationNoise(Base):
+    """Transportation noise polygon from BTS National Noise Map (aviation+road+rail)."""
+
+    __tablename__ = "noises"
+    __table_args__ = (
+        Index("ix_noises_geom", "geom", postgresql_using="gist"),
+        Index("ix_noises_noise_min_db", "noise_min_db"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    noise_min_db = Column(Integer, nullable=False)
+    noise_max_db = Column(Integer, nullable=True)
+    noise_band = Column(String, nullable=False)
+    source_layer = Column(String, nullable=False)
+    area_sq_m = Column(Float, nullable=True)
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class StagingPlace(Base):
     """Staging table for Overture Maps places (bronze).
 
