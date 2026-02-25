@@ -1022,6 +1022,46 @@ class CaryGreenway(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Greenway(Base):
+    """Gold-layer greenway trail merged from Wake, Cary, and Raleigh sources."""
+
+    __tablename__ = "greenways"
+    __table_args__ = (
+        Index("ix_greenways_source_source_id", "source", "source_id"),
+        Index("ix_greenways_geom", "geom", postgresql_using="gist"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String, nullable=False)
+    source_id = Column(Integer, nullable=False)
+    name = Column(String, index=True)
+    surface_type = Column(String)
+    status = Column(String)
+    length = Column(Float)
+    width = Column(Float)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Greenspace(Base):
+    """Gold-layer greenspace/park merged from open space bronze sources."""
+
+    __tablename__ = "greenspaces"
+    __table_args__ = (
+        Index("ix_greenspaces_source_source_id", "source", "source_id"),
+        Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source = Column(String, nullable=False)
+    source_id = Column(Integer, nullable=False)
+    name = Column(String, index=True)
+    acres = Column(Float)
+    type = Column(String)
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class WakeRailroad(Base):
     """Wake County railroad from ArcGIS FeatureServer."""
 
