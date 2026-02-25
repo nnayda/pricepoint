@@ -18,6 +18,11 @@ from pricepoint.api.schemas.utilities import (
     UtilityFeature,
 )
 from pricepoint.db.models import (
+    HifldCellTower,
+    HifldNatGasPipeline,
+    HifldPetroleumPipeline,
+    HifldPowerPlant,
+    HifldTransmissionLine,
     WakeHighway,
     WakeMajorRoad,
     WakeRailroad,
@@ -42,7 +47,7 @@ def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN00
 
 
 def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
-    """Build a UNION ALL query across the four infrastructure tables.
+    """Build a UNION ALL query across infrastructure tables.
 
     Returns id, name, feature_type, centroid lat/lon, and distance in miles.
     """
@@ -124,27 +129,149 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         _st_dwithin_geography(WakeUtilityEasement.geom, property_point, radius_meters),
     )
 
-    return union_all(highway_q, road_q, railroad_q, easement_q).cte("all_utilities")
+    # Cell towers
+    cell_tower_q = select(
+        cast(HifldCellTower.id, String).label("feature_id"),
+        func.coalesce(HifldCellTower.licensee, "Cell Tower").label("name"),
+        literal("cell_tower").label("feature_type"),
+        ST_Y(HifldCellTower.geom).label("lat"),
+        ST_X(HifldCellTower.geom).label("lon"),
+        (
+            func.ST_Distance(
+                cast(property_point, text("geography")),
+                cast(HifldCellTower.geom, text("geography")),
+            )
+            / METERS_PER_MILE
+        ).label("distance_miles"),
+    ).where(
+        HifldCellTower.geom.isnot(None),
+        _st_dwithin_geography(HifldCellTower.geom, property_point, radius_meters),
+    )
+
+    # Transmission lines
+    transmission_q = select(
+        cast(HifldTransmissionLine.id, String).label("feature_id"),
+        func.coalesce(HifldTransmissionLine.owner, "Transmission Line").label("name"),
+        literal("transmission_line").label("feature_type"),
+        ST_Y(func.ST_Centroid(HifldTransmissionLine.geom)).label("lat"),
+        ST_X(func.ST_Centroid(HifldTransmissionLine.geom)).label("lon"),
+        (
+            func.ST_Distance(
+                cast(property_point, text("geography")),
+                cast(HifldTransmissionLine.geom, text("geography")),
+            )
+            / METERS_PER_MILE
+        ).label("distance_miles"),
+    ).where(
+        HifldTransmissionLine.geom.isnot(None),
+        _st_dwithin_geography(HifldTransmissionLine.geom, property_point, radius_meters),
+    )
+
+    # Power plants
+    power_plant_q = select(
+        cast(HifldPowerPlant.id, String).label("feature_id"),
+        func.coalesce(HifldPowerPlant.name, "Power Plant").label("name"),
+        literal("power_plant").label("feature_type"),
+        ST_Y(HifldPowerPlant.geom).label("lat"),
+        ST_X(HifldPowerPlant.geom).label("lon"),
+        (
+            func.ST_Distance(
+                cast(property_point, text("geography")),
+                cast(HifldPowerPlant.geom, text("geography")),
+            )
+            / METERS_PER_MILE
+        ).label("distance_miles"),
+    ).where(
+        HifldPowerPlant.geom.isnot(None),
+        _st_dwithin_geography(HifldPowerPlant.geom, property_point, radius_meters),
+    )
+
+    # Natural gas pipelines
+    nat_gas_q = select(
+        cast(HifldNatGasPipeline.id, String).label("feature_id"),
+        func.coalesce(HifldNatGasPipeline.operator, "Natural Gas Pipeline").label("name"),
+        literal("nat_gas_pipeline").label("feature_type"),
+        ST_Y(func.ST_Centroid(HifldNatGasPipeline.geom)).label("lat"),
+        ST_X(func.ST_Centroid(HifldNatGasPipeline.geom)).label("lon"),
+        (
+            func.ST_Distance(
+                cast(property_point, text("geography")),
+                cast(HifldNatGasPipeline.geom, text("geography")),
+            )
+            / METERS_PER_MILE
+        ).label("distance_miles"),
+    ).where(
+        HifldNatGasPipeline.geom.isnot(None),
+        _st_dwithin_geography(HifldNatGasPipeline.geom, property_point, radius_meters),
+    )
+
+    # Petroleum pipelines
+    petroleum_q = select(
+        cast(HifldPetroleumPipeline.id, String).label("feature_id"),
+        func.coalesce(HifldPetroleumPipeline.operator, "Petroleum Pipeline").label("name"),
+        literal("petroleum_pipeline").label("feature_type"),
+        ST_Y(func.ST_Centroid(HifldPetroleumPipeline.geom)).label("lat"),
+        ST_X(func.ST_Centroid(HifldPetroleumPipeline.geom)).label("lon"),
+        (
+            func.ST_Distance(
+                cast(property_point, text("geography")),
+                cast(HifldPetroleumPipeline.geom, text("geography")),
+            )
+            / METERS_PER_MILE
+        ).label("distance_miles"),
+    ).where(
+        HifldPetroleumPipeline.geom.isnot(None),
+        _st_dwithin_geography(HifldPetroleumPipeline.geom, property_point, radius_meters),
+    )
+
+    return union_all(
+        highway_q,
+        road_q,
+        railroad_q,
+        easement_q,
+        cell_tower_q,
+        transmission_q,
+        power_plant_q,
+        nat_gas_q,
+        petroleum_q,
+    ).cte("all_utilities")
 
 
 def _compute_nuisance_score(
     nearest_railroad: float,
     nearest_highway: float,
     nearest_easement: float,
+    nearest_transmission_line: float = 3.0,
+    nearest_power_plant: float = 3.0,
+    nearest_cell_tower: float = 3.0,
+    nearest_pipeline: float = 3.0,
 ) -> float:
     """Compute nuisance score (0-10) as weighted proximity combination.
 
-    Weights: railroad=3 (high impact), highway=2 (medium), utility_easement=1 (low).
+    Weights: railroad=3, transmission_line=3, power_plant=3, highway=2,
+    cell_tower=2, utility_easement=1, pipeline=1.
     Per-type contribution: weight * max(0, 1 - distance_miles / 3).
     Final score scaled to 0-10.
     """
-    max_raw = 3 + 2 + 1  # 6.0 when all distances are 0
+    max_raw = 3 + 2 + 1 + 3 + 3 + 2 + 1  # 15.0 when all distances are 0
 
     railroad_contrib = 3 * max(0.0, 1.0 - nearest_railroad / 3.0)
     highway_contrib = 2 * max(0.0, 1.0 - nearest_highway / 3.0)
     easement_contrib = 1 * max(0.0, 1.0 - nearest_easement / 3.0)
+    transmission_contrib = 3 * max(0.0, 1.0 - nearest_transmission_line / 3.0)
+    power_plant_contrib = 3 * max(0.0, 1.0 - nearest_power_plant / 3.0)
+    cell_tower_contrib = 2 * max(0.0, 1.0 - nearest_cell_tower / 3.0)
+    pipeline_contrib = 1 * max(0.0, 1.0 - nearest_pipeline / 3.0)
 
-    raw = railroad_contrib + highway_contrib + easement_contrib
+    raw = (
+        railroad_contrib
+        + highway_contrib
+        + easement_contrib
+        + transmission_contrib
+        + power_plant_contrib
+        + cell_tower_contrib
+        + pipeline_contrib
+    )
     return round((raw / max_raw) * 10.0, 1)
 
 
@@ -221,13 +348,32 @@ async def get_utilities(
     )
     nearest_railroad = nearest.get("railroad", radius_miles)
     nearest_powerline = nearest.get("utility_easement", radius_miles)
+    nearest_cell_tower = nearest.get("cell_tower", radius_miles)
+    nearest_transmission_line = nearest.get("transmission_line", radius_miles)
+    nearest_power_plant = nearest.get("power_plant", radius_miles)
+    nearest_pipeline = min(
+        nearest.get("nat_gas_pipeline", radius_miles),
+        nearest.get("petroleum_pipeline", radius_miles),
+    )
 
-    nuisance = _compute_nuisance_score(nearest_railroad, nearest_highway, nearest_powerline)
+    nuisance = _compute_nuisance_score(
+        nearest_railroad,
+        nearest_highway,
+        nearest_powerline,
+        nearest_transmission_line,
+        nearest_power_plant,
+        nearest_cell_tower,
+        nearest_pipeline,
+    )
 
     metrics = UtilitiesMetrics(
         nearest_highway_miles=round(nearest_highway, 2),
         nearest_railroad_miles=round(nearest_railroad, 2),
         nearest_powerline_miles=round(nearest_powerline, 2),
+        nearest_cell_tower_miles=round(nearest_cell_tower, 2),
+        nearest_transmission_line_miles=round(nearest_transmission_line, 2),
+        nearest_power_plant_miles=round(nearest_power_plant, 2),
+        nearest_pipeline_miles=round(nearest_pipeline, 2),
         nuisance_score=nuisance,
     )
 

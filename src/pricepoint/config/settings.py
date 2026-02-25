@@ -105,6 +105,28 @@ class Settings(BaseSettings):
         "https://maps.wakegov.com/arcgis/rest/services/Property/Easements/MapServer/1"
     )
 
+    # HIFLD Infrastructure (ArcGIS FeatureServer)
+    hifld_cell_towers_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/Cellular_Towers_in_the_United_States/FeatureServer/0"
+    )
+    hifld_transmission_lines_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/US_Electric_Power_Transmission_Lines/FeatureServer/0"
+    )
+    hifld_power_plants_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/Power_Plants_in_the_US/FeatureServer/0"
+    )
+    hifld_nat_gas_pipelines_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/Natural_Gas_Interstate_and_Intrastate_Pipelines_1/FeatureServer/0"
+    )
+    hifld_petroleum_pipelines_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/Petroleum_Products_Pipelines_1/FeatureServer/0"
+    )
+
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:32b"

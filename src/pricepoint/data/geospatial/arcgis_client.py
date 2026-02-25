@@ -95,10 +95,16 @@ def build_multilinestring_wkb(paths: list[list[list[float]]] | None) -> object |
         return None
 
 
-def query_arcgis_page(base_url: str, offset: int, count: int) -> dict:
+def query_arcgis_page(
+    base_url: str,
+    offset: int,
+    count: int,
+    where_clause: str = "1=1",
+    geometry_envelope: tuple[float, float, float, float] | None = None,
+) -> dict:
     """Query a page of features from an ArcGIS REST endpoint."""
     params: dict[str, str | int] = {
-        "where": "1=1",
+        "where": where_clause,
         "outFields": "*",
         "returnGeometry": "true",
         "outSR": 4326,
@@ -106,6 +112,12 @@ def query_arcgis_page(base_url: str, offset: int, count: int) -> dict:
         "resultRecordCount": count,
         "f": "json",
     }
+    if geometry_envelope is not None:
+        xmin, ymin, xmax, ymax = geometry_envelope
+        params["geometry"] = f"{xmin},{ymin},{xmax},{ymax}"
+        params["geometryType"] = "esriGeometryEnvelope"
+        params["spatialRel"] = "esriSpatialRelIntersects"
+        params["inSR"] = 4326
     response = httpx.get(f"{base_url}/query", params=params, timeout=120)
     response.raise_for_status()
     return response.json()
@@ -117,6 +129,8 @@ def fetch_arcgis_dataset(
     mapper: Callable[[dict], T],
     dataset_name: str,
     page_size: int = DEFAULT_PAGE_SIZE,
+    where_clause: str = "1=1",
+    geometry_envelope: tuple[float, float, float, float] | None = None,
 ) -> None:
     """Generic truncate-and-reload for an ArcGIS feature dataset.
 
@@ -131,7 +145,9 @@ def fetch_arcgis_dataset(
         offset = 0
         total = 0
         while True:
-            data = query_arcgis_page(base_url, offset, page_size)
+            data = query_arcgis_page(
+                base_url, offset, page_size, where_clause, geometry_envelope
+            )
             features = data.get("features", [])
             if not features:
                 break

@@ -20,6 +20,10 @@ class UtilitiesMetrics(BaseModel):
     nearest_highway_miles: float
     nearest_railroad_miles: float
     nearest_powerline_miles: float
+    nearest_cell_tower_miles: float | None = None
+    nearest_transmission_line_miles: float | None = None
+    nearest_power_plant_miles: float | None = None
+    nearest_pipeline_miles: float | None = None
     nuisance_score: float
 
 

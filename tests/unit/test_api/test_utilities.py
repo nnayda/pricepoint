@@ -193,6 +193,10 @@ class TestUtilitiesDataTypes:
             "nearest_highway_miles",
             "nearest_railroad_miles",
             "nearest_powerline_miles",
+            "nearest_cell_tower_miles",
+            "nearest_transmission_line_miles",
+            "nearest_power_plant_miles",
+            "nearest_pipeline_miles",
             "nuisance_score",
         ]:
             assert field in metrics, f"Missing metrics field: {field}"
@@ -366,6 +370,10 @@ class TestUtilitiesValkeyCaching:
                 "nearest_highway_miles": 0.8,
                 "nearest_railroad_miles": 1.5,
                 "nearest_powerline_miles": 0.6,
+                "nearest_cell_tower_miles": 2.0,
+                "nearest_transmission_line_miles": 1.8,
+                "nearest_power_plant_miles": 3.0,
+                "nearest_pipeline_miles": 3.0,
                 "nuisance_score": 3.2,
             },
         }
@@ -433,22 +441,22 @@ class TestUtilitiesNuisanceScore:
         """All infrastructure at distance 0 should yield maximum score 10."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score = _compute_nuisance_score(0.0, 0.0, 0.0)
+        score = _compute_nuisance_score(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         assert score == 10.0
 
     def test_all_far_away_zero_score(self):
         """All infrastructure at or beyond 3 miles should yield score 0."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score = _compute_nuisance_score(3.0, 3.0, 3.0)
+        score = _compute_nuisance_score(3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0)
         assert score == 0.0
 
     def test_railroad_has_highest_weight(self):
         """Railroad close (weight 3) should give higher score than highway close (weight 2)."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score_railroad_close = _compute_nuisance_score(0.5, 3.0, 3.0)
-        score_highway_close = _compute_nuisance_score(3.0, 0.5, 3.0)
+        score_railroad_close = _compute_nuisance_score(0.5, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0)
+        score_highway_close = _compute_nuisance_score(3.0, 0.5, 3.0, 3.0, 3.0, 3.0, 3.0)
         assert score_railroad_close > score_highway_close
 
     def test_cache_key_deterministic(self):

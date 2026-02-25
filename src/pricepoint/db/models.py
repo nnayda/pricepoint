@@ -1135,6 +1135,99 @@ class WakeUtilityEasement(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class HifldCellTower(Base):
+    """HIFLD cell tower location from ArcGIS FeatureServer."""
+
+    __tablename__ = "hifld_cell_towers"
+    __table_args__ = (Index("ix_hifld_cell_towers_geom", "geom", postgresql_using="gist"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    licensee = Column(String)
+    callsign = Column(String)
+    city = Column(String)
+    state = Column(String)
+    county = Column(String)
+    structure_type = Column(String)
+    height_ft = Column(Float)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HifldTransmissionLine(Base):
+    """HIFLD electric power transmission line from ArcGIS FeatureServer."""
+
+    __tablename__ = "hifld_transmission_lines"
+    __table_args__ = (
+        Index("ix_hifld_transmission_lines_geom", "geom", postgresql_using="gist"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    line_type = Column(String)
+    status = Column(String)
+    owner = Column(String)
+    voltage = Column(Float)
+    volt_class = Column(String)
+    sub_1 = Column(String)
+    sub_2 = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HifldPowerPlant(Base):
+    """HIFLD power plant location from ArcGIS FeatureServer."""
+
+    __tablename__ = "hifld_power_plants"
+    __table_args__ = (Index("ix_hifld_power_plants_geom", "geom", postgresql_using="gist"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    plant_code = Column(Integer)
+    name = Column(String, index=True)
+    utility_name = Column(String)
+    state = Column(String)
+    county = Column(String)
+    primary_source = Column(String)
+    install_mw = Column(Float)
+    total_mw = Column(Float)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HifldNatGasPipeline(Base):
+    """HIFLD natural gas pipeline from ArcGIS FeatureServer."""
+
+    __tablename__ = "hifld_nat_gas_pipelines"
+    __table_args__ = (
+        Index("ix_hifld_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    pipe_type = Column(String)
+    operator = Column(String)
+    status = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HifldPetroleumPipeline(Base):
+    """HIFLD petroleum products pipeline from ArcGIS FeatureServer."""
+
+    __tablename__ = "hifld_petroleum_pipelines"
+    __table_args__ = (
+        Index("ix_hifld_petroleum_pipelines_geom", "geom", postgresql_using="gist"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    objectid = Column(Integer, index=True)
+    operator = Column(String)
+    pipe_name = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class LlmQualityScore(Base):
     """LLM-generated property quality score from listing description analysis.
 
