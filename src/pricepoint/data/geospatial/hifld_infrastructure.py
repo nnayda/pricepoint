@@ -19,6 +19,7 @@ from pricepoint.db.models import (
     HifldPetroleumPipeline,
     HifldPowerPlant,
     HifldTransmissionLine,
+    Hospital,
 )
 
 logger = logging.getLogger(__name__)
@@ -197,3 +198,52 @@ def fetch_petroleum_pipelines() -> None:
 def verify_petroleum_pipelines() -> None:
     """Verify petroleum pipeline records were loaded."""
     verify_arcgis_dataset(HifldPetroleumPipeline, "hifld_petroleum_pipelines")
+
+
+# -- Hospitals ---------------------------------------------------------------
+
+
+def _map_hospital(feature: dict) -> Hospital:
+    """Map an ArcGIS feature to a Hospital model instance."""
+    attrs = feature.get("attributes", {})
+    geometry = feature.get("geometry")
+    return Hospital(
+        objectid=attrs.get("OBJECTID"),
+        hifld_id=attrs.get("ID"),
+        name=attrs.get("NAME"),
+        address=attrs.get("ADDRESS"),
+        city=attrs.get("CITY"),
+        state=attrs.get("STATE"),
+        zip_code=attrs.get("ZIP"),
+        telephone=attrs.get("TELEPHONE"),
+        hospital_type=attrs.get("TYPE"),
+        status=attrs.get("STATUS"),
+        population=attrs.get("POPULATION"),
+        county=attrs.get("COUNTY"),
+        countyfips=attrs.get("COUNTYFIPS"),
+        owner=attrs.get("OWNER"),
+        beds=attrs.get("BEDS"),
+        trauma=attrs.get("TRAUMA"),
+        helipad=attrs.get("HELIPAD"),
+        website=attrs.get("WEBSITE"),
+        naics_code=attrs.get("NAICS_CODE"),
+        naics_desc=attrs.get("NAICS_DESC"),
+        ttl_staff=attrs.get("TTL_STAFF"),
+        geom=build_point_wkb(geometry),
+    )
+
+
+def fetch_hospitals() -> None:
+    """Fetch all HIFLD hospital features and load into PostGIS."""
+    settings = get_settings()
+    fetch_arcgis_dataset(
+        base_url=settings.hifld_hospitals_base_url,
+        model_class=Hospital,
+        mapper=_map_hospital,
+        dataset_name="hifld_hospitals",
+    )
+
+
+def verify_hospitals() -> None:
+    """Verify hospital records were loaded."""
+    verify_arcgis_dataset(Hospital, "hifld_hospitals")

@@ -31,7 +31,6 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_wake_subdivision_collection.py" in names
     assert "dag_wake_farmers_market_collection.py" in names
     assert "dag_wake_library_collection.py" in names
-    assert "dag_wake_hospital_collection.py" in names
     assert "dag_pad_us_collection.py" in names
     assert "dag_usgs_trail_collection.py" in names
     assert "dag_wake_railroad_collection.py" in names
@@ -44,4 +43,4 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_census_demographic_collection.py" in names
     assert "dag_hifld_infrastructure_collection.py" in names
     assert "dag_overture_places_collection.py" in names
-    assert len(dag_files) == 29
+    assert len(dag_files) == 28

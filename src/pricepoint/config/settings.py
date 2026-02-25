@@ -73,8 +73,9 @@ class Settings(BaseSettings):
         "https://services1.arcgis.com/a7CWfuGP5ZnLYE7I/arcgis/rest/services"
         "/Libraries/FeatureServer/0"
     )
-    wake_hospitals_base_url: str = (
-        "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Hospital/FeatureServer/0"
+    hifld_hospitals_base_url: str = (
+        "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
+        "/Hospitals/FeatureServer/0"
     )
     # PAD-US (Protected Areas Database of the United States)
     pad_us_download_url: str = (

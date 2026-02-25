@@ -1,4 +1,4 @@
-"""Collect Wake County amenity locations (farmers markets, libraries, hospitals).
+"""Collect Wake County amenity locations (farmers markets, libraries).
 
 Downloads point features from various ArcGIS endpoints and loads them into PostGIS.
 """
@@ -9,10 +9,9 @@ from pricepoint.config.settings import get_settings
 from pricepoint.data.geospatial.arcgis_client import (
     build_point_wkb,
     fetch_arcgis_dataset,
-    parse_arcgis_timestamp,
     verify_arcgis_dataset,
 )
-from pricepoint.db.models import WakeFarmersMarket, WakeHospital, WakeLibrary
+from pricepoint.db.models import WakeFarmersMarket, WakeLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -93,39 +92,3 @@ def fetch_libraries() -> None:
 def verify_libraries() -> None:
     """Verify library records were loaded."""
     verify_arcgis_dataset(WakeLibrary, "wake_libraries")
-
-
-# -- Hospitals ----------------------------------------------------------------
-
-
-def _map_hospital(feature: dict) -> WakeHospital:
-    """Map an ArcGIS feature to a WakeHospital model instance."""
-    attrs = feature.get("attributes", {})
-    geometry = feature.get("geometry")
-    return WakeHospital(
-        objectid=attrs.get("OBJECTID"),
-        facility=attrs.get("FACILITY") or attrs.get("Facility"),
-        address=attrs.get("ADDRESS") or attrs.get("Address"),
-        city=attrs.get("CITY") or attrs.get("City"),
-        acute_care=attrs.get("ACUTE_CARE") or attrs.get("Acute_Care"),
-        url=attrs.get("URL") or attrs.get("Url"),
-        telephone=attrs.get("TELEPHONE") or attrs.get("Telephone"),
-        gis_edit_date=parse_arcgis_timestamp(attrs.get("GIS_EDT_DT")),
-        geom=build_point_wkb(geometry),
-    )
-
-
-def fetch_hospitals() -> None:
-    """Fetch all hospital locations and load into PostGIS."""
-    settings = get_settings()
-    fetch_arcgis_dataset(
-        base_url=settings.wake_hospitals_base_url,
-        model_class=WakeHospital,
-        mapper=_map_hospital,
-        dataset_name="wake_hospitals",
-    )
-
-
-def verify_hospitals() -> None:
-    """Verify hospital records were loaded."""
-    verify_arcgis_dataset(WakeHospital, "wake_hospitals")

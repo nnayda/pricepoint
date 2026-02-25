@@ -110,7 +110,7 @@ dist_hospital AS (
     FROM props p
     CROSS JOIN LATERAL (
         SELECT ST_Distance(p.location::geography, h.geom::geography) AS dist
-        FROM wake_hospitals h
+        FROM hospitals h
         WHERE h.geom IS NOT NULL
         ORDER BY p.location <-> h.geom
         LIMIT 1

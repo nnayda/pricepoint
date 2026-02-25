@@ -909,20 +909,34 @@ class WakeLibrary(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class WakeHospital(Base):
-    """Wake County hospital location from ArcGIS."""
+class Hospital(Base):
+    """Hospital location from HIFLD."""
 
-    __tablename__ = "wake_hospitals"
+    __tablename__ = "hospitals"
+    __table_args__ = (Index("ix_hospitals_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
-    facility = Column(String, index=True)
+    hifld_id = Column(String, index=True)
+    name = Column(String, index=True)
     address = Column(String)
     city = Column(String)
-    acute_care = Column(String)
-    url = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
     telephone = Column(String)
-    gis_edit_date = Column(DateTime(timezone=True))
+    hospital_type = Column(String)
+    status = Column(String)
+    population = Column(Integer)
+    county = Column(String)
+    countyfips = Column(String)
+    owner = Column(String)
+    beds = Column(Integer)
+    trauma = Column(String)
+    helipad = Column(String)
+    website = Column(String)
+    naics_code = Column(String)
+    naics_desc = Column(String)
+    ttl_staff = Column(Integer)
     geom = Column(Geometry("POINT", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 

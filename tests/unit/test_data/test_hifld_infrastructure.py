@@ -4,11 +4,13 @@ from unittest.mock import MagicMock, patch
 
 from pricepoint.data.geospatial.hifld_infrastructure import (
     _map_cell_tower,
+    _map_hospital,
     _map_nat_gas_pipeline,
     _map_petroleum_pipeline,
     _map_power_plant,
     _map_transmission_line,
     fetch_cell_towers,
+    fetch_hospitals,
     fetch_nat_gas_pipelines,
     fetch_petroleum_pipelines,
     fetch_power_plants,
@@ -288,3 +290,81 @@ class TestFetchPetroleumPipelines:
         mock_fetch.assert_called_once()
         _, kwargs = mock_fetch.call_args
         assert kwargs["dataset_name"] == "hifld_petroleum_pipelines"
+
+
+# -- Hospital -----------------------------------------------------------------
+
+
+class TestMapHospital:
+    def test_all_fields_mapped(self):
+        feature = _make_point_feature(
+            {
+                "OBJECTID": 6,
+                "ID": "0001234",
+                "NAME": "WakeMed Raleigh Campus",
+                "ADDRESS": "3000 New Bern Ave",
+                "CITY": "Raleigh",
+                "STATE": "NC",
+                "ZIP": "27610",
+                "TELEPHONE": "919-350-8000",
+                "TYPE": "GENERAL ACUTE CARE",
+                "STATUS": "OPEN",
+                "POPULATION": 500000,
+                "COUNTY": "WAKE",
+                "COUNTYFIPS": "37183",
+                "OWNER": "GOVERNMENT - STATE",
+                "BEDS": 919,
+                "TRAUMA": "LEVEL I",
+                "HELIPAD": "Y",
+                "WEBSITE": "http://wakemed.org",
+                "NAICS_CODE": "622110",
+                "NAICS_DESC": "GENERAL MEDICAL AND SURGICAL HOSPITALS",
+                "TTL_STAFF": 3500,
+            }
+        )
+        record = _map_hospital(feature)
+        assert record.objectid == 6
+        assert record.hifld_id == "0001234"
+        assert record.name == "WakeMed Raleigh Campus"
+        assert record.address == "3000 New Bern Ave"
+        assert record.city == "Raleigh"
+        assert record.state == "NC"
+        assert record.zip_code == "27610"
+        assert record.telephone == "919-350-8000"
+        assert record.hospital_type == "GENERAL ACUTE CARE"
+        assert record.status == "OPEN"
+        assert record.population == 500000
+        assert record.county == "WAKE"
+        assert record.countyfips == "37183"
+        assert record.owner == "GOVERNMENT - STATE"
+        assert record.beds == 919
+        assert record.trauma == "LEVEL I"
+        assert record.helipad == "Y"
+        assert record.website == "http://wakemed.org"
+        assert record.naics_code == "622110"
+        assert record.naics_desc == "GENERAL MEDICAL AND SURGICAL HOSPITALS"
+        assert record.ttl_staff == 3500
+        assert record.geom is not None
+
+    def test_none_geometry(self):
+        feature = _make_point_feature()
+        feature["geometry"] = None
+        record = _map_hospital(feature)
+        assert record.geom is None
+
+    def test_missing_attributes(self):
+        feature = {"attributes": {}, "geometry": None}
+        record = _map_hospital(feature)
+        assert record.objectid is None
+        assert record.name is None
+
+
+class TestFetchHospitals:
+    @patch("pricepoint.data.geospatial.hifld_infrastructure.fetch_arcgis_dataset")
+    @patch("pricepoint.data.geospatial.hifld_infrastructure.get_settings")
+    def test_calls_fetch_dataset(self, mock_settings, mock_fetch):
+        mock_settings.return_value = MagicMock(hifld_hospitals_base_url="http://test/0")
+        fetch_hospitals()
+        mock_fetch.assert_called_once()
+        _, kwargs = mock_fetch.call_args
+        assert kwargs["dataset_name"] == "hifld_hospitals"
