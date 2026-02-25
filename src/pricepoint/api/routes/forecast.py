@@ -28,8 +28,6 @@ FEATURE_DISPLAY_NAMES: dict[str, str] = {
     "dist_nearest_school_m": "School proximity",
     "dist_nearest_park_m": "Park proximity",
     "dist_nearest_hospital_m": "Hospital proximity",
-    "dist_nearest_highway_m": "Highway proximity",
-    "dist_nearest_railroad_m": "Railroad proximity",
     "crime_count_1km_1yr": "Crime density (1km)",
     "property_age": "Property age",
     "sqft_per_bedroom": "Space per bedroom",
@@ -55,10 +53,8 @@ _STUB_IMPORTANCES: list[dict[str, object]] = [
     {"feature": "bed_bath_ratio", "impact_dollars": 4200.0},
     {"feature": "mortgage_rate_30yr", "impact_dollars": 3100.0},
     {"feature": "listing_premium_pct", "impact_dollars": 2800.0},
-    {"feature": "dist_nearest_railroad_m", "impact_dollars": -7500.0},
     {"feature": "crime_count_1km_1yr", "impact_dollars": -12000.0},
     {"feature": "property_age", "impact_dollars": -9500.0},
-    {"feature": "dist_nearest_highway_m", "impact_dollars": -6200.0},
     {"feature": "dist_nearest_hospital_m", "impact_dollars": -3800.0},
 ]
 

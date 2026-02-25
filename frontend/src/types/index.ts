@@ -256,9 +256,10 @@ export interface UtilityFeature {
 }
 
 export interface UtilitiesMetrics {
-  nearest_highway_miles: number;
-  nearest_railroad_miles: number;
-  nearest_powerline_miles: number;
+  nearest_cell_tower_miles: number;
+  nearest_transmission_line_miles: number;
+  nearest_power_plant_miles: number;
+  nearest_pipeline_miles: number;
   nuisance_score: number;
 }
 

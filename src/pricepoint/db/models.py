@@ -868,46 +868,6 @@ class WakeSubdivision(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class WakeFarmersMarket(Base):
-    """Wake County farmers market location from ArcGIS."""
-
-    __tablename__ = "wake_farmers_markets"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    location_desc = Column(String)
-    organization = Column(String)
-    active_day = Column(String)
-    months = Column(String)
-    hours = Column(String)
-    website = Column(String)
-    phone = Column(String)
-    geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WakeLibrary(Base):
-    """Wake County library location from ArcGIS."""
-
-    __tablename__ = "wake_libraries"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    address = Column(String)
-    city = Column(String)
-    code = Column(String)
-    label = Column(String)
-    status = Column(String)
-    facility_type = Column(String)
-    hours_mt = Column(String)
-    hours_fri = Column(String)
-    hours_sat = Column(String)
-    hours_sun = Column(String)
-    geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
 
 class Hospital(Base):
     """Hospital location from HIFLD."""
@@ -991,84 +951,11 @@ class Trail(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class WakeRailroad(Base):
-    """Wake County railroad from ArcGIS FeatureServer."""
+class CellTower(Base):
+    """Cell tower location from HIFLD ArcGIS FeatureServer."""
 
-    __tablename__ = "wake_railroads"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    branch_or = Column(String)
-    track_type = Column(String)
-    track_owner = Column(String)
-    shape_length = Column(Float)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WakeMajorRoad(Base):
-    """Wake County major road from ArcGIS FeatureServer."""
-
-    __tablename__ = "wake_major_roads"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    street_name = Column(String, index=True)
-    street_type = Column(String)
-    dir_prefix = Column(String)
-    dir_suffix = Column(String)
-    state_road = Column(String)
-    carto_name = Column(String)
-    corporation = Column(String)
-    class_name = Column(String)
-    label_name = Column(String)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WakeHighway(Base):
-    """Wake County highway from ArcGIS FeatureServer."""
-
-    __tablename__ = "wake_highways"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    street_name = Column(String, index=True)
-    street_type = Column(String)
-    dir_prefix = Column(String)
-    dir_suffix = Column(String)
-    from_left = Column(Integer)
-    to_left = Column(Integer)
-    from_right = Column(Integer)
-    to_right = Column(Integer)
-    state_road = Column(String)
-    carto_name = Column(String)
-    corporation = Column(String)
-    class_name = Column(String)
-    label_name = Column(String)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WakeUtilityEasement(Base):
-    """Wake County utility easement from ArcGIS MapServer."""
-
-    __tablename__ = "wake_utility_easements"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    length = Column(Float)
-    ftr_code = Column(String)
-    status = Column(String)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class HifldCellTower(Base):
-    """HIFLD cell tower location from ArcGIS FeatureServer."""
-
-    __tablename__ = "hifld_cell_towers"
-    __table_args__ = (Index("ix_hifld_cell_towers_geom", "geom", postgresql_using="gist"),)
+    __tablename__ = "cell_towers"
+    __table_args__ = (Index("ix_cell_towers_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1083,11 +970,11 @@ class HifldCellTower(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class HifldTransmissionLine(Base):
-    """HIFLD electric power transmission line from ArcGIS FeatureServer."""
+class TransmissionLine(Base):
+    """Electric power transmission line from HIFLD ArcGIS FeatureServer."""
 
-    __tablename__ = "hifld_transmission_lines"
-    __table_args__ = (Index("ix_hifld_transmission_lines_geom", "geom", postgresql_using="gist"),)
+    __tablename__ = "transmission_lines"
+    __table_args__ = (Index("ix_transmission_lines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1102,11 +989,11 @@ class HifldTransmissionLine(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class HifldPowerPlant(Base):
-    """HIFLD power plant location from ArcGIS FeatureServer."""
+class PowerPlant(Base):
+    """Power plant location from HIFLD ArcGIS FeatureServer."""
 
-    __tablename__ = "hifld_power_plants"
-    __table_args__ = (Index("ix_hifld_power_plants_geom", "geom", postgresql_using="gist"),)
+    __tablename__ = "power_plants"
+    __table_args__ = (Index("ix_power_plants_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1122,11 +1009,11 @@ class HifldPowerPlant(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class HifldNatGasPipeline(Base):
-    """HIFLD natural gas pipeline from ArcGIS FeatureServer."""
+class NatGasPipeline(Base):
+    """Natural gas pipeline from HIFLD ArcGIS FeatureServer."""
 
-    __tablename__ = "hifld_nat_gas_pipelines"
-    __table_args__ = (Index("ix_hifld_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),)
+    __tablename__ = "nat_gas_pipelines"
+    __table_args__ = (Index("ix_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1137,11 +1024,11 @@ class HifldNatGasPipeline(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class HifldPetroleumPipeline(Base):
-    """HIFLD petroleum products pipeline from ArcGIS FeatureServer."""
+class PetroleumPipeline(Base):
+    """Petroleum products pipeline from HIFLD ArcGIS FeatureServer."""
 
-    __tablename__ = "hifld_petroleum_pipelines"
-    __table_args__ = (Index("ix_hifld_petroleum_pipelines_geom", "geom", postgresql_using="gist"),)
+    __tablename__ = "petroleum_pipelines"
+    __table_args__ = (Index("ix_petroleum_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)

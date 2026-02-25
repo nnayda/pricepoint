@@ -64,15 +64,6 @@ class Settings(BaseSettings):
         "https://maps.wake.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/0"
     )
 
-    # Wake County Geospatial Collectors (ArcGIS)
-    wake_farmers_markets_base_url: str = (
-        "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services"
-        "/Farmers_Market/FeatureServer/0"
-    )
-    wake_libraries_base_url: str = (
-        "https://services1.arcgis.com/a7CWfuGP5ZnLYE7I/arcgis/rest/services"
-        "/Libraries/FeatureServer/0"
-    )
     hifld_hospitals_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/Hospitals/FeatureServer/0"
@@ -86,40 +77,24 @@ class Settings(BaseSettings):
     trails_base_url: str = (
         "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/37"
     )
-    wake_railroads_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services"
-        "/Transportation/Transportation/FeatureServer/2"
-    )
-    wake_major_roads_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services"
-        "/Transportation/Transportation/FeatureServer/3"
-    )
-    wake_highways_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services"
-        "/Transportation/Transportation/FeatureServer/4"
-    )
-    wake_utility_easements_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services/Property/Easements/MapServer/1"
-    )
-
-    # HIFLD Infrastructure (ArcGIS FeatureServer)
-    hifld_cell_towers_base_url: str = (
+    # Infrastructure (ArcGIS FeatureServer)
+    cell_towers_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/Cellular_Towers_in_the_United_States/FeatureServer/0"
     )
-    hifld_transmission_lines_base_url: str = (
+    transmission_lines_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/US_Electric_Power_Transmission_Lines/FeatureServer/0"
     )
-    hifld_power_plants_base_url: str = (
+    power_plants_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/Power_Plants_in_the_US/FeatureServer/0"
     )
-    hifld_nat_gas_pipelines_base_url: str = (
+    nat_gas_pipelines_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/Natural_Gas_Interstate_and_Intrastate_Pipelines_1/FeatureServer/0"
     )
-    hifld_petroleum_pipelines_base_url: str = (
+    petroleum_pipelines_base_url: str = (
         "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services"
         "/Petroleum_Products_Pipelines_1/FeatureServer/0"
     )

@@ -14,12 +14,12 @@ from pricepoint.data.geospatial.arcgis_client import (
     verify_arcgis_dataset,
 )
 from pricepoint.db.models import (
-    HifldCellTower,
-    HifldNatGasPipeline,
-    HifldPetroleumPipeline,
-    HifldPowerPlant,
-    HifldTransmissionLine,
+    CellTower,
     Hospital,
+    NatGasPipeline,
+    PetroleumPipeline,
+    PowerPlant,
+    TransmissionLine,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 # -- Cell Towers --------------------------------------------------------------
 
 
-def _map_cell_tower(feature: dict) -> HifldCellTower:
-    """Map an ArcGIS feature to a HifldCellTower model instance."""
+def _map_cell_tower(feature: dict) -> CellTower:
+    """Map an ArcGIS feature to a CellTower model instance."""
     attrs = feature.get("attributes", {})
     geometry = feature.get("geometry")
-    return HifldCellTower(
+    return CellTower(
         objectid=attrs.get("OBJECTID"),
         licensee=attrs.get("Licensee"),
         callsign=attrs.get("Callsign"),
@@ -49,27 +49,27 @@ def fetch_cell_towers() -> None:
     """Fetch all HIFLD cell tower features and load into PostGIS."""
     settings = get_settings()
     fetch_arcgis_dataset(
-        base_url=settings.hifld_cell_towers_base_url,
-        model_class=HifldCellTower,
+        base_url=settings.cell_towers_base_url,
+        model_class=CellTower,
         mapper=_map_cell_tower,
-        dataset_name="hifld_cell_towers",
+        dataset_name="cell_towers",
     )
 
 
 def verify_cell_towers() -> None:
     """Verify cell tower records were loaded."""
-    verify_arcgis_dataset(HifldCellTower, "hifld_cell_towers")
+    verify_arcgis_dataset(CellTower, "cell_towers")
 
 
 # -- Transmission Lines -------------------------------------------------------
 
 
-def _map_transmission_line(feature: dict) -> HifldTransmissionLine:
-    """Map an ArcGIS feature to a HifldTransmissionLine model instance."""
+def _map_transmission_line(feature: dict) -> TransmissionLine:
+    """Map an ArcGIS feature to a TransmissionLine model instance."""
     attrs = feature.get("attributes", {})
     geometry = feature.get("geometry")
     paths = geometry.get("paths") if geometry else None
-    return HifldTransmissionLine(
+    return TransmissionLine(
         objectid=attrs.get("OBJECTID"),
         line_type=attrs.get("TYPE"),
         status=attrs.get("STATUS"),
@@ -86,26 +86,26 @@ def fetch_transmission_lines() -> None:
     """Fetch all HIFLD transmission line features and load into PostGIS."""
     settings = get_settings()
     fetch_arcgis_dataset(
-        base_url=settings.hifld_transmission_lines_base_url,
-        model_class=HifldTransmissionLine,
+        base_url=settings.transmission_lines_base_url,
+        model_class=TransmissionLine,
         mapper=_map_transmission_line,
-        dataset_name="hifld_transmission_lines",
+        dataset_name="transmission_lines",
     )
 
 
 def verify_transmission_lines() -> None:
     """Verify transmission line records were loaded."""
-    verify_arcgis_dataset(HifldTransmissionLine, "hifld_transmission_lines")
+    verify_arcgis_dataset(TransmissionLine, "transmission_lines")
 
 
 # -- Power Plants -------------------------------------------------------------
 
 
-def _map_power_plant(feature: dict) -> HifldPowerPlant:
-    """Map an ArcGIS feature to a HifldPowerPlant model instance."""
+def _map_power_plant(feature: dict) -> PowerPlant:
+    """Map an ArcGIS feature to a PowerPlant model instance."""
     attrs = feature.get("attributes", {})
     geometry = feature.get("geometry")
-    return HifldPowerPlant(
+    return PowerPlant(
         objectid=attrs.get("OBJECTID"),
         plant_code=attrs.get("Plant_Code"),
         name=attrs.get("Plant_Name"),
@@ -123,27 +123,27 @@ def fetch_power_plants() -> None:
     """Fetch all HIFLD power plant features and load into PostGIS."""
     settings = get_settings()
     fetch_arcgis_dataset(
-        base_url=settings.hifld_power_plants_base_url,
-        model_class=HifldPowerPlant,
+        base_url=settings.power_plants_base_url,
+        model_class=PowerPlant,
         mapper=_map_power_plant,
-        dataset_name="hifld_power_plants",
+        dataset_name="power_plants",
     )
 
 
 def verify_power_plants() -> None:
     """Verify power plant records were loaded."""
-    verify_arcgis_dataset(HifldPowerPlant, "hifld_power_plants")
+    verify_arcgis_dataset(PowerPlant, "power_plants")
 
 
 # -- Natural Gas Pipelines ----------------------------------------------------
 
 
-def _map_nat_gas_pipeline(feature: dict) -> HifldNatGasPipeline:
-    """Map an ArcGIS feature to a HifldNatGasPipeline model instance."""
+def _map_nat_gas_pipeline(feature: dict) -> NatGasPipeline:
+    """Map an ArcGIS feature to a NatGasPipeline model instance."""
     attrs = feature.get("attributes", {})
     geometry = feature.get("geometry")
     paths = geometry.get("paths") if geometry else None
-    return HifldNatGasPipeline(
+    return NatGasPipeline(
         objectid=attrs.get("OBJECTID"),
         pipe_type=attrs.get("TYPEPIPE"),
         operator=attrs.get("Operator"),
@@ -156,27 +156,27 @@ def fetch_nat_gas_pipelines() -> None:
     """Fetch all HIFLD natural gas pipeline features and load into PostGIS."""
     settings = get_settings()
     fetch_arcgis_dataset(
-        base_url=settings.hifld_nat_gas_pipelines_base_url,
-        model_class=HifldNatGasPipeline,
+        base_url=settings.nat_gas_pipelines_base_url,
+        model_class=NatGasPipeline,
         mapper=_map_nat_gas_pipeline,
-        dataset_name="hifld_nat_gas_pipelines",
+        dataset_name="nat_gas_pipelines",
     )
 
 
 def verify_nat_gas_pipelines() -> None:
     """Verify natural gas pipeline records were loaded."""
-    verify_arcgis_dataset(HifldNatGasPipeline, "hifld_nat_gas_pipelines")
+    verify_arcgis_dataset(NatGasPipeline, "nat_gas_pipelines")
 
 
 # -- Petroleum Pipelines ------------------------------------------------------
 
 
-def _map_petroleum_pipeline(feature: dict) -> HifldPetroleumPipeline:
-    """Map an ArcGIS feature to a HifldPetroleumPipeline model instance."""
+def _map_petroleum_pipeline(feature: dict) -> PetroleumPipeline:
+    """Map an ArcGIS feature to a PetroleumPipeline model instance."""
     attrs = feature.get("attributes", {})
     geometry = feature.get("geometry")
     paths = geometry.get("paths") if geometry else None
-    return HifldPetroleumPipeline(
+    return PetroleumPipeline(
         objectid=attrs.get("OBJECTID"),
         operator=attrs.get("Opername"),
         pipe_name=attrs.get("Pipename"),
@@ -188,16 +188,16 @@ def fetch_petroleum_pipelines() -> None:
     """Fetch all HIFLD petroleum pipeline features and load into PostGIS."""
     settings = get_settings()
     fetch_arcgis_dataset(
-        base_url=settings.hifld_petroleum_pipelines_base_url,
-        model_class=HifldPetroleumPipeline,
+        base_url=settings.petroleum_pipelines_base_url,
+        model_class=PetroleumPipeline,
         mapper=_map_petroleum_pipeline,
-        dataset_name="hifld_petroleum_pipelines",
+        dataset_name="petroleum_pipelines",
     )
 
 
 def verify_petroleum_pipelines() -> None:
     """Verify petroleum pipeline records were loaded."""
-    verify_arcgis_dataset(HifldPetroleumPipeline, "hifld_petroleum_pipelines")
+    verify_arcgis_dataset(PetroleumPipeline, "petroleum_pipelines")
 
 
 # -- Hospitals ---------------------------------------------------------------

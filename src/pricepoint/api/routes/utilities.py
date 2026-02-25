@@ -18,15 +18,11 @@ from pricepoint.api.schemas.utilities import (
     UtilityFeature,
 )
 from pricepoint.db.models import (
-    HifldCellTower,
-    HifldNatGasPipeline,
-    HifldPetroleumPipeline,
-    HifldPowerPlant,
-    HifldTransmissionLine,
-    WakeHighway,
-    WakeMajorRoad,
-    WakeRailroad,
-    WakeUtilityEasement,
+    CellTower,
+    NatGasPipeline,
+    PetroleumPipeline,
+    PowerPlant,
+    TransmissionLine,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,184 +47,102 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
 
     Returns id, name, feature_type, centroid lat/lon, and distance in miles.
     """
-    # Highways
-    highway_q = select(
-        cast(WakeHighway.id, String).label("feature_id"),
-        func.coalesce(WakeHighway.label_name, WakeHighway.street_name, "Highway").label("name"),
-        literal("highway").label("feature_type"),
-        ST_Y(func.ST_Centroid(WakeHighway.geom)).label("lat"),
-        ST_X(func.ST_Centroid(WakeHighway.geom)).label("lon"),
-        (
-            func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(WakeHighway.geom, text("geography")),
-            )
-            / METERS_PER_MILE
-        ).label("distance_miles"),
-    ).where(
-        WakeHighway.geom.isnot(None),
-        _st_dwithin_geography(WakeHighway.geom, property_point, radius_meters),
-    )
-
-    # Major roads
-    road_q = select(
-        cast(WakeMajorRoad.id, String).label("feature_id"),
-        func.coalesce(WakeMajorRoad.label_name, WakeMajorRoad.street_name, "Major Road").label(
-            "name"
-        ),
-        literal("road").label("feature_type"),
-        ST_Y(func.ST_Centroid(WakeMajorRoad.geom)).label("lat"),
-        ST_X(func.ST_Centroid(WakeMajorRoad.geom)).label("lon"),
-        (
-            func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(WakeMajorRoad.geom, text("geography")),
-            )
-            / METERS_PER_MILE
-        ).label("distance_miles"),
-    ).where(
-        WakeMajorRoad.geom.isnot(None),
-        _st_dwithin_geography(WakeMajorRoad.geom, property_point, radius_meters),
-    )
-
-    # Railroads
-    railroad_q = select(
-        cast(WakeRailroad.id, String).label("feature_id"),
-        func.coalesce(WakeRailroad.track_owner, WakeRailroad.branch_or, "Railroad").label("name"),
-        literal("railroad").label("feature_type"),
-        ST_Y(func.ST_Centroid(WakeRailroad.geom)).label("lat"),
-        ST_X(func.ST_Centroid(WakeRailroad.geom)).label("lon"),
-        (
-            func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(WakeRailroad.geom, text("geography")),
-            )
-            / METERS_PER_MILE
-        ).label("distance_miles"),
-    ).where(
-        WakeRailroad.geom.isnot(None),
-        _st_dwithin_geography(WakeRailroad.geom, property_point, radius_meters),
-    )
-
-    # Utility easements (mapped to "utility_easement" type)
-    easement_q = select(
-        cast(WakeUtilityEasement.id, String).label("feature_id"),
-        func.coalesce(WakeUtilityEasement.ftr_code, "Utility Easement").label("name"),
-        literal("utility_easement").label("feature_type"),
-        ST_Y(func.ST_Centroid(WakeUtilityEasement.geom)).label("lat"),
-        ST_X(func.ST_Centroid(WakeUtilityEasement.geom)).label("lon"),
-        (
-            func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(WakeUtilityEasement.geom, text("geography")),
-            )
-            / METERS_PER_MILE
-        ).label("distance_miles"),
-    ).where(
-        WakeUtilityEasement.geom.isnot(None),
-        _st_dwithin_geography(WakeUtilityEasement.geom, property_point, radius_meters),
-    )
-
     # Cell towers
     cell_tower_q = select(
-        cast(HifldCellTower.id, String).label("feature_id"),
-        func.coalesce(HifldCellTower.licensee, "Cell Tower").label("name"),
+        cast(CellTower.id, String).label("feature_id"),
+        func.coalesce(CellTower.licensee, "Cell Tower").label("name"),
         literal("cell_tower").label("feature_type"),
-        ST_Y(HifldCellTower.geom).label("lat"),
-        ST_X(HifldCellTower.geom).label("lon"),
+        ST_Y(CellTower.geom).label("lat"),
+        ST_X(CellTower.geom).label("lon"),
         (
             func.ST_Distance(
                 cast(property_point, text("geography")),
-                cast(HifldCellTower.geom, text("geography")),
+                cast(CellTower.geom, text("geography")),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
     ).where(
-        HifldCellTower.geom.isnot(None),
-        _st_dwithin_geography(HifldCellTower.geom, property_point, radius_meters),
+        CellTower.geom.isnot(None),
+        _st_dwithin_geography(CellTower.geom, property_point, radius_meters),
     )
 
     # Transmission lines
     transmission_q = select(
-        cast(HifldTransmissionLine.id, String).label("feature_id"),
-        func.coalesce(HifldTransmissionLine.owner, "Transmission Line").label("name"),
+        cast(TransmissionLine.id, String).label("feature_id"),
+        func.coalesce(TransmissionLine.owner, "Transmission Line").label("name"),
         literal("transmission_line").label("feature_type"),
-        ST_Y(func.ST_Centroid(HifldTransmissionLine.geom)).label("lat"),
-        ST_X(func.ST_Centroid(HifldTransmissionLine.geom)).label("lon"),
+        ST_Y(func.ST_Centroid(TransmissionLine.geom)).label("lat"),
+        ST_X(func.ST_Centroid(TransmissionLine.geom)).label("lon"),
         (
             func.ST_Distance(
                 cast(property_point, text("geography")),
-                cast(HifldTransmissionLine.geom, text("geography")),
+                cast(TransmissionLine.geom, text("geography")),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
     ).where(
-        HifldTransmissionLine.geom.isnot(None),
-        _st_dwithin_geography(HifldTransmissionLine.geom, property_point, radius_meters),
+        TransmissionLine.geom.isnot(None),
+        _st_dwithin_geography(TransmissionLine.geom, property_point, radius_meters),
     )
 
     # Power plants
     power_plant_q = select(
-        cast(HifldPowerPlant.id, String).label("feature_id"),
-        func.coalesce(HifldPowerPlant.name, "Power Plant").label("name"),
+        cast(PowerPlant.id, String).label("feature_id"),
+        func.coalesce(PowerPlant.name, "Power Plant").label("name"),
         literal("power_plant").label("feature_type"),
-        ST_Y(HifldPowerPlant.geom).label("lat"),
-        ST_X(HifldPowerPlant.geom).label("lon"),
+        ST_Y(PowerPlant.geom).label("lat"),
+        ST_X(PowerPlant.geom).label("lon"),
         (
             func.ST_Distance(
                 cast(property_point, text("geography")),
-                cast(HifldPowerPlant.geom, text("geography")),
+                cast(PowerPlant.geom, text("geography")),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
     ).where(
-        HifldPowerPlant.geom.isnot(None),
-        _st_dwithin_geography(HifldPowerPlant.geom, property_point, radius_meters),
+        PowerPlant.geom.isnot(None),
+        _st_dwithin_geography(PowerPlant.geom, property_point, radius_meters),
     )
 
     # Natural gas pipelines
     nat_gas_q = select(
-        cast(HifldNatGasPipeline.id, String).label("feature_id"),
-        func.coalesce(HifldNatGasPipeline.operator, "Natural Gas Pipeline").label("name"),
+        cast(NatGasPipeline.id, String).label("feature_id"),
+        func.coalesce(NatGasPipeline.operator, "Natural Gas Pipeline").label("name"),
         literal("nat_gas_pipeline").label("feature_type"),
-        ST_Y(func.ST_Centroid(HifldNatGasPipeline.geom)).label("lat"),
-        ST_X(func.ST_Centroid(HifldNatGasPipeline.geom)).label("lon"),
+        ST_Y(func.ST_Centroid(NatGasPipeline.geom)).label("lat"),
+        ST_X(func.ST_Centroid(NatGasPipeline.geom)).label("lon"),
         (
             func.ST_Distance(
                 cast(property_point, text("geography")),
-                cast(HifldNatGasPipeline.geom, text("geography")),
+                cast(NatGasPipeline.geom, text("geography")),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
     ).where(
-        HifldNatGasPipeline.geom.isnot(None),
-        _st_dwithin_geography(HifldNatGasPipeline.geom, property_point, radius_meters),
+        NatGasPipeline.geom.isnot(None),
+        _st_dwithin_geography(NatGasPipeline.geom, property_point, radius_meters),
     )
 
     # Petroleum pipelines
     petroleum_q = select(
-        cast(HifldPetroleumPipeline.id, String).label("feature_id"),
-        func.coalesce(HifldPetroleumPipeline.operator, "Petroleum Pipeline").label("name"),
+        cast(PetroleumPipeline.id, String).label("feature_id"),
+        func.coalesce(PetroleumPipeline.operator, "Petroleum Pipeline").label("name"),
         literal("petroleum_pipeline").label("feature_type"),
-        ST_Y(func.ST_Centroid(HifldPetroleumPipeline.geom)).label("lat"),
-        ST_X(func.ST_Centroid(HifldPetroleumPipeline.geom)).label("lon"),
+        ST_Y(func.ST_Centroid(PetroleumPipeline.geom)).label("lat"),
+        ST_X(func.ST_Centroid(PetroleumPipeline.geom)).label("lon"),
         (
             func.ST_Distance(
                 cast(property_point, text("geography")),
-                cast(HifldPetroleumPipeline.geom, text("geography")),
+                cast(PetroleumPipeline.geom, text("geography")),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
     ).where(
-        HifldPetroleumPipeline.geom.isnot(None),
-        _st_dwithin_geography(HifldPetroleumPipeline.geom, property_point, radius_meters),
+        PetroleumPipeline.geom.isnot(None),
+        _st_dwithin_geography(PetroleumPipeline.geom, property_point, radius_meters),
     )
 
     return union_all(
-        highway_q,
-        road_q,
-        railroad_q,
-        easement_q,
         cell_tower_q,
         transmission_q,
         power_plant_q,
@@ -238,9 +152,6 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
 
 
 def _compute_nuisance_score(
-    nearest_railroad: float,
-    nearest_highway: float,
-    nearest_easement: float,
     nearest_transmission_line: float = 3.0,
     nearest_power_plant: float = 3.0,
     nearest_cell_tower: float = 3.0,
@@ -248,30 +159,18 @@ def _compute_nuisance_score(
 ) -> float:
     """Compute nuisance score (0-10) as weighted proximity combination.
 
-    Weights: railroad=3, transmission_line=3, power_plant=3, highway=2,
-    cell_tower=2, utility_easement=1, pipeline=1.
+    Weights: transmission_line=3, power_plant=3, cell_tower=2, pipeline=1.
     Per-type contribution: weight * max(0, 1 - distance_miles / 3).
     Final score scaled to 0-10.
     """
-    max_raw = 3 + 2 + 1 + 3 + 3 + 2 + 1  # 15.0 when all distances are 0
+    max_raw = 3 + 3 + 2 + 1  # 9.0 when all distances are 0
 
-    railroad_contrib = 3 * max(0.0, 1.0 - nearest_railroad / 3.0)
-    highway_contrib = 2 * max(0.0, 1.0 - nearest_highway / 3.0)
-    easement_contrib = 1 * max(0.0, 1.0 - nearest_easement / 3.0)
     transmission_contrib = 3 * max(0.0, 1.0 - nearest_transmission_line / 3.0)
     power_plant_contrib = 3 * max(0.0, 1.0 - nearest_power_plant / 3.0)
     cell_tower_contrib = 2 * max(0.0, 1.0 - nearest_cell_tower / 3.0)
     pipeline_contrib = 1 * max(0.0, 1.0 - nearest_pipeline / 3.0)
 
-    raw = (
-        railroad_contrib
-        + highway_contrib
-        + easement_contrib
-        + transmission_contrib
-        + power_plant_contrib
-        + cell_tower_contrib
-        + pipeline_contrib
-    )
+    raw = transmission_contrib + power_plant_contrib + cell_tower_contrib + pipeline_contrib
     return round((raw / max_raw) * 10.0, 1)
 
 
@@ -342,12 +241,6 @@ async def get_utilities(
             nearest[ftype] = dist
 
     # Compute nearest distances (default to radius_miles if type not found)
-    nearest_highway = min(
-        nearest.get("highway", radius_miles),
-        nearest.get("road", radius_miles),
-    )
-    nearest_railroad = nearest.get("railroad", radius_miles)
-    nearest_powerline = nearest.get("utility_easement", radius_miles)
     nearest_cell_tower = nearest.get("cell_tower", radius_miles)
     nearest_transmission_line = nearest.get("transmission_line", radius_miles)
     nearest_power_plant = nearest.get("power_plant", radius_miles)
@@ -357,9 +250,6 @@ async def get_utilities(
     )
 
     nuisance = _compute_nuisance_score(
-        nearest_railroad,
-        nearest_highway,
-        nearest_powerline,
         nearest_transmission_line,
         nearest_power_plant,
         nearest_cell_tower,
@@ -367,9 +257,6 @@ async def get_utilities(
     )
 
     metrics = UtilitiesMetrics(
-        nearest_highway_miles=round(nearest_highway, 2),
-        nearest_railroad_miles=round(nearest_railroad, 2),
-        nearest_powerline_miles=round(nearest_powerline, 2),
         nearest_cell_tower_miles=round(nearest_cell_tower, 2),
         nearest_transmission_line_miles=round(nearest_transmission_line, 2),
         nearest_power_plant_miles=round(nearest_power_plant, 2),

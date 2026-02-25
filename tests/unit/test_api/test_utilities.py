@@ -21,7 +21,7 @@ class _FakeRow:
 def _make_row(
     feature_id="1",
     name="Test Feature",
-    feature_type="highway",
+    feature_type="cell_tower",
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
@@ -46,32 +46,32 @@ def utilities_app():
     rows = [
         _make_row(
             feature_id="10",
-            name="I-40",
-            feature_type="highway",
+            name="AT&T Tower",
+            feature_type="cell_tower",
             lat=35.80,
             lon=-78.77,
             distance_miles=0.8,
         ),
         _make_row(
             feature_id="20",
-            name="Cary Pkwy",
-            feature_type="road",
+            name="Duke Energy Line",
+            feature_type="transmission_line",
             lat=35.791,
             lon=-78.781,
             distance_miles=0.3,
         ),
         _make_row(
             feature_id="30",
-            name="CSX Transportation",
-            feature_type="railroad",
+            name="Shearon Harris",
+            feature_type="power_plant",
             lat=35.785,
             lon=-78.769,
             distance_miles=1.2,
         ),
         _make_row(
             feature_id="40",
-            name="UTIL",
-            feature_type="utility_easement",
+            name="Colonial Pipeline",
+            feature_type="petroleum_pipeline",
             lat=35.792,
             lon=-78.772,
             distance_miles=0.6,
@@ -190,9 +190,6 @@ class TestUtilitiesDataTypes:
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
         for field in [
-            "nearest_highway_miles",
-            "nearest_railroad_miles",
-            "nearest_powerline_miles",
             "nearest_cell_tower_miles",
             "nearest_transmission_line_miles",
             "nearest_power_plant_miles",
@@ -205,9 +202,9 @@ class TestUtilitiesDataTypes:
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         assert isinstance(resp.json()["metrics"]["nuisance_score"], (int, float))
 
-    def test_nearest_highway_is_number(self, utilities_client):
+    def test_nearest_cell_tower_is_number(self, utilities_client):
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
-        assert isinstance(resp.json()["metrics"]["nearest_highway_miles"], (int, float))
+        assert isinstance(resp.json()["metrics"]["nearest_cell_tower_miles"], (int, float))
 
 
 class TestUtilitiesMissingParams:
@@ -280,30 +277,29 @@ class TestUtilitiesWithData:
         """Features should include different utility types."""
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         types = {f["feature_type"] for f in resp.json()["features"]}
-        assert types == {"highway", "road", "railroad", "utility_easement"}
+        assert types == {"cell_tower", "transmission_line", "power_plant", "petroleum_pipeline"}
 
     def test_distances_are_positive(self, utilities_client):
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         for feature in resp.json()["features"]:
             assert feature["distance_miles"] > 0
 
-    def test_nearest_highway_uses_road_minimum(self, utilities_client):
-        """nearest_highway_miles should be min of highway and road distances."""
+    def test_nearest_transmission_line_distance(self, utilities_client):
+        """nearest_transmission_line_miles should match closest transmission line."""
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
-        # Road is 0.3, highway is 0.8, so nearest should be 0.3
-        assert metrics["nearest_highway_miles"] == 0.3
+        assert metrics["nearest_transmission_line_miles"] == 0.3
 
-    def test_nearest_railroad_distance(self, utilities_client):
+    def test_nearest_power_plant_distance(self, utilities_client):
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
-        assert metrics["nearest_railroad_miles"] == 1.2
+        assert metrics["nearest_power_plant_miles"] == 1.2
 
-    def test_nearest_powerline_distance(self, utilities_client):
-        """nearest_powerline_miles maps to utility_easement type."""
+    def test_nearest_pipeline_distance(self, utilities_client):
+        """nearest_pipeline_miles should be the minimum of nat_gas and petroleum."""
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
-        assert metrics["nearest_powerline_miles"] == 0.6
+        assert metrics["nearest_pipeline_miles"] == 0.6
 
     def test_nuisance_score_in_range(self, utilities_client):
         """Nuisance score should be between 0 and 10."""
@@ -315,9 +311,9 @@ class TestUtilitiesWithData:
         """Feature IDs should contain a type character prefix."""
         resp = utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         features = resp.json()["features"]
-        # Highway feature should have UT-H- prefix
-        highway_features = [f for f in features if f["feature_type"] == "highway"]
-        assert highway_features[0]["id"].startswith("UT-H-")
+        # Cell tower feature should have UT-C- prefix
+        ct_features = [f for f in features if f["feature_type"] == "cell_tower"]
+        assert ct_features[0]["id"].startswith("UT-C-")
 
 
 class TestUtilitiesEmptyResults:
@@ -336,9 +332,10 @@ class TestUtilitiesEmptyResults:
         resp = empty_utilities_client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         metrics = resp.json()["metrics"]
         # Default radius is 3.0
-        assert metrics["nearest_highway_miles"] == 3.0
-        assert metrics["nearest_railroad_miles"] == 3.0
-        assert metrics["nearest_powerline_miles"] == 3.0
+        assert metrics["nearest_cell_tower_miles"] == 3.0
+        assert metrics["nearest_transmission_line_miles"] == 3.0
+        assert metrics["nearest_power_plant_miles"] == 3.0
+        assert metrics["nearest_pipeline_miles"] == 3.0
 
     def test_empty_nuisance_score_zero(self, empty_utilities_client):
         """With all distances at radius (3 miles), nuisance score should be 0."""
@@ -358,19 +355,16 @@ class TestUtilitiesValkeyCaching:
         cached_response = {
             "features": [
                 {
-                    "id": "UT-H-1",
-                    "name": "I-40",
-                    "feature_type": "highway",
+                    "id": "UT-C-1",
+                    "name": "AT&T Tower",
+                    "feature_type": "cell_tower",
                     "lat": 35.80,
                     "lon": -78.77,
                     "distance_miles": 0.8,
                 }
             ],
             "metrics": {
-                "nearest_highway_miles": 0.8,
-                "nearest_railroad_miles": 1.5,
-                "nearest_powerline_miles": 0.6,
-                "nearest_cell_tower_miles": 2.0,
+                "nearest_cell_tower_miles": 0.8,
                 "nearest_transmission_line_miles": 1.8,
                 "nearest_power_plant_miles": 3.0,
                 "nearest_pipeline_miles": 3.0,
@@ -391,7 +385,7 @@ class TestUtilitiesValkeyCaching:
         client = TestClient(app)
         resp = client.get("/api/utilities", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
-        assert resp.json()["features"][0]["name"] == "I-40"
+        assert resp.json()["features"][0]["name"] == "AT&T Tower"
         # DB should not have been queried
         mock_session.execute.assert_not_called()
         app.dependency_overrides.clear()
@@ -406,8 +400,8 @@ class TestUtilitiesValkeyCaching:
         rows = [
             _make_row(
                 feature_id="10",
-                name="I-40",
-                feature_type="highway",
+                name="AT&T Tower",
+                feature_type="cell_tower",
                 distance_miles=0.8,
             ),
         ]
@@ -441,23 +435,23 @@ class TestUtilitiesNuisanceScore:
         """All infrastructure at distance 0 should yield maximum score 10."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score = _compute_nuisance_score(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        score = _compute_nuisance_score(0.0, 0.0, 0.0, 0.0)
         assert score == 10.0
 
     def test_all_far_away_zero_score(self):
         """All infrastructure at or beyond 3 miles should yield score 0."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score = _compute_nuisance_score(3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0)
+        score = _compute_nuisance_score(3.0, 3.0, 3.0, 3.0)
         assert score == 0.0
 
-    def test_railroad_has_highest_weight(self):
-        """Railroad close (weight 3) should give higher score than highway close (weight 2)."""
+    def test_transmission_line_has_highest_weight(self):
+        """Transmission line close (weight 3) beats cell tower (weight 2)."""
         from pricepoint.api.routes.utilities import _compute_nuisance_score
 
-        score_railroad_close = _compute_nuisance_score(0.5, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0)
-        score_highway_close = _compute_nuisance_score(3.0, 0.5, 3.0, 3.0, 3.0, 3.0, 3.0)
-        assert score_railroad_close > score_highway_close
+        score_transmission_close = _compute_nuisance_score(0.5, 3.0, 3.0, 3.0)
+        score_cell_tower_close = _compute_nuisance_score(3.0, 3.0, 0.5, 3.0)
+        assert score_transmission_close > score_cell_tower_close
 
     def test_cache_key_deterministic(self):
         """Same inputs should produce the same cache key."""

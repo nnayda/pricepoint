@@ -1040,12 +1040,14 @@ export interface components {
      * @description Aggregate utilities metrics for the area.
      */
     UtilitiesMetrics: {
-      /** Nearest Highway Miles */
-      nearest_highway_miles: number;
-      /** Nearest Railroad Miles */
-      nearest_railroad_miles: number;
-      /** Nearest Powerline Miles */
-      nearest_powerline_miles: number;
+      /** Nearest Cell Tower Miles */
+      nearest_cell_tower_miles: number;
+      /** Nearest Transmission Line Miles */
+      nearest_transmission_line_miles: number;
+      /** Nearest Power Plant Miles */
+      nearest_power_plant_miles: number;
+      /** Nearest Pipeline Miles */
+      nearest_pipeline_miles: number;
       /** Nuisance Score */
       nuisance_score: number;
     };

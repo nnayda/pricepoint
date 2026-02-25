@@ -116,41 +116,6 @@ dist_hospital AS (
         LIMIT 1
     ) h
 ),
-dist_library AS (
-    SELECT p.property_id,
-           l.dist AS dist_nearest_library_m
-    FROM props p
-    CROSS JOIN LATERAL (
-        SELECT ST_Distance(p.location::geography, l.geom::geography) AS dist
-        FROM wake_libraries l
-        WHERE l.geom IS NOT NULL
-        ORDER BY p.location <-> l.geom
-        LIMIT 1
-    ) l
-),
-dist_highway AS (
-    SELECT p.property_id,
-           hw.dist AS dist_nearest_highway_m
-    FROM props p
-    CROSS JOIN LATERAL (
-        SELECT ST_Distance(p.location::geography, hw.geom::geography) AS dist
-        FROM wake_highways hw
-        WHERE hw.geom IS NOT NULL
-        ORDER BY p.location <-> hw.geom
-        LIMIT 1
-    ) hw
-),
-dist_railroad AS (
-    SELECT p.property_id,
-           rr.dist AS dist_nearest_railroad_m
-    FROM props p
-    CROSS JOIN LATERAL (
-        SELECT ST_Distance(p.location::geography, rr.geom::geography) AS dist
-        FROM wake_railroads rr
-        WHERE rr.geom IS NOT NULL
-        ORDER BY p.location <-> rr.geom
-        LIMIT 1
-    ) rr
 )
 SELECT
     p.property_id,
@@ -160,10 +125,7 @@ SELECT
     dh.dist_nearest_high_m,
     dp.dist_nearest_park_m,
     dg.dist_nearest_greenway_m,
-    dho.dist_nearest_hospital_m,
-    dl.dist_nearest_library_m,
-    dhw.dist_nearest_highway_m,
-    dr.dist_nearest_railroad_m
+    dho.dist_nearest_hospital_m
 FROM props p
 LEFT JOIN dist_school ds ON ds.property_id = p.property_id
 LEFT JOIN dist_elementary de ON de.property_id = p.property_id
@@ -172,9 +134,6 @@ LEFT JOIN dist_high dh ON dh.property_id = p.property_id
 LEFT JOIN dist_park dp ON dp.property_id = p.property_id
 LEFT JOIN dist_greenway dg ON dg.property_id = p.property_id
 LEFT JOIN dist_hospital dho ON dho.property_id = p.property_id
-LEFT JOIN dist_library dl ON dl.property_id = p.property_id
-LEFT JOIN dist_highway dhw ON dhw.property_id = p.property_id
-LEFT JOIN dist_railroad dr ON dr.property_id = p.property_id
 """
 
 _AGGREGATE_SQL = """
@@ -260,8 +219,7 @@ SELECT
     p.property_id,
     tt.geoid AS census_tract_geoid,
     bg.geoid AS census_block_group_geoid,
-    ws.name AS subdivision_name,
-    CASE WHEN ue.ue_exists THEN true ELSE false END AS has_utility_easement_100m
+    ws.name AS subdivision_name
 FROM props p
 LEFT JOIN LATERAL (
     SELECT geoid FROM tiger_tracts t
@@ -278,11 +236,6 @@ LEFT JOIN LATERAL (
     WHERE ST_Contains(s.geom, p.location)
     LIMIT 1
 ) ws ON true
-LEFT JOIN LATERAL (
-    SELECT true AS ue_exists FROM wake_utility_easements u
-    WHERE ST_DWithin(p.location::geography, u.geom::geography, 100)
-    LIMIT 1
-) ue ON true
 """
 
 _LLM_SCORES_SQL = """
@@ -445,9 +398,6 @@ FEATURE_COLUMNS = [
     "dist_nearest_park_m",
     "dist_nearest_greenway_m",
     "dist_nearest_hospital_m",
-    "dist_nearest_library_m",
-    "dist_nearest_highway_m",
-    "dist_nearest_railroad_m",
     "avg_school_rating_2mi",
     "count_schools_2mi",
     "crime_count_500m_1yr",
@@ -459,7 +409,6 @@ FEATURE_COLUMNS = [
     "census_tract_geoid",
     "census_block_group_geoid",
     "subdivision_name",
-    "has_utility_easement_100m",
     "llm_description_score",
     "llm_photo_score",
 ]

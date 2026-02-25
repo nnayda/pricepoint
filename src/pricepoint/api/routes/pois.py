@@ -21,8 +21,6 @@ from pricepoint.api.schemas.pois import (
 from pricepoint.db.models import (
     Hospital,
     Place,
-    WakeFarmersMarket,
-    WakeLibrary,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,8 +53,6 @@ def _distance_miles(geom_col, point):  # noqa: ANN001, ANN201
 
 # Table config: (model_class, name_column_attr, category, geom_needs_centroid)
 _POI_TABLES: list[tuple] = [
-    (WakeFarmersMarket, "name", "grocery", False),
-    (WakeLibrary, "name", "library", False),
     (Hospital, "name", "medical", False),
 ]
 

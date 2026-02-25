@@ -224,7 +224,7 @@ class TestFeatureImportance:
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
-        assert len(data) == 15  # 10 positive + 5 negative from stub
+        assert len(data) == 13  # 10 positive + 3 negative from stub
 
     def test_stub_response_has_correct_schema(self, client):
         """Each attribution has feature, display_name, impact_dollars."""
@@ -294,8 +294,8 @@ class TestFeatureImportance:
         resp = client.get("/api/forecast/importance/99")
         assert resp.status_code == 200
         data = resp.json()
-        # Should be stub data (15 items)
-        assert len(data) == 15
+        # Should be stub data (13 items)
+        assert len(data) == 13
 
     def test_invalid_property_id_type(self, client):
         """Non-integer property_id returns 422."""

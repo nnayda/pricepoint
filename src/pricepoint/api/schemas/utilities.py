@@ -17,13 +17,10 @@ class UtilityFeature(BaseModel):
 class UtilitiesMetrics(BaseModel):
     """Aggregate utilities metrics for the area."""
 
-    nearest_highway_miles: float
-    nearest_railroad_miles: float
-    nearest_powerline_miles: float
-    nearest_cell_tower_miles: float | None = None
-    nearest_transmission_line_miles: float | None = None
-    nearest_power_plant_miles: float | None = None
-    nearest_pipeline_miles: float | None = None
+    nearest_cell_tower_miles: float
+    nearest_transmission_line_miles: float
+    nearest_power_plant_miles: float
+    nearest_pipeline_miles: float
     nuisance_score: float
 
 

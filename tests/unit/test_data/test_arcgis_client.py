@@ -14,7 +14,7 @@ from pricepoint.data.geospatial.arcgis_client import (
     query_arcgis_page,
     verify_arcgis_dataset,
 )
-from pricepoint.db.models import WakeUtilityEasement
+from pricepoint.db.models import CellTower
 
 # -- parse_arcgis_timestamp ---------------------------------------------------
 
@@ -163,7 +163,7 @@ class TestFetchArcgisDataset:
         ]
 
         mapper = MagicMock(return_value=MagicMock())
-        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
+        fetch_arcgis_dataset("http://test/0", CellTower, mapper, "test_dataset")
 
         session.add_all.assert_called_once()
         session.close.assert_called_once()
@@ -179,7 +179,7 @@ class TestFetchArcgisDataset:
         mock_query.side_effect = [{"features": page1}, {"features": page2}]
 
         mapper = MagicMock(return_value=MagicMock())
-        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
+        fetch_arcgis_dataset("http://test/0", CellTower, mapper, "test_dataset")
 
         assert session.add_all.call_count == 2
 
@@ -191,7 +191,7 @@ class TestFetchArcgisDataset:
         mock_query.return_value = {"features": []}
 
         mapper = MagicMock()
-        fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, mapper, "test_dataset")
+        fetch_arcgis_dataset("http://test/0", CellTower, mapper, "test_dataset")
 
         session.add_all.assert_not_called()
         session.close.assert_called_once()
@@ -204,7 +204,7 @@ class TestFetchArcgisDataset:
         mock_query.side_effect = RuntimeError("connection failed")
 
         with pytest.raises(RuntimeError, match="connection failed"):
-            fetch_arcgis_dataset("http://test/0", WakeUtilityEasement, MagicMock(), "test_dataset")
+            fetch_arcgis_dataset("http://test/0", CellTower, MagicMock(), "test_dataset")
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()
@@ -220,7 +220,7 @@ class TestVerifyArcgisDataset:
         session.execute.return_value.scalar.return_value = 42
         mock_session_cls.return_value = session
 
-        verify_arcgis_dataset(WakeUtilityEasement, "test_dataset")
+        verify_arcgis_dataset(CellTower, "test_dataset")
         session.close.assert_called_once()
 
     @patch("pricepoint.data.geospatial.arcgis_client.SessionLocal")
@@ -230,4 +230,4 @@ class TestVerifyArcgisDataset:
         mock_session_cls.return_value = session
 
         with pytest.raises(RuntimeError, match="No records found"):
-            verify_arcgis_dataset(WakeUtilityEasement, "test_dataset")
+            verify_arcgis_dataset(CellTower, "test_dataset")

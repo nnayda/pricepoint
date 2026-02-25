@@ -38,9 +38,6 @@ def _distance_columns():
         "dist_nearest_park_m",
         "dist_nearest_greenway_m",
         "dist_nearest_hospital_m",
-        "dist_nearest_library_m",
-        "dist_nearest_highway_m",
-        "dist_nearest_railroad_m",
     ]
 
 
@@ -63,7 +60,6 @@ def _contain_columns():
         "census_tract_geoid",
         "census_block_group_geoid",
         "subdivision_name",
-        "has_utility_easement_100m",
     ]
 
 
@@ -84,11 +80,11 @@ def _mock_db_four_queries(
 ):
     """Return a mock session whose .execute() returns four results in order."""
     if dist_rows is None:
-        dist_rows = [(pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0, 1500.0, 500.0, 800.0)]
+        dist_rows = [(pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)]
     if agg_rows is None:
         agg_rows = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5)]
     if contain_rows is None:
-        contain_rows = [(pid, "37183052403", "371830524031", "Brier Creek", True)]
+        contain_rows = [(pid, "37183052403", "371830524031", "Brier Creek")]
     if llm_rows is None:
         llm_rows = [(pid, 8, 7)]
 
@@ -121,11 +117,11 @@ class TestBuildGeospatialFeatures:
         assert result.index.name == "property_id"
         assert list(result.index) == [1]
 
-    def test_has_all_24_feature_columns(self):
+    def test_has_all_20_feature_columns(self):
         db = _mock_db_four_queries()
         result = build_geospatial_features(db, property_ids=[1])
         assert list(result.columns) == FEATURE_COLUMNS
-        assert len(result.columns) == 24
+        assert len(result.columns) == 20
 
     def test_distance_features_populated(self):
         db = _mock_db_four_queries()
@@ -138,9 +134,6 @@ class TestBuildGeospatialFeatures:
         assert row["dist_nearest_park_m"] == 150.0
         assert row["dist_nearest_greenway_m"] == 250.0
         assert row["dist_nearest_hospital_m"] == 3000.0
-        assert row["dist_nearest_library_m"] == 1500.0
-        assert row["dist_nearest_highway_m"] == 500.0
-        assert row["dist_nearest_railroad_m"] == 800.0
 
     def test_school_aggregate_features(self):
         db = _mock_db_four_queries()
@@ -178,7 +171,6 @@ class TestBuildGeospatialFeatures:
         assert row["census_tract_geoid"] == "37183052403"
         assert row["census_block_group_geoid"] == "371830524031"
         assert row["subdivision_name"] == "Brier Creek"
-        assert row["has_utility_easement_100m"] == True  # noqa: E712
 
     def test_llm_score_features(self):
         db = _mock_db_four_queries()
@@ -206,16 +198,16 @@ class TestBuildGeospatialFeatures:
 
     def test_multiple_properties(self):
         dist_rows = [
-            (1, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0, 1500.0, 500.0, 800.0),
-            (2, 110.0, 210.0, 310.0, 410.0, 160.0, 260.0, 3100.0, 1600.0, 510.0, 810.0),
+            (1, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0),
+            (2, 110.0, 210.0, 310.0, 410.0, 160.0, 260.0, 3100.0),
         ]
         agg_rows = [
             (1, 7.5, 3, 5, 10, 25, 4, 120.5),
             (2, 8.0, 5, 2, 8, 20, 6, 200.0),
         ]
         contain_rows = [
-            (1, "37183052403", "371830524031", "Brier Creek", True),
-            (2, "37183052404", "371830524041", None, False),
+            (1, "37183052403", "371830524031", "Brier Creek"),
+            (2, "37183052404", "371830524041", None),
         ]
         llm_rows = [
             (1, 8, 7),
@@ -230,14 +222,13 @@ class TestBuildGeospatialFeatures:
     def test_null_containment_values(self):
         """Properties outside all boundaries get None for containment."""
         db = _mock_db_four_queries(
-            contain_rows=[(1, None, None, None, False)],
+            contain_rows=[(1, None, None, None)],
         )
         result = build_geospatial_features(db, property_ids=[1])
         row = result.loc[1]
         assert row["census_tract_geoid"] is None
         assert row["census_block_group_geoid"] is None
         assert row["subdivision_name"] is None
-        assert row["has_utility_easement_100m"] == False  # noqa: E712
 
     def test_null_llm_scores(self):
         """Properties without LLM scores get None."""
@@ -253,22 +244,22 @@ class TestBuildGeospatialFeatures:
 
         # We need 8 execute calls: 4 per batch
         dist_rows_1 = [
-            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0, 1500.0, 500.0, 800.0)
+            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)
             for pid in ids[:BATCH_SIZE]
         ]
         agg_rows_1 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[:BATCH_SIZE]]
         contain_rows_1 = [
-            (pid, "37183052403", "371830524031", "Test", True) for pid in ids[:BATCH_SIZE]
+            (pid, "37183052403", "371830524031", "Test") for pid in ids[:BATCH_SIZE]
         ]
         llm_rows_1 = [(pid, 8, 7) for pid in ids[:BATCH_SIZE]]
 
         dist_rows_2 = [
-            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0, 1500.0, 500.0, 800.0)
+            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)
             for pid in ids[BATCH_SIZE:]
         ]
         agg_rows_2 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[BATCH_SIZE:]]
         contain_rows_2 = [
-            (pid, "37183052403", "371830524031", "Test", True) for pid in ids[BATCH_SIZE:]
+            (pid, "37183052403", "371830524031", "Test") for pid in ids[BATCH_SIZE:]
         ]
         llm_rows_2 = [(pid, 8, 7) for pid in ids[BATCH_SIZE:]]
 
@@ -316,5 +307,5 @@ class TestBuildGeospatialFeatures:
         assert TWO_MILES_M == 3218.0
 
     def test_feature_columns_count(self):
-        """There should be exactly 24 feature columns."""
-        assert len(FEATURE_COLUMNS) == 24
+        """There should be exactly 20 feature columns."""
+        assert len(FEATURE_COLUMNS) == 20
