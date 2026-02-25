@@ -4,6 +4,7 @@ import type {
   DataRequestResponse,
   DemographicsApiResponse,
   NeighborhoodValuationHistory,
+  PoisSearchResponse,
   PropertyResponse,
   SchoolsNearbyResponse,
 } from "../types";
@@ -90,6 +91,19 @@ export async function getNeighborhoodValuationHistory(
     "/api/neighborhood/valuation/history",
     { params: { lat, lon } },
   );
+  return data;
+}
+
+export async function searchPois(
+  lat: number,
+  lon: number,
+  query: string,
+  radiusMiles: number = 5,
+  limit: number = 20,
+): Promise<PoisSearchResponse> {
+  const { data } = await client.get<PoisSearchResponse>("/api/pois/search", {
+    params: { lat, lon, query, radius_miles: radiusMiles, limit },
+  });
   return data;
 }
 

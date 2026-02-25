@@ -216,6 +216,12 @@ export interface PoisResponse {
   pois: PointOfInterest[];
 }
 
+export interface PoisSearchResponse {
+  pois: PointOfInterest[];
+  total_count: number;
+  query: string;
+}
+
 // Greenspace types
 export interface GreenspaceFeature {
   id: string;

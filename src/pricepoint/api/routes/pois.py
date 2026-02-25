@@ -12,8 +12,14 @@ from sqlalchemy import String, cast, func, literal, select, text, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
-from pricepoint.api.schemas.pois import PointOfInterest, PoisMetrics, PoisResponse
+from pricepoint.api.schemas.pois import (
+    PointOfInterest,
+    PoisMetrics,
+    PoisResponse,
+    PoisSearchResponse,
+)
 from pricepoint.db.models import (
+    Place,
     WakeFarmersMarket,
     WakeHospital,
     WakeLibrary,
@@ -160,6 +166,92 @@ async def get_pois(
     response = PoisResponse(pois=pois, metrics=metrics)
 
     # Write to cache
+    if valkey is not None:
+        try:
+            await valkey.set(
+                c_key,
+                json.dumps(response.model_dump()),
+                ex=CACHE_TTL,
+            )
+        except Exception:
+            logger.warning("Valkey write failed for key %s", c_key, exc_info=True)
+
+    return response
+
+
+def _search_cache_key(lat: float, lon: float, query: str, radius_miles: float) -> str:
+    """Build a deterministic cache key for POI search."""
+    raw = f"poi-search:{lat:.6f}:{lon:.6f}:{query.lower().strip()}:{radius_miles:.2f}"
+    digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
+    return f"poi-search:{digest}"
+
+
+@router.get("/pois/search", response_model=PoisSearchResponse)
+async def search_pois(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+    query: Annotated[str, Query(min_length=1, max_length=200)],
+    radius_miles: Annotated[float, Query(gt=0, le=50)] = 5.0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
+    valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
+) -> PoisSearchResponse:
+    """Search for commercial POIs by name or category near a location."""
+    c_key = _search_cache_key(lat, lon, query, radius_miles)
+    if valkey is not None:
+        try:
+            cached = await valkey.get(c_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return PoisSearchResponse(**data)
+        except Exception:
+            logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
+
+    radius_meters = radius_miles * METERS_PER_MILE
+    property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+    search_pattern = f"%{query.strip()}%"
+
+    stmt = (
+        select(
+            cast(Place.id, String).label("poi_id"),
+            Place.name.label("poi_name"),
+            Place.category.label("category"),
+            Place.brand_name.label("brand_name"),
+            Place.address.label("address"),
+            Place.phone.label("phone"),
+            ST_Y(Place.geom).label("lat"),
+            ST_X(Place.geom).label("lon"),
+            _distance_miles(Place.geom, property_point).label("distance_miles"),
+        )
+        .where(
+            Place.geom.isnot(None),
+            _st_dwithin_geography(Place.geom, property_point, radius_meters),
+            (Place.name.ilike(search_pattern) | Place.category.ilike(search_pattern)),
+        )
+        .order_by(literal("distance_miles"))
+        .limit(limit)
+    )
+
+    rows = db.execute(stmt).all()
+
+    pois: list[PointOfInterest] = []
+    for row in rows:
+        dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
+        drive_min = max(1, round(dist * 3))
+        pois.append(
+            PointOfInterest(
+                id=f"OVERTURE-{row.poi_id}",
+                name=row.poi_name or "Unknown",
+                category=row.category or "other",
+                lat=round(row.lat, 6) if row.lat is not None else 0.0,
+                lon=round(row.lon, 6) if row.lon is not None else 0.0,
+                distance_miles=dist,
+                drive_minutes=drive_min,
+            )
+        )
+
+    response = PoisSearchResponse(pois=pois, total_count=len(pois), query=query)
+
     if valkey is not None:
         try:
             await valkey.set(

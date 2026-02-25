@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir \
     "mlflow>=2.14,<3" \
     "beautifulsoup4>=4.12,<5" \
     "lxml>=5.0,<6" \
-    "fredapi>=0.5,<1"
+    "fredapi>=0.5,<1" \
+    "duckdb>=1.0,<2"
 
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/

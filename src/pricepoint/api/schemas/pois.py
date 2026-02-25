@@ -28,3 +28,11 @@ class PoisResponse(BaseModel):
 
     pois: list[PointOfInterest]
     metrics: PoisMetrics | None = None
+
+
+class PoisSearchResponse(BaseModel):
+    """Response body for POI search."""
+
+    pois: list[PointOfInterest]
+    total_count: int
+    query: str

@@ -1158,9 +1158,7 @@ class HifldTransmissionLine(Base):
     """HIFLD electric power transmission line from ArcGIS FeatureServer."""
 
     __tablename__ = "hifld_transmission_lines"
-    __table_args__ = (
-        Index("ix_hifld_transmission_lines_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_hifld_transmission_lines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1199,9 +1197,7 @@ class HifldNatGasPipeline(Base):
     """HIFLD natural gas pipeline from ArcGIS FeatureServer."""
 
     __tablename__ = "hifld_nat_gas_pipelines"
-    __table_args__ = (
-        Index("ix_hifld_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_hifld_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
@@ -1216,15 +1212,48 @@ class HifldPetroleumPipeline(Base):
     """HIFLD petroleum products pipeline from ArcGIS FeatureServer."""
 
     __tablename__ = "hifld_petroleum_pipelines"
-    __table_args__ = (
-        Index("ix_hifld_petroleum_pipelines_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_hifld_petroleum_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     objectid = Column(Integer, index=True)
     operator = Column(String)
     pipe_name = Column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Place(Base):
+    """Commercial point of interest / place."""
+
+    __tablename__ = "places"
+    __table_args__ = (
+        Index("ix_places_geom", "geom", postgresql_using="gist"),
+        Index("ix_places_name", "name"),
+        Index("ix_places_category", "category"),
+        Index("ix_places_state", "state"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_id = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String)
+    category = Column(String)
+    alternate_categories = Column(JSON)
+    confidence = Column(Float)
+    operating_status = Column(String)
+    address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    postcode = Column(String)
+    country = Column(String)
+    brand_name = Column(String)
+    brand_wikidata = Column(String)
+    website = Column(String)
+    phone = Column(String)
+    email = Column(String)
+    social = Column(String)
+    source_dataset = Column(String)
+    source_record_id = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

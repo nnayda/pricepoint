@@ -127,6 +127,12 @@ class Settings(BaseSettings):
         "/Petroleum_Products_Pipelines_1/FeatureServer/0"
     )
 
+    # Overture Maps Places
+    overture_places_s3_path: str = (
+        "s3://overturemaps-us-west-2/release/2026-02-18.0/theme=places/type=place/*"
+    )
+    overture_places_min_confidence: float = 0.5
+
     # Ollama LLM (description quality scoring)
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:32b"
