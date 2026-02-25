@@ -1,5 +1,6 @@
 """Tests for greenway gold builder."""
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 from pricepoint.data.geospatial.greenway_gold_builder import (
@@ -366,6 +367,18 @@ class TestAugmentGoldRecord:
         augment_gold_record(gold, town_fields)
         assert gold.name == "Keep"
 
+    def test_sets_built_at_when_provided(self):
+        gold = Greenway(name="Trail", surface_type="Paved", status="Existing")
+        ts = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
+        augment_gold_record(gold, {}, built_at=ts)
+        assert gold.built_at == ts
+
+    def test_does_not_set_built_at_when_none(self):
+        gold = Greenway(name="Trail", surface_type="Paved", status="Existing")
+        original = gold.built_at
+        augment_gold_record(gold, {}, built_at=None)
+        assert gold.built_at == original
+
 
 # ---------------------------------------------------------------------------
 # Builder integration (mocked session)
@@ -413,26 +426,29 @@ class TestBuildGreenwaysGold:
         return row
 
     @patch("pricepoint.data.geospatial.greenway_gold_builder._find_best_match")
-    def test_wake_only_build(self, mock_match):
-        """When only Wake data exists, all are inserted as gold records."""
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._upsert_greenway")
+    def test_wake_only_build(self, mock_upsert, mock_match):
+        """When only Wake data exists, all are upserted as gold records."""
         session = MagicMock()
         wake_rows = [self._make_wake_row(1), self._make_wake_row(2)]
 
-        # session.execute(...).scalars().all() returns different lists per call
         scalars_mock = MagicMock()
         scalars_mock.all.side_effect = [wake_rows, [], []]
         session.execute.return_value.scalars.return_value = scalars_mock
+        session.execute.return_value.rowcount = 0
 
         stats = build_greenways_gold(session)
 
-        assert stats["wake_inserted"] == 2
+        assert stats["wake_upserted"] == 2
         assert stats["cary_matched"] == 0
         assert stats["cary_new"] == 0
         assert stats["raleigh_matched"] == 0
         assert stats["raleigh_new"] == 0
+        assert mock_upsert.call_count == 2
 
     @patch("pricepoint.data.geospatial.greenway_gold_builder._find_best_match")
-    def test_cary_matched_augments_gold(self, mock_match):
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._upsert_greenway")
+    def test_cary_matched_augments_gold(self, mock_upsert, mock_match):
         """A Cary row that spatially matches a Wake gold record augments it."""
         session = MagicMock()
         wake_rows = [self._make_wake_row(1)]
@@ -453,18 +469,23 @@ class TestBuildGreenwaysGold:
         scalars_mock = MagicMock()
         scalars_mock.all.side_effect = [wake_rows, cary_rows, []]
         session.execute.return_value.scalars.return_value = scalars_mock
+        session.execute.return_value.rowcount = 0
 
-        stats = build_greenways_gold(session)
+        run_ts = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
+        stats = build_greenways_gold(session, run_started=run_ts)
 
         assert stats["cary_matched"] == 1
         assert stats["cary_new"] == 0
         # Gold record should have been augmented with Cary values
         assert gold_record.name == "Cary Trail"
         assert gold_record.surface_type == "Paved"
+        # built_at should be set on augmented record
+        assert gold_record.built_at == run_ts
 
     @patch("pricepoint.data.geospatial.greenway_gold_builder._find_best_match")
-    def test_unmatched_town_inserts_new(self, mock_match):
-        """An unmatched Raleigh row is inserted as a new gold record."""
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._upsert_greenway")
+    def test_unmatched_town_inserts_new(self, mock_upsert, mock_match):
+        """An unmatched Raleigh row is upserted as a new gold record."""
         session = MagicMock()
         wake_rows = [self._make_wake_row(1)]
         raleigh_rows = [self._make_raleigh_row(1)]
@@ -474,8 +495,46 @@ class TestBuildGreenwaysGold:
         scalars_mock = MagicMock()
         scalars_mock.all.side_effect = [wake_rows, [], raleigh_rows]
         session.execute.return_value.scalars.return_value = scalars_mock
+        session.execute.return_value.rowcount = 0
 
         stats = build_greenways_gold(session)
 
         assert stats["raleigh_matched"] == 0
         assert stats["raleigh_new"] == 1
+        # 1 wake upsert + 1 raleigh upsert = 2 total
+        assert mock_upsert.call_count == 2
+
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._find_best_match")
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._upsert_greenway")
+    def test_stale_row_cleanup(self, mock_upsert, mock_match):
+        """Rows with built_at < run_started are deleted."""
+        session = MagicMock()
+
+        scalars_mock = MagicMock()
+        scalars_mock.all.side_effect = [[], [], []]
+        session.execute.return_value.scalars.return_value = scalars_mock
+        session.execute.return_value.rowcount = 5
+
+        stats = build_greenways_gold(session)
+
+        assert stats["stale_deleted"] == 5
+
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._find_best_match")
+    @patch("pricepoint.data.geospatial.greenway_gold_builder._upsert_greenway")
+    def test_upsert_includes_built_at(self, mock_upsert, mock_match):
+        """Upserted rows include built_at timestamp."""
+        session = MagicMock()
+        wake_rows = [self._make_wake_row(1)]
+
+        scalars_mock = MagicMock()
+        scalars_mock.all.side_effect = [wake_rows, [], []]
+        session.execute.return_value.scalars.return_value = scalars_mock
+        session.execute.return_value.rowcount = 0
+
+        run_ts = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
+        build_greenways_gold(session, run_started=run_ts)
+
+        # The upsert call should include built_at in the fields
+        call_args = mock_upsert.call_args
+        fields = call_args[0][1]  # second positional arg is the fields dict
+        assert fields["built_at"] == run_ts

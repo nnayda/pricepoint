@@ -4,15 +4,19 @@ Merges three overlapping greenway datasets into a single canonical table.
 Wake County geometry is used as the baseline; town-level attributes (Cary,
 Raleigh) overwrite county values when non-NULL.  Matching is spatial —
 ``ST_DWithin(50m)`` with greatest-overlap tiebreaker.
+
+Uses upsert (ON CONFLICT) to preserve stable ``id`` values across rebuilds.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from geoalchemy2.types import Geography
 from sqlalchemy import cast, delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from pricepoint.db.models import (
@@ -184,12 +188,19 @@ def extract_raleigh_fields(row: Any) -> dict[str, Any]:
 _AUGMENT_FIELDS = ("name", "surface_type", "status", "length", "width")
 
 
-def augment_gold_record(gold: Greenway, town_fields: dict[str, Any]) -> None:
+def augment_gold_record(
+    gold: Greenway,
+    town_fields: dict[str, Any],
+    *,
+    built_at: datetime | None = None,
+) -> None:
     """Overwrite gold record attributes with non-NULL town values."""
     for field in _AUGMENT_FIELDS:
         town_val = town_fields.get(field)
         if town_val is not None:
             setattr(gold, field, town_val)
+    if built_at is not None:
+        gold.built_at = built_at  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------
@@ -230,34 +241,67 @@ def _find_best_match(
 
 
 # ---------------------------------------------------------------------------
+# Upsert helper
+# ---------------------------------------------------------------------------
+
+
+def _upsert_greenway(session: Session, fields: dict[str, Any]) -> None:
+    """Insert-or-update a single greenway row keyed on (source, source_id)."""
+    stmt = pg_insert(Greenway).values(**fields)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["source", "source_id"],
+        set_={
+            "name": stmt.excluded.name,
+            "surface_type": stmt.excluded.surface_type,
+            "status": stmt.excluded.status,
+            "length": stmt.excluded.length,
+            "width": stmt.excluded.width,
+            "geom": stmt.excluded.geom,
+            "built_at": stmt.excluded.built_at,
+        },
+    )
+    session.execute(stmt)
+
+
+# ---------------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------------
 
 
-def build_greenways_gold(session: Session) -> dict[str, int]:
-    """Truncate-and-rebuild the ``greenways`` gold table.
+def build_greenways_gold(
+    session: Session,
+    *,
+    run_started: datetime | None = None,
+) -> dict[str, int]:
+    """Upsert the ``greenways`` gold table from bronze sources.
 
-    Returns a stats dict with counts of inserted, matched, and new records.
+    Uses ON CONFLICT upsert for Wake baseline and unmatched town rows,
+    ORM updates for spatially-matched augmentations, and stale-row cleanup
+    to remove rows no longer present in any source.
+
+    Returns a stats dict with counts of upserted, matched, new, and stale records.
     """
-    # 1. Clear existing gold records
-    session.execute(delete(Greenway))
-    session.flush()
+    if run_started is None:
+        run_started = datetime.now(UTC)
 
-    # 2. Insert all Wake greenways as baseline
+    # 1. Upsert all Wake greenways as baseline
     wake_rows = session.execute(select(WakeGreenway)).scalars().all()
     for row in wake_rows:
-        session.add(Greenway(**extract_wake_fields(row)))
+        fields = extract_wake_fields(row)
+        fields["built_at"] = run_started
+        _upsert_greenway(session, fields)
     session.flush()
 
     stats: dict[str, int] = {
-        "wake_inserted": len(wake_rows),
+        "wake_upserted": len(wake_rows),
         "cary_matched": 0,
         "cary_new": 0,
         "raleigh_matched": 0,
         "raleigh_new": 0,
+        "stale_deleted": 0,
     }
 
-    # 3. Merge Cary greenways
+    # 2. Merge Cary greenways
     matched_gold_ids: set[int] = set()
     cary_rows = session.execute(select(CaryGreenway)).scalars().all()
     for cary_row in cary_rows:
@@ -265,25 +309,34 @@ def build_greenways_gold(session: Session) -> dict[str, int]:
         match = _find_best_match(session, cary_row.geom, matched_gold_ids)
         if match is not None:
             matched_gold_ids.add(int(match.id))  # type: ignore[arg-type]
-            augment_gold_record(match, fields)
+            augment_gold_record(match, fields, built_at=run_started)
             stats["cary_matched"] += 1
         else:
-            session.add(Greenway(**fields))
+            fields["built_at"] = run_started
+            _upsert_greenway(session, fields)
             stats["cary_new"] += 1
     session.flush()
 
-    # 4. Merge Raleigh greenways
+    # 3. Merge Raleigh greenways
     raleigh_rows = session.execute(select(RaleighGreenway)).scalars().all()
     for ral_row in raleigh_rows:
         fields = extract_raleigh_fields(ral_row)
         match = _find_best_match(session, ral_row.geom, matched_gold_ids)
         if match is not None:
             matched_gold_ids.add(int(match.id))  # type: ignore[arg-type]
-            augment_gold_record(match, fields)
+            augment_gold_record(match, fields, built_at=run_started)
             stats["raleigh_matched"] += 1
         else:
-            session.add(Greenway(**fields))
+            fields["built_at"] = run_started
+            _upsert_greenway(session, fields)
             stats["raleigh_new"] += 1
+    session.flush()
+
+    # 4. Remove stale rows no longer present in any source
+    result = session.execute(
+        delete(Greenway).where(Greenway.built_at < run_started)
+    )
+    stats["stale_deleted"] = result.rowcount  # type: ignore[attr-defined]
     session.flush()
 
     logger.info("Greenway gold build complete: %s", stats)

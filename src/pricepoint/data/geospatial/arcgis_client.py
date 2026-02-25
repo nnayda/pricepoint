@@ -140,7 +140,6 @@ def fetch_arcgis_dataset(
     session = SessionLocal()
     try:
         session.execute(delete(model_class))
-        session.commit()
 
         offset = 0
         total = 0
@@ -154,7 +153,7 @@ def fetch_arcgis_dataset(
 
             records = [mapper(f) for f in features]
             session.add_all(records)
-            session.commit()
+            session.flush()
 
             total += len(records)
             offset += len(features)
@@ -163,6 +162,7 @@ def fetch_arcgis_dataset(
             if len(features) < page_size:
                 break
 
+        session.commit()
         logger.info("%s load complete: %d records", dataset_name, total)
     except Exception:
         session.rollback()

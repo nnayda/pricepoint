@@ -1027,7 +1027,7 @@ class Greenway(Base):
 
     __tablename__ = "greenways"
     __table_args__ = (
-        Index("ix_greenways_source_source_id", "source", "source_id"),
+        UniqueConstraint("source", "source_id", name="uq_greenways_source_source_id"),
         Index("ix_greenways_geom", "geom", postgresql_using="gist"),
     )
 
@@ -1048,7 +1048,7 @@ class Greenspace(Base):
 
     __tablename__ = "greenspaces"
     __table_args__ = (
-        Index("ix_greenspaces_source_source_id", "source", "source_id"),
+        UniqueConstraint("source", "source_id", name="uq_greenspaces_source_source_id"),
         Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),
     )
 
@@ -1222,8 +1222,45 @@ class HifldPetroleumPipeline(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class StagingPlace(Base):
+    """Staging table for Overture Maps places (bronze).
+
+    Raw data loaded from S3 GeoParquet. Truncated on each run.
+    No unique constraints or spatial indexes — optimized for fast bulk writes.
+    """
+
+    __tablename__ = "staging_places"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_id = Column(String, nullable=False)
+    name = Column(String)
+    category = Column(String)
+    alternate_categories = Column(JSON)
+    confidence = Column(Float)
+    operating_status = Column(String)
+    address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    postcode = Column(String)
+    country = Column(String)
+    brand_name = Column(String)
+    brand_wikidata = Column(String)
+    website = Column(String)
+    phone = Column(String)
+    email = Column(String)
+    social = Column(String)
+    source_dataset = Column(String)
+    source_record_id = Column(String)
+    geom = Column(Geometry("POINT", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Place(Base):
-    """Commercial point of interest / place."""
+    """Commercial point of interest / place (production).
+
+    FK-referenced by user preference tables — PKs must be preserved across
+    reloads.  Use staging + upsert swap pattern (never truncate swap).
+    """
 
     __tablename__ = "places"
     __table_args__ = (
