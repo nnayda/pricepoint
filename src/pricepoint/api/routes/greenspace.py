@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import String, cast, func, literal, select, text, union_all
+from sqlalchemy import String, cast, func, literal, select, text
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
@@ -17,11 +17,7 @@ from pricepoint.api.schemas.greenspace import (
     GreenspaceMetrics,
     GreenspaceResponse,
 )
-from pricepoint.db.models import (
-    CaryGreenway,
-    RaleighGreenway,
-    WakeGreenway,
-)
+from pricepoint.db.models import Trail
 
 logger = logging.getLogger(__name__)
 
@@ -49,56 +45,23 @@ def _st_distance_geography(geom_col, point):  # noqa: ANN001, ANN201
 
 
 def _build_greenways_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
-    """Build a union query across all three greenway tables."""
-    # WakeGreenway: MULTILINESTRING, trail_name
-    wake_q = select(
-        cast(WakeGreenway.id, String).label("feature_id"),
-        func.coalesce(WakeGreenway.trail_name, "Unknown Trail").label("name"),
+    """Build a query for trails from the USGS National Digital Trails table."""
+    trails_q = select(
+        cast(Trail.id, String).label("feature_id"),
+        func.coalesce(Trail.name, "Unknown Trail").label("name"),
         literal("trail").label("feature_type"),
-        ST_Y(func.ST_Centroid(WakeGreenway.geom)).label("lat"),
-        ST_X(func.ST_Centroid(WakeGreenway.geom)).label("lon"),
-        (_st_distance_geography(WakeGreenway.geom, property_point) / METERS_PER_MILE).label(
+        ST_Y(func.ST_Centroid(Trail.geom)).label("lat"),
+        ST_X(func.ST_Centroid(Trail.geom)).label("lon"),
+        (_st_distance_geography(Trail.geom, property_point) / METERS_PER_MILE).label(
             "distance_miles"
         ),
-        literal("wake").label("source"),
+        literal("usgs").label("source"),
     ).where(
-        WakeGreenway.geom.isnot(None),
-        _st_dwithin_geography(WakeGreenway.geom, property_point, radius_meters),
+        Trail.geom.isnot(None),
+        _st_dwithin_geography(Trail.geom, property_point, radius_meters),
     )
 
-    # RaleighGreenway: MULTILINESTRING, trail_name
-    raleigh_q = select(
-        cast(RaleighGreenway.id, String).label("feature_id"),
-        func.coalesce(RaleighGreenway.trail_name, "Unknown Trail").label("name"),
-        literal("trail").label("feature_type"),
-        ST_Y(func.ST_Centroid(RaleighGreenway.geom)).label("lat"),
-        ST_X(func.ST_Centroid(RaleighGreenway.geom)).label("lon"),
-        (_st_distance_geography(RaleighGreenway.geom, property_point) / METERS_PER_MILE).label(
-            "distance_miles"
-        ),
-        literal("raleigh").label("source"),
-    ).where(
-        RaleighGreenway.geom.isnot(None),
-        _st_dwithin_geography(RaleighGreenway.geom, property_point, radius_meters),
-    )
-
-    # CaryGreenway: MULTILINESTRING, name
-    cary_q = select(
-        cast(CaryGreenway.id, String).label("feature_id"),
-        func.coalesce(CaryGreenway.name, "Unknown Trail").label("name"),
-        literal("trail").label("feature_type"),
-        ST_Y(func.ST_Centroid(CaryGreenway.geom)).label("lat"),
-        ST_X(func.ST_Centroid(CaryGreenway.geom)).label("lon"),
-        (_st_distance_geography(CaryGreenway.geom, property_point) / METERS_PER_MILE).label(
-            "distance_miles"
-        ),
-        literal("cary").label("source"),
-    ).where(
-        CaryGreenway.geom.isnot(None),
-        _st_dwithin_geography(CaryGreenway.geom, property_point, radius_meters),
-    )
-
-    return union_all(wake_q, raleigh_q, cary_q).cte("all_greenways")
+    return trails_q.cte("all_greenways")
 
 
 def _cache_key(lat: float, lon: float, radius_miles: float) -> str:

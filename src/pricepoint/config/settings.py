@@ -76,18 +76,14 @@ class Settings(BaseSettings):
     wake_hospitals_base_url: str = (
         "https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Hospital/FeatureServer/0"
     )
-    wake_open_space_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/OpenSpace/MapServer/0"
+    # PAD-US (Protected Areas Database of the United States)
+    pad_us_download_url: str = (
+        "https://www.sciencebase.gov/catalog/file/get/652ef534d34edd15305a7c30"
+        "?f=__disk__70%2F3f%2F6e%2F703f6ee2c30c69e2f718c47c1b1e56a11c8c25bf"
     )
-    wake_greenways_base_url: str = (
-        "https://maps.wakegov.com/arcgis/rest/services/OpenSpace/Greenways/MapServer/0"
-    )
-    raleigh_greenways_base_url: str = (
-        "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services"
-        "/Greenway_Trails_All/FeatureServer/0"
-    )
-    cary_greenways_base_url: str = (
-        "https://maps-apis.carync.gov/server/rest/services/ParksRecreation/Parks/FeatureServer/2"
+    pad_us_layer_name: str = "PADUS4_0Fee"
+    trails_base_url: str = (
+        "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/37"
     )
     wake_railroads_base_url: str = (
         "https://maps.wakegov.com/arcgis/rest/services"

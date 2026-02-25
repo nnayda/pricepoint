@@ -927,139 +927,54 @@ class WakeHospital(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class StagingWakeOpenSpace(Base):
-    """Wake County open space from ArcGIS MapServer (bronze/staging)."""
-
-    __tablename__ = "staging_wake_open_space"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    acres = Column(Float)
-    owner = Column(String)
-    jurisdiction = Column(String)
-    type = Column(String)
-    manager = Column(String)
-    comments = Column(String)
-    bldgcode = Column(String)
-    corridor = Column(String)
-    os_number = Column(String)
-    created_date = Column(DateTime(timezone=True))
-    last_edited_date = Column(DateTime(timezone=True))
-    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WakeGreenway(Base):
-    """Wake County greenway trail from ArcGIS MapServer."""
-
-    __tablename__ = "staging_wake_greenways"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    trail_name = Column(String, index=True)
-    corridor_name = Column(String)
-    owner = Column(String)
-    trail_status = Column(String)
-    trail_surface = Column(String)
-    trail_class = Column(String)
-    length = Column(Float)
-    width = Column(Float)
-    open_date = Column(DateTime(timezone=True))
-    public_access = Column(String)
-    accessibility_status = Column(String)
-    trail_condition = Column(String)
-    slope = Column(String)
-    subsegment_name = Column(String)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class RaleighGreenway(Base):
-    """City of Raleigh greenway trail from ArcGIS FeatureServer."""
-
-    __tablename__ = "staging_raleigh_greenways"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    trail_name = Column(String, index=True)
-    greenway_type = Column(String)
-    location_desc = Column(String)
-    status = Column(String)
-    material = Column(String)
-    map_miles = Column(Float)
-    width_ft = Column(Float)
-    owner = Column(String)
-    ada = Column(String)
-    gw_status = Column(String)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class CaryGreenway(Base):
-    """Town of Cary greenway trail from ArcGIS FeatureServer."""
-
-    __tablename__ = "staging_cary_greenways"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String, index=True)
-    segment = Column(String)
-    length = Column(Float)
-    width = Column(Float)
-    trail_type = Column(String)
-    surface_type = Column(String)
-    status = Column(String)
-    install_date = Column(DateTime(timezone=True))
-    open_to_public = Column(String)
-    project_name = Column(String)
-    project_number = Column(String)
-    notes = Column(String)
-    loop_trail = Column(String)
-    loop_name = Column(String)
-    official_cary_greenway_miles = Column(Float)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class Greenway(Base):
-    """Gold-layer greenway trail merged from Wake, Cary, and Raleigh sources."""
-
-    __tablename__ = "greenways"
-    __table_args__ = (
-        UniqueConstraint("source", "source_id", name="uq_greenways_source_source_id"),
-        Index("ix_greenways_geom", "geom", postgresql_using="gist"),
-    )
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source = Column(String, nullable=False)
-    source_id = Column(Integer, nullable=False)
-    name = Column(String, index=True)
-    surface_type = Column(String)
-    status = Column(String)
-    length = Column(Float)
-    width = Column(Float)
-    geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
 class Greenspace(Base):
-    """Gold-layer greenspace/park merged from open space bronze sources."""
+    """Protected area / greenspace from PAD-US (Fee layer)."""
 
     __tablename__ = "greenspaces"
-    __table_args__ = (
-        UniqueConstraint("source", "source_id", name="uq_greenspaces_source_source_id"),
-        Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),
-    )
+    __table_args__ = (Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    source = Column(String, nullable=False)
-    source_id = Column(Integer, nullable=False)
+    source_id = Column(Integer, unique=True, nullable=False, index=True)
     name = Column(String, index=True)
-    acres = Column(Float)
-    type = Column(String)
+    gis_acres = Column(Float)
+    manager_type = Column(String(10))
+    manager_name = Column(String)
+    designation_type = Column(String(20))
+    pub_access = Column(String(2))
+    gap_sts = Column(Integer)
+    state_name = Column(String)
+    category = Column(String)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Trail(Base):
+    """Trail from USGS National Digital Trails dataset."""
+
+    __tablename__ = "trails"
+    __table_args__ = (Index("ix_trails_geom", "geom", postgresql_using="gist"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    permanentidentifier = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, index=True)
+    trail_type = Column(String)
+    length_miles = Column(Float)
+    maintainer = Column(String)
+    national_designation = Column(String)
+    hiker_pedestrian = Column(String)
+    bicycle = Column(String)
+    pack_saddle = Column(String)
+    atv = Column(String)
+    motorcycle = Column(String)
+    ohv_over_50_inches = Column(String)
+    snowshoe = Column(String)
+    cross_country_ski = Column(String)
+    dogsled = Column(String)
+    snowmobile = Column(String)
+    non_motorized_watercraft = Column(String)
+    motorized_watercraft = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class WakeRailroad(Base):
