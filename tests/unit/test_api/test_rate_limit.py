@@ -104,7 +104,7 @@ class TestDifferentEndpointLimits:
         for i in range(5):
             resp = client.post(
                 "/api/auth/login",
-                data={"username": f"user{i}@example.com", "password": "wrong"},
+                json={"email": f"user{i}@example.com", "password": "wrongpass"},
             )
             # 401 expected (invalid credentials), but not 429
             assert resp.status_code != 429, f"Request {i + 1} was rate-limited too early"
@@ -112,6 +112,6 @@ class TestDifferentEndpointLimits:
         # 6th request should be rate limited
         resp = client.post(
             "/api/auth/login",
-            data={"username": "extra@example.com", "password": "wrong"},
+            json={"email": "extra@example.com", "password": "wrongpass"},
         )
         assert resp.status_code == 429

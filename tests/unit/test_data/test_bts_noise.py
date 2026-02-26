@@ -436,6 +436,13 @@ class TestBuildNoiseProduction:
         )
         assert count == 0
 
+    def test_promote_sql_subtracts_higher_bands(self):
+        """Promote SQL should use ST_Difference to subtract louder bands from quieter ones."""
+        from pricepoint.data.geospatial.bts_noise import _PROMOTE_SQL
+
+        assert "ST_Difference" in _PROMOTE_SQL
+        assert "ST_CollectionExtract" in _PROMOTE_SQL
+
 
 # ---------------------------------------------------------------------------
 # fetch_transportation_noise tests

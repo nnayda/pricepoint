@@ -31,12 +31,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Revert greenspaces: drop unique constraint, restore regular index
     op.drop_constraint("uq_greenspaces_source_source_id", "greenspaces", type_="unique")
-    op.create_index(
-        "ix_greenspaces_source_source_id", "greenspaces", ["source", "source_id"]
-    )
+    op.create_index("ix_greenspaces_source_source_id", "greenspaces", ["source", "source_id"])
 
     # Revert greenways: drop unique constraint, restore regular index
     op.drop_constraint("uq_greenways_source_source_id", "greenways", type_="unique")
-    op.create_index(
-        "ix_greenways_source_source_id", "greenways", ["source", "source_id"]
-    )
+    op.create_index("ix_greenways_source_source_id", "greenways", ["source", "source_id"])

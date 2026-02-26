@@ -1,4 +1,5 @@
 import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../../contexts/ThemeContext";
@@ -26,6 +27,7 @@ interface DashboardMapProps {
   children?: React.ReactNode;
   highlightedId?: string | null;
   selectedId?: string | null;
+  cluster?: boolean;
 }
 
 function createPropertyIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) {
@@ -320,6 +322,18 @@ function MapStyleControl({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createClusterIcon(cluster: any) {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 32 : count < 50 ? 38 : 44;
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:var(--color-db-accent, #6366F1);border-radius:50%;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(99,102,241,0.5);color:#fff;font-size:12px;font-weight:600;font-family:var(--font-db-sans);">${count}</div>`,
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function DashboardMap({
   center,
   zoom = 14,
@@ -329,9 +343,22 @@ function DashboardMap({
   children,
   highlightedId,
   selectedId,
+  cluster = false,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
   const [mapStyle, handleStyleChange] = useMapStyle(getDefaultStyle(resolvedTheme));
+
+  const propertyMarkers = markers.filter((m) => m.isProperty);
+  const otherMarkers = markers.filter((m) => !m.isProperty);
+
+  const renderMarker = (m: MapMarker) => (
+    <InteractiveMarker
+      key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}
+      marker={m}
+      highlighted={m.id != null && m.id === highlightedId}
+      selected={m.id != null && m.id === selectedId}
+    />
+  );
 
   return (
     <div
@@ -346,14 +373,19 @@ function DashboardMap({
         attributionControl={true}
       >
         <TileLayerController style={mapStyle} />
-        {markers.map((m) => (
-          <InteractiveMarker
-            key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}
-            marker={m}
-            highlighted={m.id != null && m.id === highlightedId}
-            selected={m.id != null && m.id === selectedId}
-          />
-        ))}
+        {propertyMarkers.map(renderMarker)}
+        {cluster ? (
+          <MarkerClusterGroup
+            maxClusterRadius={40}
+            spiderfyOnMaxZoom={true}
+            showCoverageOnHover={false}
+            iconCreateFunction={createClusterIcon}
+          >
+            {otherMarkers.map(renderMarker)}
+          </MarkerClusterGroup>
+        ) : (
+          otherMarkers.map(renderMarker)
+        )}
         {children}
       </MapContainer>
       <MapStyleControl style={mapStyle} onChange={handleStyleChange} />

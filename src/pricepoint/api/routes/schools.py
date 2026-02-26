@@ -26,8 +26,8 @@ async def get_nearby_schools(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
     db: Annotated[Session, Depends(get_db)],
-    radius_miles: Annotated[float, Query(gt=0, le=50)] = 10.0,
-    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    radius_miles: Annotated[float, Query(gt=0, le=50)] = 25.0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> SchoolsNearbyResponse:
     """Return schools near a given location, ordered by distance.
 

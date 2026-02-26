@@ -41,9 +41,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "ix_hifld_cell_towers_objectid", "hifld_cell_towers", ["objectid"]
-    )
+    op.create_index("ix_hifld_cell_towers_objectid", "hifld_cell_towers", ["objectid"])
     op.create_index(
         "ix_hifld_cell_towers_geom",
         "hifld_cell_towers",
@@ -115,12 +113,8 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "ix_hifld_power_plants_objectid", "hifld_power_plants", ["objectid"]
-    )
-    op.create_index(
-        "ix_hifld_power_plants_name", "hifld_power_plants", ["name"]
-    )
+    op.create_index("ix_hifld_power_plants_objectid", "hifld_power_plants", ["objectid"])
+    op.create_index("ix_hifld_power_plants_name", "hifld_power_plants", ["name"])
     op.create_index(
         "ix_hifld_power_plants_geom",
         "hifld_power_plants",

@@ -144,9 +144,7 @@ def fetch_arcgis_dataset(
         offset = 0
         total = 0
         while True:
-            data = query_arcgis_page(
-                base_url, offset, page_size, where_clause, geometry_envelope
-            )
+            data = query_arcgis_page(base_url, offset, page_size, where_clause, geometry_envelope)
             features = data.get("features", [])
             if not features:
                 break

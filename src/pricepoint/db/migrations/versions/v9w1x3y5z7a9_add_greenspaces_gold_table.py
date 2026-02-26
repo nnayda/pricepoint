@@ -44,12 +44,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_greenspaces_name", "greenspaces", ["name"])
-    op.create_index(
-        "ix_greenspaces_source_source_id", "greenspaces", ["source", "source_id"]
-    )
-    op.create_index(
-        "ix_greenspaces_geom", "greenspaces", ["geom"], postgresql_using="gist"
-    )
+    op.create_index("ix_greenspaces_source_source_id", "greenspaces", ["source", "source_id"])
+    op.create_index("ix_greenspaces_geom", "greenspaces", ["geom"], postgresql_using="gist")
 
 
 def downgrade() -> None:

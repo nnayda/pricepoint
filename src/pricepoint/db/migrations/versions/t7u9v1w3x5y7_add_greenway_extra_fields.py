@@ -28,9 +28,7 @@ def upgrade() -> None:
     op.add_column("staging_cary_greenways", sa.Column("notes", sa.String()))
     op.add_column("staging_cary_greenways", sa.Column("loop_trail", sa.String()))
     op.add_column("staging_cary_greenways", sa.Column("loop_name", sa.String()))
-    op.add_column(
-        "staging_cary_greenways", sa.Column("official_cary_greenway_miles", sa.Float())
-    )
+    op.add_column("staging_cary_greenways", sa.Column("official_cary_greenway_miles", sa.Float()))
 
 
 def downgrade() -> None:

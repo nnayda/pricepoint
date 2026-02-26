@@ -502,6 +502,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
             <DashboardMap
               center={[property.lat, property.lon]}
               zoom={13}
+              cluster
               markers={[
                 {
                   lat: property.lat,

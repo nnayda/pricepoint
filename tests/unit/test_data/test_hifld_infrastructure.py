@@ -246,9 +246,7 @@ class TestFetchTransmissionLines:
     @patch("pricepoint.data.geospatial.hifld_infrastructure.fetch_arcgis_dataset")
     @patch("pricepoint.data.geospatial.hifld_infrastructure.get_settings")
     def test_calls_fetch_dataset(self, mock_settings, mock_fetch):
-        mock_settings.return_value = MagicMock(
-            transmission_lines_base_url="http://test/0"
-        )
+        mock_settings.return_value = MagicMock(transmission_lines_base_url="http://test/0")
         fetch_transmission_lines()
         mock_fetch.assert_called_once()
         _, kwargs = mock_fetch.call_args
@@ -270,9 +268,7 @@ class TestFetchNatGasPipelines:
     @patch("pricepoint.data.geospatial.hifld_infrastructure.fetch_arcgis_dataset")
     @patch("pricepoint.data.geospatial.hifld_infrastructure.get_settings")
     def test_calls_fetch_dataset(self, mock_settings, mock_fetch):
-        mock_settings.return_value = MagicMock(
-            nat_gas_pipelines_base_url="http://test/0"
-        )
+        mock_settings.return_value = MagicMock(nat_gas_pipelines_base_url="http://test/0")
         fetch_nat_gas_pipelines()
         mock_fetch.assert_called_once()
         _, kwargs = mock_fetch.call_args
@@ -283,9 +279,7 @@ class TestFetchPetroleumPipelines:
     @patch("pricepoint.data.geospatial.hifld_infrastructure.fetch_arcgis_dataset")
     @patch("pricepoint.data.geospatial.hifld_infrastructure.get_settings")
     def test_calls_fetch_dataset(self, mock_settings, mock_fetch):
-        mock_settings.return_value = MagicMock(
-            petroleum_pipelines_base_url="http://test/0"
-        )
+        mock_settings.return_value = MagicMock(petroleum_pipelines_base_url="http://test/0")
         fetch_petroleum_pipelines()
         mock_fetch.assert_called_once()
         _, kwargs = mock_fetch.call_args

@@ -73,11 +73,13 @@ class TestParseTrail:
         assert _parse_trail(feature) is None
 
     def test_optional_fields_can_be_none(self):
-        feature = _make_trail_feature({
-            "name": None,
-            "lengthmiles": None,
-            "primarytrailmaintainer": None,
-        })
+        feature = _make_trail_feature(
+            {
+                "name": None,
+                "lengthmiles": None,
+                "primarytrailmaintainer": None,
+            }
+        )
         result = _parse_trail(feature)
         assert result is not None
         assert result["name"] is None
@@ -93,9 +95,7 @@ class TestFetchTrails:
     @patch("pricepoint.data.geospatial.trails.query_arcgis_page")
     @patch("pricepoint.data.geospatial.trails.get_settings")
     def test_fetches_and_upserts(self, mock_settings, mock_query, mock_session_cls):
-        mock_settings.return_value = MagicMock(
-            trails_base_url="https://example.com/MapServer/37"
-        )
+        mock_settings.return_value = MagicMock(trails_base_url="https://example.com/MapServer/37")
         mock_query.side_effect = [
             {"features": [_make_trail_feature()]},
             {"features": []},
@@ -113,9 +113,7 @@ class TestFetchTrails:
     @patch("pricepoint.data.geospatial.trails.query_arcgis_page")
     @patch("pricepoint.data.geospatial.trails.get_settings")
     def test_skips_null_keys(self, mock_settings, mock_query, mock_session_cls):
-        mock_settings.return_value = MagicMock(
-            trails_base_url="https://example.com/MapServer/37"
-        )
+        mock_settings.return_value = MagicMock(trails_base_url="https://example.com/MapServer/37")
         feature_no_key = _make_trail_feature({"permanentidentifier": None})
         mock_query.side_effect = [
             {"features": [feature_no_key]},
@@ -134,9 +132,7 @@ class TestFetchTrails:
     @patch("pricepoint.data.geospatial.trails.query_arcgis_page")
     @patch("pricepoint.data.geospatial.trails.get_settings")
     def test_stale_cleanup(self, mock_settings, mock_query, mock_session_cls):
-        mock_settings.return_value = MagicMock(
-            trails_base_url="https://example.com/MapServer/37"
-        )
+        mock_settings.return_value = MagicMock(trails_base_url="https://example.com/MapServer/37")
         mock_query.side_effect = [
             {"features": [_make_trail_feature()]},
             {"features": []},

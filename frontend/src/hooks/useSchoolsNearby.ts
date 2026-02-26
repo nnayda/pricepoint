@@ -28,7 +28,7 @@ export function useSchoolsNearby(lat: number | null, lon: number | null): UseSch
       setError(null);
 
       try {
-        const result = await getSchoolsNearby(lat!, lon!);
+        const result = await getSchoolsNearby(lat!, lon!, 25, 200);
         if (!cancelled) {
           setSchools(result.schools);
           setSchoolDistricts(result.school_districts);

@@ -718,7 +718,8 @@ def compute_subdivision_demographics() -> None:
                 ST_Area(ST_Intersection(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))::geography)
                     / NULLIF(ST_Area(tbg.geom::geography), 0) AS weight
             FROM wake_subdivisions ws
-            JOIN tiger_block_groups tbg ON ST_Intersects(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))
+            JOIN tiger_block_groups tbg
+                ON ST_Intersects(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))
             JOIN acs_demographics ad
                 ON tbg.geoid = ad.geoid
                 AND ad.geography_level = 'block_group'

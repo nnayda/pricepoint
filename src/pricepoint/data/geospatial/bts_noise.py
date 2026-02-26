@@ -349,16 +349,7 @@ def _merge_batch_polygons(
 # PostGIS smoothing: staging -> production
 # ---------------------------------------------------------------------------
 _PROMOTE_SQL = """\
-INSERT INTO noises (
-    noise_min_db, noise_max_db, noise_band, source_layer,
-    area_sq_m, geom, loaded_at
-)
-SELECT
-    noise_min_db, noise_max_db, noise_band, source_layer,
-    ST_Area(smoothed::geography) AS area_sq_m,
-    smoothed AS geom,
-    loaded_at
-FROM (
+WITH smoothed_raw AS (
     SELECT
         noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
         ST_Multi(
@@ -372,7 +363,7 @@ FROM (
                 ),
                 :tolerance
             )
-        ) AS smoothed
+        ) AS smoothed_geom
     FROM (
         SELECT *,
             ST_ClusterDBSCAN(geom, eps := :cluster_eps, minpoints := 1)
@@ -381,8 +372,53 @@ FROM (
         WHERE loaded_at = :run_started AND source_layer = :source_layer
     ) clustered
     GROUP BY noise_min_db, noise_max_db, noise_band, source_layer, loaded_at, cluster_id
-) merged
-WHERE NOT ST_IsEmpty(smoothed)
+),
+smoothed AS (
+    SELECT * FROM smoothed_raw
+    WHERE smoothed_geom IS NOT NULL AND NOT ST_IsEmpty(smoothed_geom)
+),
+band_merged AS (
+    SELECT
+        noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
+        ST_Union(smoothed_geom) AS band_geom
+    FROM smoothed
+    GROUP BY noise_min_db, noise_max_db, noise_band, source_layer, loaded_at
+),
+higher_union AS (
+    SELECT
+        b.noise_min_db,
+        ST_Union(louder.band_geom) AS louder_geom
+    FROM band_merged b
+    JOIN band_merged louder ON louder.noise_min_db > b.noise_min_db
+    GROUP BY b.noise_min_db
+),
+cut AS (
+    SELECT
+        b.noise_min_db, b.noise_max_db, b.noise_band,
+        b.source_layer, b.loaded_at,
+        ST_Multi(
+            ST_CollectionExtract(
+                COALESCE(
+                    ST_Difference(b.band_geom, h.louder_geom),
+                    b.band_geom
+                ),
+                3
+            )
+        ) AS cut_geom
+    FROM band_merged b
+    LEFT JOIN higher_union h ON h.noise_min_db = b.noise_min_db
+)
+INSERT INTO noises (
+    noise_min_db, noise_max_db, noise_band, source_layer,
+    area_sq_m, geom, loaded_at
+)
+SELECT
+    noise_min_db, noise_max_db, noise_band, source_layer,
+    ST_Area(cut_geom::geography) AS area_sq_m,
+    cut_geom AS geom,
+    loaded_at
+FROM cut
+WHERE cut_geom IS NOT NULL AND NOT ST_IsEmpty(cut_geom)
 """
 
 

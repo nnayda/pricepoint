@@ -188,7 +188,8 @@ class TestFetchPlaces:
 
         fetch_places()
 
-        # Should have committed multiple times (staging truncate, staging batch, upsert, stale delete)
+        # Should have committed multiple times
+        # (staging truncate, staging batch, upsert, stale delete)
         assert mock_session.commit.call_count >= 2
         # ORM add_all should NOT be called (we use Core insert)
         mock_session.add_all.assert_not_called()

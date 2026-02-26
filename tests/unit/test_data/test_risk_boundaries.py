@@ -29,13 +29,13 @@ class TestGetDistances:
 
     def test_nat_gas_pipelines(self):
         distances = _get_distances("nat_gas_pipelines")
-        assert distances["critical"] == pytest.approx(600 * _FT_TO_M)
-        assert distances["caution"] == pytest.approx(5280 * _FT_TO_M)
+        assert distances["critical"] == pytest.approx(300 * _FT_TO_M)
+        assert distances["caution"] == pytest.approx(1000 * _FT_TO_M)
 
     def test_petroleum_pipelines(self):
         distances = _get_distances("petroleum_pipelines")
-        assert distances["critical"] == pytest.approx(600 * _FT_TO_M)
-        assert distances["caution"] == pytest.approx(5280 * _FT_TO_M)
+        assert distances["critical"] == pytest.approx(300 * _FT_TO_M)
+        assert distances["caution"] == pytest.approx(1000 * _FT_TO_M)
 
     def test_power_plant_nuclear(self):
         distances = _get_distances("power_plants", "Nuclear")

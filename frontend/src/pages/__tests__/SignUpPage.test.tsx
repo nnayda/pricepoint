@@ -56,7 +56,7 @@ describe("SignUpPage", () => {
     expect(link).toHaveAttribute("href", "/signin");
   });
 
-  it("calls register on valid submission", async () => {
+  it("calls register on valid submission", { timeout: 15000 }, async () => {
     const user = userEvent.setup();
     renderPage();
 

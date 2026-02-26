@@ -34,19 +34,13 @@ def upgrade() -> None:
     # -- Rename indexes on renamed tables --
     op.execute("ALTER INDEX ix_hifld_cell_towers_geom RENAME TO ix_cell_towers_geom")
     op.execute("ALTER INDEX ix_hifld_cell_towers_objectid RENAME TO ix_cell_towers_objectid")
-    op.execute(
-        "ALTER INDEX ix_hifld_transmission_lines_geom RENAME TO ix_transmission_lines_geom"
-    )
+    op.execute("ALTER INDEX ix_hifld_transmission_lines_geom RENAME TO ix_transmission_lines_geom")
     op.execute(
         "ALTER INDEX ix_hifld_transmission_lines_objectid RENAME TO ix_transmission_lines_objectid"
     )
     op.execute("ALTER INDEX ix_hifld_power_plants_geom RENAME TO ix_power_plants_geom")
-    op.execute(
-        "ALTER INDEX ix_hifld_power_plants_objectid RENAME TO ix_power_plants_objectid"
-    )
-    op.execute(
-        "ALTER INDEX ix_hifld_nat_gas_pipelines_geom RENAME TO ix_nat_gas_pipelines_geom"
-    )
+    op.execute("ALTER INDEX ix_hifld_power_plants_objectid RENAME TO ix_power_plants_objectid")
+    op.execute("ALTER INDEX ix_hifld_nat_gas_pipelines_geom RENAME TO ix_nat_gas_pipelines_geom")
     op.execute(
         "ALTER INDEX ix_hifld_nat_gas_pipelines_objectid RENAME TO ix_nat_gas_pipelines_objectid"
     )
@@ -57,9 +51,7 @@ def upgrade() -> None:
         "ALTER INDEX ix_hifld_petroleum_pipelines_objectid"
         " RENAME TO ix_petroleum_pipelines_objectid"
     )
-    op.execute(
-        "ALTER INDEX ix_hifld_power_plants_name RENAME TO ix_power_plants_name"
-    )
+    op.execute("ALTER INDEX ix_hifld_power_plants_name RENAME TO ix_power_plants_name")
 
 
 def downgrade() -> None:
@@ -75,19 +67,13 @@ def downgrade() -> None:
     op.execute(
         "ALTER INDEX ix_nat_gas_pipelines_objectid RENAME TO ix_hifld_nat_gas_pipelines_objectid"
     )
-    op.execute(
-        "ALTER INDEX ix_nat_gas_pipelines_geom RENAME TO ix_hifld_nat_gas_pipelines_geom"
-    )
-    op.execute(
-        "ALTER INDEX ix_power_plants_objectid RENAME TO ix_hifld_power_plants_objectid"
-    )
+    op.execute("ALTER INDEX ix_nat_gas_pipelines_geom RENAME TO ix_hifld_nat_gas_pipelines_geom")
+    op.execute("ALTER INDEX ix_power_plants_objectid RENAME TO ix_hifld_power_plants_objectid")
     op.execute("ALTER INDEX ix_power_plants_geom RENAME TO ix_hifld_power_plants_geom")
     op.execute(
         "ALTER INDEX ix_transmission_lines_objectid RENAME TO ix_hifld_transmission_lines_objectid"
     )
-    op.execute(
-        "ALTER INDEX ix_transmission_lines_geom RENAME TO ix_hifld_transmission_lines_geom"
-    )
+    op.execute("ALTER INDEX ix_transmission_lines_geom RENAME TO ix_hifld_transmission_lines_geom")
     op.execute("ALTER INDEX ix_cell_towers_objectid RENAME TO ix_hifld_cell_towers_objectid")
     op.execute("ALTER INDEX ix_cell_towers_geom RENAME TO ix_hifld_cell_towers_geom")
 

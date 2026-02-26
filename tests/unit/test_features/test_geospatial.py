@@ -244,23 +244,17 @@ class TestBuildGeospatialFeatures:
 
         # We need 8 execute calls: 4 per batch
         dist_rows_1 = [
-            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)
-            for pid in ids[:BATCH_SIZE]
+            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0) for pid in ids[:BATCH_SIZE]
         ]
         agg_rows_1 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[:BATCH_SIZE]]
-        contain_rows_1 = [
-            (pid, "37183052403", "371830524031", "Test") for pid in ids[:BATCH_SIZE]
-        ]
+        contain_rows_1 = [(pid, "37183052403", "371830524031", "Test") for pid in ids[:BATCH_SIZE]]
         llm_rows_1 = [(pid, 8, 7) for pid in ids[:BATCH_SIZE]]
 
         dist_rows_2 = [
-            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)
-            for pid in ids[BATCH_SIZE:]
+            (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0) for pid in ids[BATCH_SIZE:]
         ]
         agg_rows_2 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[BATCH_SIZE:]]
-        contain_rows_2 = [
-            (pid, "37183052403", "371830524031", "Test") for pid in ids[BATCH_SIZE:]
-        ]
+        contain_rows_2 = [(pid, "37183052403", "371830524031", "Test") for pid in ids[BATCH_SIZE:]]
         llm_rows_2 = [(pid, 8, 7) for pid in ids[BATCH_SIZE:]]
 
         db = MagicMock()

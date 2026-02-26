@@ -343,9 +343,7 @@ def build_schools_gold(session: Session) -> int:
     # Remove schools whose NCES records no longer exist (school closures)
     # The minimum-count guard above ensures seen_nces_ids is never empty here.
     stale_schools = (
-        session.execute(select(School).where(School.nces_id.notin_(seen_nces_ids)))
-        .scalars()
-        .all()
+        session.execute(select(School).where(School.nces_id.notin_(seen_nces_ids))).scalars().all()
     )
     for stale in stale_schools:
         # Cascade-delete their PropertySchool links
