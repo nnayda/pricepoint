@@ -1,4 +1,4 @@
-"""Greenspace endpoint — returns trails from PostGIS spatial queries."""
+"""Greenspace endpoint — returns parks and trails from PostGIS spatial queries."""
 
 import hashlib
 import json
@@ -17,7 +17,7 @@ from pricepoint.api.schemas.greenspace import (
     GreenspaceMetrics,
     GreenspaceResponse,
 )
-from pricepoint.db.models import Trail
+from pricepoint.db.models import Greenspace, Trail
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,27 @@ def _build_greenways_query(property_point, radius_meters: float):  # noqa: ANN00
     return trails_q.cte("all_greenways")
 
 
+def _build_parks_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
+    """Build a query for greenspaces from the PAD-US table."""
+    parks_q = select(
+        cast(Greenspace.id, String).label("feature_id"),
+        func.coalesce(Greenspace.name, "Unknown Park").label("name"),
+        literal("park").label("feature_type"),
+        ST_Y(func.ST_Centroid(Greenspace.geom)).label("lat"),
+        ST_X(func.ST_Centroid(Greenspace.geom)).label("lon"),
+        (_st_distance_geography(Greenspace.geom, property_point) / METERS_PER_MILE).label(
+            "distance_miles"
+        ),
+        Greenspace.gis_acres.label("acreage"),
+        literal("padus").label("source"),
+    ).where(
+        Greenspace.geom.isnot(None),
+        _st_dwithin_geography(Greenspace.geom, property_point, radius_meters),
+    )
+
+    return parks_q.cte("all_parks")
+
+
 def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
     """Build a deterministic cache key for the greenspace query."""
     raw = f"greenspace:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}"
@@ -96,7 +117,22 @@ async def get_greenspace(
     # Build geography point
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    # Query greenways
+    # Query parks (PAD-US greenspaces)
+    parks_cte = _build_parks_query(property_point, radius_meters)
+    park_rows = db.execute(
+        select(
+            parks_cte.c.feature_id,
+            parks_cte.c.name,
+            parks_cte.c.feature_type,
+            parks_cte.c.lat,
+            parks_cte.c.lon,
+            parks_cte.c.distance_miles,
+            parks_cte.c.acreage,
+            parks_cte.c.source,
+        ).order_by(parks_cte.c.distance_miles)
+    ).all()
+
+    # Query greenways (trails)
     greenways_cte = _build_greenways_query(property_point, radius_meters)
     greenway_rows = db.execute(
         select(
@@ -112,6 +148,20 @@ async def get_greenspace(
 
     # Build features list
     features: list[GreenspaceFeature] = []
+
+    for row in park_rows:
+        if row.lat is not None and row.lon is not None:
+            features.append(
+                GreenspaceFeature(
+                    id=f"park-{row.source}-{row.feature_id}",
+                    name=row.name,
+                    feature_type="park",
+                    lat=round(row.lat, 6),
+                    lon=round(row.lon, 6),
+                    distance_miles=round(row.distance_miles, 2),
+                    acreage=round(row.acreage, 1) if row.acreage else None,
+                )
+            )
 
     for row in greenway_rows:
         if row.lat is not None and row.lon is not None:
@@ -130,10 +180,11 @@ async def get_greenspace(
     # Sort all features by distance
     features.sort(key=lambda f: f.distance_miles)
 
-    # Park metrics default to 0 (parks removed — will be re-added via gold tables)
-    parks_within_1mi = 0
-    nearest_park_miles = 0.0
-    total_green_acres_1mi = 0.0
+    # Compute park metrics from PAD-US data
+    parks_within_1mi_rows = [r for r in park_rows if r.distance_miles <= 1.0]
+    parks_within_1mi = len(parks_within_1mi_rows)
+    nearest_park_miles = round(park_rows[0].distance_miles, 2) if park_rows else 0.0
+    total_green_acres_1mi = round(sum(r.acreage or 0.0 for r in parks_within_1mi_rows), 1)
 
     nearest_greenway_miles = (
         round(min(row.distance_miles for row in greenway_rows), 2) if greenway_rows else 0.0

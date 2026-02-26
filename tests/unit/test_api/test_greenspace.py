@@ -38,12 +38,61 @@ def _make_greenway_row(
     )
 
 
-@pytest.fixture
-def greenspace_app():
-    """Create a test app with mocked DB returning greenway data."""
-    app = create_app()
+def _make_park_row(
+    feature_id="1",
+    name="Test Park",
+    feature_type="park",
+    lat=35.79,
+    lon=-78.78,
+    distance_miles=0.5,
+    acreage=12.5,
+    source="padus",
+):
+    return _FakeRow(
+        feature_id=feature_id,
+        name=name,
+        feature_type=feature_type,
+        lat=lat,
+        lon=lon,
+        distance_miles=distance_miles,
+        acreage=acreage,
+        source=source,
+    )
+
+
+def _mock_session_with(park_rows=None, greenway_rows=None):
+    """Create a mock session that returns park and greenway rows."""
     mock_session = MagicMock()
 
+    mock_park_result = MagicMock()
+    mock_park_result.all.return_value = park_rows or []
+
+    mock_greenway_result = MagicMock()
+    mock_greenway_result.all.return_value = greenway_rows or []
+
+    mock_session.execute.side_effect = [mock_park_result, mock_greenway_result]
+    return mock_session
+
+
+@pytest.fixture
+def greenspace_app():
+    """Create a test app with mocked DB returning park and greenway data."""
+    app = create_app()
+
+    park_rows = [
+        _make_park_row(
+            feature_id="10",
+            name="Umstead State Park",
+            distance_miles=0.5,
+            acreage=55.3,
+        ),
+        _make_park_row(
+            feature_id="20",
+            name="Lake Johnson Park",
+            distance_miles=1.5,
+            acreage=28.0,
+        ),
+    ]
     greenway_rows = [
         _make_greenway_row(
             feature_id="100",
@@ -59,10 +108,7 @@ def greenspace_app():
         ),
     ]
 
-    mock_greenway_result = MagicMock()
-    mock_greenway_result.all.return_value = greenway_rows
-
-    mock_session.execute.side_effect = [mock_greenway_result]
+    mock_session = _mock_session_with(park_rows, greenway_rows)
 
     def _override_get_db():
         yield mock_session
@@ -86,12 +132,7 @@ def greenspace_client(greenspace_app):
 def empty_greenspace_app():
     """Create a test app with mocked DB returning no greenspace data."""
     app = create_app()
-    mock_session = MagicMock()
-
-    mock_greenway_result = MagicMock()
-    mock_greenway_result.all.return_value = []
-
-    mock_session.execute.side_effect = [mock_greenway_result]
+    mock_session = _mock_session_with([], [])
 
     def _override_get_db():
         yield mock_session
@@ -155,6 +196,7 @@ class TestGreenspaceResponseShape:
         for field in [
             "parks_within_1mi",
             "nearest_park_miles",
+            "nearest_greenway_miles",
             "total_green_acres_1mi",
             "greenspace_z_score",
         ]:
@@ -165,9 +207,9 @@ class TestGreenspaceWithData:
     """Tests that verify real data processing from mocked DB rows."""
 
     def test_total_features_count(self, greenspace_client):
-        """Should return 2 greenways."""
+        """Should return 4 features (2 parks + 2 trails)."""
         resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
-        assert len(resp.json()["features"]) == 2
+        assert len(resp.json()["features"]) == 4
 
     def test_trail_features_have_no_acreage(self, greenspace_client):
         """Trail features should have null acreage."""
@@ -177,23 +219,35 @@ class TestGreenspaceWithData:
         for trail in trails:
             assert trail["acreage"] is None
 
-    def test_parks_within_1mi_metric(self, greenspace_client):
-        """Park metrics default to 0 (parks removed)."""
+    def test_park_features_have_acreage(self, greenspace_client):
+        """Park features should have acreage set."""
         resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
-        assert resp.json()["metrics"]["parks_within_1mi"] == 0
+        parks = [f for f in resp.json()["features"] if f["feature_type"] == "park"]
+        assert len(parks) == 2
+        assert parks[0]["acreage"] == 55.3
+
+    def test_parks_within_1mi_metric(self, greenspace_client):
+        """Should count parks within 1 mile (Umstead at 0.5mi)."""
+        resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
+        assert resp.json()["metrics"]["parks_within_1mi"] == 1
 
     def test_nearest_park_miles(self, greenspace_client):
-        """Nearest park defaults to 0.0 (parks removed)."""
+        """Nearest park should be Umstead at 0.5mi."""
         resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
-        assert resp.json()["metrics"]["nearest_park_miles"] == 0.0
+        assert resp.json()["metrics"]["nearest_park_miles"] == 0.5
+
+    def test_nearest_greenway_miles(self, greenspace_client):
+        """Nearest greenway should be Black Creek at 0.3mi."""
+        resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
+        assert resp.json()["metrics"]["nearest_greenway_miles"] == 0.3
 
     def test_total_green_acres_1mi(self, greenspace_client):
-        """Green acres defaults to 0.0 (parks removed)."""
+        """Green acres within 1mi should only count Umstead (55.3)."""
         resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
-        assert resp.json()["metrics"]["total_green_acres_1mi"] == 0.0
+        assert resp.json()["metrics"]["total_green_acres_1mi"] == 55.3
 
     def test_greenspace_z_score_zero(self, greenspace_client):
-        """Z-score defaults to 0.0 (parks removed)."""
+        """Z-score defaults to 0.0."""
         resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["metrics"]["greenspace_z_score"] == 0.0
 
@@ -209,6 +263,13 @@ class TestGreenspaceWithData:
         ids = [f["id"] for f in resp.json()["features"]]
         assert any("trail-wake-" in i for i in ids)
         assert any("trail-raleigh-" in i for i in ids)
+        assert any("park-padus-" in i for i in ids)
+
+    def test_park_feature_type_is_park(self, greenspace_client):
+        """Park features should have feature_type 'park'."""
+        resp = greenspace_client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
+        parks = [f for f in resp.json()["features"] if f["feature_type"] == "park"]
+        assert len(parks) == 2
 
 
 class TestGreenspaceEmptyResults:
@@ -228,6 +289,7 @@ class TestGreenspaceEmptyResults:
         metrics = resp.json()["metrics"]
         assert metrics["parks_within_1mi"] == 0
         assert metrics["nearest_park_miles"] == 0.0
+        assert metrics["nearest_greenway_miles"] == 0.0
         assert metrics["total_green_acres_1mi"] == 0.0
 
 
@@ -290,6 +352,7 @@ class TestGreenspaceValkeyCaching:
             "metrics": {
                 "parks_within_1mi": 0,
                 "nearest_park_miles": 0.0,
+                "nearest_greenway_miles": 0.0,
                 "total_green_acres_1mi": 0.0,
                 "greenspace_z_score": 0.0,
             },
@@ -316,14 +379,10 @@ class TestGreenspaceValkeyCaching:
     def test_cache_miss_queries_db_and_caches(self):
         """When cache misses, should query DB and write to cache."""
         app = create_app()
-        mock_session = MagicMock()
         mock_valkey = AsyncMock()
         mock_valkey.get.return_value = None  # Cache miss
 
-        mock_greenway_result = MagicMock()
-        mock_greenway_result.all.return_value = []
-
-        mock_session.execute.side_effect = [mock_greenway_result]
+        mock_session = _mock_session_with([], [])
 
         def _override_get_db():
             yield mock_session
@@ -337,8 +396,8 @@ class TestGreenspaceValkeyCaching:
         client = TestClient(app)
         resp = client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
-        # DB was queried (greenways only = 1 call)
-        assert mock_session.execute.call_count == 1
+        # DB was queried (parks + greenways = 2 calls)
+        assert mock_session.execute.call_count == 2
         # Cache was written
         mock_valkey.set.assert_called_once()
         app.dependency_overrides.clear()

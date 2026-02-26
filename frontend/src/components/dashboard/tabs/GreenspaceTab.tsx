@@ -1,14 +1,37 @@
-import { useState } from "react";
-import type { DashboardData } from "../../../types";
+import { useState, useMemo } from "react";
+import type { DashboardData, GreenspaceFeature } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { TreesIcon, FootprintsIcon, MapPinIcon } from "../ui/Icons";
+import { useGreenspace } from "../../../hooks/useGreenspace";
 
 interface GreenspaceTabProps {
   data: DashboardData;
 }
 
 type MapScope = "subdivision" | "neighborhood" | "town";
+
+interface DisplayFeature {
+  id: string;
+  name: string;
+  type: string;
+  lat: number;
+  lon: number;
+  distance_miles: number;
+  acreage: number;
+}
+
+function mapApiFeature(f: GreenspaceFeature): DisplayFeature {
+  return {
+    id: f.id,
+    name: f.name,
+    type: f.feature_type === "park" ? "Park" : "Trail",
+    lat: f.lat,
+    lon: f.lon,
+    distance_miles: f.distance_miles,
+    acreage: f.acreage ?? 0,
+  };
+}
 
 function FeatureCard({
   feature,
@@ -17,7 +40,7 @@ function FeatureCard({
   onLeave,
   onClick,
 }: {
-  feature: DashboardData["greenspace"]["features"][number];
+  feature: DisplayFeature;
   isSelected: boolean;
   onHover: () => void;
   onLeave: () => void;
@@ -30,16 +53,18 @@ function FeatureCard({
         backgroundColor: isSelected
           ? "var(--color-db-accent-muted)"
           : "var(--color-db-surface-alt)",
-        borderColor: isSelected
-          ? "var(--color-db-accent)"
-          : "var(--color-db-border-subtle)",
+        borderColor: isSelected ? "var(--color-db-accent)" : "var(--color-db-border-subtle)",
       }}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onClick={onClick}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-db-surface)]">
-        <span style={{ color: feature.type === "Park" ? "var(--color-db-green)" : "var(--color-db-cyan)" }}>
+        <span
+          style={{
+            color: feature.type === "Park" ? "var(--color-db-green)" : "var(--color-db-cyan)",
+          }}
+        >
           {feature.type === "Park" ? <TreesIcon size={18} /> : <FootprintsIcon size={18} />}
         </span>
       </div>
@@ -73,18 +98,36 @@ const SCOPE_ZOOM: Record<MapScope, number> = {
 };
 
 function GreenspaceTab({ data }: GreenspaceTabProps) {
-  const { greenspace, property } = data;
+  const { property } = data;
+  const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapScope, setMapScope] = useState<MapScope>("neighborhood");
 
-  const markers = greenspace.features.map((f) => ({
+  const displayFeatures = useMemo(
+    () => greenspaceData.features.map(mapApiFeature),
+    [greenspaceData.features],
+  );
+
+  const parkCount = useMemo(
+    () => displayFeatures.filter((f) => f.type === "Park").length,
+    [displayFeatures],
+  );
+
+  const trailCount = useMemo(
+    () => displayFeatures.filter((f) => f.type === "Trail").length,
+    [displayFeatures],
+  );
+
+  const markers = displayFeatures.map((f) => ({
     id: f.id,
     lat: f.lat,
     lon: f.lon,
     label: `${f.name} (${f.type})`,
     color: f.type === "Park" ? "#34D399" : "#22D3EE",
   }));
+
+  const { metrics } = greenspaceData;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -94,21 +137,36 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Green Features
           </h3>
-          <div className="flex flex-col gap-2">
-            {greenspace.features.map((f) => {
-              const isSelected2 = selectedId === f.id;
-              return (
-                <FeatureCard
-                  key={f.id}
-                  feature={f}
-                  isSelected={isSelected2}
-                  onHover={() => setHoveredId(f.id)}
-                  onLeave={() => setHoveredId(null)}
-                  onClick={() => setSelectedId(isSelected2 ? null : f.id)}
+          {loading ? (
+            <div className="flex flex-col gap-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-20 animate-pulse rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)]"
                 />
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : displayFeatures.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
+              No greenspaces or trails found nearby.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {displayFeatures.map((f) => {
+                const isSelected2 = selectedId === f.id;
+                return (
+                  <FeatureCard
+                    key={f.id}
+                    feature={f}
+                    isSelected={isSelected2}
+                    onHover={() => setHoveredId(f.id)}
+                    onLeave={() => setHoveredId(null)}
+                    onClick={() => setSelectedId(isSelected2 ? null : f.id)}
+                  />
+                );
+              })}
+            </div>
+          )}
         </DashboardCard>
       </div>
 
@@ -138,25 +196,30 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
           </div>
           <div className="mb-3 flex justify-center gap-2">
             {[
-              { label: "Walk Time", value: `${greenspace.walk_minutes_nearest} min` },
-              { label: "Parks (1mi)", value: String(greenspace.parks_within_1mi) },
-              { label: "Trails (1mi)", value: String(greenspace.trails_within_1mi) },
-              { label: "% Green", value: `${greenspace.pct_greenspace}%` },
-              { label: "Tree Canopy", value: `${greenspace.tree_canopy_pct}%` },
-              { label: "Dog Park", value: greenspace.has_dog_park ? "Yes" : "No" },
+              { label: "Parks", value: String(parkCount) },
+              { label: "Trails", value: String(trailCount) },
+              {
+                label: "Nearest Park",
+                value: metrics.nearest_park_miles > 0 ? `${metrics.nearest_park_miles} mi` : "—",
+              },
+              {
+                label: "Nearest Trail",
+                value:
+                  metrics.nearest_greenway_miles > 0 ? `${metrics.nearest_greenway_miles} mi` : "—",
+              },
+              {
+                label: "Green Acres",
+                value: metrics.total_green_acres_1mi > 0 ? `${metrics.total_green_acres_1mi}` : "—",
+              },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className="flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
               >
-                <span
-                  className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
-                >
+                <span className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]">
                   {stat.label}
                 </span>
-                <span
-                  className="font-db-mono text-xs font-semibold text-[var(--color-db-text-primary)]"
-                >
+                <span className="font-db-mono text-xs font-semibold text-[var(--color-db-text-primary)]">
                   {stat.value}
                 </span>
               </div>
@@ -167,7 +230,13 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               center={[property.lat, property.lon]}
               zoom={SCOPE_ZOOM[mapScope]}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: "#6366F1", isProperty: true },
+                {
+                  lat: property.lat,
+                  lon: property.lon,
+                  label: "Property",
+                  color: "#6366F1",
+                  isProperty: true,
+                },
                 ...markers,
               ]}
               height="100%"

@@ -237,6 +237,7 @@ export interface GreenspaceFeature {
 export interface GreenspaceMetrics {
   parks_within_1mi: number;
   nearest_park_miles: number;
+  nearest_greenway_miles: number;
   total_green_acres_1mi: number;
   greenspace_z_score: number;
 }

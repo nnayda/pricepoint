@@ -3,6 +3,7 @@ import type {
   DataRequestCreate,
   DataRequestResponse,
   DemographicsApiResponse,
+  GreenspaceResponse,
   NeighborhoodValuationHistory,
   NuisanceSourcesResponse,
   PoisSearchResponse,
@@ -162,6 +163,17 @@ export async function getRisksData(
   radiusMiles: number = 3,
 ): Promise<RisksApiResponse> {
   const { data } = await client.get<RisksApiResponse>("/api/risks", {
+    params: { lat, lon, radius_miles: radiusMiles },
+  });
+  return data;
+}
+
+export async function getGreenspace(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 2,
+): Promise<GreenspaceResponse> {
+  const { data } = await client.get<GreenspaceResponse>("/api/greenspace", {
     params: { lat, lon, radius_miles: radiusMiles },
   });
   return data;
