@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import L from "leaflet";
 import { GeoJSON } from "react-leaflet";
 import type { DashboardData, NegativePoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
@@ -284,9 +285,27 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     if (layer === "road") return { color: "#3B82F6", weight: 2, opacity: 0.7 };
     if (layer === "railroad")
       return { color: "#F97316", weight: 2, opacity: 0.7, dashArray: "6 4" };
-    if (layer === "airport") return { color: "#EF4444", weight: 1, fillOpacity: 0.5 };
+    if (layer === "airport")
+      return { color: "#EF4444", weight: 1, fillColor: "#EF4444", fillOpacity: 0.5 };
     return { color: "#94A3B8", weight: 1 };
   }, []);
+
+  const infraPointToLayer = useCallback(
+    (feature: GeoJSON.Feature, latlng: L.LatLng): L.Layer => {
+      const layer = feature.properties?.layer;
+      if (layer === "airport") {
+        return L.circleMarker(latlng, {
+          radius: 6,
+          color: "#EF4444",
+          fillColor: "#EF4444",
+          fillOpacity: 0.7,
+          weight: 2,
+        });
+      }
+      return L.circleMarker(latlng, { radius: 4, color: "#94A3B8", fillOpacity: 0.5, weight: 1 });
+    },
+    [],
+  );
 
   const onEachInfraFeature = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
     const props = feature.properties;
@@ -438,6 +457,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                   key={`infra-${filteredInfraData.features.length}-${activeInfra.size}`}
                   data={filteredInfraData}
                   style={infraStyle}
+                  pointToLayer={infraPointToLayer}
                   onEachFeature={onEachInfraFeature}
                 />
               )}

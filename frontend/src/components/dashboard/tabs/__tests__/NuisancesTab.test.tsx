@@ -52,11 +52,45 @@ const mockNoiseFeatures: GeoJSON.Feature[] = [
   },
 ];
 
+const mockInfraFeatures: GeoJSON.Feature[] = [
+  {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [-78.79, 35.88] },
+    properties: { layer: "airport", name: "RDU International", iata_code: "RDU" },
+  },
+  {
+    type: "Feature",
+    geometry: {
+      type: "MultiLineString",
+      coordinates: [
+        [
+          [-78.8, 35.8],
+          [-78.7, 35.9],
+        ],
+      ],
+    },
+    properties: { layer: "road", fullname: "US-401" },
+  },
+  {
+    type: "Feature",
+    geometry: {
+      type: "MultiLineString",
+      coordinates: [
+        [
+          [-78.85, 35.85],
+          [-78.75, 35.95],
+        ],
+      ],
+    },
+    properties: { layer: "railroad", rrowner1: "CSX", subdivision: "Raleigh" },
+  },
+];
+
 const EMPTY_COLLECTION = { type: "FeatureCollection" as const, features: [] };
 
 const mockUseNuisancesReturn = {
   data: { type: "FeatureCollection" as const, features: mockNoiseFeatures },
-  infraData: EMPTY_COLLECTION,
+  infraData: EMPTY_COLLECTION as GeoJSON.FeatureCollection,
   loading: false,
   infraLoading: false,
 };
@@ -82,8 +116,18 @@ vi.mock("react-leaflet", () => ({
   TileLayer: () => <div data-testid="tile-layer" />,
   Marker: () => <div data-testid="marker" />,
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  GeoJSON: ({ data }: { data: GeoJSON.FeatureCollection }) => (
-    <div data-testid="geojson-layer" data-feature-count={data.features.length} />
+  GeoJSON: ({
+    data,
+    pointToLayer,
+  }: {
+    data: GeoJSON.FeatureCollection;
+    pointToLayer?: unknown;
+  }) => (
+    <div
+      data-testid="geojson-layer"
+      data-feature-count={data.features.length}
+      data-has-point-to-layer={pointToLayer ? "true" : "false"}
+    />
   ),
   useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
@@ -266,5 +310,89 @@ describe("NuisancesTab", () => {
     render(<NuisancesTab data={mockDashboardData} />);
 
     expect(screen.queryByText("No nuisances found")).not.toBeInTheDocument();
+  });
+
+  describe("infrastructure geometry layers", () => {
+    beforeEach(() => {
+      mockUseNuisancesReturn.infraData = {
+        type: "FeatureCollection",
+        features: mockInfraFeatures,
+      };
+    });
+
+    it("renders 3 infrastructure toggle buttons (Roads, Rail, Airports)", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+      expect(screen.getByText("Roads")).toBeInTheDocument();
+      expect(screen.getByText("Rail")).toBeInTheDocument();
+      expect(screen.getByText("Airports")).toBeInTheDocument();
+    });
+
+    it("infrastructure layers are off by default", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+      const layers = screen.getAllByTestId("geojson-layer");
+      // Only the noise layer should be present, not infrastructure
+      expect(layers).toHaveLength(1);
+    });
+
+    it("toggling Airports on shows infrastructure GeoJSON layer with pointToLayer", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      fireEvent.click(screen.getByText("Airports"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      // noise + infra
+      expect(layers).toHaveLength(2);
+      const infraLayer = layers[1];
+      expect(infraLayer.getAttribute("data-feature-count")).toBe("1");
+      expect(infraLayer.getAttribute("data-has-point-to-layer")).toBe("true");
+    });
+
+    it("toggling Roads on shows road features", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      fireEvent.click(screen.getByText("Roads"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      expect(layers).toHaveLength(2);
+      expect(layers[1].getAttribute("data-feature-count")).toBe("1");
+    });
+
+    it("toggling all infrastructure layers on shows all 3 features", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      fireEvent.click(screen.getByText("Roads"));
+      fireEvent.click(screen.getByText("Rail"));
+      fireEvent.click(screen.getByText("Airports"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      expect(layers).toHaveLength(2);
+      expect(layers[1].getAttribute("data-feature-count")).toBe("3");
+    });
+
+    it("toggling an infrastructure layer off removes its features", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      // Turn on all
+      fireEvent.click(screen.getByText("Roads"));
+      fireEvent.click(screen.getByText("Rail"));
+      fireEvent.click(screen.getByText("Airports"));
+
+      // Turn off roads
+      fireEvent.click(screen.getByText("Roads"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      expect(layers).toHaveLength(2);
+      expect(layers[1].getAttribute("data-feature-count")).toBe("2");
+    });
+
+    it("infrastructure GeoJSON always includes pointToLayer prop", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      fireEvent.click(screen.getByText("Roads"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      const infraLayer = layers[1];
+      expect(infraLayer.getAttribute("data-has-point-to-layer")).toBe("true");
+    });
   });
 });

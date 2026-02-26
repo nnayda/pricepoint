@@ -292,3 +292,170 @@ class TestNoiseCacheKey:
         k1 = _cache_key(35.79, -78.78, 2.0)
         k2 = _cache_key(35.79, -78.78, 5.0)
         assert k1 != k2
+
+
+# --- Geometries endpoint tests ---
+
+
+def _make_road_row(fullname="US-401"):
+    return _FakeRow(
+        geojson='{"type":"MultiLineString","coordinates":[[[-78.8,35.8],[-78.7,35.9]]]}',
+        fullname=fullname,
+    )
+
+
+def _make_airport_row(name="RDU International", iata_code="RDU"):
+    return _FakeRow(
+        geojson='{"type":"Point","coordinates":[-78.79,35.88]}',
+        name=name,
+        iata_code=iata_code,
+    )
+
+
+def _make_railroad_row(rrowner1="CSX", subdivision="Raleigh"):
+    return _FakeRow(
+        geojson='{"type":"MultiLineString","coordinates":[[[-78.85,35.85],[-78.75,35.95]]]}',
+        rrowner1=rrowner1,
+        subdivision=subdivision,
+    )
+
+
+@pytest.fixture
+def geom_app():
+    """Create a test app with mocked DB returning geometry data for all layers."""
+    app = create_app()
+    mock_session = MagicMock()
+
+    road_result = MagicMock()
+    road_result.all.return_value = [_make_road_row()]
+
+    airport_result = MagicMock()
+    airport_result.all.return_value = [_make_airport_row()]
+
+    railroad_result = MagicMock()
+    railroad_result.all.return_value = [_make_railroad_row()]
+
+    mock_session.execute.side_effect = [road_result, airport_result, railroad_result]
+
+    def _override_get_db():
+        yield mock_session
+
+    async def _override_get_valkey():
+        yield None
+
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_valkey] = _override_get_valkey
+    yield app
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def geom_client(geom_app):
+    return TestClient(geom_app)
+
+
+@pytest.fixture
+def empty_geom_app():
+    """Create a test app with mocked DB returning no geometry data."""
+    app = create_app()
+    mock_session = MagicMock()
+
+    empty_result = MagicMock()
+    empty_result.all.return_value = []
+    mock_session.execute.return_value = empty_result
+
+    def _override_get_db():
+        yield mock_session
+
+    async def _override_get_valkey():
+        yield None
+
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_valkey] = _override_get_valkey
+    yield app
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def empty_geom_client(empty_geom_app):
+    return TestClient(empty_geom_app)
+
+
+class TestGeometriesReturns200:
+    def test_returns_200_with_valid_params(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        assert resp.status_code == 200
+
+    def test_response_is_feature_collection(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        data = resp.json()
+        assert data["type"] == "FeatureCollection"
+        assert "features" in data
+
+
+class TestGeometriesResponseShape:
+    def test_returns_all_three_layers(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        layers = {f["properties"]["layer"] for f in features}
+        assert layers == {"road", "airport", "railroad"}
+
+    def test_returns_correct_feature_count(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        assert len(resp.json()["features"]) == 3
+
+    def test_airport_feature_is_point_geometry(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        airport = next(f for f in features if f["properties"]["layer"] == "airport")
+        assert airport["geometry"]["type"] == "Point"
+        assert airport["properties"]["name"] == "RDU International"
+        assert airport["properties"]["iata_code"] == "RDU"
+
+    def test_road_feature_is_multilinestring(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        road = next(f for f in features if f["properties"]["layer"] == "road")
+        assert road["geometry"]["type"] == "MultiLineString"
+        assert road["properties"]["fullname"] == "US-401"
+
+    def test_railroad_feature_is_multilinestring(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        rail = next(f for f in features if f["properties"]["layer"] == "railroad")
+        assert rail["geometry"]["type"] == "MultiLineString"
+        assert rail["properties"]["rrowner1"] == "CSX"
+        assert rail["properties"]["subdivision"] == "Raleigh"
+
+
+class TestGeometriesEmpty:
+    def test_empty_returns_200(self, empty_geom_client):
+        resp = empty_geom_client.get(
+            "/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78}
+        )
+        assert resp.status_code == 200
+
+    def test_empty_features(self, empty_geom_client):
+        resp = empty_geom_client.get(
+            "/api/nuisances/geometries", params={"lat": 35.79, "lon": -78.78}
+        )
+        data = resp.json()
+        assert data["type"] == "FeatureCollection"
+        assert data["features"] == []
+
+
+class TestGeometriesParamValidation:
+    def test_missing_lat_returns_422(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lon": -78.78})
+        assert resp.status_code == 422
+
+    def test_missing_lon_returns_422(self, geom_client):
+        resp = geom_client.get("/api/nuisances/geometries", params={"lat": 35.79})
+        assert resp.status_code == 422
+
+    def test_radius_zero_returns_422(self, geom_client):
+        resp = geom_client.get(
+            "/api/nuisances/geometries",
+            params={"lat": 35.79, "lon": -78.78, "radius_miles": 0},
+        )
+        assert resp.status_code == 422
