@@ -1074,7 +1074,7 @@ class RiskBoundary(Base):
 
 
 class Railroad(Base):
-    """HIFLD North American Rail Network lines filtered to configured state."""
+    """HIFLD North American Rail Network lines (entire US)."""
 
     __tablename__ = "railroads"
     __table_args__ = (Index("ix_railroads_geom", "geom", postgresql_using="gist"),)

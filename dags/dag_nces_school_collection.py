@@ -1,7 +1,7 @@
 """DAG: Collect NCES school directory data.
 
-Manual-trigger DAG that downloads NCES public school data from the EDGE
-ArcGIS REST API and loads it into the nces_schools table.
+Manual-trigger DAG that downloads NCES public school data for the entire US
+from the EDGE ArcGIS REST API and loads it into the nces_schools table.
 """
 
 import logging
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @dag(
     dag_id="nces_school_collection",
-    description="Load NCES public school directory data into PostGIS",
+    description="Load NCES public school directory data (all US) into PostGIS",
     schedule=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,

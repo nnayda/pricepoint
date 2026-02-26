@@ -1,7 +1,8 @@
 """Collect HIFLD infrastructure features.
 
 Downloads cell towers, transmission lines, power plants, natural gas pipelines,
-and petroleum pipelines from HIFLD ArcGIS endpoints and loads them into PostGIS.
+petroleum pipelines, hospitals, and railroads from HIFLD ArcGIS endpoints and
+loads them into PostGIS.
 """
 
 import logging
@@ -247,3 +248,13 @@ def fetch_hospitals() -> None:
 def verify_hospitals() -> None:
     """Verify hospital records were loaded."""
     verify_arcgis_dataset(Hospital, "hifld_hospitals")
+
+
+# -- Railroads ---------------------------------------------------------------
+# Railroad collection logic lives in hifld_railroads.py; re-export here so
+# the infrastructure DAG can import everything from one module.
+
+from pricepoint.data.geospatial.hifld_railroads import (  # noqa: E402, F401
+    fetch_railroads,
+    verify_railroads,
+)

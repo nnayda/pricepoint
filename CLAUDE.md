@@ -110,4 +110,5 @@ Copy `.env.example` to `.env`. Key variables:
 - **Alembic connection:** DB URL set programmatically from `settings.py`, not from `alembic.ini`
 - **Frontend tests:** Must run from `frontend/` directory, not project root
 - **Ruff config:** 100-char line length, target py311
+- **PostGIS geography casts:** Never use `func.cast(col, func.geography)` or `cast(col, text("geography"))` — both break SQLAlchemy 2.0's query cache (`_static_cache_key` error). Always use `from geoalchemy2 import Geography` then `cast(col, Geography())`.
 - **Docker Host** You are running in a container with an attached docker in docker host

@@ -141,11 +141,13 @@ class Settings(BaseSettings):
     bts_noise_bbox_west: float = -79.1
     bts_noise_bbox_east: float = -78.4
     bts_noise_tile_rate_limit: float = 0.05
-    bts_noise_simplify_tolerance: float = 0.0001
+    bts_noise_simplify_tolerance: float = 0.001
     bts_noise_batch_size: int = 10
     bts_noise_min_polygon_area_sq_m: float = 500.0
     bts_noise_morphological_closing: bool = True
     bts_noise_chaikin_iterations: int = 3
+    bts_noise_cluster_eps: float = 0.001  # DBSCAN eps in degrees (~100m)
+    bts_noise_buffer_distance: float = 0.0005  # buffer/unbuffer gap-fill in degrees (~50m)
 
     # Overture Maps Places
     overture_places_s3_path: str = (

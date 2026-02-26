@@ -142,7 +142,7 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
+        result = _fetch_nces_page("https://example.com/MapServer/0", 0)
         assert len(result) == 2
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
@@ -152,7 +152,7 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
+        result = _fetch_nces_page("https://example.com/MapServer/0", 0)
         assert result == []
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
@@ -162,18 +162,31 @@ class TestFetchNcesPage:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_nces_page("https://example.com/MapServer/0", "NC", 2000)
+        _fetch_nces_page("https://example.com/MapServer/0", 2000)
         call_args = mock_get.call_args
         assert call_args[1]["params"]["resultOffset"] == "2000"
 
     @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
-    def test_state_abbr_in_where(self, mock_get):
+    def test_all_us_schools_by_default(self, mock_get):
+        """Without state_abbr, query fetches all active US schools."""
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"features": []}
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_nces_page("https://example.com/MapServer/0", "NC", 0)
+        _fetch_nces_page("https://example.com/MapServer/0", 0)
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["where"] == "STATUS='1'"
+
+    @patch("pricepoint.data.geospatial.nces_schools.httpx.get")
+    def test_state_abbr_filter(self, mock_get):
+        """When state_abbr is provided, query filters by state."""
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"features": []}
+        mock_resp.raise_for_status = MagicMock()
+        mock_get.return_value = mock_resp
+
+        _fetch_nces_page("https://example.com/MapServer/0", 0, state_abbr="NC")
         call_args = mock_get.call_args
         assert "STABR='NC'" in call_args[1]["params"]["where"]
 

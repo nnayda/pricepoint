@@ -6,9 +6,10 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import String, cast, func, literal, select, text, union_all
+from sqlalchemy import String, cast, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
@@ -36,8 +37,8 @@ CACHE_TTL = 604800  # 7 days
 def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
     """ST_DWithin using geography cast for meter-based distance."""
     return func.ST_DWithin(
-        cast(geom_col, text("geography")),
-        cast(point, text("geography")),
+        cast(geom_col, Geography()),
+        cast(point, Geography()),
         radius_meters,
     )
 
@@ -56,8 +57,8 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         ST_X(CellTower.geom).label("lon"),
         (
             func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(CellTower.geom, text("geography")),
+                cast(property_point, Geography()),
+                cast(CellTower.geom, Geography()),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
@@ -75,8 +76,8 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         ST_X(func.ST_Centroid(TransmissionLine.geom)).label("lon"),
         (
             func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(TransmissionLine.geom, text("geography")),
+                cast(property_point, Geography()),
+                cast(TransmissionLine.geom, Geography()),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
@@ -94,8 +95,8 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         ST_X(PowerPlant.geom).label("lon"),
         (
             func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(PowerPlant.geom, text("geography")),
+                cast(property_point, Geography()),
+                cast(PowerPlant.geom, Geography()),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
@@ -113,8 +114,8 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         ST_X(func.ST_Centroid(NatGasPipeline.geom)).label("lon"),
         (
             func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(NatGasPipeline.geom, text("geography")),
+                cast(property_point, Geography()),
+                cast(NatGasPipeline.geom, Geography()),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),
@@ -132,8 +133,8 @@ def _build_features_query(property_point, radius_meters: float):  # noqa: ANN001
         ST_X(func.ST_Centroid(PetroleumPipeline.geom)).label("lon"),
         (
             func.ST_Distance(
-                cast(property_point, text("geography")),
-                cast(PetroleumPipeline.geom, text("geography")),
+                cast(property_point, Geography()),
+                cast(PetroleumPipeline.geom, Geography()),
             )
             / METERS_PER_MILE
         ).label("distance_miles"),

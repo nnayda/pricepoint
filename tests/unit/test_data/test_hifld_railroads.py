@@ -2,20 +2,18 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pricepoint.data.geospatial.hifld_railroads import (
-    _fips_to_state_abbr,
-    _parse_feature,
+    _map_railroad,
     fetch_railroads,
     verify_railroads,
 )
 
 # -- Sample data ---------------------------------------------------------------
 
+_SAMPLE_PATHS = [[[-78.6, 35.8], [-78.7, 35.9]]]
+
 _FULL_FEATURE: dict = {
-    "type": "Feature",
-    "properties": {
+    "attributes": {
         "FRAARCID": 123456,
         "RROWNER1": "CSX Transportation",
         "RROWNER2": None,
@@ -29,195 +27,87 @@ _FULL_FEATURE: dict = {
         "MILES": 12.5,
         "NET": "M",
     },
-    "geometry": {
-        "type": "MultiLineString",
-        "coordinates": [[[-78.6, 35.8], [-78.7, 35.9]]],
-    },
-}
-
-_LINESTRING_FEATURE: dict = {
-    "type": "Feature",
-    "properties": {
-        "FRAARCID": 789012,
-        "RROWNER1": "Norfolk Southern",
-        "RROWNER2": None,
-        "RROWNER3": None,
-        "STATEAB": "NC",
-        "CNTYFIPS": "37183",
-        "SUBDIVISIO": "Branch Line",
-        "BRANCH": "Durham",
-        "PASSNGR": "Y",
-        "TRACKS": 1,
-        "MILES": 5.3,
-        "NET": "M",
-    },
-    "geometry": {
-        "type": "LineString",
-        "coordinates": [[-78.9, 35.7], [-79.0, 35.8]],
-    },
-}
-
-_NO_GEOM_FEATURE: dict = {
-    "type": "Feature",
-    "properties": {
-        "FRAARCID": 999999,
-        "RROWNER1": "Amtrak",
-        "STATEAB": "NC",
-    },
-    "geometry": None,
-}
-
-_NO_FRAARCID_FEATURE: dict = {
-    "type": "Feature",
-    "properties": {
-        "RROWNER1": "Unknown",
-    },
-    "geometry": {
-        "type": "LineString",
-        "coordinates": [[-78.6, 35.8], [-78.7, 35.9]],
-    },
+    "geometry": {"paths": _SAMPLE_PATHS},
 }
 
 
-# -- _fips_to_state_abbr -------------------------------------------------------
+def _make_feature(attrs_override=None, paths=None):
+    attrs = {"FRAARCID": 1}
+    if attrs_override:
+        attrs.update(attrs_override)
+    return {
+        "attributes": attrs,
+        "geometry": {"paths": paths if paths is not None else _SAMPLE_PATHS},
+    }
 
 
-class TestFipsToStateAbbr:
-    def test_known_fips(self):
-        assert _fips_to_state_abbr("37") == "NC"
-        assert _fips_to_state_abbr("06") == "CA"
-
-    def test_unknown_fips_raises(self):
-        with pytest.raises(ValueError, match="Unknown state FIPS"):
-            _fips_to_state_abbr("99")
+# -- _map_railroad -------------------------------------------------------------
 
 
-# -- _parse_feature ------------------------------------------------------------
+class TestMapRailroad:
+    def test_all_fields_mapped(self):
+        record = _map_railroad(_FULL_FEATURE)
+        assert record.fraarcid == 123456
+        assert record.rrowner1 == "CSX Transportation"
+        assert record.rrowner2 is None
+        assert record.rrowner3 is None
+        assert record.stateab == "NC"
+        assert record.cntyfips == "37183"
+        assert record.subdivision == "Main Line"
+        assert record.branch is None
+        assert record.passngr == "N"
+        assert record.tracks == 2
+        assert record.miles == 12.5
+        assert record.net == "M"
+        assert record.geom is not None
 
+    def test_none_geometry(self):
+        feature = _make_feature({"FRAARCID": 999})
+        feature["geometry"] = None
+        record = _map_railroad(feature)
+        assert record.geom is None
+        assert record.fraarcid == 999
 
-class TestParseFeature:
-    def test_full_feature(self):
-        result = _parse_feature(_FULL_FEATURE)
-        assert result is not None
-        assert result["fraarcid"] == 123456
-        assert result["rrowner1"] == "CSX Transportation"
-        assert result["stateab"] == "NC"
-        assert result["cntyfips"] == "37183"
-        assert result["subdivision"] == "Main Line"
-        assert result["passngr"] == "N"
-        assert result["tracks"] == 2
-        assert result["miles"] == 12.5
-        assert result["net"] == "M"
-        assert result["geom"] is not None
-
-    def test_linestring_promoted_to_multi(self):
-        result = _parse_feature(_LINESTRING_FEATURE)
-        assert result is not None
-        assert result["geom"] is not None
-        assert result["fraarcid"] == 789012
-
-    def test_no_geometry(self):
-        result = _parse_feature(_NO_GEOM_FEATURE)
-        assert result is not None
-        assert result["geom"] is None
-        assert result["fraarcid"] == 999999
-
-    def test_no_fraarcid_returns_none(self):
-        result = _parse_feature(_NO_FRAARCID_FEATURE)
-        assert result is None
+    def test_missing_attributes(self):
+        feature = {"attributes": {}, "geometry": None}
+        record = _map_railroad(feature)
+        assert record.fraarcid is None
+        assert record.rrowner1 is None
 
     def test_null_tracks_and_miles(self):
-        feature = {
-            "type": "Feature",
-            "properties": {"FRAARCID": 111, "TRACKS": None, "MILES": None},
-            "geometry": None,
-        }
-        result = _parse_feature(feature)
-        assert result is not None
-        assert result["tracks"] is None
-        assert result["miles"] is None
+        feature = _make_feature({"FRAARCID": 111, "TRACKS": None, "MILES": None})
+        record = _map_railroad(feature)
+        assert record.tracks is None
+        assert record.miles is None
+
+    def test_subdivision_fallback(self):
+        """SUBDIVISIO is preferred, but SUBDIVISION is used as fallback."""
+        feature = _make_feature({"SUBDIVISIO": None, "SUBDIVISION": "Fallback Sub"})
+        record = _map_railroad(feature)
+        assert record.subdivision == "Fallback Sub"
 
 
 # -- fetch_railroads -----------------------------------------------------------
 
 
 class TestFetchRailroads:
-    @patch("pricepoint.data.geospatial.hifld_railroads.SessionLocal")
-    @patch("pricepoint.data.geospatial.hifld_railroads._fetch_page")
+    @patch("pricepoint.data.geospatial.hifld_railroads.fetch_arcgis_dataset")
     @patch("pricepoint.data.geospatial.hifld_railroads.get_settings")
-    def test_fetch_single_page(self, mock_settings, mock_fetch_page, mock_session_cls):
-        settings = MagicMock()
-        settings.hifld_railroads_base_url = "https://example.com/FeatureServer/0"
-        settings.tiger_state_fips = "37"
-        mock_settings.return_value = settings
-
-        mock_fetch_page.side_effect = [[_FULL_FEATURE], []]
-
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-
-        count = fetch_railroads()
-        assert count == 1
-        mock_session.execute.assert_called()
-        mock_session.commit.assert_called()
-        mock_session.close.assert_called_once()
-
-    @patch("pricepoint.data.geospatial.hifld_railroads.SessionLocal")
-    @patch("pricepoint.data.geospatial.hifld_railroads._fetch_page")
-    @patch("pricepoint.data.geospatial.hifld_railroads.get_settings")
-    def test_fetch_empty_response(self, mock_settings, mock_fetch_page, mock_session_cls):
-        settings = MagicMock()
-        settings.hifld_railroads_base_url = "https://example.com/FeatureServer/0"
-        settings.tiger_state_fips = "37"
-        mock_settings.return_value = settings
-
-        mock_fetch_page.return_value = []
-
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-
-        count = fetch_railroads()
-        assert count == 0
-        mock_session.close.assert_called_once()
-
-    @patch("pricepoint.data.geospatial.hifld_railroads.SessionLocal")
-    @patch("pricepoint.data.geospatial.hifld_railroads._fetch_page")
-    @patch("pricepoint.data.geospatial.hifld_railroads.get_settings")
-    def test_fetch_rollback_on_error(self, mock_settings, mock_fetch_page, mock_session_cls):
-        settings = MagicMock()
-        settings.hifld_railroads_base_url = "https://example.com/FeatureServer/0"
-        settings.tiger_state_fips = "37"
-        mock_settings.return_value = settings
-
-        mock_fetch_page.side_effect = RuntimeError("API error")
-
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-
-        with pytest.raises(RuntimeError, match="API error"):
-            fetch_railroads()
-        mock_session.rollback.assert_called_once()
-        mock_session.close.assert_called_once()
+    def test_calls_fetch_dataset(self, mock_settings, mock_fetch):
+        mock_settings.return_value = MagicMock(
+            hifld_railroads_base_url="http://test/FeatureServer/0"
+        )
+        fetch_railroads()
+        mock_fetch.assert_called_once()
+        _, kwargs = mock_fetch.call_args
+        assert kwargs["dataset_name"] == "railroads"
 
 
 # -- verify_railroads ----------------------------------------------------------
 
 
 class TestVerifyRailroads:
-    @patch("pricepoint.data.geospatial.hifld_railroads.SessionLocal")
-    def test_verify_with_records(self, mock_session_cls):
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-        mock_session.execute.return_value.scalar.return_value = 42
-
-        result = verify_railroads()
-        assert result == 42
-
-    @patch("pricepoint.data.geospatial.hifld_railroads.SessionLocal")
-    def test_verify_empty_raises(self, mock_session_cls):
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-        mock_session.execute.return_value.scalar.return_value = 0
-
-        with pytest.raises(RuntimeError, match="No records found"):
-            verify_railroads()
+    @patch("pricepoint.data.geospatial.hifld_railroads.verify_arcgis_dataset")
+    def test_calls_verify_dataset(self, mock_verify):
+        verify_railroads()
+        mock_verify.assert_called_once()

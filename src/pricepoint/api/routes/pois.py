@@ -6,9 +6,10 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_Centroid, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import String, cast, func, literal, select, text, union_all
+from sqlalchemy import String, cast, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
@@ -34,8 +35,8 @@ CACHE_TTL = 604800  # 7 days
 def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
     """ST_DWithin using geography cast for meter-based distance."""
     return func.ST_DWithin(
-        cast(geom_col, text("geography")),
-        cast(point, text("geography")),
+        cast(geom_col, Geography()),
+        cast(point, Geography()),
         radius_meters,
     )
 
@@ -44,8 +45,8 @@ def _distance_miles(geom_col, point):  # noqa: ANN001, ANN201
     """Compute distance in miles between a geometry column and a point."""
     return (
         func.ST_Distance(
-            cast(geom_col, text("geography")),
-            cast(point, text("geography")),
+            cast(geom_col, Geography()),
+            cast(point, Geography()),
         )
         / METERS_PER_MILE
     )

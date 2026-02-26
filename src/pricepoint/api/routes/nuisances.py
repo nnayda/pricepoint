@@ -66,9 +66,12 @@ async def get_noise(
 
     # Query noise polygons within radius using ST_DWithin on geography casts
     geog_type = Geography(srid=4326)
+    # Simplify geometry for GeoJSON output to reduce payload size
+    simplified_geom = func.ST_SimplifyPreserveTopology(TransportationNoise.geom, 0.0005)
+
     stmt = (
         select(
-            func.ST_AsGeoJSON(TransportationNoise.geom).label("geojson"),
+            func.ST_AsGeoJSON(simplified_geom).label("geojson"),
             TransportationNoise.noise_band,
             TransportationNoise.noise_min_db,
             TransportationNoise.noise_max_db,
@@ -344,8 +347,7 @@ async def get_nuisance_geometries(
         select(
             func.ST_AsGeoJSON(Road.geom).label("geojson"),
             Road.fullname,
-        )
-        .where(
+        ).where(
             Road.geom.isnot(None),
             func.ST_DWithin(
                 cast(Road.geom, geog_type),
@@ -369,8 +371,7 @@ async def get_nuisance_geometries(
             func.ST_AsGeoJSON(Airport.geom).label("geojson"),
             Airport.name,
             Airport.iata_code,
-        )
-        .where(
+        ).where(
             Airport.geom.isnot(None),
             func.ST_DWithin(
                 cast(Airport.geom, geog_type),
@@ -398,8 +399,7 @@ async def get_nuisance_geometries(
             func.ST_AsGeoJSON(Railroad.geom).label("geojson"),
             Railroad.rrowner1,
             Railroad.subdivision,
-        )
-        .where(
+        ).where(
             Railroad.geom.isnot(None),
             func.ST_DWithin(
                 cast(Railroad.geom, geog_type),

@@ -363,13 +363,19 @@ FROM (
         noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
         ST_Multi(
             ST_SimplifyPreserveTopology(
-                ST_ChaikinSmoothing(ST_Union(geom), :iterations),
+                ST_ChaikinSmoothing(
+                    ST_Buffer(
+                        ST_Buffer(ST_Union(geom), :buffer_dist),
+                        -:buffer_dist
+                    ),
+                    :iterations
+                ),
                 :tolerance
             )
         ) AS smoothed
     FROM (
         SELECT *,
-            ST_ClusterDBSCAN(geom, eps := 0, minpoints := 1)
+            ST_ClusterDBSCAN(geom, eps := :cluster_eps, minpoints := 1)
                 OVER (PARTITION BY noise_band) AS cluster_id
         FROM staging_noises
         WHERE loaded_at = :run_started AND source_layer = :source_layer
@@ -392,6 +398,8 @@ def _build_noise_production(
         {
             "iterations": settings.bts_noise_chaikin_iterations,
             "tolerance": settings.bts_noise_simplify_tolerance,
+            "cluster_eps": settings.bts_noise_cluster_eps,
+            "buffer_dist": settings.bts_noise_buffer_distance,
             "run_started": run_started,
             "source_layer": source_layer,
         },

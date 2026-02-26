@@ -1,7 +1,8 @@
 """DAG: Collect HIFLD infrastructure features.
 
 Manual-trigger DAG that downloads cell towers, transmission lines, power plants,
-natural gas pipelines, petroleum pipelines, and hospitals from HIFLD into PostGIS.
+natural gas pipelines, petroleum pipelines, hospitals, and railroads from HIFLD
+into PostGIS.
 """
 
 import logging
@@ -110,12 +111,27 @@ def hifld_infrastructure_collection():
 
         verify_hospitals()
 
+    @task()
+    def fetch_railroads():
+        """Fetch HIFLD railroad features."""
+        from pricepoint.data.geospatial.hifld_infrastructure import fetch_railroads
+
+        fetch_railroads()
+
+    @task()
+    def verify_railroads():
+        """Verify that railroad records were loaded."""
+        from pricepoint.data.geospatial.hifld_infrastructure import verify_railroads
+
+        verify_railroads()
+
     fetch_cell_towers() >> verify_cell_towers()
     fetch_transmission_lines() >> verify_transmission_lines()
     fetch_power_plants() >> verify_power_plants()
     fetch_nat_gas_pipelines() >> verify_nat_gas_pipelines()
     fetch_petroleum_pipelines() >> verify_petroleum_pipelines()
     fetch_hospitals() >> verify_hospitals()
+    fetch_railroads() >> verify_railroads()
 
 
 hifld_infrastructure_collection()

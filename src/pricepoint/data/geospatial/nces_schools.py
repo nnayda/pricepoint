@@ -1,7 +1,8 @@
 """Collect NCES school directory data from the EDGE ArcGIS REST API.
 
-Downloads public school data for a configured state and loads it into the
-nces_schools table. Uses pagination to handle large result sets.
+Downloads public school data for the entire US (all states and territories)
+and loads it into the nces_schools table. Uses pagination to handle large
+result sets.
 
 Uses direct upsert (pg_insert ... ON CONFLICT DO UPDATE) keyed on nces_id
 to avoid any window where the table is empty.
@@ -146,13 +147,19 @@ def _fips_to_state_abbr(fips: str) -> str:
     return abbr
 
 
-def _fetch_nces_page(base_url: str, state_abbr: str, offset: int) -> list[dict[str, Any]]:
+def _fetch_nces_page(
+    base_url: str, offset: int, *, state_abbr: str | None = None
+) -> list[dict[str, Any]]:
     """Query NCES EDGE ArcGIS REST API with pagination.
+
+    If *state_abbr* is provided, only schools in that state are returned.
+    Otherwise all active US schools are fetched.
 
     Returns a list of feature attribute dicts for one page.
     """
+    where = f"STABR='{state_abbr}' AND STATUS='1'" if state_abbr else "STATUS='1'"
     params = {
-        "where": f"STABR='{state_abbr}' AND STATUS='1'",
+        "where": where,
         "outFields": ",".join(_ALL_FIELDS),
         "resultOffset": str(offset),
         "resultRecordCount": str(_PAGE_SIZE),
@@ -203,7 +210,7 @@ def _parse_nces_record(feature: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_nces_schools() -> int:
-    """Download all NCES schools for the configured state and upsert into DB.
+    """Download all NCES schools for the entire US and upsert into DB.
 
     Uses pg_insert ... ON CONFLICT DO UPDATE keyed on nces_id so that the
     table is never emptied.  After all pages are upserted, stale rows
@@ -213,7 +220,6 @@ def fetch_nces_schools() -> int:
     """
     settings = get_settings()
     base_url = settings.nces_edge_base_url
-    state_abbr = _fips_to_state_abbr(settings.tiger_state_fips)
 
     run_started = datetime.now(UTC)
 
@@ -223,7 +229,7 @@ def fetch_nces_schools() -> int:
         total = 0
 
         while True:
-            features = _fetch_nces_page(base_url, state_abbr, offset)
+            features = _fetch_nces_page(base_url, offset)
             if not features:
                 break
 

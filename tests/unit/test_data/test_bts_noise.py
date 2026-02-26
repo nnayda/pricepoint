@@ -394,7 +394,9 @@ class TestBuildNoiseProduction:
 
         mock_settings = MagicMock()
         mock_settings.bts_noise_chaikin_iterations = 3
-        mock_settings.bts_noise_simplify_tolerance = 0.0001
+        mock_settings.bts_noise_simplify_tolerance = 0.001
+        mock_settings.bts_noise_cluster_eps = 0.001
+        mock_settings.bts_noise_buffer_distance = 0.0005
 
         run_started = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -408,7 +410,9 @@ class TestBuildNoiseProduction:
         call_args = mock_session.execute.call_args
         params = call_args[0][1]
         assert params["iterations"] == 3
-        assert params["tolerance"] == 0.0001
+        assert params["tolerance"] == 0.001
+        assert params["cluster_eps"] == 0.001
+        assert params["buffer_dist"] == 0.0005
         assert params["run_started"] == run_started
         assert params["source_layer"] == "aviation"
 
@@ -423,7 +427,9 @@ class TestBuildNoiseProduction:
 
         mock_settings = MagicMock()
         mock_settings.bts_noise_chaikin_iterations = 3
-        mock_settings.bts_noise_simplify_tolerance = 0.0001
+        mock_settings.bts_noise_simplify_tolerance = 0.001
+        mock_settings.bts_noise_cluster_eps = 0.001
+        mock_settings.bts_noise_buffer_distance = 0.0005
 
         count = _build_noise_production(
             mock_session, "rail", datetime(2026, 1, 1, tzinfo=UTC), mock_settings
@@ -458,7 +464,7 @@ class TestFetchTransportationNoise:
         settings.bts_noise_base_url = "https://geo.dot.gov/server/rest/services/Hosted"
         settings.bts_noise_tile_rate_limit = 0.0
         settings.bts_noise_batch_size = 100
-        settings.bts_noise_simplify_tolerance = 0.0001
+        settings.bts_noise_simplify_tolerance = 0.001
         settings.bts_noise_min_polygon_area_sq_m = 0.0  # accept all
         settings.bts_noise_bbox_south = 35.78
         settings.bts_noise_bbox_north = 35.82
@@ -466,6 +472,8 @@ class TestFetchTransportationNoise:
         settings.bts_noise_bbox_east = -78.68
         settings.bts_noise_morphological_closing = True
         settings.bts_noise_chaikin_iterations = 3
+        settings.bts_noise_cluster_eps = 0.001
+        settings.bts_noise_buffer_distance = 0.0005
         mock_settings.return_value = settings
 
         mock_download.return_value = self._make_png()

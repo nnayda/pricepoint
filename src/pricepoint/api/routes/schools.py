@@ -5,8 +5,9 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_AsGeoJSON, ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
@@ -39,9 +40,10 @@ async def get_nearby_schools(
     radius_meters = radius_miles * _MILES_TO_METERS
 
     # Distance in metres via geography cast for accuracy
+    geo = Geography()
     dist_col = func.ST_Distance(
-        func.cast(School.location, func.geography),
-        func.cast(point, func.geography),
+        cast(School.location, geo),
+        cast(point, geo),
     ).label("distance_m")
 
     stmt = (
@@ -49,8 +51,8 @@ async def get_nearby_schools(
         .where(
             School.location.isnot(None),
             ST_DWithin(
-                func.cast(School.location, func.geography),
-                func.cast(point, func.geography),
+                cast(School.location, geo),
+                cast(point, geo),
                 radius_meters,
             ),
         )
@@ -66,8 +68,8 @@ async def get_nearby_schools(
 
     district_stmt = select(TigerSchoolDistrict, contains_flag, geojson_col).where(
         ST_DWithin(
-            func.cast(TigerSchoolDistrict.geom, func.geography),
-            func.cast(point, func.geography),
+            cast(TigerSchoolDistrict.geom, geo),
+            cast(point, geo),
             radius_meters,
         )
     )

@@ -234,18 +234,18 @@ function schoolId(s: DashboardSchool) {
 /* ── District boundary styles ── */
 
 const HOME_DISTRICT_STYLE: PathOptions = {
-  color: "#6366F1",
-  weight: 3,
+  color: "#4F46E5",
+  weight: 4,
   fillColor: "#6366F1",
-  fillOpacity: 0.08,
+  fillOpacity: 0.12,
 };
 
 const NEIGHBOR_DISTRICT_STYLE: PathOptions = {
-  color: "#94A3B8",
-  weight: 1.5,
-  dashArray: "6 4",
+  color: "#64748B",
+  weight: 2.5,
+  dashArray: "8 5",
   fillColor: "#94A3B8",
-  fillOpacity: 0.03,
+  fillOpacity: 0.06,
 };
 
 function districtTypeLabel(districtType: string | null): string {
@@ -256,21 +256,23 @@ function districtTypeLabel(districtType: string | null): string {
   return districtType;
 }
 
-/** Renders a single district boundary with an optional permanent label. */
+/** Renders a single district boundary with a permanent label. */
 function DistrictBoundary({ district }: { district: SchoolDistrictInfo }) {
   const isHome = district.is_home;
   const typeTag = districtTypeLabel(district.district_type);
-  const label = typeTag ? `${district.name} (${typeTag})` : district.name;
+  const label = isHome
+    ? `★ ${district.name}${typeTag ? ` (${typeTag})` : ""}`
+    : typeTag
+      ? `${district.name} (${typeTag})`
+      : district.name;
 
   const onEachFeature = useCallback(
     (_feature: GeoJSON.Feature, layer: Layer) => {
-      if (!isHome) {
-        layer.bindTooltip(label, {
-          permanent: true,
-          direction: "center",
-          className: "district-label",
-        });
-      }
+      layer.bindTooltip(label, {
+        permanent: true,
+        direction: "center",
+        className: isHome ? "district-label district-label--home" : "district-label",
+      });
     },
     [label, isHome],
   );

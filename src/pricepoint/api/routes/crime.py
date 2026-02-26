@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
 from sqlalchemy import (
@@ -17,7 +18,6 @@ from sqlalchemy import (
     func,
     literal,
     select,
-    text,
     union_all,
 )
 from sqlalchemy.orm import Session
@@ -60,8 +60,8 @@ VIOLENT_KEYWORDS = {
 def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
     """ST_DWithin using geography cast for meter-based distance."""
     return func.ST_DWithin(
-        cast(geom_col, text("geography")),
-        cast(point, text("geography")),
+        cast(geom_col, Geography()),
+        cast(point, Geography()),
         radius_meters,
     )
 

@@ -8,8 +8,9 @@ import boto3
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_Distance, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
@@ -572,8 +573,8 @@ async def get_comparables(
 
     # Distance in metres (geography cast for accurate measurement)
     dist_col = func.ST_Distance(
-        func.cast(RedfinListing.location, func.geography),
-        func.cast(point, func.geography),
+        cast(RedfinListing.location, Geography()),
+        cast(point, Geography()),
     ).label("distance_m")
 
     stmt = select(RedfinListing, dist_col).where(
@@ -586,8 +587,8 @@ async def get_comparables(
         RedfinListing.num_beds.between(beds - 1, beds + 1),
         RedfinListing.sqft.between(int(sqft_low), int(sqft_high)),
         ST_DWithin(
-            func.cast(RedfinListing.location, func.geography),
-            func.cast(point, func.geography),
+            cast(RedfinListing.location, Geography()),
+            cast(point, Geography()),
             radius_meters,
         ),
     )
