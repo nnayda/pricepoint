@@ -247,7 +247,7 @@ function HeroSection({ onSelect }: { onSelect: (r: GeocodeResult) => void }) {
           </p>
         </div>
 
-        <div className="w-full max-w-lg">
+        <div className="relative z-10 w-full max-w-lg">
           <SearchBar onSelect={onSelect} placeholder="Search any address..." variant="landing" />
         </div>
 

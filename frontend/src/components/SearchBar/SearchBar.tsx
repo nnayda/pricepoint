@@ -153,7 +153,7 @@ function SearchBar({ onSelect, placeholder = "Search for an address...", variant
           id="searchbar-listbox"
           role="listbox"
           aria-label="Address suggestions"
-          className={`absolute z-10 mt-2 w-full overflow-hidden rounded-md shadow-soft ${isDark ? "border border-[var(--color-db-border)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]" : "bg-bg-card"}`}
+          className={`absolute z-50 mt-2 w-full overflow-hidden rounded-md shadow-soft ${isDark ? "border border-[var(--color-db-border)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]" : "bg-bg-card"}`}
         >
           {error && (
             <li

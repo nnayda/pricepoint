@@ -601,6 +601,23 @@ describe("SearchBar", () => {
     });
   });
 
+  // -- Dropdown stacking --
+
+  describe("dropdown stacking", () => {
+    it("dropdown has z-50 to overlay surrounding content", async () => {
+      mockUseGeocode.mockReturnValue({ results: mockResults, loading: false, error: null });
+      const user = userEvent.setup();
+
+      render(<SearchBar onSelect={vi.fn()} />);
+      const input = screen.getByRole("combobox");
+
+      await user.type(input, "123 Main");
+
+      const listbox = screen.getByRole("listbox");
+      expect(listbox.className).toContain("z-50");
+    });
+  });
+
   // -- Mobile responsiveness --
 
   describe("mobile responsiveness", () => {

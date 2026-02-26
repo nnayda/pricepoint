@@ -96,6 +96,13 @@ describe("LandingPage", () => {
     expect(screen.getByText(/2M\+ listings indexed/i)).toBeInTheDocument();
   });
 
+  it("search bar wrapper has elevated z-index to keep dropdown above surrounding text", () => {
+    renderLandingPage();
+    const searchBar = screen.getByTestId("search-bar");
+    const wrapper = searchBar.closest(".relative.z-10");
+    expect(wrapper).toBeInTheDocument();
+  });
+
   it("navigates to property dashboard on address selection", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
