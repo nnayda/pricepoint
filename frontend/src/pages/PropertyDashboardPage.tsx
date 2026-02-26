@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/dashboard/DashboardLayout";
-import PropertyNotFoundDialog from "../components/PropertyNotFoundDialog";
+import DataRequestBanner from "../components/DataRequestBanner";
 import { useDemographics } from "../hooks/useDemographics";
 import {
   useNeighborhoodValuation,
   useNeighborhoodValuationHistory,
 } from "../hooks/useNeighborhoodValuation";
 import { usePropertyLookup } from "../hooks/usePropertyLookup";
+import { buildEmptyDashboardData } from "../data/emptyDashboardData";
 import { mockDashboardData } from "../data/mockDashboardData";
 import type { PriceHistoryPoint } from "../types";
 import { mapDemographicsResponse } from "../utils/mapDemographicsResponse";
@@ -25,8 +26,18 @@ function PropertyDashboardPage() {
   const { data: neighborhoodVal } = useNeighborhoodValuation(lat, lon);
   const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
 
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
   const dashboardData = useMemo(() => {
-    let result = data ? mapPropertyResponse(data) : mockDashboardData;
+    let result: ReturnType<typeof mapPropertyResponse>;
+    if (data) {
+      result = mapPropertyResponse(data);
+    } else if (notFound && decodedAddress && lat != null && lon != null) {
+      result = buildEmptyDashboardData(decodedAddress, lat, lon);
+    } else {
+      result = mockDashboardData;
+    }
+
     if (demoApi) {
       result = { ...result, demographics: mapDemographicsResponse(demoApi) };
     }
@@ -59,7 +70,7 @@ function PropertyDashboardPage() {
       result = { ...result, price_history: merged };
     }
     return result;
-  }, [data, demoApi, neighborhoodVal, neighborhoodHistory]);
+  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory]);
 
   if (loading) {
     return (
@@ -77,10 +88,6 @@ function PropertyDashboardPage() {
     );
   }
 
-  if (notFound && decodedAddress && lat != null && lon != null) {
-    return <PropertyNotFoundDialog address={decodedAddress} lat={lat} lon={lon} />;
-  }
-
   if (error || lat == null || lon == null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-db-bg)]">
@@ -96,7 +103,19 @@ function PropertyDashboardPage() {
     );
   }
 
-  return <DashboardLayout data={dashboardData} />;
+  return (
+    <>
+      {notFound && !bannerDismissed && decodedAddress && (
+        <DataRequestBanner
+          address={decodedAddress}
+          lat={lat}
+          lon={lon}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
+      <DashboardLayout data={dashboardData} />
+    </>
+  );
 }
 
 export default PropertyDashboardPage;
