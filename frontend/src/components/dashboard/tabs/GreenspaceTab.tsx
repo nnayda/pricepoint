@@ -1,9 +1,48 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useMapEvents } from "react-leaflet";
 import type { DashboardData, GreenspaceFeature } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { TreesIcon, FootprintsIcon, MapPinIcon } from "../ui/Icons";
 import { useGreenspace } from "../../../hooks/useGreenspace";
+
+interface Bbox {
+  swLat: number;
+  swLon: number;
+  neLat: number;
+  neLon: number;
+}
+
+/** Reports map viewport bounds on mount and on every moveend. */
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    },
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    }, 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
 
 interface GreenspaceTabProps {
   data: DashboardData;
@@ -103,11 +142,25 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapScope, setMapScope] = useState<MapScope>("neighborhood");
+  const [mapBounds, setMapBounds] = useState<Bbox | null>(null);
 
-  const displayFeatures = useMemo(
+  const handleBoundsChange = useCallback((bbox: Bbox) => setMapBounds(bbox), []);
+
+  const allFeatures = useMemo(
     () => greenspaceData.features.map(mapApiFeature),
     [greenspaceData.features],
   );
+
+  const displayFeatures = useMemo(() => {
+    if (!mapBounds) return allFeatures;
+    return allFeatures.filter(
+      (f) =>
+        f.lat >= mapBounds.swLat &&
+        f.lat <= mapBounds.neLat &&
+        f.lon >= mapBounds.swLon &&
+        f.lon <= mapBounds.neLon,
+    );
+  }, [allFeatures, mapBounds]);
 
   const parkCount = useMemo(
     () => displayFeatures.filter((f) => f.type === "Park").length,
@@ -119,7 +172,7 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
     [displayFeatures],
   );
 
-  const markers = displayFeatures.map((f) => ({
+  const markers = allFeatures.map((f) => ({
     id: f.id,
     lat: f.lat,
     lon: f.lon,
@@ -243,7 +296,9 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
-            />
+            >
+              <MapBoundsTracker onBoundsChange={handleBoundsChange} />
+            </DashboardMap>
           </div>
         </DashboardCard>
       </div>

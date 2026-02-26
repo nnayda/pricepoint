@@ -1,8 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import GreenspaceTab from "../GreenspaceTab";
 import { mockDashboardData } from "../../../../data/mockDashboardData";
 import type { GreenspaceResponse } from "../../../../types";
+
+/* Default mock bounds — wide enough to include all test features */
+const mockBounds = {
+  south: 35.5,
+  west: -79.0,
+  north: 36.1,
+  east: -78.5,
+};
+
+vi.mock("react-leaflet", async () => {
+  const React = await import("react");
+  return {
+    MapContainer: ({ children }: { children: React.ReactNode }) =>
+      React.createElement("div", { "data-testid": "map-container" }, children),
+    TileLayer: () => null,
+    Marker: () => null,
+    Popup: () => null,
+    useMap: () => ({
+      getBounds: () => ({
+        getSouth: () => mockBounds.south,
+        getWest: () => mockBounds.west,
+        getNorth: () => mockBounds.north,
+        getEast: () => mockBounds.east,
+      }),
+    }),
+    useMapEvents: () => ({
+      getBounds: () => ({
+        getSouth: () => mockBounds.south,
+        getWest: () => mockBounds.west,
+        getNorth: () => mockBounds.north,
+        getEast: () => mockBounds.east,
+      }),
+    }),
+  };
+});
 
 const mockGreenspaceResponse: GreenspaceResponse = {
   features: [
@@ -54,6 +89,7 @@ vi.mock("../../../../hooks/useGreenspace", () => ({
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
     markers,
+    children,
   }: {
     children?: React.ReactNode;
     center: [number, number];
@@ -68,6 +104,7 @@ vi.mock("../../maps/DashboardMap", () => ({
       {markers.map((m, i) => (
         <div key={i} data-testid="map-marker" data-label={m.label} data-color={m.color} />
       ))}
+      {children}
     </div>
   ),
 }));
@@ -75,8 +112,14 @@ vi.mock("../../maps/DashboardMap", () => ({
 describe("GreenspaceTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     mockUseGreenspaceReturn.data = mockGreenspaceResponse;
     mockUseGreenspaceReturn.loading = false;
+    // Reset to wide bounds that include all features
+    mockBounds.south = 35.5;
+    mockBounds.west = -79.0;
+    mockBounds.north = 36.1;
+    mockBounds.east = -78.5;
   });
 
   it("renders feature cards for all greenspace features", () => {
@@ -239,5 +282,91 @@ describe("GreenspaceTab", () => {
       .closest("div")
       ?.querySelector(".font-db-mono");
     expect(nearestParkStat?.textContent).toBe("—");
+  });
+
+  describe("map bounds filtering", () => {
+    it("filters cards to only features within map bounds", () => {
+      // Narrow bounds that only include Umstead State Park (lat 35.87, lon -78.75)
+      mockBounds.south = 35.85;
+      mockBounds.north = 35.9;
+      mockBounds.west = -78.8;
+      mockBounds.east = -78.7;
+
+      render(<GreenspaceTab data={mockDashboardData} />);
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      expect(screen.getByText("Umstead State Park")).toBeInTheDocument();
+      expect(screen.queryByText("Black Creek Greenway")).not.toBeInTheDocument();
+      expect(screen.queryByText("Lake Johnson Park")).not.toBeInTheDocument();
+    });
+
+    it("updates park and trail counts based on visible features", () => {
+      // Bounds that only include the trail (lat 35.79, lon -78.78)
+      mockBounds.south = 35.78;
+      mockBounds.north = 35.8;
+      mockBounds.west = -78.8;
+      mockBounds.east = -78.76;
+
+      render(<GreenspaceTab data={mockDashboardData} />);
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      const parksStatValue = screen
+        .getByText("Parks")
+        .closest("div")
+        ?.querySelector(".font-db-mono");
+      const trailsStatValue = screen
+        .getByText("Trails")
+        .closest("div")
+        ?.querySelector(".font-db-mono");
+      expect(parksStatValue?.textContent).toBe("0");
+      expect(trailsStatValue?.textContent).toBe("1");
+    });
+
+    it("shows all features when map bounds are wide", () => {
+      render(<GreenspaceTab data={mockDashboardData} />);
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      expect(screen.getByText("Umstead State Park")).toBeInTheDocument();
+      expect(screen.getByText("Black Creek Greenway")).toBeInTheDocument();
+      expect(screen.getByText("Lake Johnson Park")).toBeInTheDocument();
+    });
+
+    it("shows empty state when no features are within bounds", () => {
+      // Bounds that exclude all features
+      mockBounds.south = 40.0;
+      mockBounds.north = 41.0;
+      mockBounds.west = -75.0;
+      mockBounds.east = -74.0;
+
+      render(<GreenspaceTab data={mockDashboardData} />);
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      expect(screen.getByText("No greenspaces or trails found nearby.")).toBeInTheDocument();
+    });
+
+    it("keeps all markers on map regardless of bounds", () => {
+      // Narrow bounds — only one feature visible in cards
+      mockBounds.south = 35.85;
+      mockBounds.north = 35.9;
+      mockBounds.west = -78.8;
+      mockBounds.east = -78.7;
+
+      render(<GreenspaceTab data={mockDashboardData} />);
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+
+      const map = screen.getByTestId("dashboard-map");
+      // All markers still on map: 1 property + 3 features = 4
+      expect(map.getAttribute("data-marker-count")).toBe("4");
+    });
   });
 });
