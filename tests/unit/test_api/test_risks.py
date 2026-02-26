@@ -25,7 +25,6 @@ def _make_infra_row(
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
-    rb_severity=None,
 ):
     return _FakeRow(
         infra_id=infra_id,
@@ -34,7 +33,6 @@ def _make_infra_row(
         lat=lat,
         lon=lon,
         distance_miles=distance_miles,
-        rb_severity=rb_severity,
     )
 
 
@@ -43,12 +41,14 @@ def _make_boundary_row(
     infrastructure_type="power_plant",
     infrastructure_id=30,
     severity="critical",
+    contains_property=True,
 ):
     return _FakeRow(
         geojson=geojson,
         infrastructure_type=infrastructure_type,
         infrastructure_id=infrastructure_id,
         severity=severity,
+        contains_property=contains_property,
     )
 
 
@@ -66,7 +66,6 @@ def risks_app():
             lat=35.80,
             lon=-78.77,
             distance_miles=0.8,
-            rb_severity=None,
         ),
         _make_infra_row(
             infra_id="20",
@@ -75,7 +74,6 @@ def risks_app():
             lat=35.791,
             lon=-78.781,
             distance_miles=0.3,
-            rb_severity="caution",
         ),
         _make_infra_row(
             infra_id="30",
@@ -84,7 +82,6 @@ def risks_app():
             lat=35.785,
             lon=-78.769,
             distance_miles=1.2,
-            rb_severity="critical",
         ),
     ]
 
@@ -93,11 +90,13 @@ def risks_app():
             infrastructure_type="power_plant",
             infrastructure_id=30,
             severity="critical",
+            contains_property=True,
         ),
         _make_boundary_row(
             infrastructure_type="transmission_line",
             infrastructure_id=20,
             severity="caution",
+            contains_property=True,
         ),
     ]
 
@@ -360,6 +359,7 @@ class TestRisksValkeyCaching:
                 distance_miles=0.8,
             ),
         ]
+        # No boundary rows containing the property
         mock_result_infra = MagicMock()
         mock_result_infra.all.return_value = infra_rows
         mock_result_boundary = MagicMock()

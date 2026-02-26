@@ -11,6 +11,7 @@ export interface MapMarker {
   color?: string;
   id?: string;
   isProperty?: boolean;
+  infrastructureType?: string;
 }
 
 export type MapStyle = "street" | "satellite" | "dark" | "light";
@@ -53,6 +54,37 @@ function createIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) 
   });
 }
 
+const INFRA_SVG_PATHS: Record<string, string> = {
+  // Antenna / signal tower
+  cell_tower: "M12 2v8m0 0l-3-3m3 3l3-3M8 22h8m-4 0v-6m-6-2a6 6 0 0112 0m-16-2a10 10 0 0120 0",
+  // Lightning bolt / zap
+  transmission_line: "M13 2L3 14h9l-1 10 10-12h-9l1-10z",
+  // Factory / smokestack
+  power_plant: "M2 20h20M4 20v-8l4 2v-6l4 2V4l4 4v12M6 20v-3h2v3m4-3v-5h2v5",
+  // Flame
+  nat_gas_pipeline:
+    "M12 2c-2 4-6 6-6 10a6 6 0 0012 0c0-4-4-6-6-10zm0 14a2 2 0 01-2-2c0-2 2-3 2-3s2 1 2 3a2 2 0 01-2 2z",
+  // Droplet
+  petroleum_pipeline: "M12 2c-4 5.5-8 9-8 13a8 8 0 0016 0c0-4-4-7.5-8-13z",
+};
+
+function createInfraIcon(type: string, color: string = COLOR_INDIGO, highlighted: boolean = false) {
+  const size = highlighted ? 28 : 24;
+  const svgSize = size * 0.58;
+  const glow = highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`;
+  const path = INFRA_SVG_PATHS[type] ?? INFRA_SVG_PATHS.cell_tower;
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:${color};border-radius:6px;border:2px solid rgba(255,255,255,${highlighted ? 1 : 0.9});box-shadow:${glow};transition:all 0.15s ease;">
+      <svg width="${svgSize}" height="${svgSize}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="${path}"/>
+      </svg>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function InteractiveMarker({
   marker,
   highlighted,
@@ -69,8 +101,10 @@ function InteractiveMarker({
     () =>
       marker.isProperty
         ? createPropertyIcon(marker.color, highlighted || selected)
-        : createIcon(marker.color, highlighted || selected),
-    [marker.color, marker.isProperty, highlighted, selected],
+        : marker.infrastructureType
+          ? createInfraIcon(marker.infrastructureType, marker.color, highlighted || selected)
+          : createIcon(marker.color, highlighted || selected),
+    [marker.color, marker.isProperty, marker.infrastructureType, highlighted, selected],
   );
 
   useEffect(() => {
@@ -98,11 +132,7 @@ function InteractiveMarker({
   }, []);
 
   return (
-    <Marker
-      ref={setRef}
-      position={[marker.lat, marker.lon]}
-      icon={icon}
-    >
+    <Marker ref={setRef} position={[marker.lat, marker.lon]} icon={icon}>
       <Popup>
         <span style={{ fontFamily: "var(--font-db-sans)", fontSize: 12 }}>{marker.label}</span>
       </Popup>
@@ -119,8 +149,7 @@ const TILE_CONFIGS: Record<MapStyle, { url: string; attribution: string; maxZoom
   },
   satellite: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution:
-      '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
     maxZoom: 19,
   },
   dark: {
@@ -200,9 +229,7 @@ function MapStyleControl({
       ref={ref}
       style={{ position: "absolute", top: 10, right: 10, zIndex: 1000, pointerEvents: "none" }}
     >
-      <div
-        style={{ margin: 0, pointerEvents: "auto" }}
-      >
+      <div style={{ margin: 0, pointerEvents: "auto" }}>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
@@ -225,7 +252,16 @@ function MapStyleControl({
             boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
             <line x1="8" y1="2" x2="8" y2="18" />
             <line x1="16" y1="6" x2="16" y2="22" />
@@ -255,7 +291,8 @@ function MapStyleControl({
                   display: "block",
                   width: "100%",
                   padding: "6px 12px",
-                  background: s === style ? "var(--color-db-surface-hover, #252D44)" : "transparent",
+                  background:
+                    s === style ? "var(--color-db-surface-hover, #252D44)" : "transparent",
                   color: "var(--color-db-text-primary, #E8ECF4)",
                   border: "none",
                   cursor: "pointer",
@@ -265,7 +302,8 @@ function MapStyleControl({
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={(e) => {
-                  if (s !== style) e.currentTarget.style.background = "var(--color-db-surface-hover, #252D44)";
+                  if (s !== style)
+                    e.currentTarget.style.background = "var(--color-db-surface-hover, #252D44)";
                 }}
                 onMouseLeave={(e) => {
                   if (s !== style) e.currentTarget.style.background = "transparent";

@@ -6,8 +6,10 @@ import httpx
 import pytest
 
 from pricepoint.api.services.geocoding import (
+    _build_nominatim_display_name,
     _build_nominatim_params,
     _build_photon_params,
+    _extract_house_number,
     _parse_nominatim,
     _parse_photon,
     geocode_async,
@@ -104,6 +106,65 @@ class TestParseNominatim:
         results = _parse_nominatim([item])
         assert results[0]["boundingbox"] == []
         assert results[0]["place_id"] is None
+
+
+class TestBuildNominatimDisplayName:
+    def test_with_house_number_and_road(self):
+        item = {
+            "display_name": "Tamarak Court, Cary, NC, USA",
+            "address": {
+                "house_number": "104",
+                "road": "Tamarak Court",
+                "city": "Cary",
+                "state": "North Carolina",
+                "postcode": "27513",
+                "country": "United States",
+            },
+        }
+        result = _build_nominatim_display_name(item)
+        assert result.startswith("104 Tamarak Court")
+        assert "Cary" in result
+
+    def test_without_address_falls_back_to_display_name(self):
+        item = {"display_name": "Raleigh, Wake County, NC, USA"}
+        assert _build_nominatim_display_name(item) == "Raleigh, Wake County, NC, USA"
+
+    def test_road_without_house_number(self):
+        item = {
+            "display_name": "Main St, Raleigh, NC",
+            "address": {"road": "Main Street", "city": "Raleigh", "state": "NC"},
+        }
+        result = _build_nominatim_display_name(item)
+        assert result.startswith("Main Street")
+
+    def test_town_and_village_variants(self):
+        item = {
+            "display_name": "Some Place",
+            "address": {"road": "Oak Ave", "town": "Apex", "state": "NC"},
+        }
+        result = _build_nominatim_display_name(item)
+        assert "Apex" in result
+
+    def test_parse_nominatim_uses_address_details(self):
+        items = [
+            {
+                "display_name": "Tamarak Court, Cary, NC, USA",
+                "lat": "35.7",
+                "lon": "-78.8",
+                "place_id": 1,
+                "osm_type": "node",
+                "osm_id": 1,
+                "boundingbox": ["35.6", "35.8", "-78.9", "-78.7"],
+                "address": {
+                    "house_number": "104",
+                    "road": "Tamarak Court",
+                    "city": "Cary",
+                    "state": "North Carolina",
+                },
+            }
+        ]
+        results = _parse_nominatim(items)
+        assert results[0]["display_name"].startswith("104 Tamarak Court")
 
 
 class TestParsePhoton:
@@ -206,6 +267,111 @@ class TestParsePhoton:
         assert "200 Fayetteville St" in dn
 
 
+class TestExtractHouseNumber:
+    def test_simple_number(self):
+        assert _extract_house_number("104 tamarak court") == "104"
+
+    def test_hyphenated_number(self):
+        assert _extract_house_number("12-34 Main St") == "12-34"
+
+    def test_alphanumeric(self):
+        assert _extract_house_number("100A Main St") == "100A"
+
+    def test_no_number(self):
+        assert _extract_house_number("tamarak court") is None
+
+    def test_empty_string(self):
+        assert _extract_house_number("") is None
+
+
+class TestPhotonHouseNumberInjection:
+    """Photon sometimes returns street-level results without a house number.
+
+    When the user's query starts with a house number, it should be injected
+    into the display name of street-type results.
+    """
+
+    STREET_ONLY_PHOTON = {
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [-78.85, 35.80]},
+                "properties": {
+                    "osm_type": "W",
+                    "osm_id": 104295982,
+                    "type": "street",
+                    "name": "Tamarak Wood Court",
+                    "city": "Cary",
+                    "state": "North Carolina",
+                    "postcode": "27519",
+                    "countrycode": "US",
+                },
+            }
+        ],
+    }
+
+    def test_injects_house_number_into_street_result(self):
+        results = _parse_photon(self.STREET_ONLY_PHOTON, query="104 tamarak court")
+        dn = results[0]["display_name"]
+        assert dn.startswith("104 Tamarak Wood Court")
+        assert "Cary" in dn
+
+    def test_no_injection_without_query(self):
+        results = _parse_photon(self.STREET_ONLY_PHOTON)
+        dn = results[0]["display_name"]
+        assert not dn[0].isdigit()
+        assert dn.startswith("Tamarak Wood Court")
+
+    def test_no_injection_for_non_street_type(self):
+        data = {
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [-78.85, 35.80]},
+                    "properties": {
+                        "osm_type": "R",
+                        "osm_id": 12345,
+                        "type": "other",
+                        "name": "Tamarak Lake",
+                        "state": "California",
+                        "countrycode": "US",
+                    },
+                }
+            ],
+        }
+        results = _parse_photon(data, query="104 tamarak")
+        dn = results[0]["display_name"]
+        assert not dn[0].isdigit()
+
+    def test_no_injection_when_housenumber_already_present(self):
+        data = {
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [-78.85, 35.80]},
+                    "properties": {
+                        "osm_type": "N",
+                        "osm_id": 99999,
+                        "type": "house",
+                        "housenumber": "200",
+                        "street": "Oak Ave",
+                        "city": "Cary",
+                        "state": "North Carolina",
+                        "countrycode": "US",
+                    },
+                }
+            ],
+        }
+        results = _parse_photon(data, query="104 oak ave")
+        dn = results[0]["display_name"]
+        assert dn.startswith("200 Oak Ave")
+
+    def test_no_injection_when_query_has_no_number(self):
+        results = _parse_photon(self.STREET_ONLY_PHOTON, query="tamarak court cary")
+        dn = results[0]["display_name"]
+        assert dn.startswith("Tamarak Wood Court")
+
+
 # ---------------------------------------------------------------------------
 # Parameter builder tests
 # ---------------------------------------------------------------------------
@@ -216,6 +382,7 @@ class TestBuildParams:
         params = _build_nominatim_params("Raleigh", 5, None, None)
         assert params["q"] == "Raleigh"
         assert params["format"] == "json"
+        assert params["addressdetails"] == 1
         assert params["limit"] == 5
         assert params["countrycodes"] == "us"
         assert "viewbox" not in params

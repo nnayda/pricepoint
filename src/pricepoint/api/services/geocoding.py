@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -24,9 +25,10 @@ def _parse_nominatim(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract fields from a Nominatim JSON response array."""
     results: list[dict[str, Any]] = []
     for item in items:
+        display_name = _build_nominatim_display_name(item)
         results.append(
             {
-                "display_name": item["display_name"],
+                "display_name": display_name,
                 "lat": float(item["lat"]),
                 "lon": float(item["lon"]),
                 "place_id": item.get("place_id"),
@@ -40,12 +42,57 @@ def _parse_nominatim(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return results
 
 
-def _parse_photon(data: dict[str, Any]) -> list[dict[str, Any]]:
+def _build_nominatim_display_name(item: dict[str, Any]) -> str:
+    """Build display name from Nominatim addressdetails when available.
+
+    Nominatim's raw ``display_name`` sometimes omits the house number for
+    street-level matches.  When ``address`` details are present we assemble
+    the name ourselves so the house number is always included.
+    """
+    addr = item.get("address")
+    if not addr:
+        return item["display_name"]
+
+    house_number = addr.get("house_number")
+    road = addr.get("road")
+
+    parts: list[str] = []
+    if house_number and road:
+        parts.append(f"{house_number} {road}")
+    elif road:
+        parts.append(road)
+    elif house_number:
+        parts.append(house_number)
+
+    for key in ("city", "town", "village", "county", "state", "postcode", "country"):
+        val = addr.get(key)
+        if val:
+            parts.append(str(val))
+
+    return ", ".join(parts) if parts else item["display_name"]
+
+
+_LEADING_HOUSE_NUMBER_RE = re.compile(r"^\s*(\d+[\w-]*)\s+")
+
+
+def _extract_house_number(query: str) -> str | None:
+    """Extract a leading house number from the user's search query."""
+    m = _LEADING_HOUSE_NUMBER_RE.match(query)
+    return m.group(1) if m else None
+
+
+def _parse_photon(data: dict[str, Any], query: str = "") -> list[dict[str, Any]]:
     """Parse a Photon GeoJSON response into the standard result format.
 
     Photon returns GeoJSON FeatureCollection with [lon, lat] coordinates.
     Filters to US results only (``countrycode == "US"``).
+
+    When *query* is provided and contains a leading house number, that number
+    is injected into street-level results that Photon returned without a
+    ``housenumber`` property.
     """
+    query_house_number = _extract_house_number(query) if query else None
+
     results: list[dict[str, Any]] = []
     for feature in data.get("features", []):
         props = feature.get("properties", {})
@@ -65,6 +112,11 @@ def _parse_photon(data: dict[str, Any]) -> list[dict[str, Any]]:
         name = props.get("name")
         street = props.get("street")
         housenumber = props.get("housenumber")
+
+        # Inject the house number from the query into street-level results
+        # that Photon returned without one.
+        if not housenumber and query_house_number and props.get("type") == "street":
+            housenumber = query_house_number
 
         parts: list[str] = []
         if housenumber and street:
@@ -115,6 +167,7 @@ def _build_nominatim_params(
     params: dict[str, Any] = {
         "q": query,
         "format": "json",
+        "addressdetails": 1,
         "limit": limit,
         "countrycodes": "us",
     }
@@ -192,7 +245,7 @@ async def geocode_async(
     raw = resp.json()
 
     if provider == "photon":
-        return _parse_photon(raw)
+        return _parse_photon(raw, query)
     return _parse_nominatim(raw)
 
 
@@ -234,5 +287,5 @@ def geocode_sync(
     raw = resp.json()
 
     if provider == "photon":
-        return _parse_photon(raw)
+        return _parse_photon(raw, query)
     return _parse_nominatim(raw)

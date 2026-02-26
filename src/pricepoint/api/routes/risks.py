@@ -7,8 +7,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from geoalchemy2.types import Geography
 from redis.asyncio import Redis
-from sqlalchemy import String, case, cast, func, literal, select, text, union_all
+from sqlalchemy import String, cast, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
@@ -21,6 +22,9 @@ from pricepoint.db.models import (
     RiskBoundary,
     TransmissionLine,
 )
+
+# Pre-built set for line-geometry models
+_LINE_MODELS = {TransmissionLine, NatGasPipeline, PetroleumPipeline}
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +58,8 @@ SEVERITY_SORT = {"Concern": 0, "Caution": 1, "Safe": 2}
 def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
     """ST_DWithin using geography cast for meter-based distance."""
     return func.ST_DWithin(
-        cast(geom_col, text("geography")),
-        cast(point, text("geography")),
+        cast(geom_col, Geography),
+        cast(point, Geography),
         radius_meters,
     )
 
@@ -64,7 +68,7 @@ def _build_infra_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
     radius_meters: float,
 ):
-    """Build UNION ALL across 5 infrastructure tables with LEFT JOIN to risk_boundaries."""
+    """Build UNION ALL across 5 infrastructure tables (no JOIN to risk_boundaries)."""
     queries = []
 
     infra_tables = [
@@ -91,36 +95,26 @@ def _build_infra_query(  # noqa: ANN201
     ]
 
     for model, type_label, geom_col, name_expr in infra_tables:
-        is_line = model in (TransmissionLine, NatGasPipeline, PetroleumPipeline)
+        is_line = model in _LINE_MODELS
         lat_expr = ST_Y(func.ST_Centroid(geom_col)) if is_line else ST_Y(geom_col)
         lon_expr = ST_X(func.ST_Centroid(geom_col)) if is_line else ST_X(geom_col)
 
-        q = (
-            select(
-                cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
-                name_expr.label("name"),
-                literal(type_label).label("infrastructure_type"),
-                lat_expr.label("lat"),
-                lon_expr.label("lon"),
-                (
-                    func.ST_Distance(
-                        cast(property_point, text("geography")),
-                        cast(geom_col, text("geography")),
-                    )
-                    / METERS_PER_MILE
-                ).label("distance_miles"),
-                RiskBoundary.severity.label("rb_severity"),
-            )
-            .outerjoin(
-                RiskBoundary,
-                (RiskBoundary.infrastructure_type == type_label)
-                & (RiskBoundary.infrastructure_id == model.id)  # type: ignore[union-attr]
-                & func.ST_Contains(RiskBoundary.geom, property_point),
-            )
-            .where(
-                geom_col.isnot(None),
-                _st_dwithin_geography(geom_col, property_point, radius_meters),
-            )
+        q = select(
+            cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
+            name_expr.label("name"),
+            literal(type_label).label("infrastructure_type"),
+            lat_expr.label("lat"),
+            lon_expr.label("lon"),
+            (
+                func.ST_Distance(
+                    cast(property_point, Geography),
+                    cast(geom_col, Geography),
+                )
+                / METERS_PER_MILE
+            ).label("distance_miles"),
+        ).where(
+            geom_col.isnot(None),
+            _st_dwithin_geography(geom_col, property_point, radius_meters),
         )
         queries.append(q)
 
@@ -131,12 +125,13 @@ def _build_boundaries_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
     radius_meters: float,
 ):
-    """Select risk boundary polygons within the radius."""
+    """Select risk boundary polygons within the radius, with containment check."""
     return select(
         func.ST_AsGeoJSON(RiskBoundary.geom).label("geojson"),
         RiskBoundary.infrastructure_type,
         RiskBoundary.infrastructure_id,
         RiskBoundary.severity,
+        func.ST_Contains(RiskBoundary.geom, property_point).label("contains_property"),
     ).where(
         _st_dwithin_geography(RiskBoundary.geom, property_point, radius_meters),
     )
@@ -184,7 +179,7 @@ async def get_risks(
     radius_meters = radius_miles * METERS_PER_MILE
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    # Query 1: infrastructure features with risk severity
+    # Query 1: infrastructure features (no JOIN to risk_boundaries)
     cte = _build_infra_query(property_point, radius_meters)
 
     rows = db.execute(
@@ -195,20 +190,28 @@ async def get_risks(
             cte.c.lat,
             cte.c.lon,
             cte.c.distance_miles,
-            cte.c.rb_severity,
         ).order_by(
-            case(
-                (cte.c.rb_severity == "critical", 0),
-                (cte.c.rb_severity == "caution", 1),
-                else_=2,
-            ),
             cte.c.distance_miles,
         )
     ).all()
 
+    # Query 2: risk boundary polygons (with containment check)
+    boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+
+    # Build severity lookup from boundaries that contain the property point
+    severity_lookup: dict[tuple[str, str], str] = {}
+    for brow in boundary_rows:
+        if brow.contains_property:
+            key = (brow.infrastructure_type, str(brow.infrastructure_id))
+            if key not in severity_lookup or brow.severity == "critical":
+                severity_lookup[key] = brow.severity
+
     features: list[RiskFeature] = []
     for row in rows:
-        severity = _severity_label(row.rb_severity)
+        rb_severity = severity_lookup.get(
+            (row.infrastructure_type, row.infra_id),
+        )
+        severity = _severity_label(rb_severity)
         dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
         features.append(
             RiskFeature(
@@ -219,12 +222,12 @@ async def get_risks(
                 distance_miles=dist,
                 lat=row.lat,
                 lon=row.lon,
-                detail=_detail_text(row.infrastructure_type, row.rb_severity),
+                detail=_detail_text(row.infrastructure_type, rb_severity),
             )
         )
 
-    # Query 2: risk boundary polygons
-    boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+    # Sort: Concern first, Caution second, Safe last; then by distance
+    features.sort(key=lambda f: (SEVERITY_SORT.get(f.severity, 9), f.distance_miles))
 
     boundary_features: list[dict[str, Any]] = []
     for brow in boundary_rows:

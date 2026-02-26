@@ -225,6 +225,11 @@ function RisksTab({ data }: RisksTabProps) {
     [filteredFeatures],
   );
 
+  const sidebarCards = useMemo(
+    () => cards.filter((c) => c.severity === "Caution" || c.severity === "Concern"),
+    [cards],
+  );
+
   const markers = useMemo(
     () =>
       filteredFeatures.map((f) => ({
@@ -233,6 +238,7 @@ function RisksTab({ data }: RisksTabProps) {
         lon: f.lon,
         label: `${f.name} (${f.severity})`,
         color: severityMapColors[f.severity],
+        infrastructureType: f.infrastructure_type,
       })),
     [filteredFeatures],
   );
@@ -282,31 +288,13 @@ function RisksTab({ data }: RisksTabProps) {
             )}
           </h3>
 
-          {/* Type filter toggles */}
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            {INFRA_TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => toggleType(opt.value)}
-                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                  activeTypes.has(opt.value)
-                    ? "bg-[var(--color-db-accent)] text-white"
-                    : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
           <div className="flex flex-col gap-2">
-            {!loading && cards.length === 0 && (
+            {!loading && sidebarCards.length === 0 && (
               <p className="py-6 text-center text-sm text-[var(--color-db-text-muted)]">
-                No infrastructure risks found nearby
+                No infrastructure risks in property boundary
               </p>
             )}
-            {cards.map((n) => (
+            {sidebarCards.map((n) => (
               <NegativePoiCard
                 key={n.id}
                 poi={n}
@@ -330,6 +318,22 @@ function RisksTab({ data }: RisksTabProps) {
                 <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
               )}
             </h3>
+            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+              {INFRA_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleType(opt.value)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    activeTypes.has(opt.value)
+                      ? "bg-[var(--color-db-accent)] text-white"
+                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="relative flex-1">
             <DashboardMap
@@ -352,7 +356,7 @@ function RisksTab({ data }: RisksTabProps) {
             >
               {filteredBoundaries.features.length > 0 && (
                 <GeoJSON
-                  key={`risk-boundaries-${filteredBoundaries.features.length}-${activeTypes.size}`}
+                  key={`risk-boundaries-${[...activeTypes].sort().join(",")}`}
                   data={filteredBoundaries}
                   style={boundaryStyle}
                   onEachFeature={onEachBoundary}

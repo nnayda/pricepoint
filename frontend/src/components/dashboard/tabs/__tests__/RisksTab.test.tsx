@@ -83,24 +83,31 @@ vi.mock("react-leaflet", () => ({
   useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
 
+let capturedMarkers: Record<string, unknown>[] = [];
+
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
     children,
+    markers,
   }: {
     children?: React.ReactNode;
     center: [number, number];
     zoom: number;
-    markers: unknown[];
+    markers: Record<string, unknown>[];
     height: string;
     minHeight: string;
     highlightedId?: string | null;
     selectedId?: string | null;
-  }) => <div data-testid="dashboard-map">{children}</div>,
+  }) => {
+    capturedMarkers = markers;
+    return <div data-testid="dashboard-map">{children}</div>;
+  },
 }));
 
 describe("RisksTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedMarkers = [];
     mockUseRisksReturn.data = {
       features: mockFeatures,
       boundaryGeojson: mockBoundaryGeojson,
@@ -108,9 +115,11 @@ describe("RisksTab", () => {
     mockUseRisksReturn.loading = false;
   });
 
-  it("renders infrastructure risk cards", () => {
+  it("renders infrastructure risk cards (only Caution/Concern in sidebar)", () => {
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText("AT&T Tower")).toBeInTheDocument();
+    // Safe items should NOT appear in the sidebar
+    expect(screen.queryByText("AT&T Tower")).not.toBeInTheDocument();
+    // Caution and Concern items should appear
     expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
     expect(screen.getByText("Shearon Harris")).toBeInTheDocument();
   });
@@ -134,16 +143,16 @@ describe("RisksTab", () => {
   it("filters cards when toggle is clicked", () => {
     render(<RisksTab data={mockDashboardData} />);
 
-    // Initially all 3 cards visible
-    expect(screen.getByText("AT&T Tower")).toBeInTheDocument();
-
-    // Click "Cell Towers" to deactivate
-    fireEvent.click(screen.getByText("Cell Towers"));
-
-    // Cell tower card should disappear
-    expect(screen.queryByText("AT&T Tower")).not.toBeInTheDocument();
-    // Others still visible
+    // Initially Caution/Concern cards visible in sidebar
     expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
+
+    // Click "Transmission Lines" to deactivate
+    fireEvent.click(screen.getByText("Transmission Lines"));
+
+    // Transmission line card should disappear
+    expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
+    // Others still visible
+    expect(screen.getByText("Shearon Harris")).toBeInTheDocument();
   });
 
   it("shows loading spinner", () => {
@@ -159,7 +168,16 @@ describe("RisksTab", () => {
       boundaryGeojson: { type: "FeatureCollection", features: [] },
     };
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText("No infrastructure risks found nearby")).toBeInTheDocument();
+    expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
+  });
+
+  it("shows empty state when all features are Safe", () => {
+    mockUseRisksReturn.data = {
+      features: [mockFeatures[0]], // Only the Safe AT&T Tower
+      boundaryGeojson: { type: "FeatureCollection", features: [] },
+    };
+    render(<RisksTab data={mockDashboardData} />);
+    expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
   });
 
   it("renders Risk Map heading", () => {
@@ -167,21 +185,33 @@ describe("RisksTab", () => {
     expect(screen.getByText("Risk Map")).toBeInTheDocument();
   });
 
-  it("renders distance for each card", () => {
+  it("renders distance for each sidebar card", () => {
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText(/0\.8 mi/)).toBeInTheDocument();
+    // Only Caution/Concern cards appear in sidebar
     expect(screen.getByText(/0\.3 mi/)).toBeInTheDocument();
     expect(screen.getByText(/1\.2 mi/)).toBeInTheDocument();
+    // Safe card (0.8 mi) not in sidebar
+    expect(screen.queryByText(/0\.8 mi/)).not.toBeInTheDocument();
   });
 
   it("re-enables filter when toggle clicked twice", () => {
     render(<RisksTab data={mockDashboardData} />);
 
-    // Disable then re-enable
-    fireEvent.click(screen.getByText("Cell Towers"));
-    expect(screen.queryByText("AT&T Tower")).not.toBeInTheDocument();
+    // Disable then re-enable transmission lines (Caution severity, visible in sidebar)
+    fireEvent.click(screen.getByText("Transmission Lines"));
+    expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Cell Towers"));
-    expect(screen.getByText("AT&T Tower")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Transmission Lines"));
+    expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
+  });
+
+  it("passes infrastructureType to DashboardMap markers", () => {
+    render(<RisksTab data={mockDashboardData} />);
+    // First marker is the property marker (no infrastructureType)
+    const infraMarkers = capturedMarkers.filter((m) => m.infrastructureType);
+    expect(infraMarkers.length).toBe(3);
+    expect(infraMarkers.map((m) => m.infrastructureType)).toEqual(
+      expect.arrayContaining(["cell_tower", "transmission_line", "power_plant"]),
+    );
   });
 });

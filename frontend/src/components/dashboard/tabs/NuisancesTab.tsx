@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { GeoJSON } from "react-leaflet";
 import type { DashboardData, NegativePoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
@@ -151,12 +151,44 @@ function NegativePoiCard({
 
 const SEVERITY_ORDER: Record<string, number> = { Concern: 0, Caution: 1, Safe: 2 };
 
+type NoiseSourceLayer = "aviation" | "road" | "rail" | "aviation_road_rail";
+
+const NOISE_SOURCE_OPTIONS: { value: NoiseSourceLayer; label: string }[] = [
+  { value: "aviation", label: "Aviation" },
+  { value: "road", label: "Road" },
+  { value: "rail", label: "Rail" },
+  { value: "aviation_road_rail", label: "Combined" },
+];
+
+const ALL_SOURCES = new Set<NoiseSourceLayer>(NOISE_SOURCE_OPTIONS.map((o) => o.value));
+
 function NuisancesTab({ data }: NuisancesTabProps) {
   const { nuisances, property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: noiseData, loading: noiseLoading } = useNuisances(property.lat, property.lon);
+
+  const [activeSources, setActiveSources] = useState<Set<NoiseSourceLayer>>(ALL_SOURCES);
+
+  const toggleSource = useCallback((source: NoiseSourceLayer) => {
+    setActiveSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) {
+        next.delete(source);
+      } else {
+        next.add(source);
+      }
+      return next;
+    });
+  }, []);
+
+  const filteredNoiseData = useMemo(() => {
+    const filtered = noiseData.features.filter(
+      (f) => f.properties && activeSources.has(f.properties.source_layer as NoiseSourceLayer),
+    );
+    return { type: "FeatureCollection" as const, features: filtered };
+  }, [noiseData, activeSources]);
 
   const sorted = [...nuisances].sort(
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
@@ -217,12 +249,30 @@ function NuisancesTab({ data }: NuisancesTabProps) {
       {/* Right column — map with noise polygons */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Nuisance Map
-            {noiseLoading && (
-              <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
-            )}
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+              Nuisance Map
+              {noiseLoading && (
+                <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
+              )}
+            </h3>
+            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+              {NOISE_SOURCE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleSource(opt.value)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    activeSources.has(opt.value)
+                      ? "bg-[var(--color-db-accent)] text-white"
+                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
@@ -242,16 +292,16 @@ function NuisancesTab({ data }: NuisancesTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
-              {noiseData.features.length > 0 && (
+              {filteredNoiseData.features.length > 0 && (
                 <GeoJSON
-                  key={`noise-${noiseData.features.length}`}
-                  data={noiseData}
+                  key={`noise-${filteredNoiseData.features.length}-${activeSources.size}`}
+                  data={filteredNoiseData}
                   style={getNoisePolygonStyle}
                   onEachFeature={onEachFeature}
                 />
               )}
             </DashboardMap>
-            {noiseData.features.length > 0 && <ChoroplethLegend config={noiseLegend} />}
+            {filteredNoiseData.features.length > 0 && <ChoroplethLegend config={noiseLegend} />}
           </div>
         </DashboardCard>
       </div>
