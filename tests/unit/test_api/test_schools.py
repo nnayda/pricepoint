@@ -299,6 +299,7 @@ class TestSchoolsNearbyWithData:
         home_district.id = 10
         home_district.name = "Wake County Schools"
         home_district.geoid = "3700390"
+        home_district.district_type = "unified"
         home_district.geom = MagicMock()
         home_district.intptlat = "35.790000"
         home_district.intptlon = "-78.780000"
@@ -307,6 +308,7 @@ class TestSchoolsNearbyWithData:
         neighbor_district.id = 20
         neighbor_district.name = "Durham Public Schools"
         neighbor_district.geoid = "3701170"
+        neighbor_district.district_type = "unified"
         neighbor_district.geom = MagicMock()
         neighbor_district.intptlat = "36.000000"
         neighbor_district.intptlon = "-78.900000"
@@ -365,13 +367,95 @@ class TestSchoolsNearbyWithData:
         home = next(d for d in districts if d["is_home"])
         assert home["name"] == "Wake County Schools"
         assert home["geoid"] == "3700390"
+        assert home["district_type"] == "unified"
         assert home["geojson"]["type"] == "MultiPolygon"
         assert home["label_lat"] == 35.79
         assert home["label_lon"] == -78.78
 
         neighbor = next(d for d in districts if not d["is_home"])
         assert neighbor["name"] == "Durham Public Schools"
+        assert neighbor["district_type"] == "unified"
         assert neighbor["geojson"]["type"] == "MultiPolygon"
+
+        app.dependency_overrides.clear()
+
+    def test_district_type_returned_for_each_district(self, app):
+        """Each district includes its district_type (elementary/secondary/unified)."""
+        import json
+
+        from fastapi.testclient import TestClient
+
+        from pricepoint.api.dependencies import get_db
+
+        mock_db = MagicMock()
+        school = self._make_school()
+
+        elem_district = MagicMock()
+        elem_district.id = 10
+        elem_district.name = "Elem District"
+        elem_district.geoid = "3700001"
+        elem_district.district_type = "elementary"
+        elem_district.geom = MagicMock()
+        elem_district.intptlat = "35.79"
+        elem_district.intptlon = "-78.78"
+
+        sec_district = MagicMock()
+        sec_district.id = 20
+        sec_district.name = "Secondary District"
+        sec_district.geoid = "3700002"
+        sec_district.district_type = "secondary"
+        sec_district.geom = MagicMock()
+        sec_district.intptlat = "36.0"
+        sec_district.intptlon = "-78.9"
+
+        geojson = {"type": "MultiPolygon", "coordinates": []}
+        call_count = 0
+
+        def mock_execute(stmt):
+            nonlocal call_count
+            call_count += 1
+            result = MagicMock()
+
+            if call_count == 1:
+                result.all.return_value = [(school, 1609.0)]
+                return result
+            elif call_count == 2:
+                result.all.return_value = [
+                    (elem_district, True, json.dumps(geojson)),
+                    (sec_district, False, json.dumps(geojson)),
+                ]
+                return result
+            elif call_count == 3:
+                result.scalar_one_or_none.return_value = None
+                return result
+            else:
+                coord = MagicMock()
+                coord.lat = 35.79
+                coord.lon = -78.78
+                result.one.return_value = coord
+                return result
+
+        mock_db.execute = mock_execute
+
+        def _override():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = _override
+        client = TestClient(app)
+
+        resp = client.get(
+            "/api/schools/nearby",
+            params={"lat": 35.79, "lon": -78.78},
+        )
+        assert resp.status_code == 200
+        districts = resp.json()["school_districts"]
+        assert len(districts) == 2
+
+        by_type = {d["district_type"]: d for d in districts}
+        assert "elementary" in by_type
+        assert "secondary" in by_type
+        assert by_type["elementary"]["name"] == "Elem District"
+        assert by_type["secondary"]["name"] == "Secondary District"
 
         app.dependency_overrides.clear()
 
@@ -390,6 +474,7 @@ class TestSchoolsNearbyWithData:
         district.id = 10
         district.name = "Wake County Schools"
         district.geoid = "3700390"
+        district.district_type = "unified"
         district.geom = MagicMock()
         district.intptlat = "35.790000"
         district.intptlon = "-78.780000"

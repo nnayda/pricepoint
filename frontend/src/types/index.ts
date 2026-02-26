@@ -123,6 +123,7 @@ export interface SchoolNearby {
 export interface SchoolDistrictInfo {
   name: string;
   geoid: string;
+  district_type: string | null;
   geojson: GeoJSON.GeoJsonObject | null;
   is_home: boolean;
   label_lat: number | null;

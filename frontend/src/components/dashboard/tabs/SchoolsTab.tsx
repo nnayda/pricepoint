@@ -248,21 +248,31 @@ const NEIGHBOR_DISTRICT_STYLE: PathOptions = {
   fillOpacity: 0.03,
 };
 
+function districtTypeLabel(districtType: string | null): string {
+  if (!districtType) return "";
+  if (districtType === "elementary") return "Elementary";
+  if (districtType === "secondary") return "Secondary";
+  if (districtType === "unified") return "Unified";
+  return districtType;
+}
+
 /** Renders a single district boundary with an optional permanent label. */
 function DistrictBoundary({ district }: { district: SchoolDistrictInfo }) {
   const isHome = district.is_home;
+  const typeTag = districtTypeLabel(district.district_type);
+  const label = typeTag ? `${district.name} (${typeTag})` : district.name;
 
   const onEachFeature = useCallback(
     (_feature: GeoJSON.Feature, layer: Layer) => {
       if (!isHome) {
-        layer.bindTooltip(district.name, {
+        layer.bindTooltip(label, {
           permanent: true,
           direction: "center",
           className: "district-label",
         });
       }
     },
-    [district.name, isHome],
+    [label, isHome],
   );
 
   if (!district.geojson) return null;
@@ -328,6 +338,22 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     () => schoolDistricts.find((d) => d.is_home) ?? null,
     [schoolDistricts],
   );
+
+  // Filter districts by active school level toggles
+  const filteredDistricts = useMemo(() => {
+    if (activeLevels.size === ALL_LEVELS.size) return schoolDistricts;
+    return schoolDistricts.filter((d) => {
+      // Always show unified districts (they cover all levels)
+      if (d.district_type === "unified") return true;
+      // Show elementary districts when Elementary is active
+      if (d.district_type === "elementary") return activeLevels.has("Elementary");
+      // Show secondary districts when Middle or High is active
+      if (d.district_type === "secondary")
+        return activeLevels.has("Middle") || activeLevels.has("High");
+      // Unknown type — always show
+      return true;
+    });
+  }, [schoolDistricts, activeLevels, ALL_LEVELS.size]);
 
   // Use API schools if available, fall back to bundled data
   const allSchools = useMemo(() => {
@@ -491,12 +517,12 @@ function SchoolsTab({ data }: SchoolsTabProps) {
             >
               <MapBoundsTracker onBoundsChange={setMapBounds} />
               {/* Render neighbor districts first (below), then home district on top */}
-              {schoolDistricts
+              {filteredDistricts
                 .filter((d) => !d.is_home)
                 .map((d) => (
                   <DistrictBoundary key={d.geoid} district={d} />
                 ))}
-              {schoolDistricts
+              {filteredDistricts
                 .filter((d) => d.is_home)
                 .map((d) => (
                   <DistrictBoundary key={d.geoid} district={d} />

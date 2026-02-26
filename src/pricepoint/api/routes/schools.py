@@ -85,6 +85,7 @@ async def get_nearby_schools(
             SchoolDistrictInfo(
                 name=district.name,
                 geoid=district.geoid,
+                district_type=district.district_type,
                 geojson=geojson,
                 is_home=bool(is_home),
                 label_lat=label_lat,
@@ -155,9 +156,7 @@ async def get_nearby_schools(
                 school_type=school.school_type or "Unknown",
                 school_level=school.school_level,
                 rating=(
-                    int(school.rating)
-                    if school.rating is not None and school.rating > 0
-                    else None
+                    int(school.rating) if school.rating is not None and school.rating > 0 else None
                 ),
                 grades=school.grades,
                 distance_miles=round(distance_miles, 1),

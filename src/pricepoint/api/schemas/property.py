@@ -109,6 +109,7 @@ class SchoolDistrictInfo(BaseModel):
 
     name: str
     geoid: str
+    district_type: str | None = None
     geojson: dict | None = None
     is_home: bool = False
     label_lat: float | None = None
