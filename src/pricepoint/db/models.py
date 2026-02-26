@@ -333,6 +333,25 @@ class TigerCountySubdivision(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Road(Base):
+    """TIGER/Line primary and secondary road centerlines (PRISECROADS).
+
+    Combines S1100 (primary) and S1200 (secondary) MTFCC classes from
+    state-level PRISECROADS shapefiles into a single table.
+    """
+
+    __tablename__ = "roads"
+    __table_args__ = (Index("ix_roads_geom", "geom", postgresql_using="gist"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    linearid = Column(String(22), unique=True, index=True)
+    fullname = Column(String(100))
+    rttyp = Column(String(1))
+    mtfcc = Column(String(5))
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class StagingWakeCountyPropertyData(Base):
     """Wake County property assessment data staging table.
 
