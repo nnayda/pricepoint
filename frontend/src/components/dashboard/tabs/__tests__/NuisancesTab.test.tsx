@@ -113,6 +113,12 @@ describe("NuisancesTab", () => {
     expect(screen.getByText("Railroad")).toBeInTheDocument();
   });
 
+  it("renders group labels to distinguish noise levels from locations", () => {
+    render(<NuisancesTab data={mockDashboardData} />);
+    expect(screen.getByText("Noise")).toBeInTheDocument();
+    expect(screen.getByText("Locations")).toBeInTheDocument();
+  });
+
   it("all toggles are active by default (all features shown)", () => {
     render(<NuisancesTab data={mockDashboardData} />);
     const geojson = screen.getByTestId("geojson-layer");

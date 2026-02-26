@@ -335,38 +335,48 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                 <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
               )}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-                {NOISE_SOURCE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleSource(opt.value)}
-                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                      activeSources.has(opt.value)
-                        ? "bg-[var(--color-db-accent)] text-white"
-                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-db-text-tertiary)]">
+                  Noise
+                </span>
+                <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                  {NOISE_SOURCE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleSource(opt.value)}
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        activeSources.has(opt.value)
+                          ? "bg-[var(--color-db-accent)] text-white"
+                          : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-                {INFRA_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleInfra(opt.value)}
-                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                      activeInfra.has(opt.value)
-                        ? "bg-[var(--color-db-text-secondary)] text-white"
-                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-db-text-tertiary)]">
+                  Locations
+                </span>
+                <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                  {INFRA_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleInfra(opt.value)}
+                      className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        activeInfra.has(opt.value)
+                          ? "bg-[var(--color-db-text-secondary)] text-white"
+                          : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
