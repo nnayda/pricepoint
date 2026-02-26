@@ -1,7 +1,8 @@
 """DAG: Collect transportation noise data from BTS National Noise Map.
 
-Manual-trigger DAG that downloads BTS noise map tiles, vectorizes noise
-polygons by dB band, and loads them into the noises table.
+Manual-trigger DAG that downloads BTS noise map tiles for each mode
+(aviation, road, rail, combined), vectorizes noise polygons by dB band,
+stages them, applies PostGIS smoothing, and loads into the noises table.
 """
 
 import logging
@@ -27,14 +28,36 @@ logger = logging.getLogger(__name__)
 )
 def bts_noise_collection():
     @task()
-    def fetch_noise():
-        """Download BTS noise tiles, vectorize, and load into PostGIS."""
-        from pricepoint.data.geospatial.bts_noise import (
-            fetch_transportation_noise,
-        )
+    def fetch_aviation():
+        """Download aviation noise tiles, stage, smooth, and load."""
+        from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
 
-        count = fetch_transportation_noise()
-        logger.info("Loaded %d noise polygons", count)
+        count = fetch_transportation_noise(mode="aviation")
+        logger.info("Loaded %d aviation noise polygons", count)
+
+    @task()
+    def fetch_road():
+        """Download road noise tiles, stage, smooth, and load."""
+        from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
+
+        count = fetch_transportation_noise(mode="road")
+        logger.info("Loaded %d road noise polygons", count)
+
+    @task()
+    def fetch_rail():
+        """Download rail noise tiles, stage, smooth, and load."""
+        from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
+
+        count = fetch_transportation_noise(mode="rail")
+        logger.info("Loaded %d rail noise polygons", count)
+
+    @task()
+    def fetch_combined():
+        """Download combined aviation+road+rail noise tiles, stage, smooth, and load."""
+        from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
+
+        count = fetch_transportation_noise(mode="aviation_road_rail")
+        logger.info("Loaded %d combined noise polygons", count)
 
     @task()
     def verify_load():
@@ -43,7 +66,7 @@ def bts_noise_collection():
 
         verify_transportation_noise()
 
-    fetch_noise() >> verify_load()
+    [fetch_aviation(), fetch_road(), fetch_rail(), fetch_combined()] >> verify_load()
 
 
 bts_noise_collection()

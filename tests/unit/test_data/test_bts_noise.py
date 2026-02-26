@@ -11,6 +11,8 @@ from PIL import Image
 
 from pricepoint.data.geospatial.bts_noise import (
     COLOR_TO_DB_BAND,
+    NOISE_MODES,
+    _build_noise_production,
     _classify_tile,
     _enumerate_tiles,
     _get_band_info,
@@ -23,10 +25,38 @@ from pricepoint.data.geospatial.bts_noise import (
     _tile_affine,
     _tile_bounds_3857,
     _tile_to_lat_lon,
+    _tile_url_template,
     _vectorize_tiles,
+    fetch_all_transportation_noise,
     fetch_transportation_noise,
     verify_transportation_noise,
 )
+
+
+# ---------------------------------------------------------------------------
+# NOISE_MODES registry tests
+# ---------------------------------------------------------------------------
+class TestNoiseModes:
+    """Tests for the NOISE_MODES registry."""
+
+    def test_all_modes_present(self):
+        """All four expected modes should be in the registry."""
+        assert "aviation" in NOISE_MODES
+        assert "road" in NOISE_MODES
+        assert "rail" in NOISE_MODES
+        assert "aviation_road_rail" in NOISE_MODES
+
+    def test_service_names_are_strings(self):
+        """All service name values should be non-empty strings."""
+        for _mode, service in NOISE_MODES.items():
+            assert isinstance(service, str)
+            assert len(service) > 0
+            assert service.startswith("NTAD_Noise_2020_CONUS_")
+
+    def test_tile_url_template(self):
+        """_tile_url_template should produce a valid URL pattern."""
+        url = _tile_url_template("https://example.com/rest", "SomeService")
+        assert url == "https://example.com/rest/SomeService/MapServer/tile/{z}/{y}/{x}"
 
 
 # ---------------------------------------------------------------------------
@@ -96,24 +126,24 @@ class TestColorClassification:
 
     def test_match_color_exact(self):
         """Exact color match should return the correct band."""
-        result = _match_color(255, 255, 0)
+        result = _match_color(255, 0, 0)
         assert result is not None
         min_db, max_db, label = result
         assert min_db == 55
         assert max_db == 60
-        assert label == "55-60"
+        assert label == "55.0-59.9"
 
     def test_match_color_near_match(self):
         """Color within tolerance should match."""
-        # Slightly off from (255, 0, 0) which is 75-80
+        # Slightly off from (255, 0, 0) which is 55.0-59.9
         result = _match_color(250, 5, 5)
         assert result is not None
         _, _, label = result
-        assert label == "75-80"
+        assert label == "55.0-59.9"
 
     def test_match_color_no_match(self):
         """Color far from all known colors should return None."""
-        result = _match_color(0, 0, 255)  # pure blue, not in ramp
+        result = _match_color(0, 128, 0)  # green, not in ramp
         assert result is None
 
     def test_match_color_transparent_not_handled(self):
@@ -130,13 +160,13 @@ class TestColorClassification:
 
     def test_get_band_info_valid(self):
         """Should return (min_db, max_db) for a known band."""
-        min_db, max_db = _get_band_info("55-60")
+        min_db, max_db = _get_band_info("55.0-59.9")
         assert min_db == 55
         assert max_db == 60
 
     def test_get_band_info_unbounded(self):
-        """The 90+ band should have max_db=None."""
-        min_db, max_db = _get_band_info("90+")
+        """The >90.0 band should have max_db=None."""
+        min_db, max_db = _get_band_info(">90.0")
         assert min_db == 90
         assert max_db is None
 
@@ -156,12 +186,12 @@ class TestColorClassification:
 
     def test_classify_tile_with_known_color(self):
         """Tile with a known noise color should produce non-zero pixels."""
-        # Create tile with one known color: (255, 255, 0) = 55-60 dB
+        # Create tile with one known color: (255, 0, 0) = 55.0-59.9 dB
         img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         # Paint a small region
         for x in range(10, 20):
             for y in range(10, 20):
-                img.putpixel((x, y), (255, 255, 0, 255))
+                img.putpixel((x, y), (255, 0, 0, 255))
         buf = BytesIO()
         img.save(buf, format="PNG")
         result = _classify_tile(buf.getvalue())
@@ -294,7 +324,7 @@ class TestMergeAndReproject:
 
     def test_merge_batch_polygons_empty(self):
         """Empty polygon dict should produce empty records list."""
-        result = _merge_batch_polygons({}, 0.0001, 500.0)
+        result = _merge_batch_polygons({}, 0.0001, 500.0, source_layer="aviation")
         assert result == []
 
     def test_merge_batch_polygons_filters_small(self):
@@ -303,8 +333,8 @@ class TestMergeAndReproject:
 
         # Very small polygon in EPSG:3857 (< 500 sq metres)
         tiny = box(0, 0, 1, 1)  # 1 sq metre
-        band_polygons = {"55-60": [tiny]}
-        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0)
+        band_polygons = {"55.0-59.9": [tiny]}
+        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0, source_layer="road")
         assert len(result) == 0
 
     def test_merge_batch_polygons_keeps_large(self):
@@ -313,13 +343,26 @@ class TestMergeAndReproject:
 
         # Large polygon in EPSG:3857
         large = box(-8761000, 4259000, -8760000, 4260000)  # ~1km x 1km
-        band_polygons = {"55-60": [large]}
-        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0)
+        band_polygons = {"55.0-59.9": [large]}
+        result = _merge_batch_polygons(
+            band_polygons, 0.0001, 500.0, source_layer="aviation_road_rail"
+        )
         assert len(result) == 1
-        assert result[0]["noise_band"] == "55-60"
+        assert result[0]["noise_band"] == "55.0-59.9"
         assert result[0]["noise_min_db"] == 55
         assert result[0]["noise_max_db"] == 60
         assert result[0]["source_layer"] == "aviation_road_rail"
+
+    def test_merge_batch_polygons_source_layer_parameterized(self):
+        """source_layer should be set from the parameter, not a constant."""
+        from shapely.geometry import box
+
+        large = box(-8761000, 4259000, -8760000, 4260000)
+        for layer in ("aviation", "road", "rail"):
+            result = _merge_batch_polygons(
+                {"55.0-59.9": [large]}, 0.0001, 500.0, source_layer=layer
+            )
+            assert result[0]["source_layer"] == layer
 
     def test_merge_batch_polygons_merges_adjacent(self):
         """Adjacent polygons of the same band should merge into fewer records."""
@@ -328,32 +371,64 @@ class TestMergeAndReproject:
         # Two adjacent large boxes
         box1 = box(-8762000, 4259000, -8761000, 4260000)
         box2 = box(-8761000, 4259000, -8760000, 4260000)
-        band_polygons = {"55-60": [box1, box2]}
-        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0)
+        band_polygons = {"55.0-59.9": [box1, box2]}
+        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0, source_layer="road")
         # Should merge into 1 polygon
         assert len(result) == 1
 
-    def test_merge_with_smooth_buffer(self):
-        """Buffer-unbuffer smoothing should produce valid output."""
-        from shapely.geometry import box
 
-        large = box(-8761000, 4259000, -8760000, 4260000)
-        band_polygons = {"55-60": [large]}
-        result = _merge_batch_polygons(band_polygons, 0.0001, 500.0, smooth_buffer_m=20.0)
-        assert len(result) == 1
-        assert result[0]["noise_band"] == "55-60"
-        assert result[0]["geom"].is_valid
+# ---------------------------------------------------------------------------
+# _build_noise_production tests
+# ---------------------------------------------------------------------------
+class TestBuildNoiseProduction:
+    """Tests for the PostGIS promotion step."""
 
-    def test_merge_zero_buffer_matches_default(self):
-        """smooth_buffer_m=0.0 should produce the same result as no buffer."""
-        from shapely.geometry import box
+    def test_executes_sql_with_correct_params(self):
+        """Should call session.execute with the promote SQL and correct params."""
+        from datetime import UTC, datetime
 
-        large = box(-8761000, 4259000, -8760000, 4260000)
-        band_polygons = {"55-60": [large]}
-        result_default = _merge_batch_polygons(band_polygons, 0.0001, 500.0)
-        result_zero = _merge_batch_polygons(band_polygons, 0.0001, 500.0, smooth_buffer_m=0.0)
-        assert len(result_default) == len(result_zero)
-        assert result_default[0]["area_sq_m"] == result_zero[0]["area_sq_m"]
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 5
+        mock_session.execute.return_value = mock_result
+
+        mock_settings = MagicMock()
+        mock_settings.bts_noise_chaikin_iterations = 3
+        mock_settings.bts_noise_simplify_tolerance = 0.0001
+
+        run_started = datetime(2026, 1, 1, tzinfo=UTC)
+
+        count = _build_noise_production(mock_session, "aviation", run_started, mock_settings)
+
+        assert count == 5
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_called_once()
+
+        # Verify the params dict
+        call_args = mock_session.execute.call_args
+        params = call_args[0][1]
+        assert params["iterations"] == 3
+        assert params["tolerance"] == 0.0001
+        assert params["run_started"] == run_started
+        assert params["source_layer"] == "aviation"
+
+    def test_returns_zero_when_no_rows(self):
+        """Should return 0 when no rows promoted."""
+        from datetime import UTC, datetime
+
+        mock_session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_session.execute.return_value = mock_result
+
+        mock_settings = MagicMock()
+        mock_settings.bts_noise_chaikin_iterations = 3
+        mock_settings.bts_noise_simplify_tolerance = 0.0001
+
+        count = _build_noise_production(
+            mock_session, "rail", datetime(2026, 1, 1, tzinfo=UTC), mock_settings
+        )
+        assert count == 0
 
 
 # ---------------------------------------------------------------------------
@@ -362,7 +437,7 @@ class TestMergeAndReproject:
 class TestFetchTransportationNoise:
     """Tests for the main fetch function (mocked I/O)."""
 
-    def _make_png(self, color: tuple[int, int, int, int] = (255, 255, 0, 255)) -> bytes:
+    def _make_png(self, color: tuple[int, int, int, int] = (255, 0, 0, 255)) -> bytes:
         """Create a synthetic 256x256 PNG with a colored region."""
         img = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         # Paint a large block so it's big enough to pass area filter
@@ -377,10 +452,10 @@ class TestFetchTransportationNoise:
     @patch("pricepoint.data.geospatial.bts_noise.get_settings")
     @patch("pricepoint.data.geospatial.bts_noise._download_tile")
     def test_fetch_success(self, mock_download, mock_settings, mock_session_cls):
-        """fetch_transportation_noise should download, vectorize, and insert."""
+        """fetch_transportation_noise should download, vectorize, stage, and promote."""
         settings = MagicMock()
         settings.bts_noise_zoom = 12
-        settings.bts_noise_tile_url = "http://test/{z}/{y}/{x}"
+        settings.bts_noise_base_url = "https://geo.dot.gov/server/rest/services/Hosted"
         settings.bts_noise_tile_rate_limit = 0.0
         settings.bts_noise_batch_size = 100
         settings.bts_noise_simplify_tolerance = 0.0001
@@ -390,20 +465,20 @@ class TestFetchTransportationNoise:
         settings.bts_noise_bbox_west = -78.72
         settings.bts_noise_bbox_east = -78.68
         settings.bts_noise_morphological_closing = True
-        settings.bts_noise_smooth_buffer_m = 20.0
+        settings.bts_noise_chaikin_iterations = 3
         mock_settings.return_value = settings
 
         mock_download.return_value = self._make_png()
 
         mock_session = MagicMock()
         mock_session_cls.return_value = mock_session
-        # Make delete().where().rowcount work
+        # Make execute return a result with rowcount for promotion and cleanup
         mock_execute = MagicMock()
-        mock_execute.rowcount = 0
+        mock_execute.rowcount = 5
         mock_session.execute.return_value = mock_execute
 
-        count = fetch_transportation_noise()
-        assert count > 0
+        count = fetch_transportation_noise(mode="aviation")
+        assert count == 5  # from the mock promotion rowcount
         assert mock_session.add.called
         assert mock_session.commit.called
 
@@ -414,7 +489,7 @@ class TestFetchTransportationNoise:
         """If all tile downloads fail, should return 0."""
         settings = MagicMock()
         settings.bts_noise_zoom = 12
-        settings.bts_noise_tile_url = "http://test/{z}/{y}/{x}"
+        settings.bts_noise_base_url = "https://geo.dot.gov/server/rest/services/Hosted"
         settings.bts_noise_tile_rate_limit = 0.0
         settings.bts_noise_batch_size = 100
         settings.bts_noise_simplify_tolerance = 0.0001
@@ -424,7 +499,6 @@ class TestFetchTransportationNoise:
         settings.bts_noise_bbox_west = -78.72
         settings.bts_noise_bbox_east = -78.68
         settings.bts_noise_morphological_closing = False
-        settings.bts_noise_smooth_buffer_m = 0.0
         mock_settings.return_value = settings
 
         mock_download.return_value = None  # All tiles fail
@@ -432,8 +506,81 @@ class TestFetchTransportationNoise:
         mock_session = MagicMock()
         mock_session_cls.return_value = mock_session
 
-        count = fetch_transportation_noise()
+        count = fetch_transportation_noise(mode="road")
         assert count == 0
+
+    def test_fetch_invalid_mode(self):
+        """Unknown mode should raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown noise mode"):
+            fetch_transportation_noise(mode="helicopter")
+
+    @patch("pricepoint.data.geospatial.bts_noise.SessionLocal")
+    @patch("pricepoint.data.geospatial.bts_noise.get_settings")
+    @patch("pricepoint.data.geospatial.bts_noise._download_tile")
+    def test_fetch_uses_correct_url_for_mode(self, mock_download, mock_settings, mock_session_cls):
+        """Each mode should use the correct BTS service name in the URL."""
+        settings = MagicMock()
+        settings.bts_noise_zoom = 12
+        settings.bts_noise_base_url = "https://geo.dot.gov/server/rest/services/Hosted"
+        settings.bts_noise_tile_rate_limit = 0.0
+        settings.bts_noise_batch_size = 100
+        settings.bts_noise_simplify_tolerance = 0.0001
+        settings.bts_noise_min_polygon_area_sq_m = 500.0
+        settings.bts_noise_bbox_south = 35.8
+        settings.bts_noise_bbox_north = 35.8
+        settings.bts_noise_bbox_west = -78.7
+        settings.bts_noise_bbox_east = -78.7
+        settings.bts_noise_morphological_closing = False
+        mock_settings.return_value = settings
+
+        mock_download.return_value = None
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        fetch_transportation_noise(mode="rail")
+
+        # Check the URL template passed to _download_tile contains the rail service name
+        if mock_download.called:
+            url_arg = mock_download.call_args[0][1]
+            assert "NTAD_Noise_2020_CONUS_Rail" in url_arg
+
+
+# ---------------------------------------------------------------------------
+# fetch_all_transportation_noise tests
+# ---------------------------------------------------------------------------
+class TestFetchAllTransportationNoise:
+    """Tests for the convenience wrapper that fetches all modes."""
+
+    @patch("pricepoint.data.geospatial.bts_noise.fetch_transportation_noise")
+    @patch("pricepoint.data.geospatial.bts_noise.get_settings")
+    def test_calls_all_modes(self, mock_settings, mock_fetch):
+        """Should call fetch_transportation_noise for each configured mode."""
+        settings = MagicMock()
+        settings.bts_noise_modes = ["aviation", "road", "rail", "aviation_road_rail"]
+        mock_settings.return_value = settings
+        mock_fetch.return_value = 10
+
+        total = fetch_all_transportation_noise()
+        assert total == 40
+        assert mock_fetch.call_count == 4
+        mock_fetch.assert_any_call(mode="aviation")
+        mock_fetch.assert_any_call(mode="road")
+        mock_fetch.assert_any_call(mode="rail")
+        mock_fetch.assert_any_call(mode="aviation_road_rail")
+
+    @patch("pricepoint.data.geospatial.bts_noise.fetch_transportation_noise")
+    @patch("pricepoint.data.geospatial.bts_noise.get_settings")
+    def test_subset_of_modes(self, mock_settings, mock_fetch):
+        """Should only call modes listed in settings."""
+        settings = MagicMock()
+        settings.bts_noise_modes = ["aviation", "road"]
+        mock_settings.return_value = settings
+        mock_fetch.return_value = 5
+
+        total = fetch_all_transportation_noise()
+        assert total == 10
+        assert mock_fetch.call_count == 2
 
 
 # ---------------------------------------------------------------------------

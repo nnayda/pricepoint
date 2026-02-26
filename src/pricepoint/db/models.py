@@ -868,7 +868,6 @@ class WakeSubdivision(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-
 class Hospital(Base):
     """Hospital location from HIFLD."""
 
@@ -1087,6 +1086,25 @@ class TransportationNoise(Base):
         Index("ix_noises_geom", "geom", postgresql_using="gist"),
         Index("ix_noises_noise_min_db", "noise_min_db"),
     )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    noise_min_db = Column(Integer, nullable=False)
+    noise_max_db = Column(Integer, nullable=True)
+    noise_band = Column(String, nullable=False)
+    source_layer = Column(String, nullable=False)
+    area_sq_m = Column(Float, nullable=True)
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class StagingTransportationNoise(Base):
+    """Staging table for raw BTS noise polygons (pre-smoothing).
+
+    Holds jagged per-batch polygons before PostGIS clustering, merging,
+    and Chaikin smoothing promote them to the production ``noises`` table.
+    """
+
+    __tablename__ = "staging_noises"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     noise_min_db = Column(Integer, nullable=False)

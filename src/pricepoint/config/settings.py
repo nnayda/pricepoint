@@ -124,10 +124,8 @@ class Settings(BaseSettings):
     ourairports_csv_url: str = "https://davidmegginson.github.io/ourairports-data/airports.csv"
 
     # BTS National Transportation Noise Map
-    bts_noise_tile_url: str = (
-        "https://geo.dot.gov/server/rest/services/Hosted"
-        "/NTAD_Noise_2020_CONUS_Aviation_Road_Rail/MapServer/tile/{z}/{y}/{x}"
-    )
+    bts_noise_base_url: str = "https://geo.dot.gov/server/rest/services/Hosted"
+    bts_noise_modes: list[str] = ["aviation", "road", "rail", "aviation_road_rail"]
     bts_noise_zoom: int = 12
     bts_noise_bbox_south: float = 35.5
     bts_noise_bbox_north: float = 36.1
@@ -138,7 +136,7 @@ class Settings(BaseSettings):
     bts_noise_batch_size: int = 10
     bts_noise_min_polygon_area_sq_m: float = 500.0
     bts_noise_morphological_closing: bool = True
-    bts_noise_smooth_buffer_m: float = 50.0
+    bts_noise_chaikin_iterations: int = 3
 
     # Overture Maps Places
     overture_places_s3_path: str = (

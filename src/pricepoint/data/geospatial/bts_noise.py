@@ -1,12 +1,13 @@
 """Collect transportation noise data from BTS National Noise Map tiles.
 
-Downloads pre-rendered PNG map tiles at zoom 12 from the BTS NTAD
-Aviation+Road+Rail noise layer, classifies pixel colors into dB bands,
-vectorizes into polygons with regional merging, and stores in PostGIS.
+Downloads pre-rendered PNG map tiles at zoom 12 from BTS NTAD noise
+layers (aviation, road, rail, combined), classifies pixel colors into
+dB bands, vectorizes into raw polygons stored in a staging table, then
+uses PostGIS to cluster, merge, smooth (Chaikin), and promote to the
+production ``noises`` table.
 
-Tile endpoint:
-    https://geo.dot.gov/server/rest/services/Hosted/
-    NTAD_Noise_2020_CONUS_Aviation_Road_Rail/MapServer/tile/{z}/{y}/{x}
+Tile endpoint pattern:
+    {base_url}/{service_name}/MapServer/tile/{z}/{y}/{x}
 """
 
 from __future__ import annotations
@@ -28,11 +29,11 @@ from rasterio.transform import from_bounds
 from scipy.ndimage import binary_closing
 from shapely.geometry import MultiPolygon, shape
 from shapely.ops import unary_union
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 
-from pricepoint.config.settings import get_settings
+from pricepoint.config.settings import Settings, get_settings
 from pricepoint.db import SessionLocal
-from pricepoint.db.models import TransportationNoise
+from pricepoint.db.models import StagingTransportationNoise, TransportationNoise
 
 logger = logging.getLogger(__name__)
 
@@ -40,28 +41,16 @@ logger = logging.getLogger(__name__)
 # Color-to-dB-band mapping
 # ---------------------------------------------------------------------------
 # Each entry: (R, G, B) -> (min_db, max_db | None, band_label)
-# Populated from BTS tile color ramp. max_db=None means "X dB+".
+# Matched to the official BTS National Noise Map legend (24-hr LAeq dBA).
+# max_db=None means "X dB+".
 COLOR_TO_DB_BAND: dict[tuple[int, int, int], tuple[int, int | None, str]] = {
-    (0, 157, 25): (45, 50, "45-50"),
-    (0, 177, 28): (45, 50, "45-50"),
-    (158, 213, 0): (50, 55, "50-55"),
-    (178, 233, 0): (50, 55, "50-55"),
-    (255, 255, 0): (55, 60, "55-60"),
-    (255, 235, 0): (55, 60, "55-60"),
-    (255, 200, 0): (60, 65, "60-65"),
-    (255, 170, 0): (60, 65, "60-65"),
-    (255, 127, 0): (65, 70, "65-70"),
-    (255, 100, 0): (65, 70, "65-70"),
-    (255, 60, 0): (70, 75, "70-75"),
-    (255, 40, 0): (70, 75, "70-75"),
-    (255, 0, 0): (75, 80, "75-80"),
-    (230, 0, 0): (75, 80, "75-80"),
-    (200, 0, 0): (80, 85, "80-85"),
-    (180, 0, 0): (80, 85, "80-85"),
-    (150, 0, 0): (85, 90, "85-90"),
-    (130, 0, 0): (85, 90, "85-90"),
-    (100, 0, 50): (90, None, "90+"),
-    (80, 0, 40): (90, None, "90+"),
+    (255, 193, 7): (45, 50, "45.0-49.9"),
+    (255, 128, 0): (50, 55, "50.0-54.9"),
+    (255, 0, 0): (55, 60, "55.0-59.9"),
+    (255, 51, 153): (60, 70, "60.0-69.9"),
+    (163, 0, 204): (70, 80, "70.0-79.9"),
+    (82, 0, 204): (80, 90, "80.0-89.9"),
+    (0, 0, 255): (90, None, ">90.0"),
 }
 
 _COLOR_TOLERANCE = 20
@@ -69,7 +58,23 @@ _COLOR_TOLERANCE = 20
 # EPSG:3857 constants
 _ORIGIN_SHIFT = 2 * math.pi * 6378137 / 2.0  # ~20037508.34 metres
 _TILE_SIZE = 256
-_SOURCE_LAYER = "aviation_road_rail"
+
+# ---------------------------------------------------------------------------
+# BTS noise mode registry
+# ---------------------------------------------------------------------------
+# Maps mode key -> BTS tile service name.  All four use the same color ramp,
+# zoom levels, and classification logic — only the URL differs.
+NOISE_MODES: dict[str, str] = {
+    "aviation": "NTAD_Noise_2020_CONUS_Aviation",
+    "road": "NTAD_Noise_2020_CONUS_Road",
+    "rail": "NTAD_Noise_2020_CONUS_Rail",
+    "aviation_road_rail": "NTAD_Noise_2020_CONUS_Aviation_Road_Rail",
+}
+
+
+def _tile_url_template(base_url: str, service_name: str) -> str:
+    """Build a tile URL template from the base URL and service name."""
+    return f"{base_url}/{service_name}/MapServer/tile/{{z}}/{{y}}/{{x}}"
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +224,7 @@ def _get_band_info(label: str) -> tuple[int, int | None]:
 def _smooth_classified(classified: np.ndarray) -> np.ndarray:
     """Apply morphological closing per band to fill single-pixel gaps.
 
-    Uses a 3×3 cross (4-connected) structuring element so closing fills
+    Uses a 3x3 cross (4-connected) structuring element so closing fills
     narrow gaps without aggressively expanding into diagonal neighbours.
     Only unclassified (0) pixels are overwritten; existing band boundaries
     are preserved.
@@ -272,7 +277,7 @@ def _vectorize_tiles(
 
 
 # ---------------------------------------------------------------------------
-# Merge & reproject
+# Merge & reproject (for staging insertion)
 # ---------------------------------------------------------------------------
 _transformer_3857_to_4326 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 
@@ -288,9 +293,14 @@ def _merge_batch_polygons(
     band_polygons: dict[str, list[Any]],
     simplify_tolerance: float,
     min_area_sq_m: float,
-    smooth_buffer_m: float = 0.0,
+    source_layer: str,
 ) -> list[dict[str, Any]]:
-    """Merge polygons per band, simplify, reproject, and return insert dicts."""
+    """Merge polygons per band within a batch, reproject, and return insert dicts.
+
+    Raw polygons are merged via ``unary_union`` to reduce row count within a
+    batch, then reprojected to EPSG:4326 for staging insertion.  Final
+    cross-batch merging and smoothing happens in ``_build_noise_production``.
+    """
     records: list[dict[str, Any]] = []
 
     for label, polys in band_polygons.items():
@@ -299,19 +309,6 @@ def _merge_batch_polygons(
         merged = unary_union(polys)
         if merged.is_empty:
             continue
-
-        # Morphological closing in EPSG:3857 (metres): inflate then
-        # deflate.  The positive buffer expands pixel squares so that
-        # staircase notches (each ~38 m at zoom 12) are absorbed; the
-        # negative buffer shrinks back to the original width while
-        # keeping the smoothed outline.  Set smooth_buffer_m > pixel
-        # size (~38 m at zoom 12) for full staircase elimination.
-        if smooth_buffer_m > 0:
-            merged = merged.buffer(smooth_buffer_m).buffer(-smooth_buffer_m)
-            if not merged.is_valid:
-                merged = merged.buffer(0)
-            if merged.is_empty:
-                continue
 
         # Ensure we have a list of individual polygons/multipolygons
         if merged.geom_type == "Polygon":
@@ -339,7 +336,7 @@ def _merge_batch_polygons(
                     "noise_min_db": min_db,
                     "noise_max_db": max_db,
                     "noise_band": label,
-                    "source_layer": _SOURCE_LAYER,
+                    "source_layer": source_layer,
                     "area_sq_m": part.area,
                     "geom": reprojected,
                 }
@@ -349,22 +346,91 @@ def _merge_batch_polygons(
 
 
 # ---------------------------------------------------------------------------
+# PostGIS smoothing: staging -> production
+# ---------------------------------------------------------------------------
+_PROMOTE_SQL = """\
+INSERT INTO noises (
+    noise_min_db, noise_max_db, noise_band, source_layer,
+    area_sq_m, geom, loaded_at
+)
+SELECT
+    noise_min_db, noise_max_db, noise_band, source_layer,
+    ST_Area(smoothed::geography) AS area_sq_m,
+    smoothed AS geom,
+    loaded_at
+FROM (
+    SELECT
+        noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
+        ST_Multi(
+            ST_SimplifyPreserveTopology(
+                ST_ChaikinSmoothing(ST_Union(geom), :iterations),
+                :tolerance
+            )
+        ) AS smoothed
+    FROM (
+        SELECT *,
+            ST_ClusterDBSCAN(geom, eps := 0, minpoints := 1)
+                OVER (PARTITION BY noise_band) AS cluster_id
+        FROM staging_noises
+        WHERE loaded_at = :run_started AND source_layer = :source_layer
+    ) clustered
+    GROUP BY noise_min_db, noise_max_db, noise_band, source_layer, loaded_at, cluster_id
+) merged
+WHERE NOT ST_IsEmpty(smoothed)
+"""
+
+
+def _build_noise_production(
+    session: Any,
+    source_layer: str,
+    run_started: datetime,
+    settings: Settings,
+) -> int:
+    """Cluster, merge, smooth, and promote staging noise polygons to production for one mode."""
+    result = session.execute(
+        text(_PROMOTE_SQL),
+        {
+            "iterations": settings.bts_noise_chaikin_iterations,
+            "tolerance": settings.bts_noise_simplify_tolerance,
+            "run_started": run_started,
+            "source_layer": source_layer,
+        },
+    )
+    session.commit()
+    count: int = result.rowcount  # type: ignore[assignment]
+    logger.info(
+        "Promoted %d smoothed production polygons for %s",
+        count,
+        source_layer,
+    )
+    return count
+
+
+# ---------------------------------------------------------------------------
 # Public entry points
 # ---------------------------------------------------------------------------
-def fetch_transportation_noise() -> int:
-    """Download BTS noise tiles, vectorize, and load into PostGIS.
+def fetch_transportation_noise(mode: str = "aviation_road_rail") -> int:
+    """Download BTS noise tiles for one mode, vectorize, stage, smooth, and load.
 
-    Returns the total number of polygon records inserted.
+    Args:
+        mode: One of the ``NOISE_MODES`` keys (aviation, road, rail,
+              aviation_road_rail).
+
+    Returns the number of production polygon records inserted.
     """
+    if mode not in NOISE_MODES:
+        raise ValueError(f"Unknown noise mode {mode!r}; choose from {list(NOISE_MODES)}")
+
     settings = get_settings()
     zoom = settings.bts_noise_zoom
-    url_template = settings.bts_noise_tile_url
+    service_name = NOISE_MODES[mode]
+    url_template = _tile_url_template(settings.bts_noise_base_url, service_name)
     rate_limit = settings.bts_noise_tile_rate_limit
     batch_size = settings.bts_noise_batch_size
     simplify_tol = settings.bts_noise_simplify_tolerance
     min_area = settings.bts_noise_min_polygon_area_sq_m
     morphological_closing = settings.bts_noise_morphological_closing
-    smooth_buffer_m = settings.bts_noise_smooth_buffer_m
+    source_layer = mode
 
     tiles = _enumerate_tiles(
         settings.bts_noise_bbox_south,
@@ -373,15 +439,15 @@ def fetch_transportation_noise() -> int:
         settings.bts_noise_bbox_east,
         zoom,
     )
-    logger.info("Enumerated %d tiles at zoom %d", len(tiles), zoom)
+    logger.info("Enumerated %d tiles at zoom %d for mode %s", len(tiles), zoom, mode)
 
     run_started = datetime.now(UTC)
-    total_records = 0
+    staging_count = 0
 
     client = httpx.Client()
     session = SessionLocal()
     try:
-        # Process tiles in spatial batches
+        # Phase 1: download tiles → classify → vectorize → insert into staging
         for batch_start in range(0, len(tiles), batch_size):
             batch_tiles = tiles[batch_start : batch_start + batch_size]
             tile_data: list[tuple[tuple[int, int], np.ndarray]] = []
@@ -400,11 +466,11 @@ def fetch_transportation_noise() -> int:
                 continue
 
             band_polygons = _vectorize_tiles(tile_data, zoom)
-            records = _merge_batch_polygons(band_polygons, simplify_tol, min_area, smooth_buffer_m)
+            records = _merge_batch_polygons(band_polygons, simplify_tol, min_area, source_layer)
 
             for rec in records:
                 geom_wkb = from_shape(rec["geom"], srid=4326)
-                noise = TransportationNoise(
+                staging = StagingTransportationNoise(
                     noise_min_db=rec["noise_min_db"],
                     noise_max_db=rec["noise_max_db"],
                     noise_band=rec["noise_band"],
@@ -413,28 +479,47 @@ def fetch_transportation_noise() -> int:
                     geom=geom_wkb,
                     loaded_at=run_started,
                 )
-                session.add(noise)
+                session.add(staging)
 
             session.commit()
-            total_records += len(records)
+            staging_count += len(records)
             logger.info(
-                "Batch %d-%d: inserted %d polygons",
+                "Batch %d-%d: staged %d polygons for %s",
                 batch_start,
                 batch_start + len(batch_tiles),
                 len(records),
+                mode,
             )
 
-        # Clean up stale rows from previous runs
-        if total_records > 0:
-            stale_count = session.execute(
-                delete(TransportationNoise).where(TransportationNoise.loaded_at < run_started)
-            ).rowcount  # type: ignore[union-attr, attr-defined]
-            session.commit()
-            if stale_count:
-                logger.info("Removed %d stale noise polygons", stale_count)
+        if staging_count == 0:
+            logger.info("No staging polygons for mode %s — skipping promotion", mode)
+            return 0
 
-        logger.info("Transportation noise total loaded: %d polygons", total_records)
-        return total_records
+        # Phase 2: PostGIS clustering + smoothing → production
+        prod_count = _build_noise_production(session, source_layer, run_started, settings)
+
+        # Clean up stale production rows for this source_layer only
+        stale_count = session.execute(
+            delete(TransportationNoise).where(
+                TransportationNoise.loaded_at < run_started,
+                TransportationNoise.source_layer == source_layer,
+            )
+        ).rowcount  # type: ignore[union-attr, attr-defined]
+        session.commit()
+        if stale_count:
+            logger.info("Removed %d stale production polygons for %s", stale_count, mode)
+
+        # Clean up staging rows for this run+mode
+        session.execute(
+            delete(StagingTransportationNoise).where(
+                StagingTransportationNoise.loaded_at == run_started,
+                StagingTransportationNoise.source_layer == source_layer,
+            )
+        )
+        session.commit()
+
+        logger.info("Mode %s total loaded: %d production polygons", mode, prod_count)
+        return prod_count
 
     except Exception:
         session.rollback()
@@ -442,6 +527,15 @@ def fetch_transportation_noise() -> int:
     finally:
         session.close()
         client.close()
+
+
+def fetch_all_transportation_noise() -> int:
+    """Fetch all configured BTS noise modes and return total production count."""
+    settings = get_settings()
+    total = 0
+    for mode in settings.bts_noise_modes:
+        total += fetch_transportation_noise(mode=mode)
+    return total
 
 
 def verify_transportation_noise() -> int:
@@ -463,13 +557,15 @@ def verify_transportation_noise() -> int:
 def discover_tile_colors(
     sample_tiles: list[tuple[int, int]] | None = None,
     zoom: int = 12,
+    mode: str = "aviation_road_rail",
 ) -> set[tuple[int, int, int]]:
     """Dev utility: extract unique non-transparent RGB values from sample tiles.
 
     Useful for populating/verifying the COLOR_TO_DB_BAND mapping.
     """
     settings = get_settings()
-    url_template = settings.bts_noise_tile_url
+    service_name = NOISE_MODES.get(mode, NOISE_MODES["aviation_road_rail"])
+    url_template = _tile_url_template(settings.bts_noise_base_url, service_name)
 
     if sample_tiles is None:
         # Default: a few tiles near Wake County
