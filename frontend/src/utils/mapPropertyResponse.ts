@@ -127,7 +127,7 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
           }))
         : mockDashboardData.schools,
     pois: mockDashboardData.pois,
-    nuisances: mockDashboardData.nuisances,
+    nuisances: [],
     greenspace: mockDashboardData.greenspace,
     mortgage_defaults: {
       ...mockDashboardData.mortgage_defaults,

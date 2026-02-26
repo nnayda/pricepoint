@@ -44,13 +44,6 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   }
   // Value (listed < predicted but >= CI low) → no dot
 
-  // Red dot on Risks if any nuisance is Concern, yellow if Caution
-  if (data.nuisances.some((n) => n.severity === "Concern")) {
-    dots.risks = "#F87171";
-  } else if (data.nuisances.some((n) => n.severity === "Caution")) {
-    dots.risks = "#FBBF24";
-  }
-
   // Red dot on Crime if any risk score > 70
   if (data.risks.categories.some((c) => c.score > 70)) {
     dots.crime = "#F87171";
@@ -59,13 +52,6 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   // Green dot on Schools if any school rated 8+
   if (data.schools.some((s) => s.rating != null && s.rating >= 8)) {
     dots.schools = "#34D399";
-  }
-
-  // Red dot on Negative POIs if any Concern, yellow if any Caution
-  if (data.nuisances.some((n) => n.severity === "Concern")) {
-    dots["nuisances"] = "#F87171";
-  } else if (data.nuisances.some((n) => n.severity === "Caution")) {
-    dots["nuisances"] = "#FBBF24";
   }
 
   return dots;

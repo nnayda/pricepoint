@@ -1064,39 +1064,7 @@ export const mockDashboardData: DashboardData = {
     },
   ],
 
-  nuisances: [
-    {
-      id: "n1",
-      name: "US-401 Highway",
-      type: "Highway Proximity",
-      severity: "Caution",
-      distance_miles: 0.3,
-      lat: 35.57,
-      lon: -78.778,
-      detail: "Major highway within 0.3 mi — potential noise impact",
-    },
-    {
-      id: "n2",
-      name: "Duke Energy Substation",
-      type: "Power Infrastructure",
-      severity: "Concern",
-      distance_miles: 0.1,
-      lat: 35.569,
-      lon: -78.7805,
-      detail:
-        "High-voltage electrical substation directly adjacent to property — EMF and noise concerns",
-    },
-    {
-      id: "n3",
-      name: "Wastewater Treatment Plant",
-      type: "Industrial",
-      severity: "Safe",
-      distance_miles: 2.8,
-      lat: 35.555,
-      lon: -78.77,
-      detail: "Municipal facility well outside impact zone",
-    },
-  ],
+  nuisances: [],
 
   greenspace: {
     composite_score: 72,

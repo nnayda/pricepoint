@@ -169,7 +169,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
 };
 
 function NuisancesTab({ data }: NuisancesTabProps) {
-  const { nuisances, property } = data;
+  const { property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -232,22 +232,19 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     return { type: "FeatureCollection" as const, features: filtered };
   }, [noiseData, activeSources]);
 
-  // Map API nuisance sources to NegativePoi shape for cards; fall back to data.nuisances
+  // Map API nuisance sources to NegativePoi shape for cards
   const cardPois: NegativePoi[] = useMemo(() => {
-    if (apiSources.length > 0) {
-      return apiSources.map((s) => ({
-        id: s.id,
-        name: s.name,
-        type: SOURCE_TYPE_LABELS[s.source_type] ?? s.source_type,
-        severity: s.severity as "Caution" | "Concern",
-        distance_miles: s.distance_miles,
-        lat: s.lat ?? property.lat,
-        lon: s.lon ?? property.lon,
-        detail: s.detail,
-      }));
-    }
-    return nuisances;
-  }, [apiSources, nuisances, property.lat, property.lon]);
+    return apiSources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: SOURCE_TYPE_LABELS[s.source_type] ?? s.source_type,
+      severity: s.severity as "Caution" | "Concern",
+      distance_miles: s.distance_miles,
+      lat: s.lat ?? property.lat,
+      lon: s.lon ?? property.lon,
+      detail: s.detail,
+    }));
+  }, [apiSources, property.lat, property.lon]);
 
   const sorted = [...cardPois].sort(
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
@@ -285,7 +282,8 @@ function NuisancesTab({ data }: NuisancesTabProps) {
   const infraStyle = useCallback((feature?: GeoJSON.Feature) => {
     const layer = feature?.properties?.layer;
     if (layer === "road") return { color: "#3B82F6", weight: 2, opacity: 0.7 };
-    if (layer === "railroad") return { color: "#F97316", weight: 2, opacity: 0.7, dashArray: "6 4" };
+    if (layer === "railroad")
+      return { color: "#F97316", weight: 2, opacity: 0.7, dashArray: "6 4" };
     if (layer === "airport") return { color: "#EF4444", weight: 1, fillOpacity: 0.5 };
     return { color: "#94A3B8", weight: 1 };
   }, []);
@@ -295,8 +293,10 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     if (!props) return;
     let label = "";
     if (props.layer === "road") label = props.fullname || "Road";
-    else if (props.layer === "airport") label = `${props.name}${props.iata_code ? ` (${props.iata_code})` : ""}`;
-    else if (props.layer === "railroad") label = `${props.rrowner1 || "Railroad"}${props.subdivision ? ` — ${props.subdivision}` : ""}`;
+    else if (props.layer === "airport")
+      label = `${props.name}${props.iata_code ? ` (${props.iata_code})` : ""}`;
+    else if (props.layer === "railroad")
+      label = `${props.rrowner1 || "Railroad"}${props.subdivision ? ` — ${props.subdivision}` : ""}`;
     if (label) layer.bindTooltip(label, { sticky: true });
   }, []);
 
@@ -309,19 +309,45 @@ function NuisancesTab({ data }: NuisancesTabProps) {
         <DashboardCard>
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
             Nuisances
+            {sourcesLoading && (
+              <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
+            )}
           </h3>
-          <div className="flex flex-col gap-2">
-            {sorted.map((n) => (
-              <NegativePoiCard
-                key={n.id}
-                poi={n}
-                isSelected={selectedId === n.id}
-                onHover={() => setHoveredId(n.id)}
-                onLeave={() => setHoveredId(null)}
-                onClick={() => setSelectedId(selectedId === n.id ? null : n.id)}
-              />
-            ))}
-          </div>
+          {!sourcesLoading && sorted.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <svg
+                width={32}
+                height={32}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--color-db-green)"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+              <p className="text-sm font-medium text-[var(--color-db-text-primary)]">
+                No nuisances found
+              </p>
+              <p className="text-xs text-[var(--color-db-text-tertiary)]">
+                No significant noise or infrastructure concerns were detected near this property.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sorted.map((n) => (
+                <NegativePoiCard
+                  key={n.id}
+                  poi={n}
+                  isSelected={selectedId === n.id}
+                  onHover={() => setHoveredId(n.id)}
+                  onLeave={() => setHoveredId(null)}
+                  onClick={() => setSelectedId(selectedId === n.id ? null : n.id)}
+                />
+              ))}
+            </div>
+          )}
         </DashboardCard>
       </div>
 

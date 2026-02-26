@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import NuisancesTab from "../NuisancesTab";
 import { mockDashboardData } from "../../../../data/mockDashboardData";
+import type { NuisanceSourceItem } from "../../../../types";
 
 const mockNoiseFeatures: GeoJSON.Feature[] = [
   {
@@ -60,12 +61,18 @@ const mockUseNuisancesReturn = {
   infraLoading: false,
 };
 
+const mockUseNuisanceSourcesReturn = {
+  sources: [] as NuisanceSourceItem[],
+  loading: false,
+  error: null as string | null,
+};
+
 vi.mock("../../../../hooks/useNuisances", () => ({
   useNuisances: vi.fn(() => mockUseNuisancesReturn),
 }));
 
 vi.mock("../../../../hooks/useNuisanceSources", () => ({
-  useNuisanceSources: vi.fn(() => ({ sources: [], loading: false, error: null })),
+  useNuisanceSources: vi.fn(() => mockUseNuisanceSourcesReturn),
 }));
 
 vi.mock("react-leaflet", () => ({
@@ -96,6 +103,33 @@ vi.mock("../../maps/DashboardMap", () => ({
   }) => <div data-testid="dashboard-map">{children}</div>,
 }));
 
+const mockApiSources: NuisanceSourceItem[] = [
+  {
+    id: "src-1",
+    name: "RDU Airport",
+    source_type: "aviation",
+    severity: "Concern",
+    distance_miles: 1.2,
+    lat: 35.88,
+    lon: -78.79,
+    detail: "Airport noise zone — 65 dB average",
+    noise_min_db: 65,
+    noise_band: "65-70 dB",
+  },
+  {
+    id: "src-2",
+    name: "US-401",
+    source_type: "road",
+    severity: "Caution",
+    distance_miles: 0.3,
+    lat: 35.57,
+    lon: -78.78,
+    detail: "Major highway within 0.3 mi — potential noise impact",
+    noise_min_db: 50,
+    noise_band: "50-55 dB",
+  },
+];
+
 describe("NuisancesTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -104,6 +138,9 @@ describe("NuisancesTab", () => {
       features: mockNoiseFeatures,
     };
     mockUseNuisancesReturn.loading = false;
+    mockUseNuisanceSourcesReturn.sources = [];
+    mockUseNuisanceSourcesReturn.loading = false;
+    mockUseNuisanceSourcesReturn.error = null;
   });
 
   it("renders 3 noise source toggle buttons", () => {
@@ -164,5 +201,70 @@ describe("NuisancesTab", () => {
 
     const geojson = screen.getByTestId("geojson-layer");
     expect(geojson.getAttribute("data-feature-count")).toBe("1");
+  });
+
+  it("shows empty state when no nuisance sources are found", () => {
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.getByText("No nuisances found")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No significant noise or infrastructure concerns were detected near this property.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders nuisance source cards from API data", () => {
+    mockUseNuisanceSourcesReturn.sources = mockApiSources;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.getByText("RDU Airport")).toBeInTheDocument();
+    expect(screen.getByText("US-401")).toBeInTheDocument();
+    expect(screen.getByText(/Airport noise zone/)).toBeInTheDocument();
+    expect(screen.getByText(/Major highway within 0.3 mi/)).toBeInTheDocument();
+  });
+
+  it("displays source type and severity on cards", () => {
+    mockUseNuisanceSourcesReturn.sources = mockApiSources;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.getByText(/Airport · Concern/)).toBeInTheDocument();
+    expect(screen.getByText(/Road · Caution/)).toBeInTheDocument();
+  });
+
+  it("displays distance on source cards", () => {
+    mockUseNuisanceSourcesReturn.sources = mockApiSources;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.getByText("1.2 mi")).toBeInTheDocument();
+    expect(screen.getByText("0.3 mi")).toBeInTheDocument();
+  });
+
+  it("sorts sources by severity (Concern before Caution)", () => {
+    mockUseNuisanceSourcesReturn.sources = mockApiSources;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    const names = screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent);
+    expect(names).toEqual(["RDU Airport", "US-401"]);
+  });
+
+  it("does not show empty state when sources are loading", () => {
+    mockUseNuisanceSourcesReturn.loading = true;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.queryByText("No nuisances found")).not.toBeInTheDocument();
+  });
+
+  it("does not show empty state when API returns sources", () => {
+    mockUseNuisanceSourcesReturn.sources = mockApiSources;
+
+    render(<NuisancesTab data={mockDashboardData} />);
+
+    expect(screen.queryByText("No nuisances found")).not.toBeInTheDocument();
   });
 });
