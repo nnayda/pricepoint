@@ -6,6 +6,7 @@ import type {
   NeighborhoodValuationHistory,
   PoisSearchResponse,
   PropertyResponse,
+  RisksApiResponse,
   SchoolsNearbyResponse,
 } from "../types";
 
@@ -128,6 +129,17 @@ export async function getNoiseData(
   radiusMiles: number = 2,
 ): Promise<NoiseResponse> {
   const { data } = await client.get<NoiseResponse>("/api/nuisances/noise", {
+    params: { lat, lon, radius_miles: radiusMiles },
+  });
+  return data;
+}
+
+export async function getRisksData(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 3,
+): Promise<RisksApiResponse> {
+  const { data } = await client.get<RisksApiResponse>("/api/risks", {
     params: { lat, lon, radius_miles: radiusMiles },
   });
   return data;

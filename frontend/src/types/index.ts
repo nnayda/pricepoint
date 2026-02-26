@@ -657,6 +657,30 @@ export interface ModelFeature {
   source: string;
 }
 
+// Risk types
+export type InfrastructureType =
+  | "cell_tower"
+  | "transmission_line"
+  | "power_plant"
+  | "nat_gas_pipeline"
+  | "petroleum_pipeline";
+
+export interface RiskFeature {
+  id: string;
+  name: string;
+  infrastructure_type: InfrastructureType;
+  severity: "Safe" | "Caution" | "Concern";
+  distance_miles: number;
+  lat: number;
+  lon: number;
+  detail: string;
+}
+
+export interface RisksApiResponse {
+  features: RiskFeature[];
+  boundary_geojson: GeoJSON.FeatureCollection;
+}
+
 // Data request types
 export interface DataRequestCreate {
   address: string;

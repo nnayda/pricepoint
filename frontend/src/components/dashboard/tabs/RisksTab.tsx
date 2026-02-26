@@ -1,12 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { GeoJSON } from "react-leaflet";
-import type { DashboardData, NegativePoi } from "../../../types";
+import type { DashboardData, NegativePoi, InfrastructureType } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import ChoroplethLegend from "../maps/ChoroplethLegend";
 import { MapPinIcon } from "../ui/Icons";
-import { useNuisances } from "../../../hooks/useNuisances";
-import { getNoiseLegendConfig, getNoisePolygonStyle } from "../../../utils/noiseColors";
+import { useRisks } from "../../../hooks/useRisks";
 
 interface RisksTabProps {
   data: DashboardData;
@@ -34,6 +32,33 @@ const severityMapColors: Record<string, string> = {
   Safe: "#34D399",
   Caution: "#FBBF24",
   Concern: "#F87171",
+};
+
+const SEVERITY_ORDER: Record<string, number> = { Concern: 0, Caution: 1, Safe: 2 };
+
+const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
+  { value: "cell_tower", label: "Cell Towers" },
+  { value: "transmission_line", label: "Transmission Lines" },
+  { value: "power_plant", label: "Power Plants" },
+  { value: "nat_gas_pipeline", label: "Gas Pipelines" },
+  { value: "petroleum_pipeline", label: "Oil Pipelines" },
+];
+
+const ALL_TYPES = new Set<InfrastructureType>(INFRA_TYPE_OPTIONS.map((o) => o.value));
+
+const BOUNDARY_STYLES: Record<string, L.PathOptions> = {
+  critical: {
+    fillColor: "#F87171",
+    fillOpacity: 0.2,
+    color: "#EF4444",
+    weight: 2,
+  },
+  caution: {
+    fillColor: "#FBBF24",
+    fillOpacity: 0.15,
+    color: "#F59E0B",
+    weight: 2,
+  },
 };
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -149,58 +174,139 @@ function NegativePoiCard({
   );
 }
 
-const SEVERITY_ORDER: Record<string, number> = { Concern: 0, Caution: 1, Safe: 2 };
-
 function RisksTab({ data }: RisksTabProps) {
-  const { nuisances, property } = data;
+  const { property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTypes, setActiveTypes] = useState<Set<InfrastructureType>>(ALL_TYPES);
 
-  const { data: noiseData, loading: noiseLoading } = useNuisances(property.lat, property.lon);
+  const { data: risksData, loading } = useRisks(property.lat, property.lon);
 
-  const sorted = [...nuisances].sort(
-    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
+  const toggleType = useCallback((t: InfrastructureType) => {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) {
+        next.delete(t);
+      } else {
+        next.add(t);
+      }
+      return next;
+    });
+  }, []);
+
+  const filteredFeatures = useMemo(
+    () =>
+      risksData.features
+        .filter((f) => activeTypes.has(f.infrastructure_type))
+        .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9)),
+    [risksData.features, activeTypes],
   );
 
-  const markers = nuisances.map((n) => ({
-    id: n.id,
-    lat: n.lat,
-    lon: n.lon,
-    label: `${n.name} (${n.severity})`,
-    color: severityMapColors[n.severity],
-  }));
+  const filteredBoundaries = useMemo((): GeoJSON.FeatureCollection => {
+    const filtered = risksData.boundaryGeojson.features.filter(
+      (f) =>
+        f.properties && activeTypes.has(f.properties.infrastructure_type as InfrastructureType),
+    );
+    return { type: "FeatureCollection", features: filtered };
+  }, [risksData.boundaryGeojson, activeTypes]);
 
-  const onEachFeature = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
+  const cards: NegativePoi[] = useMemo(
+    () =>
+      filteredFeatures.map((f) => ({
+        id: f.id,
+        name: f.name,
+        type: f.infrastructure_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        severity: f.severity,
+        distance_miles: f.distance_miles,
+        lat: f.lat,
+        lon: f.lon,
+        detail: f.detail,
+      })),
+    [filteredFeatures],
+  );
+
+  const markers = useMemo(
+    () =>
+      filteredFeatures.map((f) => ({
+        id: f.id,
+        lat: f.lat,
+        lon: f.lon,
+        label: `${f.name} (${f.severity})`,
+        color: severityMapColors[f.severity],
+      })),
+    [filteredFeatures],
+  );
+
+  const onEachBoundary = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
     const props = feature.properties;
     if (props) {
-      layer.bindTooltip(`<strong>${props.noise_band}</strong><br/>Source: ${props.source_layer}`, {
+      const severity = props.severity as string;
+      const name = props.infrastructure_type
+        ? (props.infrastructure_type as string)
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c: string) => c.toUpperCase())
+        : "Unknown";
+      layer.bindTooltip(`<strong>${name}</strong> — ${severity} zone`, {
         sticky: true,
       });
     }
     layer.on({
       mouseover: (e: L.LeafletMouseEvent) => {
         const target = e.target as L.Path;
-        target.setStyle({ fillOpacity: 0.6, weight: 2 });
+        target.setStyle({ fillOpacity: (target.options.fillOpacity ?? 0.2) + 0.15, weight: 3 });
       },
       mouseout: (e: L.LeafletMouseEvent) => {
         const target = e.target as L.Path;
-        target.setStyle({ fillOpacity: 0.35, weight: 1 });
+        const sev = (target as unknown as { feature: GeoJSON.Feature }).feature?.properties
+          ?.severity as string;
+        const style = BOUNDARY_STYLES[sev] ?? BOUNDARY_STYLES.caution;
+        target.setStyle({ fillOpacity: style.fillOpacity, weight: style.weight });
       },
     });
   }, []);
 
-  const noiseLegend = getNoiseLegendConfig();
+  const boundaryStyle = useCallback((feature?: GeoJSON.Feature): L.PathOptions => {
+    const severity = feature?.properties?.severity as string | undefined;
+    return BOUNDARY_STYLES[severity ?? "caution"] ?? BOUNDARY_STYLES.caution;
+  }, []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-      {/* Left column — nuisance details */}
+      {/* Left column — risk details */}
       <div className="flex flex-col gap-4">
         <DashboardCard>
           <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Risks
+            Infrastructure Risks
+            {loading && (
+              <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
+            )}
           </h3>
+
+          {/* Type filter toggles */}
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {INFRA_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleType(opt.value)}
+                className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                  activeTypes.has(opt.value)
+                    ? "bg-[var(--color-db-accent)] text-white"
+                    : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-col gap-2">
-            {sorted.map((n) => (
+            {!loading && cards.length === 0 && (
+              <p className="py-6 text-center text-sm text-[var(--color-db-text-muted)]">
+                No infrastructure risks found nearby
+              </p>
+            )}
+            {cards.map((n) => (
               <NegativePoiCard
                 key={n.id}
                 poi={n}
@@ -214,15 +320,17 @@ function RisksTab({ data }: RisksTabProps) {
         </DashboardCard>
       </div>
 
-      {/* Right column — map with noise polygons */}
+      {/* Right column — map with risk boundary polygons */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Risk Map
-            {noiseLoading && (
-              <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
-            )}
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+              Risk Map
+              {loading && (
+                <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
+              )}
+            </h3>
+          </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
@@ -242,16 +350,50 @@ function RisksTab({ data }: RisksTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
-              {noiseData.features.length > 0 && (
+              {filteredBoundaries.features.length > 0 && (
                 <GeoJSON
-                  key={`noise-${noiseData.features.length}`}
-                  data={noiseData}
-                  style={getNoisePolygonStyle}
-                  onEachFeature={onEachFeature}
+                  key={`risk-boundaries-${filteredBoundaries.features.length}-${activeTypes.size}`}
+                  data={filteredBoundaries}
+                  style={boundaryStyle}
+                  onEachFeature={onEachBoundary}
                 />
               )}
             </DashboardMap>
-            {noiseData.features.length > 0 && <ChoroplethLegend config={noiseLegend} />}
+            {filteredBoundaries.features.length > 0 && (
+              <div
+                className="absolute bottom-3 right-3 z-[1000] rounded-lg border p-3"
+                style={{
+                  backgroundColor: "var(--color-db-surface)",
+                  borderColor: "var(--color-db-border-subtle)",
+                }}
+              >
+                <p className="mb-1.5 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
+                  Risk Zones
+                </p>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-sm border"
+                      style={{
+                        backgroundColor: "rgba(248,113,113,0.2)",
+                        borderColor: "#EF4444",
+                      }}
+                    />
+                    <span className="text-[11px] text-[var(--color-db-text-muted)]">Critical</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-sm border"
+                      style={{
+                        backgroundColor: "rgba(251,191,36,0.15)",
+                        borderColor: "#F59E0B",
+                      }}
+                    />
+                    <span className="text-[11px] text-[var(--color-db-text-muted)]">Caution</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </DashboardCard>
       </div>

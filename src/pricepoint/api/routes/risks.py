@@ -1,0 +1,262 @@
+"""Risks endpoint — returns infrastructure risk features with boundary polygons."""
+
+import hashlib
+import json
+import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, Query
+from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from redis.asyncio import Redis
+from sqlalchemy import String, case, cast, func, literal, select, text, union_all
+from sqlalchemy.orm import Session
+
+from pricepoint.api.dependencies import get_db, get_valkey
+from pricepoint.api.schemas.risks import RiskFeature, RisksResponse
+from pricepoint.db.models import (
+    CellTower,
+    NatGasPipeline,
+    PetroleumPipeline,
+    PowerPlant,
+    RiskBoundary,
+    TransmissionLine,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["risks"])
+
+METERS_PER_MILE = 1609.344
+CACHE_TTL = 604800  # 7 days
+
+TYPE_LABELS: dict[str, str] = {
+    "cell_tower": "Cell Tower",
+    "transmission_line": "Transmission Line",
+    "power_plant": "Power Plant",
+    "nat_gas_pipeline": "Natural Gas Pipeline",
+    "petroleum_pipeline": "Petroleum Pipeline",
+}
+
+SEVERITY_PHRASES: dict[str, str] = {
+    "critical": "within critical risk zone",
+    "caution": "within caution risk zone",
+}
+
+SEVERITY_MAP: dict[str, str] = {
+    "critical": "Concern",
+    "caution": "Caution",
+}
+
+# For ORDER BY: Concern first, Caution second, Safe last
+SEVERITY_SORT = {"Concern": 0, "Caution": 1, "Safe": 2}
+
+
+def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
+    """ST_DWithin using geography cast for meter-based distance."""
+    return func.ST_DWithin(
+        cast(geom_col, text("geography")),
+        cast(point, text("geography")),
+        radius_meters,
+    )
+
+
+def _build_infra_query(  # noqa: ANN201
+    property_point,  # noqa: ANN001
+    radius_meters: float,
+):
+    """Build UNION ALL across 5 infrastructure tables with LEFT JOIN to risk_boundaries."""
+    queries = []
+
+    infra_tables = [
+        (CellTower, "cell_tower", CellTower.geom, func.coalesce(CellTower.licensee, "Cell Tower")),
+        (
+            TransmissionLine,
+            "transmission_line",
+            TransmissionLine.geom,
+            func.coalesce(TransmissionLine.owner, "Transmission Line"),
+        ),
+        (PowerPlant, "power_plant", PowerPlant.geom, func.coalesce(PowerPlant.name, "Power Plant")),
+        (
+            NatGasPipeline,
+            "nat_gas_pipeline",
+            NatGasPipeline.geom,
+            func.coalesce(NatGasPipeline.operator, "Natural Gas Pipeline"),
+        ),
+        (
+            PetroleumPipeline,
+            "petroleum_pipeline",
+            PetroleumPipeline.geom,
+            func.coalesce(PetroleumPipeline.operator, "Petroleum Pipeline"),
+        ),
+    ]
+
+    for model, type_label, geom_col, name_expr in infra_tables:
+        is_line = model in (TransmissionLine, NatGasPipeline, PetroleumPipeline)
+        lat_expr = ST_Y(func.ST_Centroid(geom_col)) if is_line else ST_Y(geom_col)
+        lon_expr = ST_X(func.ST_Centroid(geom_col)) if is_line else ST_X(geom_col)
+
+        q = (
+            select(
+                cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
+                name_expr.label("name"),
+                literal(type_label).label("infrastructure_type"),
+                lat_expr.label("lat"),
+                lon_expr.label("lon"),
+                (
+                    func.ST_Distance(
+                        cast(property_point, text("geography")),
+                        cast(geom_col, text("geography")),
+                    )
+                    / METERS_PER_MILE
+                ).label("distance_miles"),
+                RiskBoundary.severity.label("rb_severity"),
+            )
+            .outerjoin(
+                RiskBoundary,
+                (RiskBoundary.infrastructure_type == type_label)
+                & (RiskBoundary.infrastructure_id == model.id)  # type: ignore[union-attr]
+                & func.ST_Contains(RiskBoundary.geom, property_point),
+            )
+            .where(
+                geom_col.isnot(None),
+                _st_dwithin_geography(geom_col, property_point, radius_meters),
+            )
+        )
+        queries.append(q)
+
+    return union_all(*queries).cte("all_risks")
+
+
+def _build_boundaries_query(  # noqa: ANN201
+    property_point,  # noqa: ANN001
+    radius_meters: float,
+):
+    """Select risk boundary polygons within the radius."""
+    return select(
+        func.ST_AsGeoJSON(RiskBoundary.geom).label("geojson"),
+        RiskBoundary.infrastructure_type,
+        RiskBoundary.infrastructure_id,
+        RiskBoundary.severity,
+    ).where(
+        _st_dwithin_geography(RiskBoundary.geom, property_point, radius_meters),
+    )
+
+
+def _severity_label(rb_severity: str | None) -> str:
+    if rb_severity is None:
+        return "Safe"
+    return SEVERITY_MAP.get(rb_severity, "Safe")
+
+
+def _detail_text(infra_type: str, rb_severity: str | None) -> str:
+    label = TYPE_LABELS.get(infra_type, infra_type.replace("_", " ").title())
+    if rb_severity and rb_severity in SEVERITY_PHRASES:
+        return f"{label} — {SEVERITY_PHRASES[rb_severity]}"
+    return f"{label} — outside risk zones"
+
+
+def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
+    raw = f"risks:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}"
+    digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
+    return f"risks:{digest}"
+
+
+@router.get("/risks", response_model=RisksResponse)
+async def get_risks(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+    radius_miles: Annotated[float, Query(gt=0, le=10)] = 3.0,
+    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
+    valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
+) -> RisksResponse:
+    """Return infrastructure risk features and boundary polygons near the given location."""
+    # Check cache
+    c_key = _cache_key(lat, lon, radius_miles)
+    if valkey is not None:
+        try:
+            cached = await valkey.get(c_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return RisksResponse(**data)
+        except Exception:
+            logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
+
+    radius_meters = radius_miles * METERS_PER_MILE
+    property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+
+    # Query 1: infrastructure features with risk severity
+    cte = _build_infra_query(property_point, radius_meters)
+
+    rows = db.execute(
+        select(
+            cte.c.infra_id,
+            cte.c.name,
+            cte.c.infrastructure_type,
+            cte.c.lat,
+            cte.c.lon,
+            cte.c.distance_miles,
+            cte.c.rb_severity,
+        ).order_by(
+            case(
+                (cte.c.rb_severity == "critical", 0),
+                (cte.c.rb_severity == "caution", 1),
+                else_=2,
+            ),
+            cte.c.distance_miles,
+        )
+    ).all()
+
+    features: list[RiskFeature] = []
+    for row in rows:
+        severity = _severity_label(row.rb_severity)
+        dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
+        features.append(
+            RiskFeature(
+                id=f"RB-{row.infrastructure_type[0].upper()}-{row.infra_id}",
+                name=row.name or row.infrastructure_type.replace("_", " ").title(),
+                infrastructure_type=row.infrastructure_type,
+                severity=severity,
+                distance_miles=dist,
+                lat=row.lat,
+                lon=row.lon,
+                detail=_detail_text(row.infrastructure_type, row.rb_severity),
+            )
+        )
+
+    # Query 2: risk boundary polygons
+    boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+
+    boundary_features: list[dict[str, Any]] = []
+    for brow in boundary_rows:
+        geom = json.loads(brow.geojson)
+        boundary_features.append(
+            {
+                "type": "Feature",
+                "geometry": geom,
+                "properties": {
+                    "infrastructure_type": brow.infrastructure_type,
+                    "infrastructure_id": brow.infrastructure_id,
+                    "severity": brow.severity,
+                },
+            }
+        )
+
+    boundary_geojson: dict[str, Any] = {
+        "type": "FeatureCollection",
+        "features": boundary_features,
+    }
+
+    response = RisksResponse(features=features, boundary_geojson=boundary_geojson)
+
+    # Write to cache
+    if valkey is not None:
+        try:
+            await valkey.set(
+                c_key,
+                json.dumps(response.model_dump()),
+                ex=CACHE_TTL,
+            )
+        except Exception:
+            logger.warning("Valkey write failed for key %s", c_key, exc_info=True)
+
+    return response
