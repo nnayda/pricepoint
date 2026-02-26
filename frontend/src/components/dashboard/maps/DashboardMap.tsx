@@ -2,6 +2,7 @@ import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useTheme } from "../../../contexts/ThemeContext";
+import { useMapStyle } from "../../../hooks/useMapStyle";
 import { COLOR_INDIGO } from "../../../utils/chartTokens";
 
 export interface MapMarker {
@@ -330,20 +331,7 @@ function DashboardMap({
   selectedId,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
-  const [mapStyle, setMapStyle] = useState<MapStyle>(() => getDefaultStyle(resolvedTheme));
-  const userChoseStyle = useRef(false);
-
-  // Follow theme changes unless user explicitly picked a style
-  useEffect(() => {
-    if (!userChoseStyle.current) {
-      setMapStyle(getDefaultStyle(resolvedTheme));
-    }
-  }, [resolvedTheme]);
-
-  const handleStyleChange = useCallback((s: MapStyle) => {
-    userChoseStyle.current = true;
-    setMapStyle(s);
-  }, []);
+  const [mapStyle, handleStyleChange] = useMapStyle(getDefaultStyle(resolvedTheme));
 
   return (
     <div
