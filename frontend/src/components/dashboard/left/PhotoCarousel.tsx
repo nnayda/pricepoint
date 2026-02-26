@@ -17,16 +17,20 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
     setCurrent((c) => (c === images.length - 1 ? 0 : c + 1));
   }, [images.length]);
 
-  // Close fullscreen on Escape key
+  // Lock body scroll and handle keyboard when fullscreen
   useEffect(() => {
     if (!fullscreen) return;
+    document.body.style.overflow = "hidden";
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setFullscreen(false);
       if (e.key === "ArrowLeft") prev();
       if (e.key === "ArrowRight") next();
     };
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [fullscreen, prev, next]);
 
   return (

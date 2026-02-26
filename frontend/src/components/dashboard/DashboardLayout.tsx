@@ -36,7 +36,7 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
           </aside>
 
           {/* Right Column — tab content */}
-          <main className="min-w-0 flex-1">
+          <main className="isolate min-w-0 flex-1">
             <div className="rounded-[var(--radius-db-lg)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]">
               <DashboardTabs data={data} />
             </div>
