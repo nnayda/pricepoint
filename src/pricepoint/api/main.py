@@ -42,13 +42,16 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
 
     # Startup: initialise Valkey/Redis connection pool
-    if settings.valkey_url:
+    if settings.valkey_url and not settings.dev_mode:
         pool = Redis.from_url(settings.valkey_url, decode_responses=True)
         app.state.valkey_pool = pool
         logger.info("Valkey connection pool initialised")
     else:
         app.state.valkey_pool = None
-        logger.info("Valkey URL not configured; caching disabled")
+        if settings.dev_mode:
+            logger.info("Dev mode enabled; Valkey caching disabled")
+        else:
+            logger.info("Valkey URL not configured; caching disabled")
 
     yield
 

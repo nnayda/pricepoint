@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     All values are read from environment variables (or a .env file).
     """
 
+    # Dev mode — disables Valkey caching so data changes are reflected immediately
+    dev_mode: bool = False
+
     # Database
     database_url: str = "postgresql://pricepoint:pricepoint@localhost:5432/pricepoint"
 
