@@ -234,7 +234,28 @@ describe("SchoolsTab", () => {
   it("shows school distance and drive time", () => {
     render(<SchoolsTab data={mockDashboardData} />);
     expect(screen.getByText("1.2 mi")).toBeInTheDocument();
-    expect(screen.getByText("4 min")).toBeInTheDocument();
+    expect(screen.getByText("4 min drive")).toBeInTheDocument();
+  });
+
+  it("shows walk time when available", () => {
+    render(<SchoolsTab data={mockDashboardData} />);
+    // Oak Elementary has walk_minutes: 18
+    expect(screen.getByText("18 min walk")).toBeInTheDocument();
+  });
+
+  it("hides walk time when null", () => {
+    render(<SchoolsTab data={mockDashboardData} />);
+    // Pine Middle has walk_minutes: null, drive_minutes: 6
+    expect(screen.getByText("6 min drive")).toBeInTheDocument();
+    // Should not show a walk time for schools with null walk_minutes
+    expect(screen.queryByText("0 min walk")).not.toBeInTheDocument();
+  });
+
+  it("shows drive times for all schools", () => {
+    render(<SchoolsTab data={mockDashboardData} />);
+    expect(screen.getByText("4 min drive")).toBeInTheDocument();
+    expect(screen.getByText("6 min drive")).toBeInTheDocument();
+    expect(screen.getByText("10 min drive")).toBeInTheDocument();
   });
 
   it("shows enrollment count", () => {

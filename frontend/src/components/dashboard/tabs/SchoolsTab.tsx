@@ -199,12 +199,12 @@ function SchoolCard({
           </span>
           {school.drive_minutes > 0 && (
             <span className="inline-flex items-center gap-1">
-              <CarIcon size={14} /> {school.drive_minutes} min
+              <CarIcon size={14} /> {school.drive_minutes} min drive
             </span>
           )}
           {school.walk_minutes != null && school.walk_minutes > 0 && (
             <span className="inline-flex items-center gap-1">
-              <WalkIcon size={14} /> {school.walk_minutes} min
+              <WalkIcon size={14} /> {school.walk_minutes} min walk
             </span>
           )}
         </div>
