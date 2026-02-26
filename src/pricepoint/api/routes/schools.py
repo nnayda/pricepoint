@@ -154,7 +154,11 @@ async def get_nearby_schools(
                 address=address,
                 school_type=school.school_type or "Unknown",
                 school_level=school.school_level,
-                rating=int(school.rating) if school.rating else None,
+                rating=(
+                    int(school.rating)
+                    if school.rating is not None and school.rating > 0
+                    else None
+                ),
                 grades=school.grades,
                 distance_miles=round(distance_miles, 1),
                 drive_minutes=drive_minutes,

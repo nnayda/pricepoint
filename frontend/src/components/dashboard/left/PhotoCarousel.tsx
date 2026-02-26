@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface PhotoCarouselProps {
   images: string[];
@@ -114,72 +115,75 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
         </div>
       </div>
 
-      {/* Fullscreen overlay */}
-      {fullscreen && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setFullscreen(false);
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setFullscreen(false)}
-            className="absolute top-4 right-4 z-10 rounded-lg bg-white/10 p-3 text-white transition-colors hover:bg-white/20"
-            aria-label="Close fullscreen"
+      {/* Fullscreen overlay — portalled to body for z-index safety */}
+      {fullscreen &&
+        createPortal(
+          <div
+            className="fixed inset-0 flex items-center justify-center bg-black/95"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFullscreen(false);
+            }}
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              className="absolute top-4 right-4 z-10 rounded-lg bg-white/10 p-3 text-white transition-colors hover:bg-white/20"
+              aria-label="Close fullscreen"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={prev}
-            aria-label="Previous photo"
-            className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={prev}
+              aria-label="Previous photo"
+              className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <img
-            src={images[current]}
-            alt={`Photo ${current + 1} of ${images.length}`}
-            className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
-          />
-          <button
-            type="button"
-            onClick={next}
-            aria-label="Next photo"
-            className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <img
+              src={images[current]}
+              alt={`Photo ${current + 1} of ${images.length}`}
+              className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+            />
+            <button
+              type="button"
+              onClick={next}
+              aria-label="Next photo"
+              className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm text-white/70">
-            {current + 1} / {images.length} · Press Esc to close
-          </div>
-        </div>
-      )}
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-sm text-white/70">
+              {current + 1} / {images.length} · Press Esc to close
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -609,6 +609,23 @@ export interface NegativePoi {
   detail: string;
 }
 
+export interface NuisanceSourceItem {
+  id: string;
+  name: string;
+  source_type: string;
+  severity: "Caution" | "Concern";
+  distance_miles: number;
+  lat: number | null;
+  lon: number | null;
+  detail: string;
+  noise_min_db: number | null;
+  noise_band: string | null;
+}
+
+export interface NuisanceSourcesResponse {
+  sources: NuisanceSourceItem[];
+}
+
 export interface DashboardGreenspace {
   composite_score: number;
   walk_minutes_nearest: number;

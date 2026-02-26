@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNoiseData } from "../services/property";
+import { getNoiseData, getNuisanceGeometries } from "../services/property";
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {
   type: "FeatureCollection",
@@ -8,7 +8,9 @@ const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {
 
 export function useNuisances(lat: number, lon: number, radiusMiles = 2) {
   const [data, setData] = useState<GeoJSON.FeatureCollection>(EMPTY_COLLECTION);
+  const [infraData, setInfraData] = useState<GeoJSON.FeatureCollection>(EMPTY_COLLECTION);
   const [loading, setLoading] = useState(true);
+  const [infraLoading, setInfraLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -32,5 +34,27 @@ export function useNuisances(lat: number, lon: number, radiusMiles = 2) {
     return () => controller.abort();
   }, [lat, lon, radiusMiles]);
 
-  return { data, loading };
+  useEffect(() => {
+    const controller = new AbortController();
+    setInfraLoading(true);
+
+    getNuisanceGeometries(lat, lon, radiusMiles)
+      .then((resp) => {
+        if (!controller.signal.aborted) {
+          setInfraData(resp);
+          setInfraLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          console.error("Failed to load infrastructure geometries:", err);
+          setInfraData(EMPTY_COLLECTION);
+          setInfraLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [lat, lon, radiusMiles]);
+
+  return { data, infraData, loading, infraLoading };
 }

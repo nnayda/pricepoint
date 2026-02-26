@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { GeoJSON } from "react-leaflet";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { GeoJSON, useMapEvents } from "react-leaflet";
 import type { DashboardData, DashboardSchool, SchoolNearby, SchoolDistrictInfo } from "../../../types";
 import { useSchoolsNearby } from "../../../hooks/useSchoolsNearby";
 import DashboardCard from "../DashboardCard";
@@ -7,6 +7,44 @@ import DashboardMap from "../maps/DashboardMap";
 import { MapPinIcon, CarIcon, WalkIcon, UsersIcon } from "../ui/Icons";
 import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
 import type { Layer, PathOptions } from "leaflet";
+
+interface Bbox {
+  swLat: number;
+  swLon: number;
+  neLat: number;
+  neLon: number;
+}
+
+/** Reports map viewport bounds on mount and on every moveend. */
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    },
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const b = map.getBounds();
+      onBoundsChange({
+        swLat: b.getSouth(),
+        swLon: b.getWest(),
+        neLat: b.getNorth(),
+        neLon: b.getEast(),
+      });
+    }, 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
 
 interface SchoolsTabProps {
   data: DashboardData;
@@ -22,7 +60,7 @@ function mapSchool(s: SchoolNearby): DashboardSchool {
       | "High"
       | "K-8"
       | "Charter",
-    rating: s.rating,
+    rating: s.rating != null && s.rating > 0 ? s.rating : null,
     grades: s.grades ?? "",
     distance_miles: s.distance_miles,
     drive_minutes: s.drive_minutes,
@@ -39,7 +77,7 @@ function mapSchool(s: SchoolNearby): DashboardSchool {
 }
 
 function ratingColor(rating: number | null): string {
-  if (rating == null) return "#94A3B8";
+  if (rating == null || rating === 0) return "#94A3B8";
   if (rating >= 8) return "var(--color-db-green)";
   if (rating >= 6) return "var(--color-db-yellow)";
   return "var(--color-db-red)";
@@ -51,7 +89,7 @@ function RatingGauge({ rating }: { rating: number | null }) {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  if (rating == null) {
+  if (rating == null || rating === 0) {
     return (
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
@@ -164,7 +202,7 @@ function SchoolCard({
               <CarIcon size={14} /> {school.drive_minutes} min
             </span>
           )}
-          {school.walk_minutes != null && school.walk_minutes < 20 && (
+          {school.walk_minutes != null && school.walk_minutes > 0 && (
             <span className="inline-flex items-center gap-1">
               <WalkIcon size={14} /> {school.walk_minutes} min
             </span>
@@ -249,6 +287,42 @@ function SchoolsTab({ data }: SchoolsTabProps) {
   } = useSchoolsNearby(property.lat, property.lon);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<Bbox | null>(null);
+
+  type SchoolLevel = "Elementary" | "Middle" | "High";
+  const LEVEL_OPTIONS: { value: SchoolLevel; label: string }[] = [
+    { value: "Elementary", label: "Elementary" },
+    { value: "Middle", label: "Middle" },
+    { value: "High", label: "High" },
+  ];
+  const ALL_LEVELS = new Set<SchoolLevel>(LEVEL_OPTIONS.map((o) => o.value));
+  const [activeLevels, setActiveLevels] = useState<Set<SchoolLevel>>(ALL_LEVELS);
+
+  const toggleLevel = useCallback((level: SchoolLevel) => {
+    setActiveLevels((prev) => {
+      const next = new Set(prev);
+      if (next.has(level)) {
+        next.delete(level);
+      } else {
+        next.add(level);
+      }
+      return next;
+    });
+  }, []);
+
+  const matchesLevel = useCallback(
+    (schoolType: string) => {
+      if (activeLevels.size === ALL_LEVELS.size) return true;
+      const t = schoolType.toLowerCase();
+      if (t === "k-8") return activeLevels.has("Elementary") || activeLevels.has("Middle");
+      if (t === "charter") return true; // always include charters
+      if (t.includes("elementary")) return activeLevels.has("Elementary");
+      if (t.includes("middle")) return activeLevels.has("Middle");
+      if (t.includes("high")) return activeLevels.has("High");
+      return true;
+    },
+    [activeLevels, ALL_LEVELS.size],
+  );
 
   const homeDistrict = useMemo(
     () => schoolDistricts.find((d) => d.is_home) ?? null,
@@ -270,18 +344,43 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     // Sort assigned schools first
     return [...base].sort((a, b) => {
       if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;
-      return 0;
+      return a.distance_miles - b.distance_miles;
     });
   }, [allSchools]);
 
-  // All schools go on the map
-  const mapMarkers = allSchools.map((s) => ({
-    id: schoolId(s),
-    lat: s.lat,
-    lon: s.lon,
-    label: `${s.name} (${s.rating != null ? `${s.rating}/10` : "N/R"})`,
-    color: getSchoolMarkerColor(s.rating),
-  }));
+  // Apply level filter to cards, then filter by map viewport bounds
+  const levelFilteredCards = useMemo(
+    () => cardSchools.filter((s) => matchesLevel(s.school_type)),
+    [cardSchools, matchesLevel],
+  );
+
+  const visibleCards = useMemo(() => {
+    if (!mapBounds) return levelFilteredCards;
+    return levelFilteredCards.filter((s) => {
+      if (s.assigned) return true; // always show assigned
+      return (
+        s.lat >= mapBounds.swLat &&
+        s.lat <= mapBounds.neLat &&
+        s.lon >= mapBounds.swLon &&
+        s.lon <= mapBounds.neLon
+      );
+    });
+  }, [levelFilteredCards, mapBounds]);
+
+  // All schools go on the map, filtered by level
+  const mapMarkers = useMemo(
+    () =>
+      allSchools
+        .filter((s) => matchesLevel(s.school_type))
+        .map((s) => ({
+          id: schoolId(s),
+          lat: s.lat,
+          lon: s.lon,
+          label: `${s.name} (${s.rating != null ? `${s.rating}/10` : "N/R"})`,
+          color: getSchoolMarkerColor(s.rating),
+        })),
+    [allSchools, matchesLevel],
+  );
 
   const headerText = homeDistrict ? `${homeDistrict.name} Schools` : "Schools";
 
@@ -330,7 +429,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
             {headerText}
           </h3>
           <div className="flex flex-col gap-2">
-            {cardSchools.map((s) => {
+            {visibleCards.map((s) => {
               const id = schoolId(s);
               return (
                 <SchoolCard
@@ -350,9 +449,27 @@ function SchoolsTab({ data }: SchoolsTabProps) {
       {/* Right column — map (sticky, fills viewport) */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            Schools Map
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
+              Schools Map
+            </h3>
+            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+              {LEVEL_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleLevel(opt.value)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    activeLevels.has(opt.value)
+                      ? "bg-[var(--color-db-accent)] text-white"
+                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
@@ -372,6 +489,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
+              <MapBoundsTracker onBoundsChange={setMapBounds} />
               {/* Render neighbor districts first (below), then home district on top */}
               {schoolDistricts
                 .filter((d) => !d.is_home)

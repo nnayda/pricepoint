@@ -1073,6 +1073,29 @@ class RiskBoundary(Base):
     built_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Railroad(Base):
+    """HIFLD North American Rail Network lines filtered to configured state."""
+
+    __tablename__ = "railroads"
+    __table_args__ = (Index("ix_railroads_geom", "geom", postgresql_using="gist"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fraarcid = Column(Integer, unique=True, index=True)
+    rrowner1 = Column(String)
+    rrowner2 = Column(String)
+    rrowner3 = Column(String)
+    stateab = Column(String(2))
+    cntyfips = Column(String(5))
+    subdivision = Column(String)
+    branch = Column(String)
+    passngr = Column(String)
+    tracks = Column(Integer)
+    miles = Column(Float)
+    net = Column(String)
+    geom = Column(Geometry("MULTILINESTRING", srid=4326))
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Airport(Base):
     """Airport location from OurAirports."""
 

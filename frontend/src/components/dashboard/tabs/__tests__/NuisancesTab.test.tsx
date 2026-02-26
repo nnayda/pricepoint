@@ -49,30 +49,23 @@ const mockNoiseFeatures: GeoJSON.Feature[] = [
     },
     properties: { noise_band: "60-65 dB", source_layer: "rail" },
   },
-  {
-    type: "Feature",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [6, 6],
-          [7, 6],
-          [7, 7],
-          [6, 6],
-        ],
-      ],
-    },
-    properties: { noise_band: "75-80 dB", source_layer: "aviation_road_rail" },
-  },
 ];
+
+const EMPTY_COLLECTION = { type: "FeatureCollection" as const, features: [] };
 
 const mockUseNuisancesReturn = {
   data: { type: "FeatureCollection" as const, features: mockNoiseFeatures },
+  infraData: EMPTY_COLLECTION,
   loading: false,
+  infraLoading: false,
 };
 
 vi.mock("../../../../hooks/useNuisances", () => ({
   useNuisances: vi.fn(() => mockUseNuisancesReturn),
+}));
+
+vi.mock("../../../../hooks/useNuisanceSources", () => ({
+  useNuisanceSources: vi.fn(() => ({ sources: [], loading: false, error: null })),
 }));
 
 vi.mock("react-leaflet", () => ({
@@ -113,27 +106,26 @@ describe("NuisancesTab", () => {
     mockUseNuisancesReturn.loading = false;
   });
 
-  it("renders all 4 noise source toggle buttons", () => {
+  it("renders 3 noise source toggle buttons", () => {
     render(<NuisancesTab data={mockDashboardData} />);
-    expect(screen.getByText("Aviation")).toBeInTheDocument();
+    expect(screen.getByText("Airport")).toBeInTheDocument();
     expect(screen.getByText("Road")).toBeInTheDocument();
-    expect(screen.getByText("Rail")).toBeInTheDocument();
-    expect(screen.getByText("Combined")).toBeInTheDocument();
+    expect(screen.getByText("Railroad")).toBeInTheDocument();
   });
 
   it("all toggles are active by default (all features shown)", () => {
     render(<NuisancesTab data={mockDashboardData} />);
     const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("4");
+    expect(geojson.getAttribute("data-feature-count")).toBe("3");
   });
 
   it("clicking a toggle removes its features from the map", () => {
     render(<NuisancesTab data={mockDashboardData} />);
 
-    fireEvent.click(screen.getByText("Aviation"));
+    fireEvent.click(screen.getByText("Airport"));
 
     const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("3");
+    expect(geojson.getAttribute("data-feature-count")).toBe("2");
   });
 
   it("clicking a toggle again re-adds its features", () => {
@@ -141,20 +133,19 @@ describe("NuisancesTab", () => {
 
     // Toggle off
     fireEvent.click(screen.getByText("Road"));
-    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("3");
+    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("2");
 
     // Toggle back on
     fireEvent.click(screen.getByText("Road"));
-    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("4");
+    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("3");
   });
 
   it("toggling off all sources hides the GeoJSON layer", () => {
     render(<NuisancesTab data={mockDashboardData} />);
 
-    fireEvent.click(screen.getByText("Aviation"));
+    fireEvent.click(screen.getByText("Airport"));
     fireEvent.click(screen.getByText("Road"));
-    fireEvent.click(screen.getByText("Rail"));
-    fireEvent.click(screen.getByText("Combined"));
+    fireEvent.click(screen.getByText("Railroad"));
 
     expect(screen.queryByTestId("geojson-layer")).not.toBeInTheDocument();
   });
@@ -162,10 +153,10 @@ describe("NuisancesTab", () => {
   it("toggling multiple sources filters correctly", () => {
     render(<NuisancesTab data={mockDashboardData} />);
 
-    fireEvent.click(screen.getByText("Aviation"));
-    fireEvent.click(screen.getByText("Rail"));
+    fireEvent.click(screen.getByText("Airport"));
+    fireEvent.click(screen.getByText("Railroad"));
 
     const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("2");
+    expect(geojson.getAttribute("data-feature-count")).toBe("1");
   });
 });

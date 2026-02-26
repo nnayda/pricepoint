@@ -123,6 +123,12 @@ class Settings(BaseSettings):
         },
     }
 
+    # HIFLD Railroads (ArcGIS FeatureServer)
+    hifld_railroads_base_url: str = (
+        "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services"
+        "/NTAD_North_American_Rail_Network_Lines/FeatureServer/0"
+    )
+
     # OurAirports
     ourairports_csv_url: str = "https://davidmegginson.github.io/ourairports-data/airports.csv"
 

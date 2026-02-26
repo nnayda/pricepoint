@@ -3,6 +3,42 @@
 from pydantic import BaseModel
 
 
+class NuisanceSource(BaseModel):
+    """A single nuisance source near the property."""
+
+    id: str
+    name: str
+    source_type: str  # "aviation" | "road" | "rail"
+    severity: str  # "Caution" | "Concern"
+    distance_miles: float
+    lat: float | None = None
+    lon: float | None = None
+    detail: str
+    noise_min_db: int | None = None
+    noise_band: str | None = None
+
+
+class NuisanceSourcesResponse(BaseModel):
+    """List of nuisance sources near a property."""
+
+    sources: list[NuisanceSource]
+
+
+class InfrastructureFeature(BaseModel):
+    """A GeoJSON Feature representing an infrastructure geometry (road, airport, railroad)."""
+
+    type: str = "Feature"
+    geometry: dict
+    properties: dict
+
+
+class InfrastructureGeometriesResponse(BaseModel):
+    """GeoJSON FeatureCollection of infrastructure geometries."""
+
+    type: str = "FeatureCollection"
+    features: list[InfrastructureFeature]
+
+
 class NoiseProperties(BaseModel):
     """Properties for a single noise polygon feature."""
 

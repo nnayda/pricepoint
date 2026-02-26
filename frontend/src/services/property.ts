@@ -4,6 +4,7 @@ import type {
   DataRequestResponse,
   DemographicsApiResponse,
   NeighborhoodValuationHistory,
+  NuisanceSourcesResponse,
   PoisSearchResponse,
   PropertyResponse,
   RisksApiResponse,
@@ -129,6 +130,27 @@ export async function getNoiseData(
   radiusMiles: number = 2,
 ): Promise<NoiseResponse> {
   const { data } = await client.get<NoiseResponse>("/api/nuisances/noise", {
+    params: { lat, lon, radius_miles: radiusMiles },
+  });
+  return data;
+}
+
+export async function getNuisanceSources(
+  lat: number,
+  lon: number,
+): Promise<NuisanceSourcesResponse> {
+  const { data } = await client.get<NuisanceSourcesResponse>("/api/nuisances/sources", {
+    params: { lat, lon },
+  });
+  return data;
+}
+
+export async function getNuisanceGeometries(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 2,
+): Promise<GeoJSON.FeatureCollection> {
+  const { data } = await client.get<GeoJSON.FeatureCollection>("/api/nuisances/geometries", {
     params: { lat, lon, radius_miles: radiusMiles },
   });
   return data;
