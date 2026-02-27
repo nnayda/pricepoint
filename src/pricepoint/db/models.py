@@ -887,6 +887,29 @@ class WakeSubdivision(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class Subdivision(Base):
+    """Gold subdivision boundary — all counties, keyed by (county_fips, source_id)."""
+
+    __tablename__ = "subdivisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    county_fips = Column(String(5), nullable=False)
+    source_id = Column(String(50), nullable=False)
+    name = Column(String, nullable=True)
+    acres = Column(Float, nullable=True)
+    lots = Column(Integer, nullable=True)
+    density = Column(Float, nullable=True)
+    geom = Column(Geometry("MULTIPOLYGON", srid=4326), nullable=True)
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("county_fips", "source_id", name="uq_subdivisions_county_source"),
+        Index("ix_subdivisions_geom", "geom", postgresql_using="gist"),
+        Index("ix_subdivisions_name", "name"),
+        Index("ix_subdivisions_county_fips", "county_fips"),
+    )
+
+
 class Hospital(Base):
     """Hospital location from HIFLD."""
 

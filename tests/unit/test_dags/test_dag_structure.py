@@ -285,3 +285,25 @@ class TestWakeSubdivisionCollectionDag:
     def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_wake_subdivision_collection.py")
         assert not _has_external_task_sensor(tree)
+
+
+class TestSubdivisionCollectionDag:
+    """Validate the subdivision_collection DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_subdivision_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "subdivision_collection"
+
+    def test_schedule_is_none(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_subdivision_collection.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs.get("schedule") is None
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_subdivision_collection.py")
+        assert _count_task_decorators(tree) == 2
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_subdivision_collection.py")
+        assert not _has_external_task_sensor(tree)

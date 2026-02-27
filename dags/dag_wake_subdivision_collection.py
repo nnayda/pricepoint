@@ -1,5 +1,9 @@
 """DAG: Collect Wake County subdivision boundaries.
 
+.. deprecated::
+    Superseded by ``dag_subdivision_collection.py`` which uses the generic
+    multi-county collector.  This file is kept for reference only.
+
 Manual-trigger DAG that downloads subdivision polygons from the Wake County
 ArcGIS MapServer into PostGIS.
 """
