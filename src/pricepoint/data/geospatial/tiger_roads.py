@@ -5,9 +5,8 @@ and S1200 secondary road MTFCC classes) for all US states and loads them
 into the ``roads`` table.
 """
 
+import io
 import logging
-import os
-import tempfile
 
 import geopandas as gpd
 import httpx
@@ -42,15 +41,7 @@ def _download_tiger_zip(url: str) -> bytes:
 
 def _read_shapefile(zip_bytes: bytes) -> gpd.GeoDataFrame:
     """Read a shapefile from zip archive bytes into a GeoDataFrame."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)  # noqa: SIM115
-    try:
-        tmp.write(zip_bytes)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp.close()
-        return gpd.read_file(tmp.name)
-    finally:
-        os.unlink(tmp.name)
+    return gpd.read_file(io.BytesIO(zip_bytes))
 
 
 def _to_multilinestring_wkb(geom):
