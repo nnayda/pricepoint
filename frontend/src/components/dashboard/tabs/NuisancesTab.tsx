@@ -178,12 +178,15 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
 };
 
 // Noise band color mapping for vector tile fill-color expression
+// Bands match the actual noise_band values stored in the noises table
 const NOISE_BAND_COLORS: [string, string][] = [
-  ["65-70", "rgba(255, 255, 0, 0.35)"],
-  ["70-75", "rgba(255, 200, 0, 0.35)"],
-  ["75-80", "rgba(255, 140, 0, 0.35)"],
-  ["80-85", "rgba(255, 80, 0, 0.35)"],
-  ["85+", "rgba(255, 0, 0, 0.35)"],
+  ["45.0-49.9", "rgba(163, 230, 53, 0.4)"],
+  ["50.0-54.9", "rgba(250, 204, 21, 0.4)"],
+  ["55.0-59.9", "rgba(251, 146, 60, 0.4)"],
+  ["60.0-69.9", "rgba(249, 115, 22, 0.4)"],
+  ["70.0-79.9", "rgba(239, 68, 68, 0.4)"],
+  ["80.0-89.9", "rgba(220, 38, 38, 0.4)"],
+  [">90.0", "rgba(153, 27, 27, 0.4)"],
 ];
 
 function NuisancesTab({ data }: NuisancesTabProps) {
