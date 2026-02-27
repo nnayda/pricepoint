@@ -13,7 +13,7 @@ const EMPTY_RESPONSE: GreenspaceResponse = {
   },
 };
 
-export function useGreenspace(lat: number, lon: number, radiusMiles = 2) {
+export function useGreenspace(lat: number, lon: number, radiusMiles = 7) {
   const [data, setData] = useState<GreenspaceResponse>(EMPTY_RESPONSE);
   const [loading, setLoading] = useState(true);
 

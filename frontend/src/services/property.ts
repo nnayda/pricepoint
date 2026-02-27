@@ -171,7 +171,7 @@ export async function getRisksData(
 export async function getGreenspace(
   lat: number,
   lon: number,
-  radiusMiles: number = 2,
+  radiusMiles: number = 7,
 ): Promise<GreenspaceResponse> {
   const { data } = await client.get<GreenspaceResponse>("/api/greenspace", {
     params: { lat, lon, radius_miles: radiusMiles },

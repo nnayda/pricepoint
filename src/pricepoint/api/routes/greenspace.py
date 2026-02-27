@@ -104,7 +104,7 @@ def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
 async def get_greenspace(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
-    radius_miles: Annotated[float, Query(gt=0, le=10)] = 2.0,
+    radius_miles: Annotated[float, Query(gt=0, le=15)] = 7.0,
     db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
     valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
 ) -> GreenspaceResponse:

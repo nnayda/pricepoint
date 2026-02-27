@@ -388,7 +388,7 @@ class TestGreenspaceParamValidation:
     def test_radius_too_large_returns_422(self, greenspace_client):
         resp = greenspace_client.get(
             "/api/greenspace",
-            params={"lat": 35.79, "lon": -78.78, "radius_miles": 11},
+            params={"lat": 35.79, "lon": -78.78, "radius_miles": 16},
         )
         assert resp.status_code == 422
 
