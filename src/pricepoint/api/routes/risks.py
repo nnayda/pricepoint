@@ -6,7 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_X, ST_Y, ST_DWithin, ST_MakePoint, ST_SetSRID
 from geoalchemy2.types import Geography
 from redis.asyncio import Redis
 from sqlalchemy import String, cast, func, literal, select, union_all
@@ -19,6 +19,8 @@ from pricepoint.db.models import (
     NatGasPipeline,
     PetroleumPipeline,
     PowerPlant,
+    PropertyGeoLookup,
+    RedfinListing,
     RiskBoundary,
     TransmissionLine,
 )
@@ -195,16 +197,28 @@ async def get_risks(
         )
     ).all()
 
-    # Query 2: risk boundary polygons (with containment check)
-    boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+    # Fast-path: if precomputed lookup says not in risk zone, skip boundary query
+    risk_lookup = db.execute(
+        select(PropertyGeoLookup.in_risk_zone)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, property_point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
 
-    # Build severity lookup from boundaries that contain the property point
     severity_lookup: dict[tuple[str, str], str] = {}
-    for brow in boundary_rows:
-        if brow.contains_property:
-            key = (brow.infrastructure_type, str(brow.infrastructure_id))
-            if key not in severity_lookup or brow.severity == "critical":
-                severity_lookup[key] = brow.severity
+    if risk_lookup is None or risk_lookup:
+        # Query 2: risk boundary polygons (with containment check)
+        boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+
+        # Build severity lookup from boundaries that contain the property point
+        for brow in boundary_rows:
+            if brow.contains_property:
+                key = (brow.infrastructure_type, str(brow.infrastructure_id))
+                if key not in severity_lookup or brow.severity == "critical":
+                    severity_lookup[key] = brow.severity
 
     features: list[RiskFeature] = []
     for row in rows:

@@ -842,6 +842,44 @@ class PropertySchool(Base):
     )
 
 
+class PropertyGeoLookup(Base):
+    """Precomputed geographic containment lookups for properties (gold layer).
+
+    Maps each property to its containing census tract, block group, county
+    subdivision, noise zone, risk zone, and school district.  Eliminates
+    repeated ST_Contains spatial queries at API request time.
+    """
+
+    __tablename__ = "property_geo_lookups"
+    __table_args__ = (
+        Index("ix_property_geo_lookups_tract", "census_tract_geoid"),
+        Index("ix_property_geo_lookups_bg", "census_block_group_geoid"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(
+        Integer,
+        ForeignKey("redfin_listings.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    census_tract_geoid = Column(String(11), nullable=True)
+    census_block_group_geoid = Column(String(12), nullable=True)
+    county_subdivision_geoid = Column(String(10), nullable=True)
+    county_geoid = Column(String(5), nullable=True)
+    subdivision_id = Column(Integer, nullable=True)
+    subdivision_name = Column(String, nullable=True)
+    in_noise_zone = Column(Boolean, default=False, server_default=text("false"))
+    noise_max_db = Column(Integer, nullable=True)
+    noise_source_layers = Column(JSON, nullable=True)
+    in_risk_zone = Column(Boolean, default=False, server_default=text("false"))
+    risk_max_severity = Column(String, nullable=True)
+    risk_types = Column(JSON, nullable=True)
+    school_district_geoid = Column(String(7), nullable=True)
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class NcesSchool(Base):
     """NCES school directory reference data."""
 

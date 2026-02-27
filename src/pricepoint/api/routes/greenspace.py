@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
-from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_X, ST_Y, ST_DWithin, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
 from sqlalchemy import String, cast, func, literal, select
 from sqlalchemy.orm import Session
@@ -22,6 +22,8 @@ from pricepoint.db.models import (
     BlockGroup,
     Greenspace,
     GreenspaceRegionMetric,
+    PropertyGeoLookup,
+    RedfinListing,
     Trail,
 )
 
@@ -199,14 +201,30 @@ async def get_greenspace(
     # Look up precomputed z-score from block group containing this point
     greenspace_z = 0.0
     try:
-        bg_row = db.execute(
-            select(BlockGroup.geoid).where(func.ST_Contains(BlockGroup.geom, property_point))
-        ).first()
-        if bg_row is not None:
+        # Try precomputed geo lookup first
+        bg_geoid = db.execute(
+            select(PropertyGeoLookup.census_block_group_geoid)
+            .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+            .where(
+                RedfinListing.location.isnot(None),
+                ST_DWithin(RedfinListing.location, property_point, 0.001),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if bg_geoid is None:
+            # Fallback: spatial containment for unlisted addresses
+            bg_row = db.execute(
+                select(BlockGroup.geoid).where(func.ST_Contains(BlockGroup.geom, property_point))
+            ).first()
+            if bg_row is not None:
+                bg_geoid = bg_row.geoid
+
+        if bg_geoid is not None:
             metric_row = db.execute(
                 select(GreenspaceRegionMetric.greenspace_ratio_zscore).where(
                     GreenspaceRegionMetric.geo_level == "block_group",
-                    GreenspaceRegionMetric.geoid == bg_row.geoid,
+                    GreenspaceRegionMetric.geoid == bg_geoid,
                 )
             ).first()
             if metric_row is not None and metric_row.greenspace_ratio_zscore is not None:

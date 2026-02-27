@@ -87,9 +87,10 @@ class TestSchoolsNearbyWithData:
 
         # Call order:
         # 1: spatial school query
-        # 2: district DWithin query → empty
-        # 3: property lookup → None
-        # 4: ST_Y/ST_X coord extraction
+        # 2: geo lookup (school_district_geoid) → None
+        # 3: district DWithin query → empty
+        # 4: property lookup → None
+        # 5: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -102,10 +103,14 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 # District DWithin query — no districts found
                 result.all.return_value = []
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 # Property lookup
                 result.scalar_one_or_none.return_value = None
                 return result
@@ -174,10 +179,11 @@ class TestSchoolsNearbyWithData:
 
         # Call order:
         # 1: spatial school query
-        # 2: district DWithin query → empty
-        # 3: property lookup → prop
-        # 4: PropertySchool linkage query
-        # 5: ST_Y/ST_X coord extraction
+        # 2: geo lookup (school_district_geoid) → None
+        # 3: district DWithin query → empty
+        # 4: property lookup → prop
+        # 5: PropertySchool linkage query
+        # 6: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -190,14 +196,18 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 # District DWithin query — empty
                 result.all.return_value = []
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 # Property lookup
                 result.scalar_one_or_none.return_value = prop
                 return result
-            elif call_count == 4:
+            elif call_count == 5:
                 # PropertySchool linkage query
                 result.scalars.return_value.all.return_value = [link]
                 return result
@@ -253,10 +263,14 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 # Districts — empty
                 result.all.return_value = []
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 result.scalar_one_or_none.return_value = None
                 return result
             else:
@@ -330,13 +344,17 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 # District DWithin query — home + neighbor
                 result.all.return_value = [
                     (home_district, True, json.dumps(home_geojson)),
                     (neighbor_district, False, json.dumps(neighbor_geojson)),
                 ]
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 # Property lookup
                 result.scalar_one_or_none.return_value = None
                 return result
@@ -420,12 +438,16 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 result.all.return_value = [
                     (elem_district, True, json.dumps(geojson)),
                     (sec_district, False, json.dumps(geojson)),
                 ]
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 result.scalar_one_or_none.return_value = None
                 return result
             else:
@@ -492,12 +514,16 @@ class TestSchoolsNearbyWithData:
                 result.all.return_value = [(school, 1609.0)]
                 return result
             elif call_count == 2:
+                # Geo lookup — no precomputed data
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 3:
                 # District DWithin — home district found
                 result.all.return_value = [
                     (district, True, json.dumps(geojson_dict)),
                 ]
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 result.scalar_one_or_none.return_value = None
                 return result
             else:

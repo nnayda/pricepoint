@@ -210,32 +210,18 @@ LEFT JOIN park_agg pa ON pa.property_id = p.property_id
 
 _CONTAINMENT_SQL = """
 WITH props AS (
-    SELECT id AS property_id, location
+    SELECT id AS property_id
     FROM redfin_listings
     WHERE location IS NOT NULL
     {filter_clause}
 )
 SELECT
     p.property_id,
-    tt.geoid AS census_tract_geoid,
-    bg.geoid AS census_block_group_geoid,
-    ws.name AS subdivision_name
+    gl.census_tract_geoid,
+    gl.census_block_group_geoid,
+    gl.subdivision_name
 FROM props p
-LEFT JOIN LATERAL (
-    SELECT geoid FROM tracts t
-    WHERE ST_Contains(t.geom, p.location)
-    LIMIT 1
-) tt ON true
-LEFT JOIN LATERAL (
-    SELECT geoid FROM block_groups b
-    WHERE ST_Contains(b.geom, p.location)
-    LIMIT 1
-) bg ON true
-LEFT JOIN LATERAL (
-    SELECT name FROM wake_subdivisions s
-    WHERE ST_Contains(s.geom, p.location)
-    LIMIT 1
-) ws ON true
+LEFT JOIN property_geo_lookups gl ON gl.property_id = p.property_id
 """
 
 _LLM_SCORES_SQL = """

@@ -9,7 +9,7 @@ from statistics import median
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from geoalchemy2.functions import ST_Contains, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
 from sqlalchemy import Float, case, cast, func, select
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from pricepoint.api.schemas.neighborhood import (
     NeighborhoodValuationResponse,
 )
 from pricepoint.db.models import (
+    PropertyGeoLookup,
     PropertyValuation,
     RedfinListing,
     SaleHistoryRecord,
@@ -43,21 +44,43 @@ async def get_neighborhood_valuation(
     """Return median and max home values for the census tract containing the point."""
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    # 1. Find census tract
-    tract_row = db.execute(
-        select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
-    ).first()
+    # 1. Find census tract — try precomputed lookup first
+    tract_geoid: str | None = None
+    tract_geom = None
 
-    if not tract_row:
+    lookup = db.execute(
+        select(PropertyGeoLookup.census_tract_geoid)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if lookup:
+        tract_geoid = lookup
+        # Fetch tract geometry for listing containment query
+        tract_geom_row = db.execute(
+            select(Tract.geom).where(Tract.geoid == tract_geoid).limit(1)
+        ).scalar_one_or_none()
+        tract_geom = tract_geom_row
+    else:
+        # Fallback: spatial containment for unlisted addresses
+        tract_row = db.execute(
+            select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
+        ).first()
+        if tract_row:
+            tract_geoid = str(tract_row.geoid)
+            tract_geom = tract_row.geom
+
+    if not tract_geoid or tract_geom is None:
         return NeighborhoodValuationResponse(
             tract_geoid="unknown",
             median_value=None,
             max_value=None,
             sample_size=0,
         )
-
-    tract_geoid = str(tract_row.geoid)
-    tract_geom = tract_row.geom
 
     # 2. Build effective price expression
     two_years_ago = datetime.now(tz=UTC) - timedelta(days=730)
@@ -93,9 +116,13 @@ async def get_neighborhood_valuation(
     effective_price_cast = cast(effective_price, Float).label("effective_price")
 
     # 3. Query listings in tract with effective price
-    base_q = select(effective_price_cast).where(
-        ST_Contains(tract_geom, RedfinListing.location),
-        RedfinListing.location.isnot(None),
+    base_q = (
+        select(effective_price_cast)
+        .join(PropertyGeoLookup, PropertyGeoLookup.property_id == RedfinListing.id)
+        .where(
+            PropertyGeoLookup.census_tract_geoid == tract_geoid,
+            RedfinListing.location.isnot(None),
+        )
     )
 
     # Sub-select only rows with non-null effective price
@@ -227,23 +254,39 @@ async def get_neighborhood_valuation_history(
     """Return monthly median home-value time series for the census tract."""
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    # 1. Find census tract
-    tract_row = db.execute(
-        select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
-    ).first()
+    # 1. Find census tract — try precomputed lookup first
+    tract_geoid: str | None = None
 
-    if not tract_row:
+    lookup = db.execute(
+        select(PropertyGeoLookup.census_tract_geoid)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if lookup:
+        tract_geoid = lookup
+    else:
+        # Fallback: spatial containment for unlisted addresses
+        tract_row = db.execute(
+            select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
+        ).first()
+        if tract_row:
+            tract_geoid = str(tract_row.geoid)
+
+    if not tract_geoid:
         return NeighborhoodValuationHistoryResponse(
             tract_geoid="unknown", sample_size=0, monthly_medians=[]
         )
 
-    tract_geoid = str(tract_row.geoid)
-    tract_geom = tract_row.geom
-
-    # 2. Get property IDs within tract
-    prop_ids_q = select(RedfinListing.id).where(
-        ST_Contains(tract_geom, RedfinListing.location),
-        RedfinListing.location.isnot(None),
+    # 2. Get property IDs within tract via lookup table
+    prop_ids_q = (
+        select(RedfinListing.id)
+        .join(PropertyGeoLookup, PropertyGeoLookup.property_id == RedfinListing.id)
+        .where(PropertyGeoLookup.census_tract_geoid == tract_geoid)
     )
     prop_id_rows = db.execute(prop_ids_q).all()
     prop_ids = [r[0] for r in prop_id_rows]

@@ -460,30 +460,34 @@ class TestDemographicsWithData:
             result = MagicMock()
 
             if call_count == 1:
+                # Geo lookup — no precomputed data, fall through to ST_Contains
+                result.scalar_one_or_none.return_value = None
+                return result
+            elif call_count == 2:
                 # Tract lookup
                 result.scalar_one_or_none.return_value = "37183052403"
                 return result
-            elif call_count == 2:
+            elif call_count == 3:
                 # County subdivision lookup
                 result.scalar_one_or_none.return_value = None
                 return result
-            elif call_count == 3:
+            elif call_count == 4:
                 # Block group lookup
                 result.scalar_one_or_none.return_value = None
                 return result
-            elif call_count == 4:
+            elif call_count == 5:
                 # County lookup
                 result.scalar_one_or_none.return_value = None
                 return result
-            elif call_count == 5:
+            elif call_count == 6:
                 # Wake subdivision lookup
                 result.scalar_one_or_none.return_value = None
                 return result
-            elif call_count == 6:
+            elif call_count == 7:
                 # ACS demographics query
                 result.scalars.return_value.all.return_value = [acs_row, state_row, us_row]
                 return result
-            elif call_count == 7:
+            elif call_count == 8:
                 # Neighborhood boundary GeoJSON
                 result.scalar_one_or_none.return_value = (
                     '{"type":"Polygon","coordinates":'
@@ -491,7 +495,7 @@ class TestDemographicsWithData:
                     "[-78.8,35.7],[-78.8,35.8]]]}"
                 )
                 return result
-            elif call_count <= 17:
+            elif call_count <= 18:
                 # Choropleth: 5 levels × 2 queries each (nearby geoms + ACS batch)
                 # nearby geoms query returns .all()
                 result.all.return_value = []

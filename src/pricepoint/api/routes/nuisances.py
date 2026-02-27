@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
-from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
@@ -22,7 +22,14 @@ from pricepoint.api.schemas.nuisances import (
     NuisanceSource,
     NuisanceSourcesResponse,
 )
-from pricepoint.db.models import Airport, Railroad, Road, TransportationNoise
+from pricepoint.db.models import (
+    Airport,
+    PropertyGeoLookup,
+    Railroad,
+    RedfinListing,
+    Road,
+    TransportationNoise,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +143,20 @@ async def get_nuisance_sources(
     """
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
     geog_type = Geography(srid=4326)
+
+    # Fast-path: if precomputed lookup says not in noise zone, skip queries
+    lookup = db.execute(
+        select(PropertyGeoLookup.in_noise_zone)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, property_point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if lookup is not None and not lookup:
+        return NuisanceSourcesResponse(sources=[])
 
     # Find noise polygons that contain the property point
     stmt = (

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import (
     ST_AsGeoJSON,
     ST_Contains,
+    ST_DWithin,
     ST_Expand,
     ST_Intersects,
     ST_MakeEnvelope,
@@ -36,6 +37,8 @@ from pricepoint.db.models import (
     AcsDemographic,
     BlockGroup,
     County,
+    PropertyGeoLookup,
+    RedfinListing,
     Township,
     Tract,
     WakeSubdivision,
@@ -478,38 +481,61 @@ async def get_demographics(
     """Return ACS census demographics for geographic contexts around a point."""
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    # 1. Spatial lookups to find geoids
+    # 1. Try precomputed geo lookups first (fast path via B-tree indexes)
     geoid_map: dict[str, str] = {}  # geography_level → geoid
 
-    tract = db.execute(
-        select(Tract.geoid).where(ST_Contains(Tract.geom, point)).limit(1)
+    lookup = db.execute(
+        select(PropertyGeoLookup)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, 0.001),
+        )
+        .limit(1)
     ).scalar_one_or_none()
-    if tract:
-        geoid_map["tract"] = str(tract)
 
-    cousub = db.execute(
-        select(Township.geoid).where(ST_Contains(Township.geom, point)).limit(1)
-    ).scalar_one_or_none()
-    if cousub:
-        geoid_map["county_subdivision"] = str(cousub)
+    if lookup:
+        if lookup.census_tract_geoid:
+            geoid_map["tract"] = str(lookup.census_tract_geoid)
+        if lookup.county_subdivision_geoid:
+            geoid_map["county_subdivision"] = str(lookup.county_subdivision_geoid)
+        if lookup.census_block_group_geoid:
+            geoid_map["block_group"] = str(lookup.census_block_group_geoid)
+        if lookup.county_geoid:
+            geoid_map["county"] = str(lookup.county_geoid)
+        if lookup.subdivision_id:
+            geoid_map["subdivision"] = f"subdiv_{lookup.subdivision_id}"
+    else:
+        # Fallback: spatial containment queries for unlisted addresses
+        tract = db.execute(
+            select(Tract.geoid).where(ST_Contains(Tract.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if tract:
+            geoid_map["tract"] = str(tract)
 
-    block_group = db.execute(
-        select(BlockGroup.geoid).where(ST_Contains(BlockGroup.geom, point)).limit(1)
-    ).scalar_one_or_none()
-    if block_group:
-        geoid_map["block_group"] = str(block_group)
+        cousub = db.execute(
+            select(Township.geoid).where(ST_Contains(Township.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if cousub:
+            geoid_map["county_subdivision"] = str(cousub)
 
-    county = db.execute(
-        select(County.geoid).where(ST_Contains(County.geom, point)).limit(1)
-    ).scalar_one_or_none()
-    if county:
-        geoid_map["county"] = str(county)
+        block_group = db.execute(
+            select(BlockGroup.geoid).where(ST_Contains(BlockGroup.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if block_group:
+            geoid_map["block_group"] = str(block_group)
 
-    subdiv = db.execute(
-        select(WakeSubdivision.snumber).where(ST_Contains(WakeSubdivision.geom, point)).limit(1)
-    ).scalar_one_or_none()
-    if subdiv:
-        geoid_map["subdivision"] = f"subdiv_{subdiv}"
+        county = db.execute(
+            select(County.geoid).where(ST_Contains(County.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if county:
+            geoid_map["county"] = str(county)
+
+        subdiv = db.execute(
+            select(WakeSubdivision.snumber).where(ST_Contains(WakeSubdivision.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if subdiv:
+            geoid_map["subdivision"] = f"subdiv_{subdiv}"
 
     # 2. Query ACS demographics for matched geoids + benchmarks
     all_geoids = list(geoid_map.values())

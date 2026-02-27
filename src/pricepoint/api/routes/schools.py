@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.property import SchoolDistrictInfo, SchoolNearby, SchoolsNearbyResponse
-from pricepoint.db.models import PropertySchool, RedfinListing, School, SchoolDistrict
+from pricepoint.db.models import (
+    PropertyGeoLookup,
+    PropertySchool,
+    RedfinListing,
+    School,
+    SchoolDistrict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +68,28 @@ async def get_nearby_schools(
 
     rows = db.execute(stmt).all()
 
-    # Query all school districts within the search radius (single query)
-    contains_flag = ST_Contains(SchoolDistrict.geom, point).label("is_home")
+    # Try to get home district geoid from precomputed lookup
+    home_district_geoid: str | None = db.execute(
+        select(PropertyGeoLookup.school_district_geoid)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    # Query all school districts within the search radius
     geojson_col = ST_AsGeoJSON(SchoolDistrict.geom).label("geojson")
 
-    district_stmt = select(SchoolDistrict, contains_flag, geojson_col).where(
+    if home_district_geoid:
+        # Use precomputed geoid to determine home district
+        is_home_expr = (SchoolDistrict.geoid == home_district_geoid).label("is_home")
+    else:
+        # Fallback: spatial containment check
+        is_home_expr = ST_Contains(SchoolDistrict.geom, point).label("is_home")
+
+    district_stmt = select(SchoolDistrict, is_home_expr, geojson_col).where(
         ST_DWithin(
             cast(SchoolDistrict.geom, geo),
             cast(point, geo),

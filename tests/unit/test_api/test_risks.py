@@ -100,12 +100,18 @@ def risks_app():
         ),
     ]
 
-    # First execute call returns infra rows, second returns boundary rows
+    # Execute order: 1=infra query, 2=risk geo lookup, 3=boundary query
     mock_result_infra = MagicMock()
     mock_result_infra.all.return_value = infra_rows
+    mock_result_lookup = MagicMock()
+    mock_result_lookup.scalar_one_or_none.return_value = None
     mock_result_boundary = MagicMock()
     mock_result_boundary.all.return_value = boundary_rows
-    mock_session.execute.side_effect = [mock_result_infra, mock_result_boundary]
+    mock_session.execute.side_effect = [
+        mock_result_infra,
+        mock_result_lookup,
+        mock_result_boundary,
+    ]
 
     def _override_get_db():
         yield mock_session
@@ -130,9 +136,16 @@ def empty_risks_app():
     app = create_app()
     mock_session = MagicMock()
 
+    # Execute order: 1=infra query, 2=risk geo lookup, 3=boundary query
     mock_result_empty = MagicMock()
     mock_result_empty.all.return_value = []
-    mock_session.execute.side_effect = [mock_result_empty, mock_result_empty]
+    mock_result_lookup = MagicMock()
+    mock_result_lookup.scalar_one_or_none.return_value = None
+    mock_session.execute.side_effect = [
+        mock_result_empty,
+        mock_result_lookup,
+        mock_result_empty,
+    ]
 
     def _override_get_db():
         yield mock_session
@@ -359,12 +372,18 @@ class TestRisksValkeyCaching:
                 distance_miles=0.8,
             ),
         ]
-        # No boundary rows containing the property
+        # Execute order: 1=infra query, 2=risk geo lookup, 3=boundary query
         mock_result_infra = MagicMock()
         mock_result_infra.all.return_value = infra_rows
+        mock_result_lookup = MagicMock()
+        mock_result_lookup.scalar_one_or_none.return_value = None
         mock_result_boundary = MagicMock()
         mock_result_boundary.all.return_value = []
-        mock_session.execute.side_effect = [mock_result_infra, mock_result_boundary]
+        mock_session.execute.side_effect = [
+            mock_result_infra,
+            mock_result_lookup,
+            mock_result_boundary,
+        ]
 
         def _override_get_db():
             yield mock_session
@@ -378,7 +397,7 @@ class TestRisksValkeyCaching:
         client = TestClient(app)
         resp = client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
-        assert mock_session.execute.call_count == 2
+        assert mock_session.execute.call_count == 3
         mock_valkey.set.assert_called_once()
         app.dependency_overrides.clear()
 
