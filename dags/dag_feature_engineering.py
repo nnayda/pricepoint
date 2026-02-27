@@ -1,11 +1,7 @@
-"""DAG: Transform raw data into model-ready features.
-
-Runs after data collection completes.
-"""
+"""DAG: Transform raw data into model-ready features."""
 
 from datetime import datetime, timedelta
 
-from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
 from airflow.sdk import dag, task
 
 
@@ -23,13 +19,6 @@ from airflow.sdk import dag, task
     tags=["features", "engineering"],
 )
 def feature_engineering():
-    wait_for_data = ExternalTaskSensor(
-        task_id="wait_for_data_collection",
-        external_dag_id="data_collection",
-        external_task_id="validate_raw_data",
-        timeout=3600,
-        poke_interval=60,
-    )
 
     @task()
     def build_geospatial():
@@ -100,7 +89,6 @@ def feature_engineering():
     econ = build_economic()
     assembly = assemble_feature_matrix()
 
-    wait_for_data >> [geo, housing, econ]
     [geo, housing, econ] >> assembly
 
 
