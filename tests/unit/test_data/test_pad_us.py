@@ -172,6 +172,7 @@ class TestFetchPadUs:
 
         # Mock httpx streaming
         mock_resp = MagicMock()
+        mock_resp.headers = {"content-type": "application/zip"}
         mock_resp.iter_bytes.return_value = [b"fake"]
         mock_stream_cm = MagicMock()
         mock_stream_cm.__enter__ = MagicMock(return_value=mock_resp)
@@ -229,6 +230,7 @@ class TestFetchPadUs:
         mock_session_cls.return_value = session
 
         mock_resp = MagicMock()
+        mock_resp.headers = {"content-type": "application/zip"}
         mock_resp.iter_bytes.return_value = [b"fake"]
         mock_stream_cm = MagicMock()
         mock_stream_cm.__enter__ = MagicMock(return_value=mock_resp)

@@ -109,11 +109,12 @@ def fetch_pad_us() -> int:
         ) as resp:
             resp.raise_for_status()
             content_type = resp.headers.get("content-type", "")
-            if "text/html" in content_type:
+            if "application/zip" not in content_type and "application/octet-stream" not in content_type:
                 raise RuntimeError(
-                    f"PAD-US download URL returned HTML instead of a ZIP file "
-                    f"(content-type: {content_type}). The ScienceBase URL may "
-                    f"have changed — check pad_us_download_url in settings."
+                    f"PAD-US download URL returned unexpected content "
+                    f"(content-type: {content_type}). Expected a ZIP file. "
+                    f"The ScienceBase URL may have changed — check "
+                    f"pad_us_download_url in settings."
                 )
             with open(zip_path, "wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=8192):
