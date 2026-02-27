@@ -1,7 +1,7 @@
 """Rename TIGER tables to shorter names.
 
 Revision ID: j2k4l6m8n0p2
-Revises: i1j3k5l7m9n1
+Revises: i1j3k5l7m9n1, i9d4e6f8a2b5
 Create Date: 2026-02-27
 
 """
@@ -9,7 +9,7 @@ Create Date: 2026-02-27
 from alembic import op
 
 revision = "j2k4l6m8n0p2"
-down_revision = "i1j3k5l7m9n1"
+down_revision = ("i1j3k5l7m9n1", "i9d4e6f8a2b5")
 branch_labels = None
 depends_on = None
 
