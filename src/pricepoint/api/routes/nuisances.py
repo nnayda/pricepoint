@@ -1,24 +1,21 @@
-"""Nuisances endpoint — returns transportation noise polygons from PostGIS."""
+"""Nuisances endpoint — returns nuisance source cards from PostGIS.
 
-import hashlib
-import json
+Noise polygon geometry and infrastructure geometry are served via Martin
+vector tiles (see docker/martin/config.yaml).  This module only provides
+the card-level severity data for the sidebar.
+"""
+
 import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
-from redis.asyncio import Redis
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
-from pricepoint.api.dependencies import get_db, get_valkey
+from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.nuisances import (
-    InfrastructureFeature,
-    InfrastructureGeometriesResponse,
-    NoiseFeature,
-    NoiseProperties,
-    NoiseResponse,
     NuisanceSource,
     NuisanceSourcesResponse,
 )
@@ -36,97 +33,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["nuisances"])
 
 METERS_PER_MILE = 1609.344
-CACHE_TTL = 604800  # 7 days
-
-
-def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
-    """Build a deterministic cache key for the noise query."""
-    raw = f"nuisances:noise:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}"
-    digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
-    return f"nuisances:noise:{digest}"
-
-
-@router.get("/nuisances/noise", response_model=NoiseResponse)
-async def get_noise(
-    lat: Annotated[float, Query(ge=-90, le=90)],
-    lon: Annotated[float, Query(ge=-180, le=180)],
-    radius_miles: Annotated[float, Query(gt=0, le=10)] = 2.0,
-    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
-    valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
-) -> NoiseResponse:
-    """Return transportation noise polygons near the given location."""
-    # Check cache
-    c_key = _cache_key(lat, lon, radius_miles)
-    if valkey is not None:
-        try:
-            cached = await valkey.get(c_key)
-            if cached is not None:
-                data = json.loads(cached)
-                return NoiseResponse(**data)
-        except Exception:
-            logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
-
-    radius_meters = radius_miles * METERS_PER_MILE
-
-    # Build geography point
-    property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
-
-    # Query noise polygons within radius using ST_DWithin on geography casts
-    geog_type = Geography(srid=4326)
-    # Simplify geometry for GeoJSON output to reduce payload size
-    simplified_geom = func.ST_SimplifyPreserveTopology(TransportationNoise.geom, 0.0005)
-
-    stmt = (
-        select(
-            func.ST_AsGeoJSON(simplified_geom).label("geojson"),
-            TransportationNoise.noise_band,
-            TransportationNoise.noise_min_db,
-            TransportationNoise.noise_max_db,
-            TransportationNoise.source_layer,
-            TransportationNoise.area_sq_m,
-        )
-        .where(
-            TransportationNoise.geom.isnot(None),
-            func.ST_DWithin(
-                cast(TransportationNoise.geom, geog_type),
-                cast(property_point, geog_type),
-                radius_meters,
-            ),
-        )
-        .order_by(TransportationNoise.noise_min_db)
-    )
-
-    rows = db.execute(stmt).all()
-
-    features: list[NoiseFeature] = []
-    for row in rows:
-        features.append(
-            NoiseFeature(
-                geometry=json.loads(row.geojson),
-                properties=NoiseProperties(
-                    noise_band=row.noise_band,
-                    noise_min_db=row.noise_min_db,
-                    noise_max_db=row.noise_max_db,
-                    source_layer=row.source_layer,
-                    area_sq_m=row.area_sq_m,
-                ),
-            )
-        )
-
-    response = NoiseResponse(features=features)
-
-    # Write to cache
-    if valkey is not None:
-        try:
-            await valkey.set(
-                c_key,
-                json.dumps(response.model_dump()),
-                ex=CACHE_TTL,
-            )
-        except Exception:
-            logger.warning("Valkey write failed for key %s", c_key, exc_info=True)
-
-    return response
 
 
 @router.get("/nuisances/sources", response_model=NuisanceSourcesResponse)
@@ -346,102 +252,3 @@ def _add_rail_source(
         )
 
 
-@router.get("/nuisances/geometries", response_model=InfrastructureGeometriesResponse)
-async def get_nuisance_geometries(
-    lat: Annotated[float, Query(ge=-90, le=90)],
-    lon: Annotated[float, Query(ge=-180, le=180)],
-    radius_miles: Annotated[float, Query(gt=0, le=10)] = 2.0,
-    db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
-) -> InfrastructureGeometriesResponse:
-    """Return infrastructure geometries (roads, airports, railroads) near the given location.
-
-    Returns a GeoJSON FeatureCollection with features tagged by layer.
-    """
-    property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
-    geog_type = Geography(srid=4326)
-    radius_meters = radius_miles * METERS_PER_MILE
-
-    features: list[InfrastructureFeature] = []
-
-    # Roads
-    road_rows = db.execute(
-        select(
-            func.ST_AsGeoJSON(Road.geom).label("geojson"),
-            Road.fullname,
-        ).where(
-            Road.geom.isnot(None),
-            func.ST_DWithin(
-                cast(Road.geom, geog_type),
-                cast(property_point, geog_type),
-                radius_meters,
-            ),
-        )
-    ).all()
-
-    for row in road_rows:
-        features.append(
-            InfrastructureFeature(
-                geometry=json.loads(row.geojson),
-                properties={"layer": "road", "fullname": row.fullname or ""},
-            )
-        )
-
-    # Airports — use a larger search radius since airport noise zones extend
-    # much further than the airport point itself (often 10+ miles).
-    airport_radius_meters = max(radius_meters, 15 * METERS_PER_MILE)
-    airport_rows = db.execute(
-        select(
-            func.ST_AsGeoJSON(Airport.geom).label("geojson"),
-            Airport.name,
-            Airport.iata_code,
-        ).where(
-            Airport.geom.isnot(None),
-            func.ST_DWithin(
-                cast(Airport.geom, geog_type),
-                cast(property_point, geog_type),
-                airport_radius_meters,
-            ),
-        )
-    ).all()
-
-    for row in airport_rows:
-        features.append(
-            InfrastructureFeature(
-                geometry=json.loads(row.geojson),
-                properties={
-                    "layer": "airport",
-                    "name": row.name or "",
-                    "iata_code": row.iata_code or "",
-                },
-            )
-        )
-
-    # Railroads
-    rail_rows = db.execute(
-        select(
-            func.ST_AsGeoJSON(Railroad.geom).label("geojson"),
-            Railroad.rrowner1,
-            Railroad.subdivision,
-        ).where(
-            Railroad.geom.isnot(None),
-            func.ST_DWithin(
-                cast(Railroad.geom, geog_type),
-                cast(property_point, geog_type),
-                radius_meters,
-            ),
-        )
-    ).all()
-
-    for row in rail_rows:
-        features.append(
-            InfrastructureFeature(
-                geometry=json.loads(row.geojson),
-                properties={
-                    "layer": "railroad",
-                    "rrowner1": row.rrowner1 or "",
-                    "subdivision": row.subdivision or "",
-                },
-            )
-        )
-
-    return InfrastructureGeometriesResponse(features=features)

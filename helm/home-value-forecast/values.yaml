@@ -54,6 +54,25 @@ mlflow:
       cpu: 500m
       memory: 512Mi
 
+# -- Martin tileserver ----------------------------------------------------------
+martin:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/maplibre/martin
+    tag: v0.15
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 # -- Ingress -------------------------------------------------------------------
 ingress:
   enabled: true
@@ -70,6 +89,9 @@ ingress:
         - path: /ready
           service: api
           port: 8000
+        - path: /tiles
+          service: martin
+          port: 3000
         - path: /mlflow
           service: mlflow
           port: 5000

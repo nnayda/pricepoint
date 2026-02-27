@@ -1,11 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { useMapEvents } from "react-leaflet";
+import { useState, useMemo, useCallback } from "react";
+import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, GreenspaceFeature } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import RadiusSelect from "../maps/RadiusSelect";
-import RadiusCircle from "../maps/RadiusCircle";
-import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { TreesIcon, FootprintsIcon, MapPinIcon } from "../ui/Icons";
 import { useGreenspace } from "../../../hooks/useGreenspace";
 
@@ -14,37 +11,6 @@ interface Bbox {
   swLon: number;
   neLat: number;
   neLon: number;
-}
-
-/** Reports map viewport bounds on mount and on every moveend. */
-function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    },
-  });
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    }, 100);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return null;
 }
 
 interface GreenspaceTabProps {
@@ -141,8 +107,7 @@ const SCOPE_ZOOM: Record<MapScope, number> = {
 
 function GreenspaceTab({ data }: GreenspaceTabProps) {
   const { property } = data;
-  const [radius, setRadius] = useMapRadius();
-  const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon, radius);
+  const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon, 10);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapScope, setMapScope] = useState<MapScope>("neighborhood");
@@ -251,7 +216,6 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
                   </button>
                 ))}
               </div>
-              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="mb-3 flex justify-center gap-2">
@@ -288,7 +252,7 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={Math.min(SCOPE_ZOOM[mapScope], RADIUS_ZOOM[radius])}
+              zoom={SCOPE_ZOOM[mapScope]}
               markers={[
                 {
                   lat: property.lat,
@@ -303,9 +267,54 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
+              onMoveEnd={handleBoundsChange}
             >
-              <MapBoundsTracker onBoundsChange={handleBoundsChange} />
-              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
+              {/* Vector tile layers for greenspaces and trails */}
+              <Source
+                id="greenspaces-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/greenspaces/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="greenspaces-fill"
+                  type="fill"
+                  source-layer="greenspaces"
+                  paint={{
+                    "fill-color": "#34D399",
+                    "fill-opacity": 0.2,
+                  }}
+                />
+                <Layer
+                  id="greenspaces-outline"
+                  type="line"
+                  source-layer="greenspaces"
+                  paint={{
+                    "line-color": "#34D399",
+                    "line-width": 1,
+                    "line-opacity": 0.5,
+                  }}
+                />
+              </Source>
+              <Source
+                id="trails-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/trails/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="trails-line"
+                  type="line"
+                  source-layer="trails"
+                  paint={{
+                    "line-color": "#22D3EE",
+                    "line-width": 2,
+                    "line-opacity": 0.7,
+                  }}
+                />
+              </Source>
             </DashboardMap>
           </div>
         </DashboardCard>

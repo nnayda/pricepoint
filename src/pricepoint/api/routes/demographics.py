@@ -1,19 +1,19 @@
-"""Demographics endpoint — returns ACS census data for geographic contexts."""
+"""Demographics endpoint — returns ACS census data for geographic contexts.
+
+Choropleth map data and boundary geometry are now served via Martin vector
+tiles (see docker/martin/config.yaml).  This module only provides the
+statistical / chart data for the sidebar.
+"""
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import (
-    ST_AsGeoJSON,
     ST_Contains,
     ST_DWithin,
-    ST_Expand,
-    ST_Intersects,
-    ST_MakeEnvelope,
     ST_MakePoint,
     ST_SetSRID,
 )
@@ -58,34 +58,6 @@ _LEVEL_TO_CONTEXT: dict[str, str] = {
 }
 
 _BENCHMARK_LEVELS = ("us", "state")
-
-# Choropleth config per context key
-_ChoroCfg = tuple[Any, str, float, str, str | None, str]
-# (model_cls, acs_level, default_buffer, geoid_attr, name_attr, geoid_prefix)
-_CHOROPLETH_CONFIG: dict[str, _ChoroCfg] = {}
-
-
-def _init_choropleth_config() -> None:
-    """Lazily populate config after model imports are available."""
-    if _CHOROPLETH_CONFIG:
-        return
-    _CHOROPLETH_CONFIG.update(
-        {
-            "neighborhood": (Tract, "tract", 0.05, "geoid", None, ""),
-            "block_group": (BlockGroup, "block_group", 0.03, "geoid", None, ""),
-            "town": (
-                Township,
-                "county_subdivision",
-                0.15,
-                "geoid",
-                "name",
-                "",
-            ),
-            "county": (County, "county", 0.5, "geoid", "name", ""),
-            "subdivision": (Subdivision, "subdivision", 0.03, "id", "name", "subdiv_"),
-        }
-    )
-
 
 # ── Pure transformation helpers ──
 
@@ -338,140 +310,6 @@ def _empty_context() -> DemographicContextData:
     )
 
 
-def _compute_feature_props(
-    row: Any | None,
-    geoid: str,
-    name: str,
-    is_home: bool,
-) -> dict[str, Any]:
-    """Extract choropleth feature properties from an ACS row."""
-    if row is None:
-        return {
-            "geoid": geoid,
-            "name": name,
-            "is_home": is_home,
-            "population": 0,
-            "median_income": 0,
-            "median_age": 0,
-            "home_ownership_rate": 0,
-            "dominant_race": "Unknown",
-            "dominant_race_pct": 0,
-            "pct_under_18": 0,
-            "pct_65_plus": 0,
-            "pct_white": 0,
-            "pct_black": 0,
-            "pct_hispanic": 0,
-            "pct_asian": 0,
-            "pct_other": 0,
-        }
-
-    total_pop = row.total_population or 0
-    total_occ = row.housing_total_occupied or 0
-    owner_occ = row.housing_owner_occupied or 0
-    ownership_rate = round(owner_occ / total_occ * 100, 1) if total_occ > 0 else 0
-
-    # Dominant race + per-race percentages
-    race_vals = consolidate_race(row)
-    dominant = max(race_vals, key=lambda r: r.value) if race_vals else None
-    race_map = {rv.label.lower(): rv.value for rv in race_vals}
-
-    pct_under_18 = round((row.pop_under_18 or 0) / total_pop * 100, 1) if total_pop > 0 else 0
-    pct_65_plus = round((row.pop_65_plus or 0) / total_pop * 100, 1) if total_pop > 0 else 0
-
-    return {
-        "geoid": geoid,
-        "name": name,
-        "is_home": is_home,
-        "population": total_pop,
-        "median_income": row.median_household_income or 0,
-        "median_age": row.median_age or 0,
-        "home_ownership_rate": ownership_rate,
-        "dominant_race": dominant.label if dominant else "Unknown",
-        "dominant_race_pct": dominant.value if dominant else 0,
-        "pct_under_18": pct_under_18,
-        "pct_65_plus": pct_65_plus,
-        "pct_white": race_map.get("white", 0),
-        "pct_black": race_map.get("black", 0),
-        "pct_hispanic": race_map.get("hispanic", 0),
-        "pct_asian": race_map.get("asian", 0),
-        "pct_other": race_map.get("other", 0),
-    }
-
-
-def _build_choropleth_level(
-    db: Session,
-    model_cls: Any,
-    acs_level: str,
-    envelope: Any,
-    home_geoid: str | None,
-    *,
-    geoid_attr: str = "geoid",
-    name_attr: str | None = None,
-    geoid_prefix: str = "",
-) -> list[dict[str, Any]]:
-    """Build GeoJSON Feature list for a single choropleth level.
-
-    ``envelope`` should be a PostGIS geometry (e.g. from ``ST_MakeEnvelope``)
-    that defines the area of interest.
-    """
-    geoid_col = getattr(model_cls, geoid_attr)
-    geom_col = model_cls.geom
-
-    # Optionally fetch a name column alongside geoid
-    columns = [geoid_col, ST_AsGeoJSON(geom_col).label("geojson")]
-    has_name = False
-    if name_attr and hasattr(model_cls, name_attr):
-        columns.append(getattr(model_cls, name_attr))
-        has_name = True
-
-    # Query geometries intersecting the envelope
-    nearby = db.execute(select(*columns).where(ST_Intersects(geom_col, envelope))).all()
-
-    if not nearby:
-        return []
-
-    # Collect all geoids for batch ACS fetch
-    raw_geoids = [str(row[0]) for row in nearby]
-    acs_geoids = [f"{geoid_prefix}{g}" for g in raw_geoids]
-
-    # Batch-fetch most recent ACS data (DISTINCT ON geoid)
-    acs_map: dict[str, Any] = {}
-    if acs_geoids:
-        acs_stmt = (
-            select(AcsDemographic)
-            .where(
-                AcsDemographic.geography_level == acs_level,
-                AcsDemographic.geoid.in_(acs_geoids),
-            )
-            .order_by(AcsDemographic.geoid, AcsDemographic.acs_year.desc())
-            .distinct(AcsDemographic.geoid)
-        )
-        for ar in db.execute(acs_stmt).scalars().all():
-            acs_map[str(ar.geoid)] = ar
-
-    features: list[dict[str, Any]] = []
-    for row_tuple in nearby:
-        raw_geoid_str = str(row_tuple[0])
-        geojson_str = row_tuple[1]
-        display_name = str(row_tuple[2]) if has_name else raw_geoid_str
-        acs_geoid = f"{geoid_prefix}{raw_geoid_str}"
-        acs_row: Any = acs_map.get(acs_geoid)
-
-        is_home = acs_geoid == home_geoid if home_geoid else False
-
-        props = _compute_feature_props(acs_row, acs_geoid, display_name, is_home)
-        geojson_dict = json.loads(geojson_str)
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": geojson_dict,
-                "properties": props,
-            }
-        )
-
-    return features
-
-
 @router.get("/demographics", response_model=DemographicsResponse)
 async def get_demographics(
     lat: Annotated[float, Query(ge=-90, le=90)],
@@ -585,134 +423,7 @@ async def get_demographics(
         else:
             benchmarks[bm_key] = _empty_context()
 
-    # 5. Boundaries — return GeoJSON for matched geographies
-    boundaries: dict[str, dict[str, Any] | None] = {}
-
-    if tract:
-        geojson_str = db.execute(
-            select(ST_AsGeoJSON(Tract.geom)).where(Tract.geoid == tract).limit(1)
-        ).scalar_one_or_none()
-        boundaries["neighborhood"] = json.loads(geojson_str) if geojson_str else None
-    else:
-        boundaries["neighborhood"] = None
-
-    if cousub:
-        geojson_str = db.execute(
-            select(ST_AsGeoJSON(Township.geom)).where(Township.geoid == cousub).limit(1)
-        ).scalar_one_or_none()
-        boundaries["town"] = json.loads(geojson_str) if geojson_str else None
-    else:
-        boundaries["town"] = None
-
-    if subdiv:
-        geojson_str = db.execute(
-            select(ST_AsGeoJSON(Subdivision.geom)).where(Subdivision.id == subdiv).limit(1)
-        ).scalar_one_or_none()
-        boundaries["subdivision"] = json.loads(geojson_str) if geojson_str else None
-    else:
-        boundaries["subdivision"] = None
-
-    if block_group:
-        geojson_str = db.execute(
-            select(ST_AsGeoJSON(BlockGroup.geom)).where(BlockGroup.geoid == block_group).limit(1)
-        ).scalar_one_or_none()
-        boundaries["block_group"] = json.loads(geojson_str) if geojson_str else None
-    else:
-        boundaries["block_group"] = None
-
-    if county:
-        geojson_str = db.execute(
-            select(ST_AsGeoJSON(County.geom)).where(County.geoid == county).limit(1)
-        ).scalar_one_or_none()
-        boundaries["county"] = json.loads(geojson_str) if geojson_str else None
-    else:
-        boundaries["county"] = None
-
-    # 6. Choropleth — initial set per context using buffer around property
-    _init_choropleth_config()
-    choropleth: dict[str, list[dict[str, Any]]] = {}
-    for ctx_key, (
-        model_cls,
-        acs_level,
-        buf,
-        geoid_attr,
-        name_col,
-        prefix,
-    ) in _CHOROPLETH_CONFIG.items():
-        # Determine home geoid for this level's geoid_attr
-        if prefix:
-            # Subdivision: look up the id of the subdivision containing the point
-            home_raw = db.execute(
-                select(getattr(model_cls, geoid_attr))
-                .where(ST_Contains(model_cls.geom, point))
-                .limit(1)
-            ).scalar_one_or_none()
-            home = f"{prefix}{home_raw}" if home_raw else None
-        else:
-            home = geoid_map.get(acs_level)
-        envelope = ST_Expand(point, buf)
-        choropleth[ctx_key] = _build_choropleth_level(
-            db,
-            model_cls,
-            acs_level,
-            envelope,
-            home,
-            geoid_attr=geoid_attr,
-            name_attr=name_col,
-            geoid_prefix=prefix,
-        )
-
     return DemographicsResponse(
         contexts=contexts,
         benchmarks=benchmarks,
-        boundaries=boundaries,
-        choropleth=choropleth,
-    )
-
-
-@router.get("/demographics/choropleth")
-async def get_demographics_choropleth(
-    context: Annotated[str, Query()],
-    sw_lat: Annotated[float, Query(ge=-90, le=90)],
-    sw_lon: Annotated[float, Query(ge=-180, le=180)],
-    ne_lat: Annotated[float, Query(ge=-90, le=90)],
-    ne_lon: Annotated[float, Query(ge=-180, le=180)],
-    home_lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
-    home_lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
-    *,
-    db: Annotated[Session, Depends(get_db)],
-) -> list[dict[str, Any]]:
-    """Return choropleth GeoJSON features within a bounding box.
-
-    Called by the frontend when the map viewport changes (pan/zoom).
-    """
-    _init_choropleth_config()
-
-    if context not in _CHOROPLETH_CONFIG:
-        return []
-
-    model_cls, acs_level, _default_buf, geoid_attr, name_col, prefix = _CHOROPLETH_CONFIG[context]
-    envelope = ST_MakeEnvelope(sw_lon, sw_lat, ne_lon, ne_lat, 4326)
-
-    # Determine home geoid if property coords provided
-    home_geoid: str | None = None
-    if home_lat is not None and home_lon is not None:
-        home_point = ST_SetSRID(ST_MakePoint(home_lon, home_lat), 4326)
-        home_raw = db.execute(
-            select(getattr(model_cls, geoid_attr))
-            .where(ST_Contains(model_cls.geom, home_point))
-            .limit(1)
-        ).scalar_one_or_none()
-        if home_raw:
-            home_geoid = f"{prefix}{home_raw}"
-
-    return _build_choropleth_level(
-        db,
-        model_cls,
-        acs_level,
-        envelope,
-        home_geoid,
-        geoid_attr=geoid_attr,
-        name_attr=name_col,
-        geoid_prefix=prefix,
     )

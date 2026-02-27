@@ -1,0 +1,58 @@
+{{- if .Values.martin.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-martin
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: martin
+spec:
+  replicas: {{ .Values.martin.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: martin
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: martin
+    spec:
+      containers:
+        - name: martin
+          image: "{{ .Values.martin.image.repository }}:{{ .Values.martin.image.tag }}"
+          imagePullPolicy: {{ .Values.martin.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          args: ["--config", "/config.yaml"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pricepoint.fullname" . }}-secret
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: config
+              mountPath: /config.yaml
+              subPath: config.yaml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.martin.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "pricepoint.fullname" . }}-martin-config
+{{- end }}

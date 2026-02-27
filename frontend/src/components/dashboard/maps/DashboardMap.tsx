@@ -1,7 +1,16 @@
-import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
-import L from "leaflet";
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
+import maplibregl from "maplibre-gl";
+import MapGL, {
+  Marker,
+  Popup,
+  Source,
+  Layer,
+  NavigationControl,
+  type MapRef,
+  type ViewStateChangeEvent,
+  type MapLayerMouseEvent,
+} from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useMapStyle } from "../../../hooks/useMapStyle";
 import { COLOR_INDIGO } from "../../../utils/chartTokens";
@@ -28,144 +37,32 @@ interface DashboardMapProps {
   highlightedId?: string | null;
   selectedId?: string | null;
   cluster?: boolean;
+  onMoveEnd?: (bounds: {
+    swLat: number;
+    swLon: number;
+    neLat: number;
+    neLon: number;
+  }) => void;
 }
 
-function createPropertyIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) {
-  const size = highlighted ? 32 : 28;
-  const glow = highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`;
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:${color};border-radius:6px;border:2px solid rgba(255,255,255,${highlighted ? 1 : 0.9});box-shadow:${glow};transition:all 0.15s ease;">
-      <svg width="${size * 0.6}" height="${size * 0.6}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H15V14H9V21H4C3.45 21 3 20.55 3 20V10.5Z" fill="white" stroke="white" stroke-width="1" stroke-linejoin="round"/>
-      </svg>
-    </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
-
-function createIcon(color: string = COLOR_INDIGO, highlighted: boolean = false) {
-  const size = highlighted ? 18 : 12;
-  const border = highlighted ? 3 : 2;
-  const glow = highlighted ? `0 0 12px ${color}` : `0 0 6px ${color}80`;
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:${border}px solid rgba(255,255,255,${highlighted ? 1 : 0.8});box-shadow:${glow};transition:all 0.15s ease;"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
-
-const INFRA_SVG_PATHS: Record<string, string> = {
-  // Antenna / signal tower
-  cell_tower: "M12 2v8m0 0l-3-3m3 3l3-3M8 22h8m-4 0v-6m-6-2a6 6 0 0112 0m-16-2a10 10 0 0120 0",
-  // Lightning bolt / zap
-  transmission_line: "M13 2L3 14h9l-1 10 10-12h-9l1-10z",
-  // Factory / smokestack
-  power_plant: "M2 20h20M4 20v-8l4 2v-6l4 2V4l4 4v12M6 20v-3h2v3m4-3v-5h2v5",
-  // Flame
-  nat_gas_pipeline:
-    "M12 2c-2 4-6 6-6 10a6 6 0 0012 0c0-4-4-6-6-10zm0 14a2 2 0 01-2-2c0-2 2-3 2-3s2 1 2 3a2 2 0 01-2 2z",
-  // Droplet
-  petroleum_pipeline: "M12 2c-4 5.5-8 9-8 13a8 8 0 0016 0c0-4-4-7.5-8-13z",
-};
-
-function createInfraIcon(type: string, color: string = COLOR_INDIGO, highlighted: boolean = false) {
-  const size = highlighted ? 28 : 24;
-  const svgSize = size * 0.58;
-  const glow = highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`;
-  const path = INFRA_SVG_PATHS[type] ?? INFRA_SVG_PATHS.cell_tower;
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:${color};border-radius:6px;border:2px solid rgba(255,255,255,${highlighted ? 1 : 0.9});box-shadow:${glow};transition:all 0.15s ease;">
-      <svg width="${svgSize}" height="${svgSize}" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="${path}"/>
-      </svg>
-    </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
-
-function InteractiveMarker({
-  marker,
-  highlighted,
-  selected,
-}: {
-  marker: MapMarker;
-  highlighted: boolean;
-  selected: boolean;
-}) {
-  const markerRef = useRef<L.Marker>(null);
-  const map = useMap();
-
-  const icon = useMemo(
-    () =>
-      marker.isProperty
-        ? createPropertyIcon(marker.color, highlighted || selected)
-        : marker.infrastructureType
-          ? createInfraIcon(marker.infrastructureType, marker.color, highlighted || selected)
-          : createIcon(marker.color, highlighted || selected),
-    [marker.color, marker.isProperty, marker.infrastructureType, highlighted, selected],
-  );
-
-  useEffect(() => {
-    if (selected && markerRef.current) {
-      markerRef.current.openPopup();
-      map.panTo([marker.lat, marker.lon], { animate: true, duration: 0.3 });
-    } else if (!selected && markerRef.current) {
-      markerRef.current.closePopup();
-    }
-  }, [selected, map, marker.lat, marker.lon]);
-
-  // Bring highlighted/selected/property markers to front
-  useEffect(() => {
-    if ((highlighted || selected) && markerRef.current) {
-      markerRef.current.setZIndexOffset(1000);
-    } else if (marker.isProperty && markerRef.current) {
-      markerRef.current.setZIndexOffset(500);
-    } else if (markerRef.current) {
-      markerRef.current.setZIndexOffset(0);
-    }
-  }, [highlighted, selected, marker.isProperty]);
-
-  const setRef = useCallback((el: L.Marker | null) => {
-    (markerRef as React.MutableRefObject<L.Marker | null>).current = el;
-  }, []);
-
-  return (
-    <Marker ref={setRef} position={[marker.lat, marker.lon]} icon={icon}>
-      <Popup>
-        <span style={{ fontFamily: "var(--font-db-sans)", fontSize: 12 }}>{marker.label}</span>
-      </Popup>
-    </Marker>
-  );
-}
-
-const TILE_CONFIGS: Record<MapStyle, { url: string; attribution: string; maxZoom: number }> = {
-  street: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 20,
-  },
+// MapLibre GL style definitions — CARTO vector tiles for street/dark/light,
+// Esri raster tiles for satellite
+const MAP_STYLES: Record<MapStyle, string | maplibregl.StyleSpecification> = {
+  street: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
   satellite: {
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
-    maxZoom: 19,
-  },
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 20,
-  },
-  light: {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    maxZoom: 20,
+    version: 8,
+    sources: {
+      esri: {
+        type: "raster",
+        tiles: [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        ],
+        tileSize: 256,
+      },
+    },
+    layers: [{ id: "esri-satellite", type: "raster", source: "esri" }],
   },
 };
 
@@ -176,36 +73,131 @@ const STYLE_LABELS: Record<MapStyle, string> = {
   light: "Light",
 };
 
+const MAP_STYLE_KEYS: MapStyle[] = ["street", "satellite", "dark", "light"];
+
 function getDefaultStyle(resolvedTheme: string): MapStyle {
   return resolvedTheme === "light" ? "light" : "dark";
 }
 
-/** Syncs the tile layer when style or theme changes. */
-function TileLayerController({ style }: { style: MapStyle }) {
-  const map = useMap();
-  const layerRef = useRef<L.TileLayer | null>(null);
+const INFRA_SVG_PATHS: Record<string, string> = {
+  cell_tower:
+    "M12 2v8m0 0l-3-3m3 3l3-3M8 22h8m-4 0v-6m-6-2a6 6 0 0112 0m-16-2a10 10 0 0120 0",
+  transmission_line: "M13 2L3 14h9l-1 10 10-12h-9l1-10z",
+  power_plant:
+    "M2 20h20M4 20v-8l4 2v-6l4 2V4l4 4v12M6 20v-3h2v3m4-3v-5h2v5",
+  nat_gas_pipeline:
+    "M12 2c-2 4-6 6-6 10a6 6 0 0012 0c0-4-4-6-6-10zm0 14a2 2 0 01-2-2c0-2 2-3 2-3s2 1 2 3a2 2 0 01-2 2z",
+  petroleum_pipeline:
+    "M12 2c-4 5.5-8 9-8 13a8 8 0 0016 0c0-4-4-7.5-8-13z",
+};
 
-  useEffect(() => {
-    if (layerRef.current) {
-      map.removeLayer(layerRef.current);
-    }
-    const config = TILE_CONFIGS[style];
-    const layer = L.tileLayer(config.url, {
-      attribution: config.attribution,
-      maxZoom: config.maxZoom,
-    });
-    layer.addTo(map);
-    map.setMaxZoom(config.maxZoom);
-    layerRef.current = layer;
-    return () => {
-      map.removeLayer(layer);
-    };
-  }, [style, map]);
+function MarkerIcon({
+  marker,
+  highlighted,
+}: {
+  marker: MapMarker;
+  highlighted: boolean;
+}) {
+  const color = marker.color || COLOR_INDIGO;
 
-  return null;
+  if (marker.isProperty) {
+    const size = highlighted ? 32 : 28;
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: color,
+          borderRadius: 6,
+          border: `2px solid rgba(255,255,255,${highlighted ? 1 : 0.9})`,
+          boxShadow: highlighted
+            ? `0 0 14px ${color}`
+            : `0 0 8px ${color}80`,
+          transition: "all 0.15s ease",
+          cursor: "pointer",
+        }}
+      >
+        <svg
+          width={size * 0.6}
+          height={size * 0.6}
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H15V14H9V21H4C3.45 21 3 20.55 3 20V10.5Z"
+            fill="white"
+            stroke="white"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  if (marker.infrastructureType) {
+    const size = highlighted ? 28 : 24;
+    const svgSize = size * 0.58;
+    const path =
+      INFRA_SVG_PATHS[marker.infrastructureType] ??
+      INFRA_SVG_PATHS.cell_tower;
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: color,
+          borderRadius: 6,
+          border: `2px solid rgba(255,255,255,${highlighted ? 1 : 0.9})`,
+          boxShadow: highlighted
+            ? `0 0 14px ${color}`
+            : `0 0 8px ${color}80`,
+          transition: "all 0.15s ease",
+          cursor: "pointer",
+        }}
+      >
+        <svg
+          width={svgSize}
+          height={svgSize}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d={path} />
+        </svg>
+      </div>
+    );
+  }
+
+  const size = highlighted ? 18 : 12;
+  const border = highlighted ? 3 : 2;
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: color,
+        border: `${border}px solid rgba(255,255,255,${highlighted ? 1 : 0.8})`,
+        boxShadow: highlighted
+          ? `0 0 12px ${color}`
+          : `0 0 6px ${color}80`,
+        transition: "all 0.15s ease",
+        cursor: "pointer",
+      }}
+    />
+  );
 }
-
-const MAP_STYLES: MapStyle[] = ["street", "satellite", "dark", "light"];
 
 function MapStyleControl({
   style,
@@ -230,7 +222,13 @@ function MapStyleControl({
   return (
     <div
       ref={ref}
-      style={{ position: "absolute", top: 10, right: 10, zIndex: 1000, pointerEvents: "none" }}
+      style={{
+        position: "absolute",
+        top: 10,
+        right: 10,
+        zIndex: 1000,
+        pointerEvents: "none",
+      }}
     >
       <div style={{ margin: 0, pointerEvents: "auto" }}>
         <button
@@ -282,7 +280,7 @@ function MapStyleControl({
               boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
             }}
           >
-            {MAP_STYLES.map((s) => (
+            {MAP_STYLE_KEYS.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -295,7 +293,9 @@ function MapStyleControl({
                   width: "100%",
                   padding: "6px 12px",
                   background:
-                    s === style ? "var(--color-db-surface-hover, #252D44)" : "transparent",
+                    s === style
+                      ? "var(--color-db-surface-hover, #252D44)"
+                      : "transparent",
                   color: "var(--color-db-text-primary, #E8ECF4)",
                   border: "none",
                   cursor: "pointer",
@@ -306,10 +306,12 @@ function MapStyleControl({
                 }}
                 onMouseEnter={(e) => {
                   if (s !== style)
-                    e.currentTarget.style.background = "var(--color-db-surface-hover, #252D44)";
+                    e.currentTarget.style.background =
+                      "var(--color-db-surface-hover, #252D44)";
                 }}
                 onMouseLeave={(e) => {
-                  if (s !== style) e.currentTarget.style.background = "transparent";
+                  if (s !== style)
+                    e.currentTarget.style.background = "transparent";
                 }}
               >
                 {STYLE_LABELS[s]}
@@ -322,17 +324,33 @@ function MapStyleControl({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createClusterIcon(cluster: any) {
-  const count = cluster.getChildCount();
-  const size = count < 10 ? 32 : count < 50 ? 38 : 44;
-  return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:var(--color-db-accent, #6366F1);border-radius:50%;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(99,102,241,0.5);color:#fff;font-size:12px;font-weight:600;font-family:var(--font-db-sans);">${count}</div>`,
-    className: "",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
+// Cluster source + layers using MapLibre's native clustering
+const CLUSTER_LAYER: maplibregl.LayerSpecification = {
+  id: "cluster-circles",
+  type: "circle",
+  source: "clustered-markers",
+  filter: ["has", "point_count"],
+  paint: {
+    "circle-color": "var(--color-db-accent, #6366F1)",
+    "circle-radius": ["step", ["get", "point_count"], 16, 10, 19, 50, 22],
+    "circle-stroke-width": 2,
+    "circle-stroke-color": "rgba(255,255,255,0.9)",
+  },
+};
+
+const CLUSTER_COUNT_LAYER: maplibregl.LayerSpecification = {
+  id: "cluster-count",
+  type: "symbol",
+  source: "clustered-markers",
+  filter: ["has", "point_count"],
+  layout: {
+    "text-field": "{point_count_abbreviated}",
+    "text-size": 12,
+  },
+  paint: {
+    "text-color": "#ffffff",
+  },
+};
 
 function DashboardMap({
   center,
@@ -344,53 +362,211 @@ function DashboardMap({
   highlightedId,
   selectedId,
   cluster = false,
+  onMoveEnd,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
   const [mapStyle, handleStyleChange] = useMapStyle(getDefaultStyle(resolvedTheme));
+  const mapRef = useRef<MapRef>(null);
+  const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
 
   const propertyMarkers = markers.filter((m) => m.isProperty);
   const otherMarkers = markers.filter((m) => !m.isProperty);
 
-  const renderMarker = (m: MapMarker) => (
-    <InteractiveMarker
-      key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}
-      marker={m}
-      highlighted={m.id != null && m.id === highlightedId}
-      selected={m.id != null && m.id === selectedId}
-    />
+  // GeoJSON for clustered markers
+  const clusterGeojson = useMemo(() => {
+    if (!cluster) return null;
+    return {
+      type: "FeatureCollection" as const,
+      features: otherMarkers.map((m) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [m.lon, m.lat],
+        },
+        properties: {
+          id: m.id ?? `${m.lat}-${m.lon}`,
+          label: m.label,
+          color: m.color ?? COLOR_INDIGO,
+        },
+      })),
+    };
+  }, [cluster, otherMarkers]);
+
+  const handleMoveEnd = useCallback(
+    (evt: ViewStateChangeEvent) => {
+      if (!onMoveEnd) return;
+      const map = evt.target;
+      const bounds = map.getBounds();
+      onMoveEnd({
+        swLat: bounds.getSouth(),
+        swLon: bounds.getWest(),
+        neLat: bounds.getNorth(),
+        neLon: bounds.getEast(),
+      });
+    },
+    [onMoveEnd],
   );
+
+  // Handle click on cluster to zoom in
+  const handleClusterClick = useCallback((e: MapLayerMouseEvent) => {
+    const features = e.features;
+    if (!features || features.length === 0) return;
+    const feature = features[0];
+    if (!feature.properties?.cluster_id) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const source = map.getSource("clustered-markers") as maplibregl.GeoJSONSource;
+    source.getClusterExpansionZoom(feature.properties.cluster_id).then((zoom) => {
+      const geometry = feature.geometry as GeoJSON.Point;
+      map.easeTo({
+        center: geometry.coordinates as [number, number],
+        zoom,
+      });
+    });
+  }, []);
+
+  // Emit initial bounds after map loads
+  const handleLoad = useCallback(() => {
+    if (!onMoveEnd || !mapRef.current) return;
+    const map = mapRef.current.getMap();
+    const bounds = map.getBounds();
+    onMoveEnd({
+      swLat: bounds.getSouth(),
+      swLon: bounds.getWest(),
+      neLat: bounds.getNorth(),
+      neLon: bounds.getEast(),
+    });
+  }, [onMoveEnd]);
 
   return (
     <div
       className="dashboard-map overflow-hidden rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)]"
       style={{ height, minHeight, position: "relative" }}
     >
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl={true}
-        attributionControl={true}
+      <MapGL
+        ref={mapRef}
+        initialViewState={{
+          longitude: center[1],
+          latitude: center[0],
+          zoom,
+        }}
+        style={{ width: "100%", height: "100%" }}
+        mapStyle={MAP_STYLES[mapStyle]}
+        mapLib={maplibregl}
+        onMoveEnd={handleMoveEnd}
+        onLoad={handleLoad}
+        interactiveLayerIds={cluster ? ["cluster-circles"] : []}
+        onClick={cluster ? handleClusterClick : undefined}
       >
-        <TileLayerController style={mapStyle} />
-        {propertyMarkers.map(renderMarker)}
-        {cluster ? (
-          <MarkerClusterGroup
-            maxClusterRadius={40}
-            spiderfyOnMaxZoom={true}
-            showCoverageOnHover={false}
-            iconCreateFunction={createClusterIcon}
+        <NavigationControl position="top-left" />
+
+        {/* Property markers always rendered as React markers */}
+        {propertyMarkers.map((m) => (
+          <Marker
+            key={m.id ?? `prop-${m.lat}-${m.lon}`}
+            longitude={m.lon}
+            latitude={m.lat}
+            anchor="center"
           >
-            {otherMarkers.map(renderMarker)}
-          </MarkerClusterGroup>
+            <MarkerIcon
+              marker={m}
+              highlighted={
+                (m.id != null && m.id === highlightedId) ||
+                (m.id != null && m.id === selectedId)
+              }
+            />
+          </Marker>
+        ))}
+
+        {/* Non-property markers: clustered or individual */}
+        {cluster && clusterGeojson ? (
+          <Source
+            id="clustered-markers"
+            type="geojson"
+            data={clusterGeojson}
+            cluster={true}
+            clusterMaxZoom={14}
+            clusterRadius={40}
+          >
+            <Layer {...CLUSTER_LAYER} />
+            <Layer {...CLUSTER_COUNT_LAYER} />
+          </Source>
         ) : (
-          otherMarkers.map(renderMarker)
+          otherMarkers.map((m) => (
+            <Marker
+              key={m.id ?? `${m.lat}-${m.lon}-${m.label}`}
+              longitude={m.lon}
+              latitude={m.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                setPopupMarker(m);
+              }}
+            >
+              <MarkerIcon
+                marker={m}
+                highlighted={
+                  (m.id != null && m.id === highlightedId) ||
+                  (m.id != null && m.id === selectedId)
+                }
+              />
+            </Marker>
+          ))
         )}
+
+        {/* Popup for selected marker */}
+        {popupMarker && (
+          <Popup
+            longitude={popupMarker.lon}
+            latitude={popupMarker.lat}
+            anchor="bottom"
+            onClose={() => setPopupMarker(null)}
+            closeOnClick={false}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-db-sans)",
+                fontSize: 12,
+                color: "var(--color-db-text-primary)",
+              }}
+            >
+              {popupMarker.label}
+            </span>
+          </Popup>
+        )}
+
+        {/* Pan to selected marker */}
+        {selectedId && <PanToSelected markers={markers} selectedId={selectedId} mapRef={mapRef} />}
+
+        {/* Tab-specific layers passed as children */}
         {children}
-      </MapContainer>
+      </MapGL>
       <MapStyleControl style={mapStyle} onChange={handleStyleChange} />
     </div>
   );
+}
+
+/** Pans the map to the selected marker when it changes. */
+function PanToSelected({
+  markers,
+  selectedId,
+  mapRef,
+}: {
+  markers: MapMarker[];
+  selectedId: string;
+  mapRef: React.RefObject<MapRef | null>;
+}) {
+  useEffect(() => {
+    const marker = markers.find((m) => m.id === selectedId);
+    if (marker && mapRef.current) {
+      mapRef.current.easeTo({
+        center: [marker.lon, marker.lat],
+        duration: 300,
+      });
+    }
+  }, [selectedId, markers, mapRef]);
+
+  return null;
 }
 
 export default DashboardMap;

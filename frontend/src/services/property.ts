@@ -47,28 +47,6 @@ export async function getDemographics(lat: number, lon: number): Promise<Demogra
   return data;
 }
 
-export async function getDemographicsChoropleth(
-  context: string,
-  swLat: number,
-  swLon: number,
-  neLat: number,
-  neLon: number,
-  homeLat?: number,
-  homeLon?: number,
-): Promise<GeoJSON.Feature[]> {
-  const { data } = await client.get<GeoJSON.Feature[]>("/api/demographics/choropleth", {
-    params: {
-      context,
-      sw_lat: swLat,
-      sw_lon: swLon,
-      ne_lat: neLat,
-      ne_lon: neLon,
-      ...(homeLat != null && homeLon != null ? { home_lat: homeLat, home_lon: homeLon } : {}),
-    },
-  });
-  return data;
-}
-
 export interface NeighborhoodValuation {
   tract_geoid: string;
   median_value: number | null;
@@ -110,49 +88,12 @@ export async function searchPois(
   return data;
 }
 
-export interface NoiseResponse {
-  type: string;
-  features: {
-    type: string;
-    geometry: object;
-    properties: {
-      noise_band: string;
-      noise_min_db: number;
-      noise_max_db: number | null;
-      source_layer: string;
-      area_sq_m: number | null;
-    };
-  }[];
-}
-
-export async function getNoiseData(
-  lat: number,
-  lon: number,
-  radiusMiles: number = 2,
-): Promise<NoiseResponse> {
-  const { data } = await client.get<NoiseResponse>("/api/nuisances/noise", {
-    params: { lat, lon, radius_miles: radiusMiles },
-  });
-  return data;
-}
-
 export async function getNuisanceSources(
   lat: number,
   lon: number,
 ): Promise<NuisanceSourcesResponse> {
   const { data } = await client.get<NuisanceSourcesResponse>("/api/nuisances/sources", {
     params: { lat, lon },
-  });
-  return data;
-}
-
-export async function getNuisanceGeometries(
-  lat: number,
-  lon: number,
-  radiusMiles: number = 2,
-): Promise<GeoJSON.FeatureCollection> {
-  const { data } = await client.get<GeoJSON.FeatureCollection>("/api/nuisances/geometries", {
-    params: { lat, lon, radius_miles: radiusMiles },
   });
   return data;
 }

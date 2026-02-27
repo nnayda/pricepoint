@@ -83,48 +83,6 @@ const mockDistricts: SchoolDistrictInfo[] = [
     label_lat: 35.79,
     label_lon: -78.78,
   },
-  {
-    name: "Durham Elementary District",
-    geoid: "3701170",
-    district_type: "elementary",
-    geojson: {
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [
-            [1, 0],
-            [2, 0],
-            [2, 1],
-            [1, 0],
-          ],
-        ],
-      ],
-    } as unknown as GeoJSON.GeoJsonObject,
-    is_home: false,
-    label_lat: 36.0,
-    label_lon: -78.9,
-  },
-  {
-    name: "Durham Secondary District",
-    geoid: "3701171",
-    district_type: "secondary",
-    geojson: {
-      type: "MultiPolygon",
-      coordinates: [
-        [
-          [
-            [2, 0],
-            [3, 0],
-            [3, 1],
-            [2, 0],
-          ],
-        ],
-      ],
-    } as unknown as GeoJSON.GeoJsonObject,
-    is_home: false,
-    label_lat: 36.01,
-    label_lon: -78.91,
-  },
 ];
 
 vi.mock("../../../../hooks/useSchoolsNearby", () => ({
@@ -136,37 +94,12 @@ vi.mock("../../../../hooks/useSchoolsNearby", () => ({
   }),
 }));
 
-vi.mock("react-leaflet", async () => {
-  const React = await import("react");
-  return {
-    MapContainer: ({ children }: { children: React.ReactNode }) =>
-      React.createElement("div", { "data-testid": "map-container" }, children),
-    TileLayer: () => null,
-    Marker: () => null,
-    Popup: () => null,
-    GeoJSON: ({ data }: { data: unknown }) =>
-      React.createElement("div", {
-        "data-testid": "geojson-layer",
-        "data-geojson": JSON.stringify(data),
-      }),
-    useMap: () => ({
-      getBounds: () => ({
-        getSouth: () => 35.5,
-        getWest: () => -79.0,
-        getNorth: () => 36.1,
-        getEast: () => -78.5,
-      }),
-    }),
-    useMapEvents: () => ({
-      getBounds: () => ({
-        getSouth: () => 35.5,
-        getWest: () => -79.0,
-        getNorth: () => 36.1,
-        getEast: () => -78.5,
-      }),
-    }),
-  };
-});
+vi.mock("react-map-gl/maplibre", () => ({
+  Source: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="vector-source">{children}</div>
+  ),
+  Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
+}));
 
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
@@ -180,6 +113,7 @@ vi.mock("../../maps/DashboardMap", () => ({
     minHeight: string;
     highlightedId?: string | null;
     selectedId?: string | null;
+    onMoveEnd?: unknown;
   }) => <div data-testid="dashboard-map">{children}</div>,
 }));
 
@@ -212,20 +146,17 @@ describe("SchoolsTab", () => {
     expect(screen.getByText("Wake County Schools Schools")).toBeInTheDocument();
   });
 
-  it("renders GeoJSON layers for district boundaries", () => {
+  it("renders vector tile sources for school districts and schools", () => {
     render(<SchoolsTab data={mockDashboardData} />);
-    const geojsonLayers = screen.getAllByTestId("geojson-layer");
-    // 3 districts: 1 home + 2 neighbors
-    expect(geojsonLayers.length).toBe(3);
+    const sources = screen.getAllByTestId("vector-source");
+    expect(sources.length).toBeGreaterThanOrEqual(2);
   });
 
   it("filters school cards when toggling level filter", () => {
     render(<SchoolsTab data={mockDashboardData} />);
 
-    // Click Elementary to toggle it off
     fireEvent.click(screen.getByText("Elementary"));
 
-    // Oak Elementary should be hidden (assigned schools always show but only if they pass level filter)
     expect(screen.queryByText("Oak Elementary")).not.toBeInTheDocument();
     expect(screen.getByText("Pine Middle")).toBeInTheDocument();
     expect(screen.getByText("Elm High")).toBeInTheDocument();
@@ -239,15 +170,12 @@ describe("SchoolsTab", () => {
 
   it("shows walk time when available", () => {
     render(<SchoolsTab data={mockDashboardData} />);
-    // Oak Elementary has walk_minutes: 18
     expect(screen.getByText("18 min walk")).toBeInTheDocument();
   });
 
   it("hides walk time when null", () => {
     render(<SchoolsTab data={mockDashboardData} />);
-    // Pine Middle has walk_minutes: null, drive_minutes: 6
     expect(screen.getByText("6 min drive")).toBeInTheDocument();
-    // Should not show a walk time for schools with null walk_minutes
     expect(screen.queryByText("0 min walk")).not.toBeInTheDocument();
   });
 

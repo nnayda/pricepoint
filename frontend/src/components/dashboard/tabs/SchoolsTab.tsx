@@ -1,49 +1,17 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { GeoJSON, useMapEvents } from "react-leaflet";
-import type { DashboardData, DashboardSchool, SchoolNearby, SchoolDistrictInfo } from "../../../types";
+import { useState, useMemo, useCallback } from "react";
+import { Source, Layer } from "react-map-gl/maplibre";
+import type { DashboardData, DashboardSchool, SchoolNearby } from "../../../types";
 import { useSchoolsNearby } from "../../../hooks/useSchoolsNearby";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import { MapPinIcon, CarIcon, WalkIcon, UsersIcon } from "../ui/Icons";
 import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
-import type { Layer, PathOptions } from "leaflet";
 
 interface Bbox {
   swLat: number;
   swLon: number;
   neLat: number;
   neLon: number;
-}
-
-/** Reports map viewport bounds on mount and on every moveend. */
-function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    },
-  });
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    }, 100);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return null;
 }
 
 interface SchoolsTabProps {
@@ -208,7 +176,6 @@ function SchoolCard({
             </span>
           )}
         </div>
-        {/* Extra stats row */}
         <div className="mt-1 flex flex-wrap gap-4 text-[12px] text-[var(--color-db-text-tertiary)]">
           {school.student_teacher_ratio > 0 && (
             <span className="inline-flex items-center gap-1">
@@ -229,64 +196,6 @@ function SchoolCard({
 
 function schoolId(s: DashboardSchool) {
   return `school-${s.lat}-${s.lon}`;
-}
-
-/* ── District boundary styles ── */
-
-const HOME_DISTRICT_STYLE: PathOptions = {
-  color: "#4F46E5",
-  weight: 4,
-  fillColor: "#6366F1",
-  fillOpacity: 0.12,
-};
-
-const NEIGHBOR_DISTRICT_STYLE: PathOptions = {
-  color: "#64748B",
-  weight: 2.5,
-  dashArray: "8 5",
-  fillColor: "#94A3B8",
-  fillOpacity: 0.06,
-};
-
-function districtTypeLabel(districtType: string | null): string {
-  if (!districtType) return "";
-  if (districtType === "elementary") return "Elementary";
-  if (districtType === "secondary") return "Secondary";
-  if (districtType === "unified") return "Unified";
-  return districtType;
-}
-
-/** Renders a single district boundary with a permanent label. */
-function DistrictBoundary({ district }: { district: SchoolDistrictInfo }) {
-  const isHome = district.is_home;
-  const typeTag = districtTypeLabel(district.district_type);
-  const label = isHome
-    ? `★ ${district.name}${typeTag ? ` (${typeTag})` : ""}`
-    : typeTag
-      ? `${district.name} (${typeTag})`
-      : district.name;
-
-  const onEachFeature = useCallback(
-    (_feature: GeoJSON.Feature, layer: Layer) => {
-      layer.bindTooltip(label, {
-        permanent: true,
-        direction: "center",
-        className: isHome ? "district-label district-label--home" : "district-label",
-      });
-    },
-    [label, isHome],
-  );
-
-  if (!district.geojson) return null;
-
-  return (
-    <GeoJSON
-      key={district.geoid}
-      data={district.geojson}
-      style={isHome ? HOME_DISTRICT_STYLE : NEIGHBOR_DISTRICT_STYLE}
-      onEachFeature={onEachFeature}
-    />
-  );
 }
 
 function SchoolsTab({ data }: SchoolsTabProps) {
@@ -327,7 +236,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
       if (activeLevels.size === ALL_LEVELS.size) return true;
       const t = schoolType.toLowerCase();
       if (t === "k-8") return activeLevels.has("Elementary") || activeLevels.has("Middle");
-      if (t === "charter") return true; // always include charters
+      if (t === "charter") return true;
       if (t.includes("elementary")) return activeLevels.has("Elementary");
       if (t.includes("middle")) return activeLevels.has("Middle");
       if (t.includes("high")) return activeLevels.has("High");
@@ -341,23 +250,6 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     [schoolDistricts],
   );
 
-  // Filter districts by active school level toggles
-  const filteredDistricts = useMemo(() => {
-    if (activeLevels.size === ALL_LEVELS.size) return schoolDistricts;
-    return schoolDistricts.filter((d) => {
-      // Always show unified districts (they cover all levels)
-      if (d.district_type === "unified") return true;
-      // Show elementary districts when Elementary is active
-      if (d.district_type === "elementary") return activeLevels.has("Elementary");
-      // Show secondary districts when Middle or High is active
-      if (d.district_type === "secondary")
-        return activeLevels.has("Middle") || activeLevels.has("High");
-      // Unknown type — always show
-      return true;
-    });
-  }, [schoolDistricts, activeLevels, ALL_LEVELS.size]);
-
-  // Use API schools if available, fall back to bundled data
   const allSchools = useMemo(() => {
     if (apiSchools.length > 0) {
       return apiSchools.map(mapSchool);
@@ -365,18 +257,15 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     return data.schools;
   }, [apiSchools, data.schools]);
 
-  // Filter to in-district schools for cards; fall back to all if none match
   const cardSchools = useMemo(() => {
     const inDistrict = allSchools.filter((s) => s.in_district);
     const base = inDistrict.length > 0 ? inDistrict : allSchools;
-    // Sort assigned schools first
     return [...base].sort((a, b) => {
       if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;
       return a.distance_miles - b.distance_miles;
     });
   }, [allSchools]);
 
-  // Apply level filter to cards, then filter by map viewport bounds
   const levelFilteredCards = useMemo(
     () => cardSchools.filter((s) => matchesLevel(s.school_type)),
     [cardSchools, matchesLevel],
@@ -385,7 +274,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
   const visibleCards = useMemo(() => {
     if (!mapBounds) return levelFilteredCards;
     return levelFilteredCards.filter((s) => {
-      if (s.assigned) return true; // always show assigned
+      if (s.assigned) return true;
       return (
         s.lat >= mapBounds.swLat &&
         s.lat <= mapBounds.neLat &&
@@ -395,7 +284,6 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     });
   }, [levelFilteredCards, mapBounds]);
 
-  // All schools go on the map, filtered by level
   const mapMarkers = useMemo(
     () =>
       allSchools
@@ -411,6 +299,11 @@ function SchoolsTab({ data }: SchoolsTabProps) {
   );
 
   const headerText = homeDistrict ? `${homeDistrict.name} Schools` : "Schools";
+
+  const handleBoundsChange = useCallback(
+    (bbox: Bbox) => setMapBounds(bbox),
+    [],
+  );
 
   if (loading) {
     return (
@@ -517,19 +410,58 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
+              onMoveEnd={handleBoundsChange}
             >
-              <MapBoundsTracker onBoundsChange={setMapBounds} />
-              {/* Render neighbor districts first (below), then home district on top */}
-              {filteredDistricts
-                .filter((d) => !d.is_home)
-                .map((d) => (
-                  <DistrictBoundary key={d.geoid} district={d} />
-                ))}
-              {filteredDistricts
-                .filter((d) => d.is_home)
-                .map((d) => (
-                  <DistrictBoundary key={d.geoid} district={d} />
-                ))}
+              {/* School district boundaries via vector tiles */}
+              <Source
+                id="school-districts-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/school_districts/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="school-districts-fill"
+                  type="fill"
+                  source-layer="school_districts"
+                  paint={{
+                    "fill-color": "#6366F1",
+                    "fill-opacity": 0.08,
+                  }}
+                />
+                <Layer
+                  id="school-districts-outline"
+                  type="line"
+                  source-layer="school_districts"
+                  paint={{
+                    "line-color": "#4F46E5",
+                    "line-width": 2,
+                    "line-opacity": 0.6,
+                  }}
+                />
+              </Source>
+
+              {/* School points via vector tiles */}
+              <Source
+                id="schools-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/schools/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="schools-circles"
+                  type="circle"
+                  source-layer="schools"
+                  paint={{
+                    "circle-radius": 5,
+                    "circle-color": "#6366F1",
+                    "circle-opacity": 0.3,
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": "#6366F1",
+                  }}
+                />
+              </Source>
             </DashboardMap>
           </div>
         </DashboardCard>

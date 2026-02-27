@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 from pricepoint.api.routes.demographics import (
-    _compute_feature_props,
     build_context_data,
     consolidate_income,
     consolidate_race,
@@ -297,105 +296,7 @@ class TestBuildContextData:
         assert result.median_age_trend[1].median_age == 36.8
 
 
-# ── _compute_feature_props tests ──
-
-
-class TestComputeFeatureProps:
-    def test_normal_acs_row(self):
-        row = _make_acs_row(
-            total_population=5000,
-            median_household_income=75000,
-            median_age=35.2,
-            housing_total_occupied=2000,
-            housing_owner_occupied=1500,
-            pop_under_18=1100,
-            pop_65_plus=700,
-        )
-        props = _compute_feature_props(row, "37183052403", "Tract 524.03", True)
-        assert props["geoid"] == "37183052403"
-        assert props["name"] == "Tract 524.03"
-        assert props["is_home"] is True
-        assert props["population"] == 5000
-        assert props["median_income"] == 75000
-        assert props["median_age"] == 35.2
-        assert props["home_ownership_rate"] == 75.0
-        assert props["pct_under_18"] == 22.0
-        assert props["pct_65_plus"] == 14.0
-        assert props["dominant_race"] in ("White", "Black", "Hispanic", "Asian", "Other")
-        assert props["dominant_race_pct"] > 0
-        # Per-race percentages should be present and sum to ~100%
-        race_sum = (
-            props["pct_white"]
-            + props["pct_black"]
-            + props["pct_hispanic"]
-            + props["pct_asian"]
-            + props["pct_other"]
-        )
-        assert abs(race_sum - 100.0) < 0.5
-        assert props["pct_white"] > 0
-
-    def test_none_row_returns_zeros(self):
-        props = _compute_feature_props(None, "37000", "Unknown", False)
-        assert props["population"] == 0
-        assert props["median_income"] == 0
-        assert props["median_age"] == 0
-        assert props["home_ownership_rate"] == 0
-        assert props["dominant_race"] == "Unknown"
-        assert props["dominant_race_pct"] == 0
-        assert props["is_home"] is False
-        assert props["pct_white"] == 0
-        assert props["pct_black"] == 0
-        assert props["pct_hispanic"] == 0
-        assert props["pct_asian"] == 0
-        assert props["pct_other"] == 0
-
-    def test_zero_population_edge_case(self):
-        row = _make_acs_row(total_population=0, housing_total_occupied=0)
-        props = _compute_feature_props(row, "37000", "Empty", False)
-        assert props["population"] == 0
-        assert props["pct_under_18"] == 0
-        assert props["pct_65_plus"] == 0
-        assert props["home_ownership_rate"] == 0
-
-
 # ── Route parameter validation tests ──
-
-
-class TestChoroplethEndpointParams:
-    def test_missing_context_returns_422(self, client):
-        resp = client.get(
-            "/api/demographics/choropleth",
-            params={"sw_lat": 35.5, "sw_lon": -79, "ne_lat": 35.9, "ne_lon": -78.5},
-        )
-        assert resp.status_code == 422
-
-    def test_invalid_context_returns_empty(self, client):
-        resp = client.get(
-            "/api/demographics/choropleth",
-            params={
-                "context": "invalid",
-                "sw_lat": 35.5,
-                "sw_lon": -79,
-                "ne_lat": 35.9,
-                "ne_lon": -78.5,
-            },
-        )
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_valid_returns_list(self, client):
-        resp = client.get(
-            "/api/demographics/choropleth",
-            params={
-                "context": "neighborhood",
-                "sw_lat": 35.5,
-                "sw_lon": -79,
-                "ne_lat": 35.9,
-                "ne_lon": -78.5,
-            },
-        )
-        assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
 
 
 class TestDemographicsParams:
@@ -424,8 +325,6 @@ class TestDemographicsEmpty:
         data = resp.json()
         assert "contexts" in data
         assert "benchmarks" in data
-        assert "boundaries" in data
-        assert "choropleth" in data
         # All contexts should have zero populations
         for ctx_key in ("subdivision", "block_group", "neighborhood", "town", "county"):
             assert data["contexts"][ctx_key]["population"] == 0
@@ -487,21 +386,6 @@ class TestDemographicsWithData:
                 # ACS demographics query
                 result.scalars.return_value.all.return_value = [acs_row, state_row, us_row]
                 return result
-            elif call_count == 8:
-                # Neighborhood boundary GeoJSON
-                result.scalar_one_or_none.return_value = (
-                    '{"type":"Polygon","coordinates":'
-                    "[[[-78.8,35.8],[-78.7,35.8],[-78.7,35.7],"
-                    "[-78.8,35.7],[-78.8,35.8]]]}"
-                )
-                return result
-            elif call_count <= 18:
-                # Choropleth: 5 levels × 2 queries each (nearby geoms + ACS batch)
-                # nearby geoms query returns .all()
-                result.all.return_value = []
-                # ACS batch query returns .scalars().all()
-                result.scalars.return_value.all.return_value = []
-                return result
             else:
                 result.scalar_one_or_none.return_value = None
                 return result
@@ -531,9 +415,5 @@ class TestDemographicsWithData:
         # Benchmarks
         assert data["benchmarks"]["national"]["population"] == 330000000
         assert data["benchmarks"]["state"]["population"] == 10000000
-
-        # Boundary
-        assert data["boundaries"]["neighborhood"] is not None
-        assert data["boundaries"]["neighborhood"]["type"] == "Polygon"
 
         app.dependency_overrides.clear()

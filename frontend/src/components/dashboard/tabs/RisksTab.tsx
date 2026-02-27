@@ -1,11 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
-import { GeoJSON } from "react-leaflet";
+import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, NegativePoi, InfrastructureType } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import RadiusSelect from "../maps/RadiusSelect";
-import RadiusCircle from "../maps/RadiusCircle";
-import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { MapPinIcon } from "../ui/Icons";
 import { useRisks } from "../../../hooks/useRisks";
 
@@ -38,11 +35,11 @@ const severityMapColors: Record<string, string> = {
 };
 
 const INFRA_TYPE_COLORS: Record<string, string> = {
-  cell_tower: "#60A5FA", // blue
-  transmission_line: "#F59E0B", // amber
-  power_plant: "#EF4444", // red
-  nat_gas_pipeline: "#F97316", // orange
-  petroleum_pipeline: "#A855F7", // purple
+  cell_tower: "#60A5FA",
+  transmission_line: "#F59E0B",
+  power_plant: "#EF4444",
+  nat_gas_pipeline: "#F97316",
+  petroleum_pipeline: "#A855F7",
 };
 
 const SEVERITY_ORDER: Record<string, number> = { Concern: 0, Caution: 1, Safe: 2 };
@@ -56,21 +53,6 @@ const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
 ];
 
 const ALL_TYPES = new Set<InfrastructureType>(INFRA_TYPE_OPTIONS.map((o) => o.value));
-
-const BOUNDARY_STYLES: Record<string, L.PathOptions> = {
-  critical: {
-    fillColor: "#F87171",
-    fillOpacity: 0.2,
-    color: "#EF4444",
-    weight: 2,
-  },
-  caution: {
-    fillColor: "#FBBF24",
-    fillOpacity: 0.15,
-    color: "#F59E0B",
-    weight: 2,
-  },
-};
 
 function SeverityBadge({ severity }: { severity: string }) {
   const size = 52;
@@ -190,9 +172,8 @@ function RisksTab({ data }: RisksTabProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<Set<InfrastructureType>>(ALL_TYPES);
-  const [radius, setRadius] = useMapRadius();
 
-  const { data: risksData, loading } = useRisks(property.lat, property.lon, radius);
+  const { data: risksData, loading } = useRisks(property.lat, property.lon, 5);
 
   const toggleType = useCallback((t: InfrastructureType) => {
     setActiveTypes((prev) => {
@@ -214,14 +195,6 @@ function RisksTab({ data }: RisksTabProps) {
     [risksData.features, activeTypes],
   );
 
-  const filteredBoundaries = useMemo((): GeoJSON.FeatureCollection => {
-    const filtered = risksData.boundaryGeojson.features.filter(
-      (f) =>
-        f.properties && activeTypes.has(f.properties.infrastructure_type as InfrastructureType),
-    );
-    return { type: "FeatureCollection", features: filtered };
-  }, [risksData.boundaryGeojson, activeTypes]);
-
   const cards: NegativePoi[] = useMemo(
     () =>
       filteredFeatures.map((f) => ({
@@ -242,26 +215,8 @@ function RisksTab({ data }: RisksTabProps) {
     [cards],
   );
 
-  const pointFeatures = useMemo(
-    () => filteredFeatures.filter((f) => !f.geojson),
-    [filteredFeatures],
-  );
-
-  const lineFeatures = useMemo(() => filteredFeatures.filter((f) => f.geojson), [filteredFeatures]);
-
-  const lineGeojson = useMemo((): GeoJSON.FeatureCollection => {
-    const features = lineFeatures.map((f) => ({
-      type: "Feature" as const,
-      geometry: f.geojson!,
-      properties: {
-        id: f.id,
-        name: f.name,
-        infrastructure_type: f.infrastructure_type,
-        severity: f.severity,
-      },
-    }));
-    return { type: "FeatureCollection", features };
-  }, [lineFeatures]);
+  // All features are point features (line geometry served via tiles)
+  const pointFeatures = filteredFeatures;
 
   const markers = useMemo(
     () =>
@@ -276,53 +231,12 @@ function RisksTab({ data }: RisksTabProps) {
     [pointFeatures],
   );
 
-  const onEachBoundary = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
-    const props = feature.properties;
-    if (props) {
-      const severity = props.severity as string;
-      const name = props.infrastructure_type
-        ? (props.infrastructure_type as string)
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, (c: string) => c.toUpperCase())
-        : "Unknown";
-      layer.bindTooltip(`<strong>${name}</strong> — ${severity} zone`, {
-        sticky: true,
-      });
-    }
-    layer.on({
-      mouseover: (e: L.LeafletMouseEvent) => {
-        const target = e.target as L.Path;
-        target.setStyle({ fillOpacity: (target.options.fillOpacity ?? 0.2) + 0.15, weight: 3 });
-      },
-      mouseout: (e: L.LeafletMouseEvent) => {
-        const target = e.target as L.Path;
-        const sev = (target as unknown as { feature: GeoJSON.Feature }).feature?.properties
-          ?.severity as string;
-        const style = BOUNDARY_STYLES[sev] ?? BOUNDARY_STYLES.caution;
-        target.setStyle({ fillOpacity: style.fillOpacity, weight: style.weight });
-      },
-    });
-  }, []);
-
-  const boundaryStyle = useCallback((feature?: GeoJSON.Feature): L.PathOptions => {
-    const severity = feature?.properties?.severity as string | undefined;
-    return BOUNDARY_STYLES[severity ?? "caution"] ?? BOUNDARY_STYLES.caution;
-  }, []);
-
-  const lineStyle = useCallback((feature?: GeoJSON.Feature): L.PathOptions => {
-    const infraType = feature?.properties?.infrastructure_type as string | undefined;
-    const color = INFRA_TYPE_COLORS[infraType ?? ""] ?? "#F59E0B";
-    return { color, weight: 3, opacity: 0.85 };
-  }, []);
-
-  const onEachLine = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
-    const props = feature.properties;
-    if (props) {
-      const name = (props.name as string) || "Unknown";
-      const severity = props.severity as string;
-      layer.bindTooltip(`<strong>${name}</strong> — ${severity}`, { sticky: true });
-    }
-  }, []);
+  // Build infra type filter for vector tile layers
+  const infraTypeFilter = useMemo(() => {
+    const types = Array.from(activeTypes);
+    if (types.length === 0) return ["==", "infra_type", "__none__"];
+    return ["in", "infra_type", ...types];
+  }, [activeTypes]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -356,7 +270,7 @@ function RisksTab({ data }: RisksTabProps) {
         </DashboardCard>
       </div>
 
-      {/* Right column — map with risk boundary polygons */}
+      {/* Right column — map with risk boundary polygons via vector tiles */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
           <div className="mb-3 flex items-center justify-between">
@@ -383,13 +297,12 @@ function RisksTab({ data }: RisksTabProps) {
                   </button>
                 ))}
               </div>
-              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={RADIUS_ZOOM[radius]}
+              zoom={12}
               markers={[
                 {
                   lat: property.lat,
@@ -405,23 +318,86 @@ function RisksTab({ data }: RisksTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
-              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
-              {filteredBoundaries.features.length > 0 && (
-                <GeoJSON
-                  key={`risk-boundaries-${[...activeTypes].sort().join(",")}`}
-                  data={filteredBoundaries}
-                  style={boundaryStyle}
-                  onEachFeature={onEachBoundary}
+              {/* Risk boundary vector tiles */}
+              <Source
+                id="risk-boundaries-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/risk_boundaries/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="risk-boundaries-fill"
+                  type="fill"
+                  source-layer="risk_boundaries"
+                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  paint={{
+                    "fill-color": [
+                      "match",
+                      ["get", "severity"],
+                      "critical",
+                      "rgba(248,113,113,0.2)",
+                      "caution",
+                      "rgba(251,191,36,0.15)",
+                      "rgba(200,200,200,0.1)",
+                    ],
+                    "fill-opacity": 0.8,
+                  }}
                 />
-              )}
-              {lineGeojson.features.length > 0 && (
-                <GeoJSON
-                  key={`risk-lines-${[...activeTypes].sort().join(",")}`}
-                  data={lineGeojson}
-                  style={lineStyle}
-                  onEachFeature={onEachLine}
+                <Layer
+                  id="risk-boundaries-outline"
+                  type="line"
+                  source-layer="risk_boundaries"
+                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  paint={{
+                    "line-color": [
+                      "match",
+                      ["get", "severity"],
+                      "critical",
+                      "#EF4444",
+                      "caution",
+                      "#F59E0B",
+                      "#94A3B8",
+                    ],
+                    "line-width": 2,
+                  }}
                 />
-              )}
+              </Source>
+
+              {/* Infrastructure vector tiles */}
+              <Source
+                id="infra-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/v_infrastructure/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="infra-lines"
+                  type="line"
+                  source-layer="v_infrastructure"
+                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  paint={{
+                    "line-color": [
+                      "match",
+                      ["get", "infra_type"],
+                      "cell_tower",
+                      "#60A5FA",
+                      "transmission_line",
+                      "#F59E0B",
+                      "power_plant",
+                      "#EF4444",
+                      "nat_gas_pipeline",
+                      "#F97316",
+                      "petroleum_pipeline",
+                      "#A855F7",
+                      "#94A3B8",
+                    ],
+                    "line-width": 3,
+                    "line-opacity": 0.85,
+                  }}
+                />
+              </Source>
             </DashboardMap>
             <div
               className="absolute bottom-3 right-3 z-[1000] rounded-lg border p-3"
@@ -444,37 +420,31 @@ function RisksTab({ data }: RisksTabProps) {
                   </div>
                 ))}
               </div>
-              {filteredBoundaries.features.length > 0 && (
-                <>
-                  <p className="mb-1.5 mt-2 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
-                    Risk Zones
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-3 w-3 rounded-sm border"
-                        style={{
-                          backgroundColor: "rgba(248,113,113,0.2)",
-                          borderColor: "#EF4444",
-                        }}
-                      />
-                      <span className="text-[11px] text-[var(--color-db-text-muted)]">
-                        Critical
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-3 w-3 rounded-sm border"
-                        style={{
-                          backgroundColor: "rgba(251,191,36,0.15)",
-                          borderColor: "#F59E0B",
-                        }}
-                      />
-                      <span className="text-[11px] text-[var(--color-db-text-muted)]">Caution</span>
-                    </div>
-                  </div>
-                </>
-              )}
+              <p className="mb-1.5 mt-2 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
+                Risk Zones
+              </p>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-3 w-3 rounded-sm border"
+                    style={{
+                      backgroundColor: "rgba(248,113,113,0.2)",
+                      borderColor: "#EF4444",
+                    }}
+                  />
+                  <span className="text-[11px] text-[var(--color-db-text-muted)]">Critical</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-3 w-3 rounded-sm border"
+                    style={{
+                      backgroundColor: "rgba(251,191,36,0.15)",
+                      borderColor: "#F59E0B",
+                    }}
+                  />
+                  <span className="text-[11px] text-[var(--color-db-text-muted)]">Caution</span>
+                </div>
+              </div>
             </div>
           </div>
         </DashboardCard>

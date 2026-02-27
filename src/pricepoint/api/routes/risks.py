@@ -1,9 +1,14 @@
-"""Risks endpoint — returns infrastructure risk features with boundary polygons."""
+"""Risks endpoint — returns infrastructure risk features.
+
+Boundary polygon geometry and infrastructure line geometry are now served
+via Martin vector tiles (see docker/martin/config.yaml).  This module
+provides risk severity assessments for the sidebar card list.
+"""
 
 import hashlib
 import json
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import ST_X, ST_Y, ST_DWithin, ST_MakePoint, ST_SetSRID
@@ -100,7 +105,6 @@ def _build_infra_query(  # noqa: ANN201
         is_line = model in _LINE_MODELS
         lat_expr = ST_Y(func.ST_Centroid(geom_col)) if is_line else ST_Y(geom_col)
         lon_expr = ST_X(func.ST_Centroid(geom_col)) if is_line else ST_X(geom_col)
-        geojson_expr = func.ST_AsGeoJSON(geom_col) if is_line else literal(None)
 
         q = select(
             cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
@@ -115,7 +119,6 @@ def _build_infra_query(  # noqa: ANN201
                 )
                 / METERS_PER_MILE
             ).label("distance_miles"),
-            geojson_expr.label("line_geojson"),
         ).where(
             geom_col.isnot(None),
             _st_dwithin_geography(geom_col, property_point, radius_meters),
@@ -129,9 +132,12 @@ def _build_boundaries_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
     radius_meters: float,
 ):
-    """Select risk boundary polygons within the radius, with containment check."""
+    """Select risk boundary polygons within the radius, with containment check.
+
+    Boundary polygon geometry is served via Martin vector tiles; this query
+    only checks containment to determine severity labels.
+    """
     return select(
-        func.ST_AsGeoJSON(RiskBoundary.geom).label("geojson"),
         RiskBoundary.infrastructure_type,
         RiskBoundary.infrastructure_id,
         RiskBoundary.severity,
@@ -194,7 +200,6 @@ async def get_risks(
             cte.c.lat,
             cte.c.lon,
             cte.c.distance_miles,
-            cte.c.line_geojson,
         ).order_by(
             cte.c.distance_miles,
         )
@@ -230,7 +235,6 @@ async def get_risks(
         )
         severity = _severity_label(rb_severity)
         dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
-        line_geom = json.loads(row.line_geojson) if row.line_geojson else None
         features.append(
             RiskFeature(
                 id=f"RB-{row.infrastructure_type[0].upper()}-{row.infra_id}",
@@ -241,34 +245,13 @@ async def get_risks(
                 lat=row.lat,
                 lon=row.lon,
                 detail=_detail_text(row.infrastructure_type, rb_severity),
-                geojson=line_geom,
             )
         )
 
     # Sort: Concern first, Caution second, Safe last; then by distance
     features.sort(key=lambda f: (SEVERITY_SORT.get(f.severity, 9), f.distance_miles))
 
-    boundary_features: list[dict[str, Any]] = []
-    for brow in boundary_rows:
-        geom = json.loads(brow.geojson)
-        boundary_features.append(
-            {
-                "type": "Feature",
-                "geometry": geom,
-                "properties": {
-                    "infrastructure_type": brow.infrastructure_type,
-                    "infrastructure_id": brow.infrastructure_id,
-                    "severity": brow.severity,
-                },
-            }
-        )
-
-    boundary_geojson: dict[str, Any] = {
-        "type": "FeatureCollection",
-        "features": boundary_features,
-    }
-
-    response = RisksResponse(features=features, boundary_geojson=boundary_geojson)
+    response = RisksResponse(features=features)
 
     # Write to cache
     if valkey is not None:

@@ -4,7 +4,6 @@ import TabDot from "./ui/TabDot";
 
 const ValuationTab = lazy(() => import("./tabs/ValuationTab"));
 const RisksTab = lazy(() => import("./tabs/RisksTab"));
-const CrimeTab = lazy(() => import("./tabs/CrimeTab"));
 const DemographicsTab = lazy(() => import("./tabs/DemographicsTab"));
 const SchoolsTab = lazy(() => import("./tabs/SchoolsTab"));
 const PoisTab = lazy(() => import("./tabs/PoisTab"));
@@ -20,7 +19,6 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: "valuation", label: "Valuation" },
   { id: "risks", label: "Risks" },
-  { id: "crime", label: "Crime" },
   { id: "demographics", label: "Demographics" },
   { id: "schools", label: "Schools" },
   { id: "pois", label: "Points of Interest" },
@@ -44,9 +42,9 @@ function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, strin
   }
   // Value (listed < predicted but >= CI low) → no dot
 
-  // Red dot on Crime if any risk score > 70
+  // Red dot on Risks if any risk score > 70
   if (data.risks.categories.some((c) => c.score > 70)) {
-    dots.crime = "#F87171";
+    dots.risks = "#F87171";
   }
 
   // Green dot on Schools if any school rated 8+
@@ -63,7 +61,6 @@ const TAB_COMPONENTS: Record<
 > = {
   valuation: ValuationTab,
   risks: RisksTab,
-  crime: CrimeTab,
   demographics: DemographicsTab,
   schools: SchoolsTab,
   pois: PoisTab,
@@ -162,7 +159,7 @@ function DashboardTabs({ data }: DashboardTabsProps) {
         })}
       </div>
 
-      {/* Tab Content — only the active tab is mounted to avoid Leaflet re-init errors */}
+      {/* Tab Content — only the active tab is mounted */}
       <div
         role="tabpanel"
         id={`tabpanel-${activeTab}`}

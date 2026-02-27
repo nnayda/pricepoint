@@ -1,6 +1,9 @@
-"""Pydantic models for the risks endpoint."""
+"""Pydantic models for the risks endpoint.
 
-from typing import Any
+Boundary polygon geometry and infrastructure line geometry are now served
+via Martin vector tiles.  This schema only contains risk assessment data
+for the sidebar card list.
+"""
 
 from pydantic import BaseModel
 
@@ -16,11 +19,9 @@ class RiskFeature(BaseModel):
     lat: float
     lon: float
     detail: str
-    geojson: dict[str, Any] | None = None
 
 
 class RisksResponse(BaseModel):
     """Response body for infrastructure risks lookup."""
 
     features: list[RiskFeature]
-    boundary_geojson: dict[str, Any]

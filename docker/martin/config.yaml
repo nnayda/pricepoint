@@ -1,0 +1,11 @@
+# Martin tileserver configuration
+# Serves PostGIS tables/views as vector tiles (MVT/PBF)
+
+postgres:
+  connection_string: ${DATABASE_URL}
+  pool_size: 10
+  default_srid: 4326
+  auto_publish:
+    tables:
+      from_schemas: public
+    functions: false

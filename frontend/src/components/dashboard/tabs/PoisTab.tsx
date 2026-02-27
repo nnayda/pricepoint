@@ -1,10 +1,8 @@
 import { useState, useMemo } from "react";
+import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, DashboardPoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import RadiusSelect from "../maps/RadiusSelect";
-import RadiusCircle from "../maps/RadiusCircle";
-import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { POI_ICONS, ShoppingCartIcon } from "../ui/Icons";
 import { CATEGORY_COLORS, COLOR_INDIGO } from "../../../utils/chartTokens";
 
@@ -14,17 +12,11 @@ interface PoisTabProps {
 
 function PoisTab({ data }: PoisTabProps) {
   const { pois, property } = data;
-  const [radius, setRadius] = useMapRadius();
 
-  const filteredPois = useMemo(
-    () => pois.filter((p) => p.distance_miles <= radius),
-    [pois, radius],
-  );
-
-  const categories = [...new Set(filteredPois.map((p) => p.category))];
+  const categories = [...new Set(pois.map((p) => p.category))];
   const grouped = categories.reduce(
     (acc, cat) => {
-      acc[cat] = filteredPois.filter((p) => p.category === cat);
+      acc[cat] = pois.filter((p) => p.category === cat);
       return acc;
     },
     {} as Record<string, DashboardPoi[]>,
@@ -46,13 +38,17 @@ function PoisTab({ data }: PoisTabProps) {
     });
   };
 
-  const mapMarkers = filteredPois.map((p) => ({
-    id: p.id,
-    lat: p.lat,
-    lon: p.lon,
-    label: `${p.name} (${p.distance_miles} mi)`,
-    color: CATEGORY_COLORS[p.category] || COLOR_INDIGO,
-  }));
+  const mapMarkers = useMemo(
+    () =>
+      pois.map((p) => ({
+        id: p.id,
+        lat: p.lat,
+        lon: p.lon,
+        label: `${p.name} (${p.distance_miles} mi)`,
+        color: CATEGORY_COLORS[p.category] || COLOR_INDIGO,
+      })),
+    [pois],
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -147,12 +143,11 @@ function PoisTab({ data }: PoisTabProps) {
         <DashboardCard className="flex h-full flex-col">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">POI Map</h3>
-            <RadiusSelect value={radius} onChange={setRadius} />
           </div>
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={RADIUS_ZOOM[radius]}
+              zoom={13}
               markers={[
                 {
                   lat: property.lat,
@@ -168,7 +163,48 @@ function PoisTab({ data }: PoisTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
-              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
+              {/* Vector tile layers for places and hospitals */}
+              <Source
+                id="places-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/places/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="places-circles"
+                  type="circle"
+                  source-layer="places"
+                  paint={{
+                    "circle-radius": 4,
+                    "circle-color": COLOR_INDIGO,
+                    "circle-opacity": 0.3,
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": COLOR_INDIGO,
+                    "circle-stroke-opacity": 0.5,
+                  }}
+                />
+              </Source>
+              <Source
+                id="hospitals-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/hospitals/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="hospitals-circles"
+                  type="circle"
+                  source-layer="hospitals"
+                  paint={{
+                    "circle-radius": 6,
+                    "circle-color": "#EF4444",
+                    "circle-opacity": 0.6,
+                    "circle-stroke-width": 2,
+                    "circle-stroke-color": "#ffffff",
+                  }}
+                />
+              </Source>
             </DashboardMap>
           </div>
         </DashboardCard>

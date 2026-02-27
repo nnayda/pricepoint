@@ -25,7 +25,6 @@ def _make_infra_row(
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
-    line_geojson=None,
 ):
     return _FakeRow(
         infra_id=infra_id,
@@ -34,19 +33,16 @@ def _make_infra_row(
         lat=lat,
         lon=lon,
         distance_miles=distance_miles,
-        line_geojson=line_geojson,
     )
 
 
 def _make_boundary_row(
-    geojson='{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1],[0,0]]]}',
     infrastructure_type="power_plant",
     infrastructure_id=30,
     severity="critical",
     contains_property=True,
 ):
     return _FakeRow(
-        geojson=geojson,
         infrastructure_type=infrastructure_type,
         infrastructure_id=infrastructure_id,
         severity=severity,
@@ -178,21 +174,14 @@ class TestRisksReturns200:
 
 
 class TestRisksResponseShape:
-    def test_response_has_features_and_boundary_geojson(self, risks_client):
+    def test_response_has_features(self, risks_client):
         resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
         data = resp.json()
         assert "features" in data
-        assert "boundary_geojson" in data
 
     def test_features_is_list(self, risks_client):
         resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
         assert isinstance(resp.json()["features"], list)
-
-    def test_boundary_geojson_is_feature_collection(self, risks_client):
-        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
-        bg = resp.json()["boundary_geojson"]
-        assert bg["type"] == "FeatureCollection"
-        assert isinstance(bg["features"], list)
 
 
 class TestRisksSeverityMapping:
@@ -248,25 +237,6 @@ class TestRisksFeatureFields:
         assert "critical risk zone" in pp[0]["detail"]
 
 
-class TestRisksBoundaryGeoJSON:
-    def test_boundary_features_have_properties(self, risks_client):
-        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
-        bg = resp.json()["boundary_geojson"]
-        assert len(bg["features"]) == 2
-        for f in bg["features"]:
-            assert "properties" in f
-            props = f["properties"]
-            assert "infrastructure_type" in props
-            assert "severity" in props
-
-    def test_boundary_features_have_geometry(self, risks_client):
-        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
-        bg = resp.json()["boundary_geojson"]
-        for f in bg["features"]:
-            assert "geometry" in f
-            assert f["geometry"]["type"] == "Polygon"
-
-
 class TestRisksMissingParams:
     def test_missing_all_params_returns_422(self, risks_client):
         resp = risks_client.get("/api/risks")
@@ -314,13 +284,6 @@ class TestRisksEmptyResults:
         resp = empty_risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["features"] == []
 
-    def test_empty_boundary_geojson(self, empty_risks_client):
-        resp = empty_risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
-        bg = resp.json()["boundary_geojson"]
-        assert bg["type"] == "FeatureCollection"
-        assert bg["features"] == []
-
-
 class TestRisksValkeyCaching:
     def test_cache_hit_returns_cached_data(self):
         app = create_app()
@@ -340,7 +303,6 @@ class TestRisksValkeyCaching:
                     "detail": "Cell Tower — outside risk zones",
                 }
             ],
-            "boundary_geojson": {"type": "FeatureCollection", "features": []},
         }
         mock_valkey.get.return_value = json.dumps(cached_response)
 

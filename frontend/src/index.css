@@ -289,7 +289,7 @@
   }
 
   /* Smooth theme transitions for dashboard elements */
-  [data-theme] *:not(img):not(video):not(canvas):not(.leaflet-container *) {
+  [data-theme] *:not(img):not(video):not(canvas):not(.maplibregl-map *) {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -330,67 +330,48 @@
 
 /* ── Dashboard Map Theme Overrides ── */
 
-/* Fix sub-pixel tile boundary lines */
-.dashboard-map .leaflet-tile {
-  outline: none;
-  backface-visibility: hidden;
+/* MapLibre GL navigation control theming */
+.dashboard-map .maplibregl-ctrl-group {
+  background-color: var(--color-db-surface);
+  border-color: var(--color-db-border);
+  box-shadow: var(--shadow-db-card);
 }
 
-.dashboard-map .leaflet-control-zoom a {
+.dashboard-map .maplibregl-ctrl-group button {
   background-color: var(--color-db-surface);
   color: var(--color-db-text-primary);
   border-color: var(--color-db-border);
 }
 
-.dashboard-map .leaflet-control-zoom a:hover {
+.dashboard-map .maplibregl-ctrl-group button:hover {
   background-color: var(--color-db-surface-hover);
 }
 
-.dashboard-map .leaflet-control-attribution {
+.dashboard-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: var(--th-text-primary, none);
+}
+
+.dashboard-map .maplibregl-ctrl-attrib {
   background-color: var(--color-db-surface);
   color: var(--color-db-text-muted);
   font-size: 10px;
   opacity: 0.85;
 }
 
-.dashboard-map .leaflet-control-attribution a {
+.dashboard-map .maplibregl-ctrl-attrib a {
   color: var(--color-db-text-tertiary);
 }
 
-.dashboard-map .leaflet-popup-content-wrapper {
+.dashboard-map .maplibregl-popup-content {
   background-color: var(--color-db-surface);
   color: var(--color-db-text-primary);
   border-radius: var(--radius-db-sm);
   box-shadow: var(--shadow-db-card);
+  padding: 8px 12px;
 }
 
-.dashboard-map .leaflet-popup-tip {
-  background-color: var(--color-db-surface);
-}
-
-.district-label {
-  background: rgba(15, 23, 42, 0.75) !important;
-  border: 1px solid rgba(148, 163, 184, 0.3) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
-  padding: 2px 8px !important;
-  color: #CBD5E1;
-  font-family: var(--font-db-sans);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.district-label--home {
-  background: rgba(79, 70, 229, 0.85) !important;
-  border: 1px solid rgba(129, 120, 248, 0.5) !important;
-  color: #FFFFFF;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.district-label::before {
-  display: none !important;
+.dashboard-map .maplibregl-popup-tip {
+  border-top-color: var(--color-db-surface);
 }
 
 /* ── Recharts dark mode tooltip & cursor overrides ── */

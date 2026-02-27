@@ -4,133 +4,21 @@ import NuisancesTab from "../NuisancesTab";
 import { mockDashboardData } from "../../../../data/mockDashboardData";
 import type { NuisanceSourceItem } from "../../../../types";
 
-const mockNoiseFeatures: GeoJSON.Feature[] = [
-  {
-    type: "Feature",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [0, 0],
-          [1, 0],
-          [1, 1],
-          [0, 0],
-        ],
-      ],
-    },
-    properties: { noise_band: "65-70 dB", source_layer: "aviation" },
-  },
-  {
-    type: "Feature",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [2, 2],
-          [3, 2],
-          [3, 3],
-          [2, 2],
-        ],
-      ],
-    },
-    properties: { noise_band: "70-75 dB", source_layer: "road" },
-  },
-  {
-    type: "Feature",
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [4, 4],
-          [5, 4],
-          [5, 5],
-          [4, 4],
-        ],
-      ],
-    },
-    properties: { noise_band: "60-65 dB", source_layer: "rail" },
-  },
-];
-
-const mockInfraFeatures: GeoJSON.Feature[] = [
-  {
-    type: "Feature",
-    geometry: { type: "Point", coordinates: [-78.79, 35.88] },
-    properties: { layer: "airport", name: "RDU International", iata_code: "RDU" },
-  },
-  {
-    type: "Feature",
-    geometry: {
-      type: "MultiLineString",
-      coordinates: [
-        [
-          [-78.8, 35.8],
-          [-78.7, 35.9],
-        ],
-      ],
-    },
-    properties: { layer: "road", fullname: "US-401" },
-  },
-  {
-    type: "Feature",
-    geometry: {
-      type: "MultiLineString",
-      coordinates: [
-        [
-          [-78.85, 35.85],
-          [-78.75, 35.95],
-        ],
-      ],
-    },
-    properties: { layer: "railroad", rrowner1: "CSX", subdivision: "Raleigh" },
-  },
-];
-
-const EMPTY_COLLECTION = { type: "FeatureCollection" as const, features: [] };
-
-const mockUseNuisancesReturn = {
-  data: { type: "FeatureCollection" as const, features: mockNoiseFeatures },
-  infraData: EMPTY_COLLECTION as GeoJSON.FeatureCollection,
-  loading: false,
-  infraLoading: false,
-};
-
 const mockUseNuisanceSourcesReturn = {
   sources: [] as NuisanceSourceItem[],
   loading: false,
   error: null as string | null,
 };
 
-vi.mock("../../../../hooks/useNuisances", () => ({
-  useNuisances: vi.fn(() => mockUseNuisancesReturn),
-}));
-
 vi.mock("../../../../hooks/useNuisanceSources", () => ({
   useNuisanceSources: vi.fn(() => mockUseNuisanceSourcesReturn),
 }));
 
-vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="map-container">{children}</div>
+vi.mock("react-map-gl/maplibre", () => ({
+  Source: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="vector-source">{children}</div>
   ),
-  TileLayer: () => <div data-testid="tile-layer" />,
-  Marker: () => <div data-testid="marker" />,
-  Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  GeoJSON: ({
-    data,
-    pointToLayer,
-  }: {
-    data: GeoJSON.FeatureCollection;
-    pointToLayer?: unknown;
-  }) => (
-    <div
-      data-testid="geojson-layer"
-      data-feature-count={data.features.length}
-      data-has-point-to-layer={pointToLayer ? "true" : "false"}
-    />
-  ),
-  Circle: () => null,
-  useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
+  Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
 }));
 
 vi.mock("../../maps/DashboardMap", () => ({
@@ -178,17 +66,12 @@ const mockApiSources: NuisanceSourceItem[] = [
 describe("NuisancesTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseNuisancesReturn.data = {
-      type: "FeatureCollection",
-      features: mockNoiseFeatures,
-    };
-    mockUseNuisancesReturn.loading = false;
     mockUseNuisanceSourcesReturn.sources = [];
     mockUseNuisanceSourcesReturn.loading = false;
     mockUseNuisanceSourcesReturn.error = null;
   });
 
-  it("renders 3 noise source toggle buttons", () => {
+  it("renders noise source toggle buttons", () => {
     render(<NuisancesTab data={mockDashboardData} />);
     expect(screen.getByText("Airport")).toBeInTheDocument();
     expect(screen.getByText("Road")).toBeInTheDocument();
@@ -199,53 +82,6 @@ describe("NuisancesTab", () => {
     render(<NuisancesTab data={mockDashboardData} />);
     expect(screen.getByText("Noise")).toBeInTheDocument();
     expect(screen.getByText("Locations")).toBeInTheDocument();
-  });
-
-  it("all toggles are active by default (all features shown)", () => {
-    render(<NuisancesTab data={mockDashboardData} />);
-    const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("3");
-  });
-
-  it("clicking a toggle removes its features from the map", () => {
-    render(<NuisancesTab data={mockDashboardData} />);
-
-    fireEvent.click(screen.getByText("Airport"));
-
-    const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("2");
-  });
-
-  it("clicking a toggle again re-adds its features", () => {
-    render(<NuisancesTab data={mockDashboardData} />);
-
-    // Toggle off
-    fireEvent.click(screen.getByText("Road"));
-    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("2");
-
-    // Toggle back on
-    fireEvent.click(screen.getByText("Road"));
-    expect(screen.getByTestId("geojson-layer").getAttribute("data-feature-count")).toBe("3");
-  });
-
-  it("toggling off all sources hides the GeoJSON layer", () => {
-    render(<NuisancesTab data={mockDashboardData} />);
-
-    fireEvent.click(screen.getByText("Airport"));
-    fireEvent.click(screen.getByText("Road"));
-    fireEvent.click(screen.getByText("Railroad"));
-
-    expect(screen.queryByTestId("geojson-layer")).not.toBeInTheDocument();
-  });
-
-  it("toggling multiple sources filters correctly", () => {
-    render(<NuisancesTab data={mockDashboardData} />);
-
-    fireEvent.click(screen.getByText("Airport"));
-    fireEvent.click(screen.getByText("Railroad"));
-
-    const geojson = screen.getByTestId("geojson-layer");
-    expect(geojson.getAttribute("data-feature-count")).toBe("1");
   });
 
   it("shows empty state when no nuisance sources are found", () => {
@@ -313,84 +149,27 @@ describe("NuisancesTab", () => {
     expect(screen.queryByText("No nuisances found")).not.toBeInTheDocument();
   });
 
-  describe("infrastructure geometry layers", () => {
-    beforeEach(() => {
-      mockUseNuisancesReturn.infraData = {
-        type: "FeatureCollection",
-        features: mockInfraFeatures,
-      };
-    });
+  it("renders vector tile layers for noise and infrastructure", () => {
+    render(<NuisancesTab data={mockDashboardData} />);
 
-    it("renders 3 infrastructure toggle buttons (Roads, Rail, Airports)", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-      expect(screen.getByText("Roads")).toBeInTheDocument();
-      expect(screen.getByText("Rail")).toBeInTheDocument();
-      expect(screen.getByText("Airports")).toBeInTheDocument();
-    });
+    const sources = screen.getAllByTestId("vector-source");
+    expect(sources.length).toBeGreaterThanOrEqual(2);
+  });
 
-    it("infrastructure layers are on by default", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-      const layers = screen.getAllByTestId("geojson-layer");
-      // noise + infra both present
-      expect(layers).toHaveLength(2);
-      expect(layers[1].getAttribute("data-feature-count")).toBe("3");
-    });
+  it("renders infrastructure toggle buttons", () => {
+    render(<NuisancesTab data={mockDashboardData} />);
+    expect(screen.getByText("Roads")).toBeInTheDocument();
+    expect(screen.getByText("Rail")).toBeInTheDocument();
+    expect(screen.getByText("Airports")).toBeInTheDocument();
+  });
 
-    it("toggling Airports off removes airport features", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
+  it("clicking noise toggle updates active state", () => {
+    render(<NuisancesTab data={mockDashboardData} />);
 
-      fireEvent.click(screen.getByText("Airports"));
+    const airportButton = screen.getByText("Airport");
+    expect(airportButton.className).toContain("bg-[var(--color-db-accent)]");
 
-      const layers = screen.getAllByTestId("geojson-layer");
-      // noise + infra (2 remaining features)
-      expect(layers).toHaveLength(2);
-      expect(layers[1].getAttribute("data-feature-count")).toBe("2");
-    });
-
-    it("toggling Roads off removes road features", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      fireEvent.click(screen.getByText("Roads"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      expect(layers).toHaveLength(2);
-      expect(layers[1].getAttribute("data-feature-count")).toBe("2");
-    });
-
-    it("toggling all infrastructure layers off hides infra GeoJSON", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      fireEvent.click(screen.getByText("Roads"));
-      fireEvent.click(screen.getByText("Rail"));
-      fireEvent.click(screen.getByText("Airports"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      // Only noise layer remains
-      expect(layers).toHaveLength(1);
-    });
-
-    it("toggling an infrastructure layer back on re-adds its features", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      // Turn off all
-      fireEvent.click(screen.getByText("Roads"));
-      fireEvent.click(screen.getByText("Rail"));
-      fireEvent.click(screen.getByText("Airports"));
-
-      // Turn roads back on
-      fireEvent.click(screen.getByText("Roads"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      expect(layers).toHaveLength(2);
-      expect(layers[1].getAttribute("data-feature-count")).toBe("1");
-    });
-
-    it("infrastructure GeoJSON always includes pointToLayer prop", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      const infraLayer = layers[1];
-      expect(infraLayer.getAttribute("data-has-point-to-layer")).toBe("true");
-    });
+    fireEvent.click(airportButton);
+    expect(airportButton.className).not.toContain("bg-[var(--color-db-accent)]");
   });
 });

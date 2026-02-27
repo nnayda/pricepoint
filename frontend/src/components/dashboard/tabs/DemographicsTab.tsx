@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -20,8 +20,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
 } from "recharts";
-import { GeoJSON, useMap, useMapEvents } from "react-leaflet";
-import type { Layer } from "leaflet";
+import { Source, Layer as MapLayer } from "react-map-gl/maplibre";
 import type {
   DashboardData,
   DemographicContext,
@@ -32,14 +31,9 @@ import DashboardCard, { useCardExpanded } from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
 import ChoroplethLegend from "../maps/ChoroplethLegend";
 import SemiCircularGauge from "../charts/SemiCircularGauge";
-import { MOCK_CHOROPLETH_MAP } from "../../../data/mockDemographicGeo";
 import {
-  getChoroplethStyle,
-  getTooltipText,
   getLegendConfig,
-  computeDataRange,
 } from "../../../utils/choroplethColors";
-import { useChoropleth, type Bbox } from "../../../hooks/useChoropleth";
 import {
   TOOLTIP_CONTENT_STYLE,
   TOOLTIP_ITEM_STYLE,
@@ -97,74 +91,69 @@ const RACE_FILTER_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-/** Reports map viewport bounds on mount and on every moveend. */
-function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bbox: Bbox) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    },
-  });
+// Choropleth color expression for MapLibre vector tiles
+function getChoroplethColorExpression(
+  subTab: DemographicSubTab,
+  raceFilter: string,
+): maplibregl.ExpressionSpecification {
+  const metric =
+    subTab === "population"
+      ? "total_population"
+      : subTab === "race"
+        ? raceFilter === "all" || raceFilter === "white"
+          ? "white_pct"
+          : raceFilter === "black"
+            ? "black_pct"
+            : raceFilter === "hispanic"
+              ? "hispanic_pct"
+              : raceFilter === "asian"
+                ? "asian_pct"
+                : "white_pct"
+        : subTab === "income"
+          ? "median_household_income"
+          : subTab === "age"
+            ? "median_age"
+            : "total_population";
 
-  // Fire initial bounds after mount so the hook can fetch immediately
-  useEffect(() => {
-    // Small delay to let MapContainer finish initializing
-    const timer = setTimeout(() => {
-      const b = map.getBounds();
-      onBoundsChange({
-        swLat: b.getSouth(),
-        swLon: b.getWest(),
-        neLat: b.getNorth(),
-        neLon: b.getEast(),
-      });
-    }, 100);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return null;
-}
-
-/** Programmatically updates map center/zoom when props change (MapContainer ignores prop updates). */
-function MapViewController({
-  center,
-  zoom,
-  onBoundsChange,
-}: {
-  center: [number, number];
-  zoom: number;
-  onBoundsChange: (bbox: Bbox) => void;
-}) {
-  const map = useMap();
-  const prevRef = useRef({ center, zoom });
-
-  useEffect(() => {
-    const prev = prevRef.current;
-    if (prev.center[0] !== center[0] || prev.center[1] !== center[1] || prev.zoom !== zoom) {
-      prevRef.current = { center, zoom };
-      map.flyTo(center, zoom, { duration: 0.5 });
-
-      // After the fly animation completes, report new bounds
-      const onMoveEnd = () => {
-        const b = map.getBounds();
-        onBoundsChange({
-          swLat: b.getSouth(),
-          swLon: b.getWest(),
-          neLat: b.getNorth(),
-          neLon: b.getEast(),
-        });
-        map.off("moveend", onMoveEnd);
-      };
-      map.on("moveend", onMoveEnd);
-    }
-  }, [center, zoom, map, onBoundsChange]);
-
-  return null;
+  // Interpolate color based on the metric value
+  if (subTab === "population") {
+    return [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["get", metric], 0],
+      0,
+      "rgba(99,102,241,0.05)",
+      5000,
+      "rgba(99,102,241,0.4)",
+      20000,
+      "rgba(99,102,241,0.7)",
+    ];
+  }
+  if (subTab === "income") {
+    return [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["get", metric], 0],
+      0,
+      "rgba(248,113,113,0.3)",
+      50000,
+      "rgba(251,191,36,0.3)",
+      100000,
+      "rgba(52,211,153,0.5)",
+    ];
+  }
+  // Percentage-based metrics (race, age)
+  return [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["get", metric], 0],
+    0,
+    "rgba(99,102,241,0.05)",
+    50,
+    "rgba(99,102,241,0.4)",
+    100,
+    "rgba(99,102,241,0.7)",
+  ];
 }
 
 function DemographicsTab({ data }: DemographicsTabProps) {
@@ -172,19 +161,8 @@ function DemographicsTab({ data }: DemographicsTabProps) {
   const [context, setContext] = useState<DemographicContext>("neighborhood");
   const [subTab, setSubTab] = useState<DemographicSubTab>("population");
   const [raceFilter, setRaceFilter] = useState<string>("all");
-  const [mapBbox, setMapBbox] = useState<Bbox | null>(null);
 
   const d = demographics.contexts[context];
-
-  const initialChoropleth = demographics.choropleth?.[context] ?? MOCK_CHOROPLETH_MAP[context];
-
-  const { data: choroplethData } = useChoropleth(
-    context,
-    mapBbox,
-    property.lat,
-    property.lon,
-    initialChoropleth,
-  );
 
   // Reset race filter when switching away from race sub-tab
   useEffect(() => {
@@ -193,25 +171,17 @@ function DemographicsTab({ data }: DemographicsTabProps) {
     }
   }, [subTab]);
 
-  const dataRange = useMemo(
-    () => computeDataRange(choroplethData.features, subTab),
-    [choroplethData.features, subTab],
-  );
-
-  // Key must change when data, context, subTab, or raceFilter changes to force GeoJSON remount
-  const choroplethKey = useMemo(
-    () =>
-      `choropleth-${context}-${subTab}-${raceFilter}-${choroplethData.features.length}-${dataRange?.min}-${dataRange?.max}`,
-    [context, subTab, raceFilter, choroplethData, dataRange],
-  );
   const legendConfig = useMemo(
-    () => getLegendConfig(subTab, raceFilter, dataRange),
-    [subTab, raceFilter, dataRange],
+    () => getLegendConfig(subTab, raceFilter),
+    [subTab, raceFilter],
   );
 
-  const handleBoundsChange = useCallback((bbox: Bbox) => {
-    setMapBbox(bbox);
-  }, []);
+  // Pick the right tile source based on context
+  const tileSource = context === "block_group" ? "v_block_group_demographics" : "v_tract_demographics";
+  const choroplethFillColor = useMemo(
+    () => getChoroplethColorExpression(subTab, raceFilter),
+    [subTab, raceFilter],
+  );
 
   return (
     <div className="flex flex-col gap-4 lg:h-[calc(100vh-64px-36px-24px-46px-40px)] lg:overflow-hidden">
@@ -314,30 +284,33 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                 ]}
                 height="100%"
               >
-                <MapBoundsTracker onBoundsChange={handleBoundsChange} />
-                <MapViewController
-                  center={[property.lat, property.lon]}
-                  zoom={CONTEXT_ZOOM[context]}
-                  onBoundsChange={handleBoundsChange}
-                />
-                {/* Choropleth features — context + subTab aware */}
-                <GeoJSON
-                  key={choroplethKey}
-                  data={choroplethData}
-                  style={(feature) => getChoroplethStyle(feature, subTab, raceFilter, dataRange)}
-                  onEachFeature={(feature: GeoJSON.Feature, layer: Layer) => {
-                    const text = getTooltipText(
-                      (feature.properties ?? {}) as Record<string, unknown>,
-                      subTab,
-                      context,
-                      raceFilter,
-                    );
-                    layer.bindTooltip(text, {
-                      sticky: true,
-                      className: "leaflet-tooltip-choropleth",
-                    });
-                  }}
-                />
+                {/* Choropleth via vector tiles from Martin */}
+                <Source
+                  id="demographics-tiles"
+                  type="vector"
+                  tiles={[`${window.location.origin}/tiles/${tileSource}/{z}/{x}/{y}`]}
+                  minzoom={0}
+                  maxzoom={14}
+                >
+                  <MapLayer
+                    id="demographics-fill"
+                    type="fill"
+                    source-layer={tileSource}
+                    paint={{
+                      "fill-color": choroplethFillColor,
+                      "fill-opacity": 0.7,
+                    }}
+                  />
+                  <MapLayer
+                    id="demographics-outline"
+                    type="line"
+                    source-layer={tileSource}
+                    paint={{
+                      "line-color": "rgba(99,102,241,0.4)",
+                      "line-width": 1,
+                    }}
+                  />
+                </Source>
               </DashboardMap>
               <ChoroplethLegend config={legendConfig} />
             </div>

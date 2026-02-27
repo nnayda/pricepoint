@@ -358,7 +358,6 @@ export interface RecentlyViewedItem {
 export type DashboardTab =
   | "valuation"
   | "risks"
-  | "crime"
   | "demographics"
   | "schools"
   | "pois"
@@ -523,8 +522,6 @@ export interface DemographicData {
   home_ownership_trend: HomeOwnershipTrendPoint[];
   median_age_trend: MedianAgeTrendPoint[];
   benchmarks?: Record<string, DemographicDataset>;
-  boundaries?: Record<string, GeoJSON.GeoJsonObject | null>;
-  choropleth?: Record<DemographicContext, GeoJSON.FeatureCollection>;
 }
 
 export interface DemographicsApiContextData {
@@ -565,8 +562,6 @@ export interface ChoroplethFeatureProperties {
 export interface DemographicsApiResponse {
   contexts: Record<string, DemographicsApiContextData>;
   benchmarks: Record<string, DemographicsApiContextData>;
-  boundaries: Record<string, GeoJSON.GeoJsonObject | null>;
-  choropleth: Record<string, GeoJSON.Feature[]>;
 }
 
 export interface DashboardSchool {
@@ -693,12 +688,10 @@ export interface RiskFeature {
   lat: number;
   lon: number;
   detail: string;
-  geojson?: GeoJSON.Geometry;
 }
 
 export interface RisksApiResponse {
   features: RiskFeature[];
-  boundary_geojson: GeoJSON.FeatureCollection;
 }
 
 // Data request types

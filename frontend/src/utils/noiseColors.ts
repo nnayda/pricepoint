@@ -33,14 +33,3 @@ export function getNoiseLegendConfig(): LegendConfig {
   };
 }
 
-export function getNoisePolygonStyle(feature?: GeoJSON.Feature): L.PathOptions {
-  const minDb = feature?.properties?.noise_min_db ?? 0;
-  const color = getNoiseColor(minDb);
-  return {
-    fillColor: color,
-    color,
-    weight: 1,
-    opacity: 0.8,
-    fillOpacity: 0.35,
-  };
-}

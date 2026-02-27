@@ -75,9 +75,11 @@ class DemographicContextData(BaseModel):
 
 
 class DemographicsResponse(BaseModel):
-    """Full demographics response with multiple geographic contexts."""
+    """Full demographics response with multiple geographic contexts.
+
+    Boundary geometry and choropleth map data are now served via Martin
+    vector tiles and are no longer included in this response.
+    """
 
     contexts: dict[str, DemographicContextData]
     benchmarks: dict[str, DemographicContextData]
-    boundaries: dict[str, dict | None]
-    choropleth: dict[str, list[dict]]

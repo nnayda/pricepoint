@@ -33,30 +33,6 @@ const mockResponse: RisksApiResponse = {
       detail: "Power Plant — within critical risk zone",
     },
   ],
-  boundary_geojson: {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [0, 0],
-              [1, 0],
-              [1, 1],
-              [0, 0],
-            ],
-          ],
-        },
-        properties: {
-          infrastructure_type: "power_plant",
-          infrastructure_id: 30,
-          severity: "critical",
-        },
-      },
-    ],
-  },
 };
 
 describe("useRisks hook", () => {
@@ -79,7 +55,6 @@ describe("useRisks hook", () => {
 
     expect(result.current.data.features).toHaveLength(2);
     expect(result.current.data.features[0].name).toBe("AT&T Tower");
-    expect(result.current.data.boundaryGeojson.features).toHaveLength(1);
   });
 
   it("returns empty data on error", async () => {
@@ -89,7 +64,6 @@ describe("useRisks hook", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.data.features).toEqual([]);
-    expect(result.current.data.boundaryGeojson.features).toEqual([]);
   });
 
   it("calls getRisksData with correct params", async () => {

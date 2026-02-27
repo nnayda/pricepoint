@@ -124,6 +124,27 @@ services:
     networks:
       - pricepoint
 
+  martin:
+    image: ghcr.io/maplibre/martin:v0.15
+    profiles: [infra]
+    ports:
+      - "3456:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
+    volumes:
+      - ./docker/martin/config.yaml:/config.yaml:ro
+    command: --config /config.yaml
+    depends_on:
+      api-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pricepoint
+
   pgadmin:
     image: dpage/pgadmin4:latest
     profiles: [infra]

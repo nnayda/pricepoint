@@ -1,17 +1,12 @@
 import { useState, useCallback, useMemo } from "react";
-import L from "leaflet";
-import { GeoJSON } from "react-leaflet";
+import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, NegativePoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
-import RadiusSelect from "../maps/RadiusSelect";
-import RadiusCircle from "../maps/RadiusCircle";
 import ChoroplethLegend from "../maps/ChoroplethLegend";
-import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { MapPinIcon } from "../ui/Icons";
-import { useNuisances } from "../../../hooks/useNuisances";
 import { useNuisanceSources } from "../../../hooks/useNuisanceSources";
-import { getNoiseLegendConfig, getNoisePolygonStyle } from "../../../utils/noiseColors";
+import { getNoiseLegendConfig } from "../../../utils/noiseColors";
 
 interface NuisancesTabProps {
   data: DashboardData;
@@ -182,17 +177,20 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   rail: "Railroad",
 };
 
+// Noise band color mapping for vector tile fill-color expression
+const NOISE_BAND_COLORS: [string, string][] = [
+  ["65-70", "rgba(255, 255, 0, 0.35)"],
+  ["70-75", "rgba(255, 200, 0, 0.35)"],
+  ["75-80", "rgba(255, 140, 0, 0.35)"],
+  ["80-85", "rgba(255, 80, 0, 0.35)"],
+  ["85+", "rgba(255, 0, 0, 0.35)"],
+];
+
 function NuisancesTab({ data }: NuisancesTabProps) {
   const { property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [radius, setRadius] = useMapRadius();
 
-  const {
-    data: noiseData,
-    infraData,
-    loading: noiseLoading,
-  } = useNuisances(property.lat, property.lon, radius);
   const { sources: apiSources, loading: sourcesLoading } = useNuisanceSources(
     property.lat,
     property.lon,
@@ -226,21 +224,6 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     });
   }, []);
 
-  const filteredInfraData = useMemo(() => {
-    if (activeInfra.size === 0) return { type: "FeatureCollection" as const, features: [] };
-    const filtered = infraData.features.filter(
-      (f) => f.properties && activeInfra.has(f.properties.layer as InfraLayer),
-    );
-    return { type: "FeatureCollection" as const, features: filtered };
-  }, [infraData, activeInfra]);
-
-  const filteredNoiseData = useMemo(() => {
-    const filtered = noiseData.features.filter(
-      (f) => f.properties && activeSources.has(f.properties.source_layer as NoiseSourceLayer),
-    );
-    return { type: "FeatureCollection" as const, features: filtered };
-  }, [noiseData, activeSources]);
-
   // Map API nuisance sources to NegativePoi shape for cards
   const cardPois: NegativePoi[] = useMemo(() => {
     return apiSources.map((s) => ({
@@ -269,67 +252,30 @@ function NuisancesTab({ data }: NuisancesTabProps) {
       color: severityMapColors[n.severity],
     }));
 
-  const onEachFeature = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
-    const props = feature.properties;
-    if (props) {
-      layer.bindTooltip(`<strong>${props.noise_band}</strong><br/>Source: ${props.source_layer}`, {
-        sticky: true,
-      });
-    }
-    layer.on({
-      mouseover: (e: L.LeafletMouseEvent) => {
-        const target = e.target as L.Path;
-        target.setStyle({ fillOpacity: 0.6, weight: 2 });
-      },
-      mouseout: (e: L.LeafletMouseEvent) => {
-        const target = e.target as L.Path;
-        target.setStyle({ fillOpacity: 0.35, weight: 1 });
-      },
-    });
-  }, []);
-
-  const infraStyle = useCallback((feature?: GeoJSON.Feature) => {
-    const layer = feature?.properties?.layer;
-    if (layer === "road") return { color: "#3B82F6", weight: 2, opacity: 0.7 };
-    if (layer === "railroad")
-      return { color: "#F97316", weight: 2, opacity: 0.7, dashArray: "6 4" };
-    if (layer === "airport")
-      return { color: "#7C3AED", weight: 1, fillColor: "#7C3AED", fillOpacity: 0.35 };
-    return { color: "#94A3B8", weight: 1 };
-  }, []);
-
-  const infraPointToLayer = useCallback((feature: GeoJSON.Feature, latlng: L.LatLng): L.Layer => {
-    const layer = feature.properties?.layer;
-    if (layer === "airport") {
-      const size = 28;
-      const icon = L.divIcon({
-        className: "",
-        html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:#7C3AED;border-radius:6px;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(124,58,237,0.5);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-            </svg>
-          </div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      });
-      return L.marker(latlng, { icon });
-    }
-    return L.circleMarker(latlng, { radius: 4, color: "#94A3B8", fillOpacity: 0.5, weight: 1 });
-  }, []);
-
-  const onEachInfraFeature = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
-    const props = feature.properties;
-    if (!props) return;
-    let label = "";
-    if (props.layer === "road") label = props.fullname || "Road";
-    else if (props.layer === "airport")
-      label = `${props.name}${props.iata_code ? ` (${props.iata_code})` : ""}`;
-    else if (props.layer === "railroad")
-      label = `${props.rrowner1 || "Railroad"}${props.subdivision ? ` — ${props.subdivision}` : ""}`;
-    if (label) layer.bindTooltip(label, { sticky: true });
-  }, []);
-
   const noiseLegend = getNoiseLegendConfig();
+
+  // Build MapLibre filter for noise source layers
+  const noiseSourceFilter = useMemo(() => {
+    if (activeSources.size === ALL_SOURCES.size) return undefined;
+    return ["in", "source_layer", ...Array.from(activeSources)];
+  }, [activeSources]);
+
+  // Build MapLibre filter for infra types
+  const infraTypeFilter = useMemo(() => {
+    const types: string[] = [];
+    if (activeInfra.has("road")) types.push("railroad"); // roads come from roads table
+    if (activeInfra.has("railroad")) types.push("railroad");
+    if (activeInfra.has("airport")) types.push("airport");
+    return types.length > 0 ? ["in", "infra_type", ...types] : ["==", "infra_type", "__none__"];
+  }, [activeInfra]);
+
+  // Noise fill-color expression
+  const noiseFillColor = [
+    "match",
+    ["get", "noise_band"],
+    ...NOISE_BAND_COLORS.flatMap(([band, color]) => [band, color]),
+    "rgba(200, 200, 200, 0.2)",
+  ] as unknown as maplibregl.ExpressionSpecification;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -380,13 +326,13 @@ function NuisancesTab({ data }: NuisancesTabProps) {
         </DashboardCard>
       </div>
 
-      {/* Right column — map with noise polygons */}
+      {/* Right column — map with noise polygons via vector tiles */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
               Nuisance Map
-              {(noiseLoading || sourcesLoading) && (
+              {sourcesLoading && (
                 <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
               )}
             </h3>
@@ -433,13 +379,12 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                   ))}
                 </div>
               </div>
-              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={RADIUS_ZOOM[radius]}
+              zoom={12}
               markers={[
                 {
                   lat: property.lat,
@@ -455,26 +400,91 @@ function NuisancesTab({ data }: NuisancesTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
-              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
-              {filteredNoiseData.features.length > 0 && (
-                <GeoJSON
-                  key={`noise-${filteredNoiseData.features.length}-${activeSources.size}`}
-                  data={filteredNoiseData}
-                  style={getNoisePolygonStyle}
-                  onEachFeature={onEachFeature}
+              {/* Noise polygon vector tiles */}
+              <Source
+                id="noises-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/noises/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="noises-fill"
+                  type="fill"
+                  source-layer="noises"
+                  filter={noiseSourceFilter as maplibregl.FilterSpecification | undefined}
+                  paint={{
+                    "fill-color": noiseFillColor,
+                    "fill-opacity": 0.6,
+                  }}
                 />
-              )}
-              {filteredInfraData.features.length > 0 && (
-                <GeoJSON
-                  key={`infra-${filteredInfraData.features.length}-${activeInfra.size}`}
-                  data={filteredInfraData}
-                  style={infraStyle}
-                  pointToLayer={infraPointToLayer}
-                  onEachFeature={onEachInfraFeature}
+                <Layer
+                  id="noises-outline"
+                  type="line"
+                  source-layer="noises"
+                  filter={noiseSourceFilter as maplibregl.FilterSpecification | undefined}
+                  paint={{
+                    "line-color": noiseFillColor,
+                    "line-width": 1,
+                    "line-opacity": 0.8,
+                  }}
                 />
-              )}
+              </Source>
+
+              {/* Infrastructure vector tiles */}
+              <Source
+                id="infra-tiles"
+                type="vector"
+                tiles={[`${window.location.origin}/tiles/v_infrastructure/{z}/{x}/{y}`]}
+                minzoom={0}
+                maxzoom={14}
+              >
+                <Layer
+                  id="infra-lines"
+                  type="line"
+                  source-layer="v_infrastructure"
+                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  paint={{
+                    "line-color": [
+                      "match",
+                      ["get", "infra_type"],
+                      "railroad",
+                      "#F97316",
+                      "airport",
+                      "#7C3AED",
+                      "#3B82F6",
+                    ],
+                    "line-width": 2,
+                    "line-opacity": 0.7,
+                  }}
+                />
+                <Layer
+                  id="infra-points"
+                  type="circle"
+                  source-layer="v_infrastructure"
+                  filter={
+                    [
+                      "all",
+                      infraTypeFilter as maplibregl.FilterSpecification,
+                      ["==", ["geometry-type"], "Point"],
+                    ] as unknown as maplibregl.FilterSpecification
+                  }
+                  paint={{
+                    "circle-radius": 5,
+                    "circle-color": [
+                      "match",
+                      ["get", "infra_type"],
+                      "airport",
+                      "#7C3AED",
+                      "#94A3B8",
+                    ],
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": "#ffffff",
+                  }}
+                />
+              </Source>
             </DashboardMap>
-            {filteredNoiseData.features.length > 0 && <ChoroplethLegend config={noiseLegend} />}
+            {activeSources.size > 0 && <ChoroplethLegend config={noiseLegend} />}
           </div>
         </DashboardCard>
       </div>

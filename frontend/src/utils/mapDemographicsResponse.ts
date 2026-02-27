@@ -66,13 +66,6 @@ export function mapDemographicsResponse(resp: DemographicsApiResponse): Demograp
     benchmarks[key] = apiContextToDataset(val);
   }
 
-  // Choropleth: convert keyed Feature arrays into keyed FeatureCollections
-  const choropleth = {} as Record<DemographicContext, GeoJSON.FeatureCollection>;
-  for (const key of CONTEXT_KEYS) {
-    const features = resp.choropleth[key] ?? [];
-    choropleth[key] = { type: "FeatureCollection", features };
-  }
-
   return {
     geography_level: "tract",
     contexts,
@@ -90,8 +83,6 @@ export function mapDemographicsResponse(resp: DemographicsApiResponse): Demograp
     home_ownership_trend: nb.home_ownership_trend,
     median_age_trend: nb.median_age_trend,
     benchmarks,
-    boundaries: resp.boundaries,
-    choropleth,
   };
 }
 

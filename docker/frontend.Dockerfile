@@ -30,6 +30,13 @@ RUN echo 'server { \
         proxy_set_header X-Forwarded-Proto $scheme; \
         proxy_request_buffering off; \
     } \
+    location /tiles/ { \
+        set $martin http://martin:3000; \
+        rewrite ^/tiles/(.*)$ /$1 break; \
+        proxy_pass $martin; \
+        proxy_set_header Host $host; \
+        add_header Cache-Control "public, max-age=3600"; \
+    } \
     location / { \
         try_files $uri $uri/ /index.html; \
     } \

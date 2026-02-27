@@ -37,33 +37,8 @@ const mockFeatures: RiskFeature[] = [
   },
 ];
 
-const mockBoundaryGeojson: GeoJSON.FeatureCollection = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      geometry: {
-        type: "Polygon",
-        coordinates: [
-          [
-            [0, 0],
-            [1, 0],
-            [1, 1],
-            [0, 0],
-          ],
-        ],
-      },
-      properties: {
-        infrastructure_type: "power_plant",
-        infrastructure_id: 30,
-        severity: "critical",
-      },
-    },
-  ],
-};
-
 const mockUseRisksReturn = {
-  data: { features: mockFeatures, boundaryGeojson: mockBoundaryGeojson },
+  data: { features: mockFeatures },
   loading: false,
 };
 
@@ -71,17 +46,11 @@ vi.mock("../../../../hooks/useRisks", () => ({
   useRisks: vi.fn(() => mockUseRisksReturn),
 }));
 
-// Mock react-leaflet to avoid DOM issues
-vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="map-container">{children}</div>
+vi.mock("react-map-gl/maplibre", () => ({
+  Source: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="vector-source">{children}</div>
   ),
-  TileLayer: () => <div data-testid="tile-layer" />,
-  Marker: () => <div data-testid="marker" />,
-  Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  GeoJSON: () => <div data-testid="geojson-layer" />,
-  Circle: () => null,
-  useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
+  Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
 }));
 
 let capturedMarkers: Record<string, unknown>[] = [];
@@ -109,10 +78,7 @@ describe("RisksTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedMarkers = [];
-    mockUseRisksReturn.data = {
-      features: mockFeatures,
-      boundaryGeojson: mockBoundaryGeojson,
-    };
+    mockUseRisksReturn.data = { features: mockFeatures };
     mockUseRisksReturn.loading = false;
   });
 
@@ -144,15 +110,11 @@ describe("RisksTab", () => {
   it("filters cards when toggle is clicked", () => {
     render(<RisksTab data={mockDashboardData} />);
 
-    // Initially Caution/Concern cards visible in sidebar
     expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
 
-    // Click "Transmission Lines" to deactivate
     fireEvent.click(screen.getByRole("button", { name: "Transmission Lines" }));
 
-    // Transmission line card should disappear
     expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
-    // Others still visible
     expect(screen.getByText("Shearon Harris")).toBeInTheDocument();
   });
 
@@ -164,19 +126,13 @@ describe("RisksTab", () => {
   });
 
   it("shows empty state when no features", () => {
-    mockUseRisksReturn.data = {
-      features: [],
-      boundaryGeojson: { type: "FeatureCollection", features: [] },
-    };
+    mockUseRisksReturn.data = { features: [] };
     render(<RisksTab data={mockDashboardData} />);
     expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
   });
 
   it("shows empty state when all features are Safe", () => {
-    mockUseRisksReturn.data = {
-      features: [mockFeatures[0]], // Only the Safe AT&T Tower
-      boundaryGeojson: { type: "FeatureCollection", features: [] },
-    };
+    mockUseRisksReturn.data = { features: [mockFeatures[0]] };
     render(<RisksTab data={mockDashboardData} />);
     expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
   });
@@ -188,17 +144,14 @@ describe("RisksTab", () => {
 
   it("renders distance for each sidebar card", () => {
     render(<RisksTab data={mockDashboardData} />);
-    // Only Caution/Concern cards appear in sidebar
     expect(screen.getByText(/0\.3 mi/)).toBeInTheDocument();
     expect(screen.getByText(/1\.2 mi/)).toBeInTheDocument();
-    // Safe card (0.8 mi) not in sidebar
     expect(screen.queryByText(/0\.8 mi/)).not.toBeInTheDocument();
   });
 
   it("re-enables filter when toggle clicked twice", () => {
     render(<RisksTab data={mockDashboardData} />);
 
-    // Disable then re-enable transmission lines (Caution severity, visible in sidebar)
     fireEvent.click(screen.getByRole("button", { name: "Transmission Lines" }));
     expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
 
@@ -208,11 +161,16 @@ describe("RisksTab", () => {
 
   it("passes infrastructureType to DashboardMap markers", () => {
     render(<RisksTab data={mockDashboardData} />);
-    // First marker is the property marker (no infrastructureType)
     const infraMarkers = capturedMarkers.filter((m) => m.infrastructureType);
     expect(infraMarkers.length).toBe(3);
     expect(infraMarkers.map((m) => m.infrastructureType)).toEqual(
       expect.arrayContaining(["cell_tower", "transmission_line", "power_plant"]),
     );
+  });
+
+  it("renders vector tile sources for risk boundaries and infrastructure", () => {
+    render(<RisksTab data={mockDashboardData} />);
+    const sources = screen.getAllByTestId("vector-source");
+    expect(sources.length).toBeGreaterThanOrEqual(2);
   });
 });

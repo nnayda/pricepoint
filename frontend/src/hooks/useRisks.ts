@@ -4,12 +4,10 @@ import { getRisksData } from "../services/property";
 
 interface RisksData {
   features: RiskFeature[];
-  boundaryGeojson: GeoJSON.FeatureCollection;
 }
 
 const EMPTY_DATA: RisksData = {
   features: [],
-  boundaryGeojson: { type: "FeatureCollection", features: [] },
 };
 
 export function useRisks(lat: number, lon: number, radiusMiles = 3) {
@@ -25,7 +23,6 @@ export function useRisks(lat: number, lon: number, radiusMiles = 3) {
         if (!controller.signal.aborted) {
           setData({
             features: resp.features,
-            boundaryGeojson: resp.boundary_geojson,
           });
           setLoading(false);
         }
