@@ -108,6 +108,13 @@ def fetch_pad_us() -> int:
             "GET", settings.pad_us_download_url, timeout=600, follow_redirects=True
         ) as resp:
             resp.raise_for_status()
+            content_type = resp.headers.get("content-type", "")
+            if "text/html" in content_type:
+                raise RuntimeError(
+                    f"PAD-US download URL returned HTML instead of a ZIP file "
+                    f"(content-type: {content_type}). The ScienceBase URL may "
+                    f"have changed — check pad_us_download_url in settings."
+                )
             with open(zip_path, "wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=8192):
                     f.write(chunk)

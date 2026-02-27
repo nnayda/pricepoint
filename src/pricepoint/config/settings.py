@@ -73,7 +73,8 @@ class Settings(BaseSettings):
     )
     # PAD-US (Protected Areas Database of the United States)
     pad_us_download_url: str = (
-        "https://sciencebase.usgs.gov/manager/download/cm8wlveow001d0upn7bqaepz8"
+        "https://www.sciencebase.gov/catalog/file/get/"
+        "652d4fc5d34e44db0e2ee45e?name=PADUS4_1Geodatabase.zip"
     )
     pad_us_layer_name: str = "PADUS4_1Fee"
     trails_base_url: str = (
