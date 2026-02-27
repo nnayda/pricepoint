@@ -685,17 +685,15 @@ def fetch_acs_county_sub_demographics() -> None:
 
 
 def compute_subdivision_demographics() -> None:
-    """Compute Wake subdivision demographics via area-weighted aggregation from block groups.
+    """Compute subdivision demographics via area-weighted aggregation from block groups.
 
-    For each Wake subdivision, overlaps with TIGER block groups are computed using
-    ST_Intersects. Count fields are summed with area-proportion weights. Median fields
-    use population-weighted averages (documented approximation).
+    For each subdivision in the gold ``subdivisions`` table, overlaps with TIGER block
+    groups are computed using ST_Intersects. Count fields are summed with area-proportion
+    weights. Median fields use population-weighted averages (documented approximation).
 
-    The geoid pattern is ``<county_geoid>S<subdivision_objectid>``,
-    e.g. ``37183S329933``.
+    The geoid pattern is ``subdiv_<subdivision_id>``, e.g. ``subdiv_329933``.
     """
     settings = get_settings()
-    county_geoid = f"{settings.tiger_state_fips}{settings.tiger_county_fips}"
 
     # Build SQL column expressions for count and median fields
     count_cols = ",\n".join(
@@ -712,21 +710,21 @@ def compute_subdivision_demographics() -> None:
     sql = text(f"""
         WITH bg_overlaps AS (
             SELECT
-                ws.objectid AS subdivision_objectid,
-                ws.name AS subdivision_name,
+                s.id AS subdivision_id,
+                s.name AS subdivision_name,
                 ad.geoid AS bg_geoid,
-                ST_Area(ST_Intersection(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))::geography)
+                ST_Area(ST_Intersection(ST_MakeValid(s.geom), ST_MakeValid(tbg.geom))::geography)
                     / NULLIF(ST_Area(tbg.geom::geography), 0) AS weight
-            FROM wake_subdivisions ws
+            FROM subdivisions s
             JOIN block_groups tbg
-                ON ST_Intersects(ST_MakeValid(ws.geom), ST_MakeValid(tbg.geom))
+                ON ST_Intersects(ST_MakeValid(s.geom), ST_MakeValid(tbg.geom))
             JOIN acs_demographics ad
                 ON tbg.geoid = ad.geoid
                 AND ad.geography_level = 'block_group'
                 AND ad.acs_year = :year
         )
         SELECT
-            o.subdivision_objectid,
+            o.subdivision_id,
             o.subdivision_name,
     {count_cols},
     {median_cols}
@@ -735,7 +733,7 @@ def compute_subdivision_demographics() -> None:
             ON o.bg_geoid = ad.geoid
             AND ad.geography_level = 'block_group'
             AND ad.acs_year = :year
-        GROUP BY o.subdivision_objectid, o.subdivision_name
+        GROUP BY o.subdivision_id, o.subdivision_name
         HAVING SUM(o.weight * ad.total_population) > 0
     """)
 
@@ -754,8 +752,8 @@ def compute_subdivision_demographics() -> None:
             records = []
             for row in rows:
                 row_dict = dict(zip(columns, row, strict=False))
-                objectid = row_dict["subdivision_objectid"]
-                geoid = f"{county_geoid}S{objectid}"
+                subdivision_id = row_dict["subdivision_id"]
+                geoid = f"subdiv_{subdivision_id}"
                 kwargs: dict = {
                     "geography_level": "subdivision",
                     "geoid": geoid,

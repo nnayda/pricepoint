@@ -950,7 +950,7 @@ class TestComputeSubdivisionDemographics:
         mock_session_cls.return_value = session
 
         # Mock SQL result with column names matching the query output
-        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        columns = ["subdivision_id", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
         row_values = [329933, "Test Subdivision"]
         # Set count fields to various values
         for i, _ in enumerate(_COUNT_FIELDS):
@@ -972,7 +972,7 @@ class TestComputeSubdivisionDemographics:
         records = session.add_all.call_args[0][0]
         assert len(records) == 1
         assert records[0].geography_level == "subdivision"
-        assert records[0].geoid == "37183S329933"
+        assert records[0].geoid == "subdiv_329933"
         assert records[0].name == "Test Subdivision"
         assert records[0].total_population == 1000
         assert records[0].median_age == 35.5
@@ -1017,7 +1017,7 @@ class TestComputeSubdivisionDemographics:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        columns = ["subdivision_id", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
         rows = []
         for obj_id, name in [(100, "Sub A"), (200, "Sub B")]:
             vals = [obj_id, name]
@@ -1036,7 +1036,7 @@ class TestComputeSubdivisionDemographics:
         records = session.add_all.call_args[0][0]
         assert len(records) == 2
         geoids = {r.geoid for r in records}
-        assert geoids == {"37183S100", "37183S200"}
+        assert geoids == {"subdiv_100", "subdiv_200"}
 
     @patch(_PATCH_LEVEL_EXISTS, return_value=False)
     @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
@@ -1046,7 +1046,7 @@ class TestComputeSubdivisionDemographics:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        columns = ["subdivision_objectid", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
+        columns = ["subdivision_id", "subdivision_name"] + _COUNT_FIELDS + _MEDIAN_FIELDS
         vals = [999, "Sparse Sub"]
         for _ in _COUNT_FIELDS:
             vals.append(0)

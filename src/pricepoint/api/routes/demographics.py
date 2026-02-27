@@ -39,9 +39,9 @@ from pricepoint.db.models import (
     County,
     PropertyGeoLookup,
     RedfinListing,
+    Subdivision,
     Township,
     Tract,
-    WakeSubdivision,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ def _init_choropleth_config() -> None:
                 "",
             ),
             "county": (County, "county", 0.5, "geoid", "name", ""),
-            "subdivision": (WakeSubdivision, "subdivision", 0.03, "id", "name", "subdiv_"),
+            "subdivision": (Subdivision, "subdivision", 0.03, "id", "name", "subdiv_"),
         }
     )
 
@@ -532,7 +532,7 @@ async def get_demographics(
             geoid_map["county"] = str(county)
 
         subdiv = db.execute(
-            select(WakeSubdivision.snumber).where(ST_Contains(WakeSubdivision.geom, point)).limit(1)
+            select(Subdivision.id).where(ST_Contains(Subdivision.geom, point)).limit(1)
         ).scalar_one_or_none()
         if subdiv:
             geoid_map["subdivision"] = f"subdiv_{subdiv}"
@@ -605,11 +605,8 @@ async def get_demographics(
         boundaries["town"] = None
 
     if subdiv:
-        snumber = str(subdiv)
         geojson_str = db.execute(
-            select(ST_AsGeoJSON(WakeSubdivision.geom))
-            .where(WakeSubdivision.snumber == snumber)
-            .limit(1)
+            select(ST_AsGeoJSON(Subdivision.geom)).where(Subdivision.id == subdiv).limit(1)
         ).scalar_one_or_none()
         boundaries["subdivision"] = json.loads(geojson_str) if geojson_str else None
     else:

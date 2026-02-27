@@ -480,7 +480,7 @@ class TestDemographicsWithData:
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 6:
-                # Wake subdivision lookup
+                # Subdivision lookup
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 7:
