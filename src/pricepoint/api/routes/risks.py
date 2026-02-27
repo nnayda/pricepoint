@@ -100,6 +100,7 @@ def _build_infra_query(  # noqa: ANN201
         is_line = model in _LINE_MODELS
         lat_expr = ST_Y(func.ST_Centroid(geom_col)) if is_line else ST_Y(geom_col)
         lon_expr = ST_X(func.ST_Centroid(geom_col)) if is_line else ST_X(geom_col)
+        geojson_expr = func.ST_AsGeoJSON(geom_col) if is_line else literal(None)
 
         q = select(
             cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
@@ -114,6 +115,7 @@ def _build_infra_query(  # noqa: ANN201
                 )
                 / METERS_PER_MILE
             ).label("distance_miles"),
+            geojson_expr.label("line_geojson"),
         ).where(
             geom_col.isnot(None),
             _st_dwithin_geography(geom_col, property_point, radius_meters),
@@ -192,6 +194,7 @@ async def get_risks(
             cte.c.lat,
             cte.c.lon,
             cte.c.distance_miles,
+            cte.c.line_geojson,
         ).order_by(
             cte.c.distance_miles,
         )
@@ -227,6 +230,7 @@ async def get_risks(
         )
         severity = _severity_label(rb_severity)
         dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
+        line_geom = json.loads(row.line_geojson) if row.line_geojson else None
         features.append(
             RiskFeature(
                 id=f"RB-{row.infrastructure_type[0].upper()}-{row.infra_id}",
@@ -237,6 +241,7 @@ async def get_risks(
                 lat=row.lat,
                 lon=row.lon,
                 detail=_detail_text(row.infrastructure_type, rb_severity),
+                geojson=line_geom,
             )
         )
 

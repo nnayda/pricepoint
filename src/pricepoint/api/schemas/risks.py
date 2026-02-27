@@ -16,6 +16,7 @@ class RiskFeature(BaseModel):
     lat: float
     lon: float
     detail: str
+    geojson: dict[str, Any] | None = None
 
 
 class RisksResponse(BaseModel):

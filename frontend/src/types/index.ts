@@ -693,6 +693,7 @@ export interface RiskFeature {
   lat: number;
   lon: number;
   detail: string;
+  geojson?: GeoJSON.Geometry;
 }
 
 export interface RisksApiResponse {

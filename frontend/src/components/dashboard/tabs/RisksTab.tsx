@@ -34,6 +34,14 @@ const severityMapColors: Record<string, string> = {
   Concern: "#F87171",
 };
 
+const INFRA_TYPE_COLORS: Record<string, string> = {
+  cell_tower: "#60A5FA", // blue
+  transmission_line: "#F59E0B", // amber
+  power_plant: "#EF4444", // red
+  nat_gas_pipeline: "#F97316", // orange
+  petroleum_pipeline: "#A855F7", // purple
+};
+
 const SEVERITY_ORDER: Record<string, number> = { Concern: 0, Caution: 1, Safe: 2 };
 
 const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
@@ -230,17 +238,41 @@ function RisksTab({ data }: RisksTabProps) {
     [cards],
   );
 
+  const pointFeatures = useMemo(
+    () => filteredFeatures.filter((f) => !f.geojson),
+    [filteredFeatures],
+  );
+
+  const lineFeatures = useMemo(
+    () => filteredFeatures.filter((f) => f.geojson),
+    [filteredFeatures],
+  );
+
+  const lineGeojson = useMemo((): GeoJSON.FeatureCollection => {
+    const features = lineFeatures.map((f) => ({
+      type: "Feature" as const,
+      geometry: f.geojson!,
+      properties: {
+        id: f.id,
+        name: f.name,
+        infrastructure_type: f.infrastructure_type,
+        severity: f.severity,
+      },
+    }));
+    return { type: "FeatureCollection", features };
+  }, [lineFeatures]);
+
   const markers = useMemo(
     () =>
-      filteredFeatures.map((f) => ({
+      pointFeatures.map((f) => ({
         id: f.id,
         lat: f.lat,
         lon: f.lon,
         label: `${f.name} (${f.severity})`,
-        color: severityMapColors[f.severity],
+        color: INFRA_TYPE_COLORS[f.infrastructure_type] ?? severityMapColors[f.severity],
         infrastructureType: f.infrastructure_type,
       })),
-    [filteredFeatures],
+    [pointFeatures],
   );
 
   const onEachBoundary = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
@@ -274,6 +306,21 @@ function RisksTab({ data }: RisksTabProps) {
   const boundaryStyle = useCallback((feature?: GeoJSON.Feature): L.PathOptions => {
     const severity = feature?.properties?.severity as string | undefined;
     return BOUNDARY_STYLES[severity ?? "caution"] ?? BOUNDARY_STYLES.caution;
+  }, []);
+
+  const lineStyle = useCallback((feature?: GeoJSON.Feature): L.PathOptions => {
+    const infraType = feature?.properties?.infrastructure_type as string | undefined;
+    const color = INFRA_TYPE_COLORS[infraType ?? ""] ?? "#F59E0B";
+    return { color, weight: 3, opacity: 0.85 };
+  }, []);
+
+  const onEachLine = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
+    const props = feature.properties;
+    if (props) {
+      const name = (props.name as string) || "Unknown";
+      const severity = props.severity as string;
+      layer.bindTooltip(`<strong>${name}</strong> — ${severity}`, { sticky: true });
+    }
   }, []);
 
   return (
@@ -362,42 +409,72 @@ function RisksTab({ data }: RisksTabProps) {
                   onEachFeature={onEachBoundary}
                 />
               )}
+              {lineGeojson.features.length > 0 && (
+                <GeoJSON
+                  key={`risk-lines-${[...activeTypes].sort().join(",")}`}
+                  data={lineGeojson}
+                  style={lineStyle}
+                  onEachFeature={onEachLine}
+                />
+              )}
             </DashboardMap>
-            {filteredBoundaries.features.length > 0 && (
-              <div
-                className="absolute bottom-3 right-3 z-[1000] rounded-lg border p-3"
-                style={{
-                  backgroundColor: "var(--color-db-surface)",
-                  borderColor: "var(--color-db-border-subtle)",
-                }}
-              >
-                <p className="mb-1.5 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
-                  Risk Zones
-                </p>
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
+            <div
+              className="absolute bottom-3 right-3 z-[1000] rounded-lg border p-3"
+              style={{
+                backgroundColor: "var(--color-db-surface)",
+                borderColor: "var(--color-db-border-subtle)",
+              }}
+            >
+              <p className="mb-1.5 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
+                Infrastructure
+              </p>
+              <div className="flex flex-col gap-1">
+                {INFRA_TYPE_OPTIONS.filter((o) => activeTypes.has(o.value)).map((o) => (
+                  <div key={o.value} className="flex items-center gap-2">
                     <span
-                      className="inline-block h-3 w-3 rounded-sm border"
-                      style={{
-                        backgroundColor: "rgba(248,113,113,0.2)",
-                        borderColor: "#EF4444",
-                      }}
+                      className="inline-block h-3 w-3 rounded-sm"
+                      style={{ backgroundColor: INFRA_TYPE_COLORS[o.value] }}
                     />
-                    <span className="text-[11px] text-[var(--color-db-text-muted)]">Critical</span>
+                    <span className="text-[11px] text-[var(--color-db-text-muted)]">
+                      {o.label}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-3 w-3 rounded-sm border"
-                      style={{
-                        backgroundColor: "rgba(251,191,36,0.15)",
-                        borderColor: "#F59E0B",
-                      }}
-                    />
-                    <span className="text-[11px] text-[var(--color-db-text-muted)]">Caution</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            )}
+              {filteredBoundaries.features.length > 0 && (
+                <>
+                  <p className="mb-1.5 mt-2 text-[11px] font-semibold text-[var(--color-db-text-secondary)]">
+                    Risk Zones
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-3 w-3 rounded-sm border"
+                        style={{
+                          backgroundColor: "rgba(248,113,113,0.2)",
+                          borderColor: "#EF4444",
+                        }}
+                      />
+                      <span className="text-[11px] text-[var(--color-db-text-muted)]">
+                        Critical
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-3 w-3 rounded-sm border"
+                        style={{
+                          backgroundColor: "rgba(251,191,36,0.15)",
+                          borderColor: "#F59E0B",
+                        }}
+                      />
+                      <span className="text-[11px] text-[var(--color-db-text-muted)]">
+                        Caution
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </DashboardCard>
       </div>
