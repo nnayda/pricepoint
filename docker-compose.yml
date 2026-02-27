@@ -125,7 +125,7 @@ services:
       - pricepoint
 
   martin:
-    image: ghcr.io/maplibre/martin:v0.15
+    image: ghcr.io/maplibre/martin:v1.3.1
     profiles: [infra]
     ports:
       - "3456:3000"

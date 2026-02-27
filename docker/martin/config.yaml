@@ -6,6 +6,7 @@ postgres:
   pool_size: 10
   default_srid: 4326
   auto_publish:
-    tables:
-      from_schemas: public
+    from_schemas:
+      - public
+    tables: true
     functions: false
