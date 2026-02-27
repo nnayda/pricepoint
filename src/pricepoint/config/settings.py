@@ -73,10 +73,9 @@ class Settings(BaseSettings):
     )
     # PAD-US (Protected Areas Database of the United States)
     pad_us_download_url: str = (
-        "https://www.sciencebase.gov/catalog/file/get/652ef534d34edd15305a7c30"
-        "?f=__disk__70%2F3f%2F6e%2F703f6ee2c30c69e2f718c47c1b1e56a11c8c25bf"
+        "https://sciencebase.usgs.gov/manager/download/cm8wlveow001d0upn7bqaepz8"
     )
-    pad_us_layer_name: str = "PADUS4_0Fee"
+    pad_us_layer_name: str = "PADUS4_1Fee"
     trails_base_url: str = (
         "https://carto.nationalmap.gov/arcgis/rest/services/transportation/MapServer/37"
     )
@@ -148,6 +147,7 @@ class Settings(BaseSettings):
     bts_noise_chaikin_iterations: int = 3
     bts_noise_cluster_eps: float = 0.001  # DBSCAN eps in degrees (~100m)
     bts_noise_buffer_distance: float = 0.0005  # buffer/unbuffer gap-fill in degrees (~50m)
+    bts_noise_max_hole_area_sq_m: float = 50000.0  # Fill interior holes < 50,000 m² (~5 hectares)
 
     # Overture Maps Places
     overture_places_s3_path: str = (

@@ -23,6 +23,7 @@ const emptyDemoDataset: DemographicDataset = {
  */
 export function buildEmptyDashboardData(address: string, lat: number, lon: number): DashboardData {
   return {
+    notFound: true,
     property: {
       address,
       city: "",

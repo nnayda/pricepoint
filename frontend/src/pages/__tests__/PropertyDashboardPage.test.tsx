@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -26,8 +27,16 @@ vi.mock("../../utils/mapPropertyResponse", () => ({
 
 // Mock heavy child components
 vi.mock("../../components/dashboard/DashboardLayout", () => ({
-  default: ({ data }: { data: { property: { address: string } } }) => (
-    <div data-testid="dashboard-layout" data-address={data.property.address} />
+  default: ({
+    data,
+    banner,
+  }: {
+    data: { property: { address: string } };
+    banner?: React.ReactNode;
+  }) => (
+    <div data-testid="dashboard-layout" data-address={data.property.address}>
+      {banner}
+    </div>
   ),
 }));
 

@@ -103,19 +103,17 @@ function PropertyDashboardPage() {
     );
   }
 
-  return (
-    <>
-      {notFound && !bannerDismissed && decodedAddress && (
-        <DataRequestBanner
-          address={decodedAddress}
-          lat={lat}
-          lon={lon}
-          onDismiss={() => setBannerDismissed(true)}
-        />
-      )}
-      <DashboardLayout data={dashboardData} />
-    </>
-  );
+  const banner =
+    notFound && !bannerDismissed && decodedAddress ? (
+      <DataRequestBanner
+        address={decodedAddress}
+        lat={lat}
+        lon={lon}
+        onDismiss={() => setBannerDismissed(true)}
+      />
+    ) : undefined;
+
+  return <DashboardLayout data={dashboardData} banner={banner} />;
 }
 
 export default PropertyDashboardPage;

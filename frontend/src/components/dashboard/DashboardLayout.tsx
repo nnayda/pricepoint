@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { DashboardData } from "../../types";
 import DashboardNav from "./DashboardNav";
 import DashboardBreadcrumb from "./DashboardBreadcrumb";
@@ -8,9 +9,10 @@ import DescriptionCard from "./left/DescriptionCard";
 
 interface DashboardLayoutProps {
   data: DashboardData;
+  banner?: ReactNode;
 }
 
-function DashboardLayout({ data }: DashboardLayoutProps) {
+function DashboardLayout({ data, banner }: DashboardLayoutProps) {
   const { property } = data;
 
   return (
@@ -24,13 +26,15 @@ function DashboardLayout({ data }: DashboardLayoutProps) {
         address={property.address}
       />
 
+      {banner}
+
       <div className="mx-auto max-w-[1680px] px-1 py-6 xl:px-1.5">
         <div className="flex flex-col gap-4 xl:flex-row">
           {/* Left Column — sticky on desktop */}
           <aside className="scrollbar-none w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[360px] xl:overflow-y-auto">
             <div className="flex flex-col gap-4">
               <PhotoCarousel images={property.images} />
-              <KeyFactsCard property={property} valuation={data.valuation} />
+              <KeyFactsCard property={property} valuation={data.valuation} notFound={data.notFound} />
               <DescriptionCard property={property} listingQuality={data.listing_quality} />
             </div>
           </aside>

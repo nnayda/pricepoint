@@ -5,6 +5,29 @@ interface PhotoCarouselProps {
   images: string[];
 }
 
+function PhotoPlaceholder() {
+  return (
+    <div className="aspect-[4/3] flex items-center justify-center rounded-[var(--radius-db-lg)] bg-[var(--color-db-surface-alt)] border border-[var(--color-db-border-subtle)]">
+      <div className="flex flex-col items-center gap-3 text-[var(--color-db-text-muted)]">
+        <svg
+          className="h-16 w-16"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3H21m-3.75 3H21"
+          />
+        </svg>
+        <span className="text-xs font-medium">No photos available</span>
+      </div>
+    </div>
+  );
+}
+
 function PhotoCarousel({ images }: PhotoCarouselProps) {
   const [current, setCurrent] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -32,6 +55,10 @@ function PhotoCarousel({ images }: PhotoCarouselProps) {
       document.removeEventListener("keydown", handleKey);
     };
   }, [fullscreen, prev, next]);
+
+  if (images.length === 0) {
+    return <PhotoPlaceholder />;
+  }
 
   return (
     <>

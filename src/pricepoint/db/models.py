@@ -1383,6 +1383,52 @@ class AcsDemographic(Base):
     )
 
 
+class GreenspaceRegionMetric(Base):
+    """Precomputed greenspace metrics at TIGER geographic levels.
+
+    Stores park/trail counts, area ratios, and z-scores relative to
+    peer regions for block_group, tract, county_subdivision, and county.
+    """
+
+    __tablename__ = "greenspace_region_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    geo_level = Column(String(25), nullable=False, index=True)
+    geoid = Column(String(15), nullable=False, index=True)
+    name = Column(String, nullable=True)
+
+    # Raw counts
+    park_count = Column(Integer, nullable=False, default=0)
+    trail_count = Column(Integer, nullable=False, default=0)
+
+    # Area / length
+    total_park_acres = Column(Float, nullable=False, default=0.0)
+    total_trail_miles = Column(Float, nullable=False, default=0.0)
+    greenspace_area_sqm = Column(Float, nullable=False, default=0.0)
+    region_land_area_sqm = Column(Float, nullable=False, default=0.0)
+    greenspace_ratio = Column(Float, nullable=True)
+
+    # Population-normalized
+    population = Column(Integer, nullable=True)
+    parks_per_1k_residents = Column(Float, nullable=True)
+    greenspace_acres_per_1k_residents = Column(Float, nullable=True)
+
+    # Z-scores (relative to peer regions)
+    greenspace_ratio_zscore = Column(Float, nullable=True)
+    park_count_zscore = Column(Float, nullable=True)
+    trail_count_zscore = Column(Float, nullable=True)
+    total_park_acres_zscore = Column(Float, nullable=True)
+    total_trail_miles_zscore = Column(Float, nullable=True)
+    parks_per_1k_zscore = Column(Float, nullable=True)
+    greenspace_acres_per_1k_zscore = Column(Float, nullable=True)
+
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("geo_level", "geoid", name="uq_greenspace_region_level_geoid"),
+    )
+
+
 class EconomicIndicator(Base):
     """Macroeconomic time-series observation from FRED."""
 

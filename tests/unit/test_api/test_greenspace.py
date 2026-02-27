@@ -60,8 +60,8 @@ def _make_park_row(
     )
 
 
-def _mock_session_with(park_rows=None, greenway_rows=None):
-    """Create a mock session that returns park and greenway rows."""
+def _mock_session_with(park_rows=None, greenway_rows=None, bg_row=None, metric_row=None):
+    """Create a mock session that returns park, greenway, block group, and metric rows."""
     mock_session = MagicMock()
 
     mock_park_result = MagicMock()
@@ -70,7 +70,20 @@ def _mock_session_with(park_rows=None, greenway_rows=None):
     mock_greenway_result = MagicMock()
     mock_greenway_result.all.return_value = greenway_rows or []
 
-    mock_session.execute.side_effect = [mock_park_result, mock_greenway_result]
+    # Block group lookup returns .first()
+    mock_bg_result = MagicMock()
+    mock_bg_result.first.return_value = bg_row
+
+    # Metric lookup returns .first()
+    mock_metric_result = MagicMock()
+    mock_metric_result.first.return_value = metric_row
+
+    mock_session.execute.side_effect = [
+        mock_park_result,
+        mock_greenway_result,
+        mock_bg_result,
+        mock_metric_result,
+    ]
     return mock_session
 
 
@@ -108,7 +121,7 @@ def greenspace_app():
         ),
     ]
 
-    mock_session = _mock_session_with(park_rows, greenway_rows)
+    mock_session = _mock_session_with(park_rows, greenway_rows, bg_row=None, metric_row=None)
 
     def _override_get_db():
         yield mock_session
@@ -132,7 +145,7 @@ def greenspace_client(greenspace_app):
 def empty_greenspace_app():
     """Create a test app with mocked DB returning no greenspace data."""
     app = create_app()
-    mock_session = _mock_session_with([], [])
+    mock_session = _mock_session_with([], [], bg_row=None, metric_row=None)
 
     def _override_get_db():
         yield mock_session
@@ -272,6 +285,58 @@ class TestGreenspaceWithData:
         assert len(parks) == 2
 
 
+class TestGreenspaceZScoreLookup:
+    """Tests for greenspace z-score lookup from precomputed metrics."""
+
+    def test_returns_precomputed_zscore(self):
+        """When block group and metric row exist, should return the z-score."""
+        app = create_app()
+
+        park_rows = [_make_park_row(distance_miles=0.5, acreage=10.0)]
+        greenway_rows = [_make_greenway_row(distance_miles=0.3)]
+
+        bg_row = _FakeRow(geoid="371830501001")
+        metric_row = _FakeRow(greenspace_ratio_zscore=1.45)
+
+        mock_session = _mock_session_with(park_rows, greenway_rows, bg_row, metric_row)
+
+        def _override_get_db():
+            yield mock_session
+
+        async def _override_get_valkey():
+            yield None
+
+        app.dependency_overrides[get_db] = _override_get_db
+        app.dependency_overrides[get_valkey] = _override_get_valkey
+
+        client = TestClient(app)
+        resp = client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
+        assert resp.status_code == 200
+        assert resp.json()["metrics"]["greenspace_z_score"] == 1.45
+        app.dependency_overrides.clear()
+
+    def test_falls_back_to_zero_when_no_block_group(self):
+        """When no block group contains the point, z-score should be 0.0."""
+        app = create_app()
+
+        mock_session = _mock_session_with([], [], bg_row=None, metric_row=None)
+
+        def _override_get_db():
+            yield mock_session
+
+        async def _override_get_valkey():
+            yield None
+
+        app.dependency_overrides[get_db] = _override_get_db
+        app.dependency_overrides[get_valkey] = _override_get_valkey
+
+        client = TestClient(app)
+        resp = client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
+        assert resp.status_code == 200
+        assert resp.json()["metrics"]["greenspace_z_score"] == 0.0
+        app.dependency_overrides.clear()
+
+
 class TestGreenspaceEmptyResults:
     """Tests for when no greenspace features are found."""
 
@@ -382,7 +447,7 @@ class TestGreenspaceValkeyCaching:
         mock_valkey = AsyncMock()
         mock_valkey.get.return_value = None  # Cache miss
 
-        mock_session = _mock_session_with([], [])
+        mock_session = _mock_session_with([], [], bg_row=None, metric_row=None)
 
         def _override_get_db():
             yield mock_session
@@ -396,8 +461,8 @@ class TestGreenspaceValkeyCaching:
         client = TestClient(app)
         resp = client.get("/api/greenspace", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
-        # DB was queried (parks + greenways = 2 calls)
-        assert mock_session.execute.call_count == 2
+        # DB was queried (parks + greenways + block group lookup = 3 calls min)
+        assert mock_session.execute.call_count >= 2
         # Cache was written
         mock_valkey.set.assert_called_once()
         app.dependency_overrides.clear()

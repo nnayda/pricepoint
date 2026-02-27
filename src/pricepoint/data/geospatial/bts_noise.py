@@ -384,12 +384,38 @@ band_merged AS (
     FROM smoothed
     GROUP BY noise_min_db, noise_max_db, noise_band, source_layer, loaded_at
 ),
+holes_filled AS (
+    SELECT
+        noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
+        ST_Multi(ST_Collect(filled_poly)) AS band_geom
+    FROM (
+        SELECT
+            noise_min_db, noise_max_db, noise_band, source_layer, loaded_at,
+            COALESCE(
+                ST_MakePolygon(
+                    ST_ExteriorRing(poly),
+                    (SELECT array_agg(ST_InteriorRingN(poly, gs.n))
+                     FROM generate_series(1, ST_NumInteriorRings(poly)) gs(n)
+                     WHERE ST_Area(
+                         ST_MakePolygon(ST_InteriorRingN(poly, gs.n))::geography
+                     ) >= :max_hole_area)
+                ),
+                ST_MakePolygon(ST_ExteriorRing(poly))
+            ) AS filled_poly
+        FROM (
+            SELECT *, (ST_Dump(band_geom)).geom AS poly
+            FROM band_merged
+        ) dumped
+        WHERE ST_GeometryType(poly) = 'ST_Polygon'
+    ) filled
+    GROUP BY noise_min_db, noise_max_db, noise_band, source_layer, loaded_at
+),
 higher_union AS (
     SELECT
         b.noise_min_db,
         ST_Union(louder.band_geom) AS louder_geom
-    FROM band_merged b
-    JOIN band_merged louder ON louder.noise_min_db > b.noise_min_db
+    FROM holes_filled b
+    JOIN holes_filled louder ON louder.noise_min_db > b.noise_min_db
     GROUP BY b.noise_min_db
 ),
 cut AS (
@@ -405,7 +431,7 @@ cut AS (
                 3
             )
         ) AS cut_geom
-    FROM band_merged b
+    FROM holes_filled b
     LEFT JOIN higher_union h ON h.noise_min_db = b.noise_min_db
 )
 INSERT INTO noises (
@@ -419,6 +445,7 @@ SELECT
     loaded_at
 FROM cut
 WHERE cut_geom IS NOT NULL AND NOT ST_IsEmpty(cut_geom)
+    AND ST_Area(cut_geom::geography) >= :min_area
 """
 
 
@@ -436,6 +463,8 @@ def _build_noise_production(
             "tolerance": settings.bts_noise_simplify_tolerance,
             "cluster_eps": settings.bts_noise_cluster_eps,
             "buffer_dist": settings.bts_noise_buffer_distance,
+            "max_hole_area": settings.bts_noise_max_hole_area_sq_m,
+            "min_area": settings.bts_noise_min_polygon_area_sq_m,
             "run_started": run_started,
             "source_layer": source_layer,
         },

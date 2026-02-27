@@ -397,6 +397,8 @@ class TestBuildNoiseProduction:
         mock_settings.bts_noise_simplify_tolerance = 0.001
         mock_settings.bts_noise_cluster_eps = 0.001
         mock_settings.bts_noise_buffer_distance = 0.0005
+        mock_settings.bts_noise_max_hole_area_sq_m = 50000.0
+        mock_settings.bts_noise_min_polygon_area_sq_m = 500.0
 
         run_started = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -413,6 +415,8 @@ class TestBuildNoiseProduction:
         assert params["tolerance"] == 0.001
         assert params["cluster_eps"] == 0.001
         assert params["buffer_dist"] == 0.0005
+        assert params["max_hole_area"] == 50000.0
+        assert params["min_area"] == 500.0
         assert params["run_started"] == run_started
         assert params["source_layer"] == "aviation"
 
@@ -430,6 +434,8 @@ class TestBuildNoiseProduction:
         mock_settings.bts_noise_simplify_tolerance = 0.001
         mock_settings.bts_noise_cluster_eps = 0.001
         mock_settings.bts_noise_buffer_distance = 0.0005
+        mock_settings.bts_noise_max_hole_area_sq_m = 50000.0
+        mock_settings.bts_noise_min_polygon_area_sq_m = 500.0
 
         count = _build_noise_production(
             mock_session, "rail", datetime(2026, 1, 1, tzinfo=UTC), mock_settings
@@ -442,6 +448,9 @@ class TestBuildNoiseProduction:
 
         assert "ST_Difference" in _PROMOTE_SQL
         assert "ST_CollectionExtract" in _PROMOTE_SQL
+        assert "holes_filled" in _PROMOTE_SQL
+        assert "max_hole_area" in _PROMOTE_SQL
+        assert "min_area" in _PROMOTE_SQL
 
 
 # ---------------------------------------------------------------------------

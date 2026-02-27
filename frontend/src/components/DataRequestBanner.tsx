@@ -35,7 +35,7 @@ function DataRequestBanner({ address, lat, lon, onDismiss }: DataRequestBannerPr
 
   return (
     <div
-      className="fixed inset-x-0 top-16 z-[60] border-b border-[var(--color-db-yellow-muted)] bg-[var(--color-db-yellow-muted)]"
+      className="border-b border-[var(--color-db-yellow-muted)] bg-[var(--color-db-yellow-muted)]"
       role="alert"
     >
       <div className="mx-auto flex max-w-[1680px] items-center gap-3 px-4 py-2.5">

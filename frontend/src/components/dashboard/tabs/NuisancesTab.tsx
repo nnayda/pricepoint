@@ -163,6 +163,16 @@ const NOISE_SOURCE_OPTIONS: { value: NoiseSourceLayer; label: string }[] = [
 
 const ALL_SOURCES = new Set<NoiseSourceLayer>(NOISE_SOURCE_OPTIONS.map((o) => o.value));
 
+type InfraLayer = "airport" | "road" | "railroad";
+
+const INFRA_OPTIONS: { value: InfraLayer; label: string }[] = [
+  { value: "road", label: "Roads" },
+  { value: "railroad", label: "Rail" },
+  { value: "airport", label: "Airports" },
+];
+
+const ALL_INFRA = new Set<InfraLayer>(INFRA_OPTIONS.map((o) => o.value));
+
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   aviation: "Airport",
   road: "Road",
@@ -198,13 +208,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     });
   }, []);
 
-  type InfraLayer = "airport" | "road" | "railroad";
-  const INFRA_OPTIONS: { value: InfraLayer; label: string }[] = [
-    { value: "road", label: "Roads" },
-    { value: "railroad", label: "Rail" },
-    { value: "airport", label: "Airports" },
-  ];
-  const [activeInfra, setActiveInfra] = useState<Set<InfraLayer>>(new Set());
+  const [activeInfra, setActiveInfra] = useState<Set<InfraLayer>>(ALL_INFRA);
 
   const toggleInfra = useCallback((layer: InfraLayer) => {
     setActiveInfra((prev) => {

@@ -18,7 +18,12 @@ from pricepoint.api.schemas.greenspace import (
     GreenspaceMetrics,
     GreenspaceResponse,
 )
-from pricepoint.db.models import Greenspace, Trail
+from pricepoint.db.models import (
+    Greenspace,
+    GreenspaceRegionMetric,
+    TigerBlockGroup,
+    Trail,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -191,12 +196,32 @@ async def get_greenspace(
         round(min(row.distance_miles for row in greenway_rows), 2) if greenway_rows else 0.0
     )
 
+    # Look up precomputed z-score from block group containing this point
+    greenspace_z = 0.0
+    try:
+        bg_row = db.execute(
+            select(TigerBlockGroup.geoid).where(
+                func.ST_Contains(TigerBlockGroup.geom, property_point)
+            )
+        ).first()
+        if bg_row is not None:
+            metric_row = db.execute(
+                select(GreenspaceRegionMetric.greenspace_ratio_zscore).where(
+                    GreenspaceRegionMetric.geo_level == "block_group",
+                    GreenspaceRegionMetric.geoid == bg_row.geoid,
+                )
+            ).first()
+            if metric_row is not None and metric_row.greenspace_ratio_zscore is not None:
+                greenspace_z = round(metric_row.greenspace_ratio_zscore, 2)
+    except Exception:
+        logger.warning("Failed to look up greenspace z-score", exc_info=True)
+
     metrics = GreenspaceMetrics(
         parks_within_1mi=parks_within_1mi,
         nearest_park_miles=nearest_park_miles,
         nearest_greenway_miles=nearest_greenway_miles,
         total_green_acres_1mi=total_green_acres_1mi,
-        greenspace_z_score=0.0,
+        greenspace_z_score=greenspace_z,
     )
 
     response = GreenspaceResponse(features=features, metrics=metrics)

@@ -7,6 +7,7 @@ import PriceHistoryChart from "../charts/PriceHistoryChart";
 import ShapWaterfall from "../charts/ShapWaterfall";
 import DashboardDonut from "../charts/DashboardDonut";
 import SectionHeading from "../ui/SectionHeading";
+import NoDataOverlay from "../ui/NoDataOverlay";
 import { MORTGAGE_COLORS } from "../../../utils/chartTokens";
 
 interface ValuationTabProps {
@@ -75,7 +76,7 @@ function getOutcome(v: DashboardData["valuation"]): Outcome {
 }
 
 function ValuationTab({ data }: ValuationTabProps) {
-  const { valuation, shap_features, price_history, mortgage_defaults } = data;
+  const { valuation, shap_features, price_history, mortgage_defaults, notFound } = data;
   const outcome = getOutcome(valuation);
 
   const [homePrice, setHomePrice] = useState(mortgage_defaults.home_price);
@@ -108,7 +109,8 @@ function ValuationTab({ data }: ValuationTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Model Valuation Estimate — full width */}
-      <DashboardCard>
+      <DashboardCard className="relative overflow-hidden">
+        {notFound && <NoDataOverlay message="Valuation estimate not available." />}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
@@ -145,7 +147,8 @@ function ValuationTab({ data }: ValuationTabProps) {
 
       {/* Price History + SHAP side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCard>
+        <DashboardCard className="relative overflow-hidden">
+          {notFound && <NoDataOverlay message="Price history not available." />}
           <div className="mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Price History
@@ -154,7 +157,8 @@ function ValuationTab({ data }: ValuationTabProps) {
           <PriceHistoryChart data={price_history} showNeighborhood={true} />
         </DashboardCard>
 
-        <DashboardCard>
+        <DashboardCard className="relative overflow-hidden">
+          {notFound && <NoDataOverlay message="Value drivers not available." />}
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Value Drivers (SHAP)

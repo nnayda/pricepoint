@@ -1,15 +1,17 @@
 """Collect PAD-US (Protected Areas Database) greenspace data.
 
-Downloads the PAD-US GeoPackage from USGS ScienceBase, filters to
-publicly accessible terrestrial areas, and upserts into the greenspaces
-table keyed on source_id (PAD-US FID).
+Downloads the PAD-US Geodatabase ZIP from USGS ScienceBase, extracts the
+.gdb, filters to publicly accessible terrestrial areas, and upserts into
+the greenspaces table keyed on source_id (PAD-US FID).
 """
 
 from __future__ import annotations
 
 import logging
 import tempfile
+import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
@@ -98,19 +100,30 @@ def fetch_pad_us() -> int:
     settings = get_settings()
     run_started = datetime.now(UTC)
 
-    # Download GeoPackage to temp file
-    logger.info("Downloading PAD-US GeoPackage from %s", settings.pad_us_download_url)
-    with tempfile.NamedTemporaryFile(suffix=".gpkg", delete=True) as tmp:
+    # Download Geodatabase ZIP and extract
+    logger.info("Downloading PAD-US Geodatabase ZIP from %s", settings.pad_us_download_url)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = Path(tmpdir) / "padus.zip"
         with httpx.stream(
             "GET", settings.pad_us_download_url, timeout=600, follow_redirects=True
         ) as resp:
             resp.raise_for_status()
-            for chunk in resp.iter_bytes(chunk_size=8192):
-                tmp.write(chunk)
-        tmp.flush()
+            with open(zip_path, "wb") as f:
+                for chunk in resp.iter_bytes(chunk_size=8192):
+                    f.write(chunk)
 
-        logger.info("Reading layer %s from GeoPackage", settings.pad_us_layer_name)
-        gdf = gpd.read_file(tmp.name, layer=settings.pad_us_layer_name)
+        logger.info("Extracting ZIP archive")
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(tmpdir)
+
+        # Find the .gdb directory inside the extracted files
+        gdb_dirs = list(Path(tmpdir).rglob("*.gdb"))
+        if not gdb_dirs:
+            raise FileNotFoundError("No .gdb directory found in PAD-US ZIP archive")
+        gdb_path = gdb_dirs[0]
+
+        logger.info("Reading layer %s from %s", settings.pad_us_layer_name, gdb_path.name)
+        gdf = gpd.read_file(gdb_path, layer=settings.pad_us_layer_name)
 
     logger.info("PAD-US raw features: %d", len(gdf))
 

@@ -8,6 +8,7 @@ import { getDomColor } from "../../../utils/chartTokens";
 interface KeyFactsCardProps {
   property: DashboardProperty;
   valuation: DashboardValuation;
+  notFound?: boolean;
 }
 
 function fmt(n: number): string {
@@ -33,7 +34,7 @@ function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor(diff / 86_400_000));
 }
 
-function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
+function KeyFactsCard({ property, valuation, notFound }: KeyFactsCardProps) {
   const isSold = property.listing_status === "Sold";
   const badgeDays =
     isSold && property.sold_date ? daysSince(property.sold_date) : property.days_on_market;
@@ -47,26 +48,34 @@ function KeyFactsCard({ property, valuation }: KeyFactsCardProps) {
     <DashboardCard>
       <div className="flex flex-col gap-4">
         {/* Status + Price */}
-        <div className="flex items-start justify-between">
+        {notFound ? (
           <div className="flex flex-col gap-1">
-            <div className="w-fit">
-              <StatusBadge status={property.listing_status} />
+            <span className="text-sm font-medium text-[var(--color-db-text-muted)]">
+              Unlisted Property
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-1">
+              <div className="w-fit">
+                <StatusBadge status={property.listing_status} />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <MonoValue value={fmtUsd(valuation.listed_price)} size="xl" />
+                <span className="text-xs text-[var(--color-db-text-tertiary)]">
+                  <span className="font-db-mono">${valuation.price_per_sqft}</span>
+                  /sqft
+                </span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <MonoValue value={fmtUsd(valuation.listed_price)} size="xl" />
-              <span className="text-xs text-[var(--color-db-text-tertiary)]">
-                <span className="font-db-mono">${valuation.price_per_sqft}</span>
-                /sqft
-              </span>
+            <div
+              className="rounded-[var(--radius-db-xs)] px-2.5 py-1 text-xs font-medium"
+              style={{ backgroundColor: domColor.bg, color: domColor.text }}
+            >
+              {badgeLabel}
             </div>
           </div>
-          <div
-            className="rounded-[var(--radius-db-xs)] px-2.5 py-1 text-xs font-medium"
-            style={{ backgroundColor: domColor.bg, color: domColor.text }}
-          >
-            {badgeLabel}
-          </div>
-        </div>
+        )}
 
         {/* Address */}
         <div>

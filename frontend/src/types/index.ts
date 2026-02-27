@@ -738,4 +738,6 @@ export interface DashboardData {
   listing_quality?: ListingQualityScore;
   property_details: PropertyDetailSection[];
   model_features: ModelFeature[];
+  /** True when the property was not found in the database */
+  notFound?: boolean;
 }
