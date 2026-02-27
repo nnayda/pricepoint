@@ -14,6 +14,7 @@ import httpx
 from geoalchemy2.shape import from_shape
 from shapely.geometry import MultiLineString
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from pricepoint.config.settings import get_settings
 from pricepoint.data.geospatial.tiger_boundaries import US_STATE_FIPS
@@ -149,7 +150,31 @@ def fetch_roads(state_fips: str | None = None) -> None:
                 )
 
             if records:
-                session.add_all(records)
+                stmt = (
+                    pg_insert(Road)
+                    .values(
+                        [
+                            {
+                                "linearid": r.linearid,
+                                "fullname": r.fullname,
+                                "rttyp": r.rttyp,
+                                "mtfcc": r.mtfcc,
+                                "geom": r.geom,
+                            }
+                            for r in records
+                        ]
+                    )
+                    .on_conflict_do_nothing(index_elements=["linearid"])
+                )
+                cursor_result = session.execute(stmt)
+                inserted = cursor_result.rowcount  # type: ignore[attr-defined]
+                skipped = len(records) - (inserted or 0)
+                if skipped:
+                    logger.info(
+                        "TIGER roads state %s: skipped %d duplicate linearids",
+                        fips,
+                        skipped,
+                    )
                 session.flush()
 
             if dupes:

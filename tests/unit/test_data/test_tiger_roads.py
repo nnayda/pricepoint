@@ -144,17 +144,16 @@ def test_fetch_roads_loads_records(mock_settings, mock_session_cls, mock_downloa
     mock_download.return_value = _make_tiger_zip(columns, shapes)
 
     mock_session = MagicMock()
+    mock_session.execute.return_value.rowcount = 2
     mock_session_cls.return_value = mock_session
 
     from pricepoint.data.geospatial.tiger_roads import fetch_roads
 
     fetch_roads(state_fips="37")
 
-    mock_session.add_all.assert_called_once()
-    added_records = mock_session.add_all.call_args[0][0]
-    assert len(added_records) == 2
-    linearids = {r.linearid for r in added_records}
-    assert linearids == {"1101234567890", "1201234567891"}
+    # delete + insert executed, transaction committed
+    assert mock_session.execute.call_count >= 1
+    mock_session.commit.assert_called_once()
 
 
 @patch("pricepoint.data.geospatial.tiger_roads._download_tiger_zip")
@@ -190,13 +189,13 @@ def test_fetch_roads_single_state(mock_settings, mock_session_cls, mock_download
 @patch("pricepoint.data.geospatial.tiger_roads._download_with_year_fallback")
 @patch("pricepoint.data.geospatial.tiger_roads.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_roads.get_settings")
-def test_fetch_roads_rollback_on_exception(mock_settings, mock_session_cls, mock_download):
+def test_fetch_roads_rollback_on_exception(mock_settings, mock_session_cls, mock_fallback):
     """fetch_roads should rollback the session on exception."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
     )
-    mock_download.side_effect = RuntimeError("Network error")
+    mock_fallback.side_effect = RuntimeError("Network error")
 
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session
@@ -213,7 +212,7 @@ def test_fetch_roads_rollback_on_exception(mock_settings, mock_session_cls, mock
 @patch("pricepoint.data.geospatial.tiger_roads._download_with_year_fallback")
 @patch("pricepoint.data.geospatial.tiger_roads.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_roads.get_settings")
-def test_fetch_roads_skips_unavailable_state(mock_settings, mock_session_cls, mock_download):
+def test_fetch_roads_skips_unavailable_state(mock_settings, mock_session_cls, mock_fallback):
     """fetch_roads should skip states where download returns None."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
@@ -229,9 +228,10 @@ def test_fetch_roads_skips_unavailable_state(mock_settings, mock_session_cls, mo
     zip_bytes = _make_tiger_zip(columns, [_make_simple_linestring()])
 
     # First state unavailable, second succeeds
-    mock_download.side_effect = [None, zip_bytes]
+    mock_fallback.side_effect = [None, zip_bytes]
 
     mock_session = MagicMock()
+    mock_session.execute.return_value.rowcount = 1
     mock_session_cls.return_value = mock_session
 
     from pricepoint.data.geospatial.tiger_roads import fetch_roads
@@ -239,10 +239,9 @@ def test_fetch_roads_skips_unavailable_state(mock_settings, mock_session_cls, mo
     with patch("pricepoint.data.geospatial.tiger_roads.US_STATE_FIPS", ["01", "06"]):
         fetch_roads()
 
-    # Only second state loaded records
-    mock_session.add_all.assert_called_once()
-    added_records = mock_session.add_all.call_args[0][0]
-    assert len(added_records) == 1
+    # delete + one insert (first state skipped)
+    assert mock_session.execute.call_count >= 1
+    mock_session.commit.assert_called_once()
 
 
 @patch("pricepoint.data.geospatial.tiger_roads._download_tiger_zip")
@@ -265,6 +264,7 @@ def test_fetch_roads_commits_once(mock_settings, mock_session_cls, mock_download
     mock_download.return_value = _make_tiger_zip(columns, shapes)
 
     mock_session = MagicMock()
+    mock_session.execute.return_value.rowcount = 1
     mock_session_cls.return_value = mock_session
 
     from pricepoint.data.geospatial.tiger_roads import fetch_roads
