@@ -290,7 +290,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     if (layer === "railroad")
       return { color: "#F97316", weight: 2, opacity: 0.7, dashArray: "6 4" };
     if (layer === "airport")
-      return { color: "#EF4444", weight: 1, fillColor: "#EF4444", fillOpacity: 0.5 };
+      return { color: "#7C3AED", weight: 1, fillColor: "#7C3AED", fillOpacity: 0.35 };
     return { color: "#94A3B8", weight: 1 };
   }, []);
 
@@ -298,13 +298,18 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     (feature: GeoJSON.Feature, latlng: L.LatLng): L.Layer => {
       const layer = feature.properties?.layer;
       if (layer === "airport") {
-        return L.circleMarker(latlng, {
-          radius: 6,
-          color: "#EF4444",
-          fillColor: "#EF4444",
-          fillOpacity: 0.7,
-          weight: 2,
+        const size = 28;
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:#7C3AED;border-radius:6px;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(124,58,237,0.5);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+            </svg>
+          </div>`,
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
         });
+        return L.marker(latlng, { icon });
       }
       return L.circleMarker(latlng, { radius: 4, color: "#94A3B8", fillOpacity: 0.5, weight: 1 });
     },
