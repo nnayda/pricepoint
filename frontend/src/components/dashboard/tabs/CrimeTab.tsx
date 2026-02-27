@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import type { DashboardData } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import RadiusSelect from "../maps/RadiusSelect";
+import RadiusCircle from "../maps/RadiusCircle";
+import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { RISK_ICONS } from "../ui/Icons";
 import SectionHeading from "../ui/SectionHeading";
 import {
@@ -31,16 +34,34 @@ const levelColors: Record<string, string> = {
 
 const HIDDEN_RISK_IDS = new Set(["earthquake", "air"]);
 
+/** Haversine distance in miles between two lat/lon points. */
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function CrimeTab({ data }: CrimeTabProps) {
   const { risks, crime, property } = data;
   const [mapMode, setMapMode] = useState<"density" | "incidents">("incidents");
+  const [radius, setRadius] = useMapRadius();
 
-  const crimeMarkers = crime.incidents.map((inc) => ({
-    lat: inc.lat,
-    lon: inc.lon,
-    label: `${inc.incident_type} — ${inc.date}`,
-    color: COLOR_RED,
-  }));
+  const crimeMarkers = useMemo(
+    () =>
+      crime.incidents
+        .filter((inc) => haversineMiles(property.lat, property.lon, inc.lat, inc.lon) <= radius)
+        .map((inc) => ({
+          lat: inc.lat,
+          lon: inc.lon,
+          label: `${inc.incident_type} — ${inc.date}`,
+          color: COLOR_RED,
+        })),
+    [crime.incidents, property.lat, property.lon, radius],
+  );
 
   const visibleCategories = risks.categories.filter((c) => !HIDDEN_RISK_IDS.has(c.id));
 
@@ -123,10 +144,7 @@ function CrimeTab({ data }: CrimeTabProps) {
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
                 {crime.breakdown.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={CRIME_PALETTE[i % CRIME_PALETTE.length]}
-                  />
+                  <Cell key={i} fill={CRIME_PALETTE[i % CRIME_PALETTE.length]} />
                 ))}
               </Bar>
             </BarChart>
@@ -139,21 +157,24 @@ function CrimeTab({ data }: CrimeTabProps) {
         <DashboardCard className="flex h-full flex-col">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">Crime Map</h3>
-            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-              {(["incidents", "density"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setMapMode(mode)}
-                  className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                    mapMode === mode
-                      ? "bg-[var(--color-db-accent)] text-white"
-                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                {(["incidents", "density"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setMapMode(mode)}
+                    className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                      mapMode === mode
+                        ? "bg-[var(--color-db-accent)] text-white"
+                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="mb-3 flex justify-center gap-2">
@@ -166,9 +187,7 @@ function CrimeTab({ data }: CrimeTabProps) {
                 key={stat.label}
                 className="flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
               >
-                <span
-                  className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
-                >
+                <span className="font-db-sans text-[9px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]">
                   {stat.label}
                 </span>
                 <span
@@ -192,14 +211,22 @@ function CrimeTab({ data }: CrimeTabProps) {
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={14}
+              zoom={RADIUS_ZOOM[radius]}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
+                {
+                  lat: property.lat,
+                  lon: property.lon,
+                  label: "Property",
+                  color: COLOR_INDIGO,
+                  isProperty: true,
+                },
                 ...(mapMode === "incidents" ? crimeMarkers : []),
               ]}
               height="100%"
               minHeight="400px"
-            />
+            >
+              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
+            </DashboardMap>
           </div>
         </DashboardCard>
       </div>

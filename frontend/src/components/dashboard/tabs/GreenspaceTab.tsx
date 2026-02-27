@@ -3,6 +3,9 @@ import { useMapEvents } from "react-leaflet";
 import type { DashboardData, GreenspaceFeature } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import RadiusSelect from "../maps/RadiusSelect";
+import RadiusCircle from "../maps/RadiusCircle";
+import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { TreesIcon, FootprintsIcon, MapPinIcon } from "../ui/Icons";
 import { useGreenspace } from "../../../hooks/useGreenspace";
 
@@ -138,7 +141,8 @@ const SCOPE_ZOOM: Record<MapScope, number> = {
 
 function GreenspaceTab({ data }: GreenspaceTabProps) {
   const { property } = data;
-  const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon);
+  const [radius, setRadius] = useMapRadius();
+  const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon, radius);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapScope, setMapScope] = useState<MapScope>("neighborhood");
@@ -230,21 +234,24 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
               Greenspace Map
             </h3>
-            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-              {(["subdivision", "neighborhood", "town"] as const).map((scope) => (
-                <button
-                  key={scope}
-                  type="button"
-                  onClick={() => setMapScope(scope)}
-                  className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
-                    mapScope === scope
-                      ? "bg-[var(--color-db-accent)] text-white"
-                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                  }`}
-                >
-                  {scope}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                {(["subdivision", "neighborhood", "town"] as const).map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setMapScope(scope)}
+                    className={`rounded px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                      mapScope === scope
+                        ? "bg-[var(--color-db-accent)] text-white"
+                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                    }`}
+                  >
+                    {scope}
+                  </button>
+                ))}
+              </div>
+              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="mb-3 flex justify-center gap-2">
@@ -281,7 +288,7 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={SCOPE_ZOOM[mapScope]}
+              zoom={Math.min(SCOPE_ZOOM[mapScope], RADIUS_ZOOM[radius])}
               markers={[
                 {
                   lat: property.lat,
@@ -298,6 +305,7 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               selectedId={selectedId}
             >
               <MapBoundsTracker onBoundsChange={handleBoundsChange} />
+              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
             </DashboardMap>
           </div>
         </DashboardCard>

@@ -129,6 +129,7 @@ vi.mock("react-leaflet", () => ({
       data-has-point-to-layer={pointToLayer ? "true" : "false"}
     />
   ),
+  Circle: () => null,
   useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
 
@@ -327,57 +328,28 @@ describe("NuisancesTab", () => {
       expect(screen.getByText("Airports")).toBeInTheDocument();
     });
 
-    it("infrastructure layers are off by default", () => {
+    it("infrastructure layers are on by default", () => {
       render(<NuisancesTab data={mockDashboardData} />);
       const layers = screen.getAllByTestId("geojson-layer");
-      // Only the noise layer should be present, not infrastructure
-      expect(layers).toHaveLength(1);
-    });
-
-    it("toggling Airports on shows infrastructure GeoJSON layer with pointToLayer", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      fireEvent.click(screen.getByText("Airports"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      // noise + infra
-      expect(layers).toHaveLength(2);
-      const infraLayer = layers[1];
-      expect(infraLayer.getAttribute("data-feature-count")).toBe("1");
-      expect(infraLayer.getAttribute("data-has-point-to-layer")).toBe("true");
-    });
-
-    it("toggling Roads on shows road features", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      fireEvent.click(screen.getByText("Roads"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
-      expect(layers).toHaveLength(2);
-      expect(layers[1].getAttribute("data-feature-count")).toBe("1");
-    });
-
-    it("toggling all infrastructure layers on shows all 3 features", () => {
-      render(<NuisancesTab data={mockDashboardData} />);
-
-      fireEvent.click(screen.getByText("Roads"));
-      fireEvent.click(screen.getByText("Rail"));
-      fireEvent.click(screen.getByText("Airports"));
-
-      const layers = screen.getAllByTestId("geojson-layer");
+      // noise + infra both present
       expect(layers).toHaveLength(2);
       expect(layers[1].getAttribute("data-feature-count")).toBe("3");
     });
 
-    it("toggling an infrastructure layer off removes its features", () => {
+    it("toggling Airports off removes airport features", () => {
       render(<NuisancesTab data={mockDashboardData} />);
 
-      // Turn on all
-      fireEvent.click(screen.getByText("Roads"));
-      fireEvent.click(screen.getByText("Rail"));
       fireEvent.click(screen.getByText("Airports"));
 
-      // Turn off roads
+      const layers = screen.getAllByTestId("geojson-layer");
+      // noise + infra (2 remaining features)
+      expect(layers).toHaveLength(2);
+      expect(layers[1].getAttribute("data-feature-count")).toBe("2");
+    });
+
+    it("toggling Roads off removes road features", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
       fireEvent.click(screen.getByText("Roads"));
 
       const layers = screen.getAllByTestId("geojson-layer");
@@ -385,10 +357,36 @@ describe("NuisancesTab", () => {
       expect(layers[1].getAttribute("data-feature-count")).toBe("2");
     });
 
-    it("infrastructure GeoJSON always includes pointToLayer prop", () => {
+    it("toggling all infrastructure layers off hides infra GeoJSON", () => {
       render(<NuisancesTab data={mockDashboardData} />);
 
       fireEvent.click(screen.getByText("Roads"));
+      fireEvent.click(screen.getByText("Rail"));
+      fireEvent.click(screen.getByText("Airports"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      // Only noise layer remains
+      expect(layers).toHaveLength(1);
+    });
+
+    it("toggling an infrastructure layer back on re-adds its features", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
+
+      // Turn off all
+      fireEvent.click(screen.getByText("Roads"));
+      fireEvent.click(screen.getByText("Rail"));
+      fireEvent.click(screen.getByText("Airports"));
+
+      // Turn roads back on
+      fireEvent.click(screen.getByText("Roads"));
+
+      const layers = screen.getAllByTestId("geojson-layer");
+      expect(layers).toHaveLength(2);
+      expect(layers[1].getAttribute("data-feature-count")).toBe("1");
+    });
+
+    it("infrastructure GeoJSON always includes pointToLayer prop", () => {
+      render(<NuisancesTab data={mockDashboardData} />);
 
       const layers = screen.getAllByTestId("geojson-layer");
       const infraLayer = layers[1];

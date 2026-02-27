@@ -25,6 +25,7 @@ def _make_infra_row(
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
+    line_geojson=None,
 ):
     return _FakeRow(
         infra_id=infra_id,
@@ -33,6 +34,7 @@ def _make_infra_row(
         lat=lat,
         lon=lon,
         distance_miles=distance_miles,
+        line_geojson=line_geojson,
     )
 
 

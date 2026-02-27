@@ -3,6 +3,9 @@ import { GeoJSON } from "react-leaflet";
 import type { DashboardData, NegativePoi, InfrastructureType } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import RadiusSelect from "../maps/RadiusSelect";
+import RadiusCircle from "../maps/RadiusCircle";
+import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { MapPinIcon } from "../ui/Icons";
 import { useRisks } from "../../../hooks/useRisks";
 
@@ -187,8 +190,9 @@ function RisksTab({ data }: RisksTabProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<Set<InfrastructureType>>(ALL_TYPES);
+  const [radius, setRadius] = useMapRadius();
 
-  const { data: risksData, loading } = useRisks(property.lat, property.lon);
+  const { data: risksData, loading } = useRisks(property.lat, property.lon, radius);
 
   const toggleType = useCallback((t: InfrastructureType) => {
     setActiveTypes((prev) => {
@@ -243,10 +247,7 @@ function RisksTab({ data }: RisksTabProps) {
     [filteredFeatures],
   );
 
-  const lineFeatures = useMemo(
-    () => filteredFeatures.filter((f) => f.geojson),
-    [filteredFeatures],
-  );
+  const lineFeatures = useMemo(() => filteredFeatures.filter((f) => f.geojson), [filteredFeatures]);
 
   const lineGeojson = useMemo((): GeoJSON.FeatureCollection => {
     const features = lineFeatures.map((f) => ({
@@ -365,27 +366,30 @@ function RisksTab({ data }: RisksTabProps) {
                 <span className="ml-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent align-middle" />
               )}
             </h3>
-            <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
-              {INFRA_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => toggleType(opt.value)}
-                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                    activeTypes.has(opt.value)
-                      ? "bg-[var(--color-db-accent)] text-white"
-                      : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                {INFRA_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleType(opt.value)}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                      activeTypes.has(opt.value)
+                        ? "bg-[var(--color-db-accent)] text-white"
+                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={13}
+              zoom={RADIUS_ZOOM[radius]}
               markers={[
                 {
                   lat: property.lat,
@@ -401,6 +405,7 @@ function RisksTab({ data }: RisksTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
+              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
               {filteredBoundaries.features.length > 0 && (
                 <GeoJSON
                   key={`risk-boundaries-${[...activeTypes].sort().join(",")}`}
@@ -435,9 +440,7 @@ function RisksTab({ data }: RisksTabProps) {
                       className="inline-block h-3 w-3 rounded-sm"
                       style={{ backgroundColor: INFRA_TYPE_COLORS[o.value] }}
                     />
-                    <span className="text-[11px] text-[var(--color-db-text-muted)]">
-                      {o.label}
-                    </span>
+                    <span className="text-[11px] text-[var(--color-db-text-muted)]">{o.label}</span>
                   </div>
                 ))}
               </div>
@@ -467,9 +470,7 @@ function RisksTab({ data }: RisksTabProps) {
                           borderColor: "#F59E0B",
                         }}
                       />
-                      <span className="text-[11px] text-[var(--color-db-text-muted)]">
-                        Caution
-                      </span>
+                      <span className="text-[11px] text-[var(--color-db-text-muted)]">Caution</span>
                     </div>
                   </div>
                 </>

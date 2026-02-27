@@ -80,6 +80,7 @@ vi.mock("react-leaflet", () => ({
   Marker: () => <div data-testid="marker" />,
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   GeoJSON: () => <div data-testid="geojson-layer" />,
+  Circle: () => null,
   useMap: () => ({ fitBounds: vi.fn(), setView: vi.fn() }),
 }));
 
@@ -133,11 +134,11 @@ describe("RisksTab", () => {
 
   it("renders filter toggle buttons", () => {
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText("Cell Towers")).toBeInTheDocument();
-    expect(screen.getByText("Transmission Lines")).toBeInTheDocument();
-    expect(screen.getByText("Power Plants")).toBeInTheDocument();
-    expect(screen.getByText("Gas Pipelines")).toBeInTheDocument();
-    expect(screen.getByText("Oil Pipelines")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cell Towers" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Transmission Lines" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Power Plants" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gas Pipelines" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Oil Pipelines" })).toBeInTheDocument();
   });
 
   it("filters cards when toggle is clicked", () => {
@@ -147,7 +148,7 @@ describe("RisksTab", () => {
     expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
 
     // Click "Transmission Lines" to deactivate
-    fireEvent.click(screen.getByText("Transmission Lines"));
+    fireEvent.click(screen.getByRole("button", { name: "Transmission Lines" }));
 
     // Transmission line card should disappear
     expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
@@ -198,10 +199,10 @@ describe("RisksTab", () => {
     render(<RisksTab data={mockDashboardData} />);
 
     // Disable then re-enable transmission lines (Caution severity, visible in sidebar)
-    fireEvent.click(screen.getByText("Transmission Lines"));
+    fireEvent.click(screen.getByRole("button", { name: "Transmission Lines" }));
     expect(screen.queryByText("Duke Energy Line")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("Transmission Lines"));
+    fireEvent.click(screen.getByRole("button", { name: "Transmission Lines" }));
     expect(screen.getByText("Duke Energy Line")).toBeInTheDocument();
   });
 

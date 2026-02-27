@@ -4,7 +4,10 @@ import { GeoJSON } from "react-leaflet";
 import type { DashboardData, NegativePoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import RadiusSelect from "../maps/RadiusSelect";
+import RadiusCircle from "../maps/RadiusCircle";
 import ChoroplethLegend from "../maps/ChoroplethLegend";
+import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { MapPinIcon } from "../ui/Icons";
 import { useNuisances } from "../../../hooks/useNuisances";
 import { useNuisanceSources } from "../../../hooks/useNuisanceSources";
@@ -183,12 +186,13 @@ function NuisancesTab({ data }: NuisancesTabProps) {
   const { property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [radius, setRadius] = useMapRadius();
 
   const {
     data: noiseData,
     infraData,
     loading: noiseLoading,
-  } = useNuisances(property.lat, property.lon);
+  } = useNuisances(property.lat, property.lon, radius);
   const { sources: apiSources, loading: sourcesLoading } = useNuisanceSources(
     property.lat,
     property.lon,
@@ -294,27 +298,24 @@ function NuisancesTab({ data }: NuisancesTabProps) {
     return { color: "#94A3B8", weight: 1 };
   }, []);
 
-  const infraPointToLayer = useCallback(
-    (feature: GeoJSON.Feature, latlng: L.LatLng): L.Layer => {
-      const layer = feature.properties?.layer;
-      if (layer === "airport") {
-        const size = 28;
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:#7C3AED;border-radius:6px;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(124,58,237,0.5);">
+  const infraPointToLayer = useCallback((feature: GeoJSON.Feature, latlng: L.LatLng): L.Layer => {
+    const layer = feature.properties?.layer;
+    if (layer === "airport") {
+      const size = 28;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:#7C3AED;border-radius:6px;border:2px solid rgba(255,255,255,0.9);box-shadow:0 0 8px rgba(124,58,237,0.5);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
               <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
             </svg>
           </div>`,
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-        });
-        return L.marker(latlng, { icon });
-      }
-      return L.circleMarker(latlng, { radius: 4, color: "#94A3B8", fillOpacity: 0.5, weight: 1 });
-    },
-    [],
-  );
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+      return L.marker(latlng, { icon });
+    }
+    return L.circleMarker(latlng, { radius: 4, color: "#94A3B8", fillOpacity: 0.5, weight: 1 });
+  }, []);
 
   const onEachInfraFeature = useCallback((feature: GeoJSON.Feature, layer: L.Layer) => {
     const props = feature.properties;
@@ -432,12 +433,13 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                   ))}
                 </div>
               </div>
+              <RadiusSelect value={radius} onChange={setRadius} />
             </div>
           </div>
           <div className="relative flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={13}
+              zoom={RADIUS_ZOOM[radius]}
               markers={[
                 {
                   lat: property.lat,
@@ -453,6 +455,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
             >
+              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
               {filteredNoiseData.features.length > 0 && (
                 <GeoJSON
                   key={`noise-${filteredNoiseData.features.length}-${activeSources.size}`}

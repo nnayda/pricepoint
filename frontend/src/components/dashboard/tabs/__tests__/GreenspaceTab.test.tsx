@@ -20,6 +20,7 @@ vi.mock("react-leaflet", async () => {
     TileLayer: () => null,
     Marker: () => null,
     Popup: () => null,
+    Circle: () => null,
     useMap: () => ({
       getBounds: () => ({
         getSouth: () => mockBounds.south,

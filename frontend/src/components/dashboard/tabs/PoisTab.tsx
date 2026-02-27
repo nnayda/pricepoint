@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { DashboardData, DashboardPoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
+import RadiusSelect from "../maps/RadiusSelect";
+import RadiusCircle from "../maps/RadiusCircle";
+import { useMapRadius, RADIUS_ZOOM } from "../../../hooks/useMapRadius";
 import { POI_ICONS, ShoppingCartIcon } from "../ui/Icons";
 import { CATEGORY_COLORS, COLOR_INDIGO } from "../../../utils/chartTokens";
 
@@ -11,11 +14,17 @@ interface PoisTabProps {
 
 function PoisTab({ data }: PoisTabProps) {
   const { pois, property } = data;
+  const [radius, setRadius] = useMapRadius();
 
-  const categories = [...new Set(pois.map((p) => p.category))];
+  const filteredPois = useMemo(
+    () => pois.filter((p) => p.distance_miles <= radius),
+    [pois, radius],
+  );
+
+  const categories = [...new Set(filteredPois.map((p) => p.category))];
   const grouped = categories.reduce(
     (acc, cat) => {
-      acc[cat] = pois.filter((p) => p.category === cat);
+      acc[cat] = filteredPois.filter((p) => p.category === cat);
       return acc;
     },
     {} as Record<string, DashboardPoi[]>,
@@ -37,7 +46,7 @@ function PoisTab({ data }: PoisTabProps) {
     });
   };
 
-  const mapMarkers = pois.map((p) => ({
+  const mapMarkers = filteredPois.map((p) => ({
     id: p.id,
     lat: p.lat,
     lon: p.lon,
@@ -99,9 +108,7 @@ function PoisTab({ data }: PoisTabProps) {
                             backgroundColor: isSelected
                               ? "var(--color-db-accent-muted)"
                               : "var(--color-db-surface-hover)",
-                            outline: isSelected
-                              ? "1px solid var(--color-db-accent)"
-                              : "none",
+                            outline: isSelected ? "1px solid var(--color-db-accent)" : "none",
                           }}
                           onMouseEnter={() => setHoveredId(poi.id)}
                           onMouseLeave={() => setHoveredId(null)}
@@ -138,22 +145,31 @@ function PoisTab({ data }: PoisTabProps) {
       {/* Right column — map (sticky, fills viewport) */}
       <div className="lg:sticky lg:top-[calc(64px+36px+12px)] lg:h-[calc(100vh-64px-36px-44px-40px-24px)]">
         <DashboardCard className="flex h-full flex-col">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
-            POI Map
-          </h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">POI Map</h3>
+            <RadiusSelect value={radius} onChange={setRadius} />
+          </div>
           <div className="flex-1">
             <DashboardMap
               center={[property.lat, property.lon]}
-              zoom={13}
+              zoom={RADIUS_ZOOM[radius]}
               markers={[
-                { lat: property.lat, lon: property.lon, label: "Property", color: COLOR_INDIGO, isProperty: true },
+                {
+                  lat: property.lat,
+                  lon: property.lon,
+                  label: "Property",
+                  color: COLOR_INDIGO,
+                  isProperty: true,
+                },
                 ...mapMarkers,
               ]}
               height="100%"
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
-            />
+            >
+              <RadiusCircle center={[property.lat, property.lon]} radiusMiles={radius} />
+            </DashboardMap>
           </div>
         </DashboardCard>
       </div>
