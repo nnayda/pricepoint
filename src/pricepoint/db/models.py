@@ -182,10 +182,10 @@ class RedfinSchool(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class TigerCensusBlock(Base):
+class Block(Base):
     """US Census TIGER/Line census block boundaries (TABBLOCK20)."""
 
-    __tablename__ = "tiger_census_blocks"
+    __tablename__ = "blocks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     statefp20 = Column(String(2))
@@ -209,10 +209,10 @@ class TigerCensusBlock(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class TigerBlockGroup(Base):
+class BlockGroup(Base):
     """US Census TIGER/Line block group boundaries (BG)."""
 
-    __tablename__ = "tiger_block_groups"
+    __tablename__ = "block_groups"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     statefp = Column(String(2))
@@ -231,10 +231,10 @@ class TigerBlockGroup(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class TigerTract(Base):
+class Tract(Base):
     """US Census TIGER/Line census tract boundaries (TRACT)."""
 
-    __tablename__ = "tiger_tracts"
+    __tablename__ = "tracts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     statefp = Column(String(2))
@@ -253,10 +253,10 @@ class TigerTract(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class TigerSchoolDistrict(Base):
+class SchoolDistrict(Base):
     """US Census TIGER/Line school district boundaries (ELSD/SCSD/UNSD combined)."""
 
-    __tablename__ = "tiger_school_districts"
+    __tablename__ = "school_districts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     district_type = Column(String(10), index=True)
@@ -276,13 +276,13 @@ class TigerSchoolDistrict(Base):
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    __table_args__ = (Index("idx_tiger_school_districts_geom", "geom", postgresql_using="gist"),)
+    __table_args__ = (Index("idx_school_districts_geom", "geom", postgresql_using="gist"),)
 
 
-class TigerCounty(Base):
+class County(Base):
     """US Census TIGER/Line county boundaries (COUNTY)."""
 
-    __tablename__ = "tiger_counties"
+    __tablename__ = "counties"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     statefp = Column(String(2))
@@ -306,10 +306,10 @@ class TigerCounty(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class TigerCountySubdivision(Base):
+class Township(Base):
     """US Census TIGER/Line county subdivision boundaries (COUSUB)."""
 
-    __tablename__ = "tiger_county_subdivisions"
+    __tablename__ = "townships"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     statefp = Column(String(2))

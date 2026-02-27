@@ -222,12 +222,12 @@ SELECT
     ws.name AS subdivision_name
 FROM props p
 LEFT JOIN LATERAL (
-    SELECT geoid FROM tiger_tracts t
+    SELECT geoid FROM tracts t
     WHERE ST_Contains(t.geom, p.location)
     LIMIT 1
 ) tt ON true
 LEFT JOIN LATERAL (
-    SELECT geoid FROM tiger_block_groups b
+    SELECT geoid FROM block_groups b
     WHERE ST_Contains(b.geom, p.location)
     LIMIT 1
 ) bg ON true

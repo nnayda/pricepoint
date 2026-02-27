@@ -19,9 +19,9 @@ from pricepoint.api.schemas.greenspace import (
     GreenspaceResponse,
 )
 from pricepoint.db.models import (
+    BlockGroup,
     Greenspace,
     GreenspaceRegionMetric,
-    TigerBlockGroup,
     Trail,
 )
 
@@ -200,9 +200,7 @@ async def get_greenspace(
     greenspace_z = 0.0
     try:
         bg_row = db.execute(
-            select(TigerBlockGroup.geoid).where(
-                func.ST_Contains(TigerBlockGroup.geom, property_point)
-            )
+            select(BlockGroup.geoid).where(func.ST_Contains(BlockGroup.geom, property_point))
         ).first()
         if bg_row is not None:
             metric_row = db.execute(

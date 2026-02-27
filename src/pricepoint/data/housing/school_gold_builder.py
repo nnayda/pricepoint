@@ -33,7 +33,7 @@ from pricepoint.db.models import (
     RedfinPropertySchool,
     RedfinSchool,
     School,
-    TigerSchoolDistrict,
+    SchoolDistrict,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ def _find_district_id(session: Session, location: object) -> int | None:
         return None
 
     result = session.execute(
-        select(TigerSchoolDistrict.id).where(func.ST_Contains(TigerSchoolDistrict.geom, location))
+        select(SchoolDistrict.id).where(func.ST_Contains(SchoolDistrict.geom, location))
     ).scalar_one_or_none()
 
     return result
@@ -457,9 +457,7 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
             # 2. Add district schools not already linked
             district_ids = (
                 session.execute(
-                    select(TigerSchoolDistrict.id).where(
-                        func.ST_Contains(TigerSchoolDistrict.geom, prop_wkt)
-                    )
+                    select(SchoolDistrict.id).where(func.ST_Contains(SchoolDistrict.geom, prop_wkt))
                 )
                 .scalars()
                 .all()

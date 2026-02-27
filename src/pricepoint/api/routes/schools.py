@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.property import SchoolDistrictInfo, SchoolNearby, SchoolsNearbyResponse
-from pricepoint.db.models import PropertySchool, RedfinListing, School, TigerSchoolDistrict
+from pricepoint.db.models import PropertySchool, RedfinListing, School, SchoolDistrict
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,12 @@ async def get_nearby_schools(
     rows = db.execute(stmt).all()
 
     # Query all school districts within the search radius (single query)
-    contains_flag = ST_Contains(TigerSchoolDistrict.geom, point).label("is_home")
-    geojson_col = ST_AsGeoJSON(TigerSchoolDistrict.geom).label("geojson")
+    contains_flag = ST_Contains(SchoolDistrict.geom, point).label("is_home")
+    geojson_col = ST_AsGeoJSON(SchoolDistrict.geom).label("geojson")
 
-    district_stmt = select(TigerSchoolDistrict, contains_flag, geojson_col).where(
+    district_stmt = select(SchoolDistrict, contains_flag, geojson_col).where(
         ST_DWithin(
-            cast(TigerSchoolDistrict.geom, geo),
+            cast(SchoolDistrict.geom, geo),
             cast(point, geo),
             radius_meters,
         )

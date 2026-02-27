@@ -81,23 +81,23 @@ def tiger_boundary_collection():
 
         from pricepoint.db import SessionLocal
         from pricepoint.db.models import (
-            TigerBlockGroup,
-            TigerCensusBlock,
-            TigerCounty,
-            TigerCountySubdivision,
-            TigerSchoolDistrict,
-            TigerTract,
+            Block,
+            BlockGroup,
+            County,
+            SchoolDistrict,
+            Township,
+            Tract,
         )
 
         session = SessionLocal()
         try:
             tables = [
-                ("tiger_census_blocks", TigerCensusBlock),
-                ("tiger_block_groups", TigerBlockGroup),
-                ("tiger_tracts", TigerTract),
-                ("tiger_school_districts", TigerSchoolDistrict),
-                ("tiger_counties", TigerCounty),
-                ("tiger_county_subdivisions", TigerCountySubdivision),
+                ("blocks", Block),
+                ("block_groups", BlockGroup),
+                ("tracts", Tract),
+                ("school_districts", SchoolDistrict),
+                ("counties", County),
+                ("townships", Township),
             ]
             for table_name, model in tables:
                 count = session.execute(select(func.count()).select_from(model)).scalar()

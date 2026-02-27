@@ -16,12 +16,12 @@ from sqlalchemy import delete
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
 from pricepoint.db.models import (
-    TigerBlockGroup,
-    TigerCensusBlock,
-    TigerCounty,
-    TigerCountySubdivision,
-    TigerSchoolDistrict,
-    TigerTract,
+    Block,
+    BlockGroup,
+    County,
+    SchoolDistrict,
+    Township,
+    Tract,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ def fetch_tiger_census_blocks(state_fips: str | None = None) -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerCensusBlock))
+        session.execute(delete(Block))
         session.commit()
 
         total = 0
@@ -140,7 +140,7 @@ def fetch_tiger_census_blocks(state_fips: str | None = None) -> None:
             records = []
             for _, row in gdf.iterrows():
                 records.append(
-                    TigerCensusBlock(
+                    Block(
                         statefp20=row.get("STATEFP20"),
                         countyfp20=row.get("COUNTYFP20"),
                         tractce20=row.get("TRACTCE20"),
@@ -187,7 +187,7 @@ def fetch_tiger_block_groups(state_fips: str | None = None) -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerBlockGroup))
+        session.execute(delete(BlockGroup))
         session.commit()
 
         total = 0
@@ -206,7 +206,7 @@ def fetch_tiger_block_groups(state_fips: str | None = None) -> None:
             records = []
             for _, row in gdf.iterrows():
                 records.append(
-                    TigerBlockGroup(
+                    BlockGroup(
                         statefp=row.get("STATEFP"),
                         countyfp=row.get("COUNTYFP"),
                         tractce=row.get("TRACTCE"),
@@ -248,7 +248,7 @@ def fetch_tiger_tracts(state_fips: str | None = None) -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerTract))
+        session.execute(delete(Tract))
         session.commit()
 
         total = 0
@@ -267,7 +267,7 @@ def fetch_tiger_tracts(state_fips: str | None = None) -> None:
             records = []
             for _, row in gdf.iterrows():
                 records.append(
-                    TigerTract(
+                    Tract(
                         statefp=row.get("STATEFP"),
                         countyfp=row.get("COUNTYFP"),
                         tractce=row.get("TRACTCE"),
@@ -315,7 +315,7 @@ def fetch_tiger_school_districts(state_fips: str | None = None) -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerSchoolDistrict))
+        session.execute(delete(SchoolDistrict))
         session.commit()
 
         total = 0
@@ -340,7 +340,7 @@ def fetch_tiger_school_districts(state_fips: str | None = None) -> None:
                 records = []
                 for _, row in gdf.iterrows():
                     records.append(
-                        TigerSchoolDistrict(
+                        SchoolDistrict(
                             district_type=district_type,
                             statefp=row.get("STATEFP"),
                             geoid=row.get("GEOID"),
@@ -387,7 +387,7 @@ def fetch_tiger_counties() -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerCounty))
+        session.execute(delete(County))
         session.commit()
 
         zip_bytes = _download_tiger_zip(url)
@@ -396,7 +396,7 @@ def fetch_tiger_counties() -> None:
         records = []
         for _, row in gdf.iterrows():
             records.append(
-                TigerCounty(
+                County(
                     statefp=row.get("STATEFP"),
                     countyfp=row.get("COUNTYFP"),
                     countyns=row.get("COUNTYNS"),
@@ -440,7 +440,7 @@ def fetch_tiger_county_subdivisions(state_fips: str | None = None) -> None:
 
     session = SessionLocal()
     try:
-        session.execute(delete(TigerCountySubdivision))
+        session.execute(delete(Township))
         session.commit()
 
         total = 0
@@ -459,7 +459,7 @@ def fetch_tiger_county_subdivisions(state_fips: str | None = None) -> None:
             records = []
             for _, row in gdf.iterrows():
                 records.append(
-                    TigerCountySubdivision(
+                    Township(
                         statefp=row.get("STATEFP"),
                         countyfp=row.get("COUNTYFP"),
                         cousubfp=row.get("COUSUBFP"),

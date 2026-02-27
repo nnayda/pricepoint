@@ -17,28 +17,28 @@ logger = logging.getLogger(__name__)
 # Map geo_level → (TIGER table name, geoid column, namelsad column, aland column)
 GEO_LEVEL_CONFIG: dict[str, dict[str, str]] = {
     "block_group": {
-        "table": "tiger_block_groups",
+        "table": "block_groups",
         "geoid": "geoid",
         "name": "namelsad",
         "aland": "aland",
         "geom": "geom",
     },
     "tract": {
-        "table": "tiger_tracts",
+        "table": "tracts",
         "geoid": "geoid",
         "name": "namelsad",
         "aland": "aland",
         "geom": "geom",
     },
     "county_subdivision": {
-        "table": "tiger_county_subdivisions",
+        "table": "townships",
         "geoid": "geoid",
         "name": "namelsad",
         "aland": "aland",
         "geom": "geom",
     },
     "county": {
-        "table": "tiger_counties",
+        "table": "counties",
         "geoid": "geoid",
         "name": "namelsad",
         "aland": "aland",

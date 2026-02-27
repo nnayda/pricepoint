@@ -34,10 +34,10 @@ from pricepoint.api.schemas.demographics import (
 )
 from pricepoint.db.models import (
     AcsDemographic,
-    TigerBlockGroup,
-    TigerCounty,
-    TigerCountySubdivision,
-    TigerTract,
+    BlockGroup,
+    County,
+    Township,
+    Tract,
     WakeSubdivision,
 )
 
@@ -68,17 +68,17 @@ def _init_choropleth_config() -> None:
         return
     _CHOROPLETH_CONFIG.update(
         {
-            "neighborhood": (TigerTract, "tract", 0.05, "geoid", None, ""),
-            "block_group": (TigerBlockGroup, "block_group", 0.03, "geoid", None, ""),
+            "neighborhood": (Tract, "tract", 0.05, "geoid", None, ""),
+            "block_group": (BlockGroup, "block_group", 0.03, "geoid", None, ""),
             "town": (
-                TigerCountySubdivision,
+                Township,
                 "county_subdivision",
                 0.15,
                 "geoid",
                 "name",
                 "",
             ),
-            "county": (TigerCounty, "county", 0.5, "geoid", "name", ""),
+            "county": (County, "county", 0.5, "geoid", "name", ""),
             "subdivision": (WakeSubdivision, "subdivision", 0.03, "id", "name", "subdiv_"),
         }
     )
@@ -482,27 +482,25 @@ async def get_demographics(
     geoid_map: dict[str, str] = {}  # geography_level → geoid
 
     tract = db.execute(
-        select(TigerTract.geoid).where(ST_Contains(TigerTract.geom, point)).limit(1)
+        select(Tract.geoid).where(ST_Contains(Tract.geom, point)).limit(1)
     ).scalar_one_or_none()
     if tract:
         geoid_map["tract"] = str(tract)
 
     cousub = db.execute(
-        select(TigerCountySubdivision.geoid)
-        .where(ST_Contains(TigerCountySubdivision.geom, point))
-        .limit(1)
+        select(Township.geoid).where(ST_Contains(Township.geom, point)).limit(1)
     ).scalar_one_or_none()
     if cousub:
         geoid_map["county_subdivision"] = str(cousub)
 
     block_group = db.execute(
-        select(TigerBlockGroup.geoid).where(ST_Contains(TigerBlockGroup.geom, point)).limit(1)
+        select(BlockGroup.geoid).where(ST_Contains(BlockGroup.geom, point)).limit(1)
     ).scalar_one_or_none()
     if block_group:
         geoid_map["block_group"] = str(block_group)
 
     county = db.execute(
-        select(TigerCounty.geoid).where(ST_Contains(TigerCounty.geom, point)).limit(1)
+        select(County.geoid).where(ST_Contains(County.geom, point)).limit(1)
     ).scalar_one_or_none()
     if county:
         geoid_map["county"] = str(county)
@@ -566,7 +564,7 @@ async def get_demographics(
 
     if tract:
         geojson_str = db.execute(
-            select(ST_AsGeoJSON(TigerTract.geom)).where(TigerTract.geoid == tract).limit(1)
+            select(ST_AsGeoJSON(Tract.geom)).where(Tract.geoid == tract).limit(1)
         ).scalar_one_or_none()
         boundaries["neighborhood"] = json.loads(geojson_str) if geojson_str else None
     else:
@@ -574,9 +572,7 @@ async def get_demographics(
 
     if cousub:
         geojson_str = db.execute(
-            select(ST_AsGeoJSON(TigerCountySubdivision.geom))
-            .where(TigerCountySubdivision.geoid == cousub)
-            .limit(1)
+            select(ST_AsGeoJSON(Township.geom)).where(Township.geoid == cousub).limit(1)
         ).scalar_one_or_none()
         boundaries["town"] = json.loads(geojson_str) if geojson_str else None
     else:
@@ -595,9 +591,7 @@ async def get_demographics(
 
     if block_group:
         geojson_str = db.execute(
-            select(ST_AsGeoJSON(TigerBlockGroup.geom))
-            .where(TigerBlockGroup.geoid == block_group)
-            .limit(1)
+            select(ST_AsGeoJSON(BlockGroup.geom)).where(BlockGroup.geoid == block_group).limit(1)
         ).scalar_one_or_none()
         boundaries["block_group"] = json.loads(geojson_str) if geojson_str else None
     else:
@@ -605,7 +599,7 @@ async def get_demographics(
 
     if county:
         geojson_str = db.execute(
-            select(ST_AsGeoJSON(TigerCounty.geom)).where(TigerCounty.geoid == county).limit(1)
+            select(ST_AsGeoJSON(County.geom)).where(County.geoid == county).limit(1)
         ).scalar_one_or_none()
         boundaries["county"] = json.loads(geojson_str) if geojson_str else None
     else:

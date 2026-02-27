@@ -23,7 +23,7 @@ from pricepoint.db.models import (
     PropertyValuation,
     RedfinListing,
     SaleHistoryRecord,
-    TigerTract,
+    Tract,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,7 @@ async def get_neighborhood_valuation(
 
     # 1. Find census tract
     tract_row = db.execute(
-        select(TigerTract.geoid, TigerTract.geom)
-        .where(ST_Contains(TigerTract.geom, point))
-        .limit(1)
+        select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
     ).first()
 
     if not tract_row:
@@ -231,9 +229,7 @@ async def get_neighborhood_valuation_history(
 
     # 1. Find census tract
     tract_row = db.execute(
-        select(TigerTract.geoid, TigerTract.geom)
-        .where(ST_Contains(TigerTract.geom, point))
-        .limit(1)
+        select(Tract.geoid, Tract.geom).where(ST_Contains(Tract.geom, point)).limit(1)
     ).first()
 
     if not tract_row:
