@@ -5,7 +5,7 @@ and other economic time-series into the economic_indicators table.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow.sdk import dag, task
 
@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 2,
-        "retry_delay": timedelta(minutes=5),
+        "retries": 0,
     },
     tags=["data", "collection", "economic", "fred"],
 )

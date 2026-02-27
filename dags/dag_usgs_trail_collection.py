@@ -5,7 +5,7 @@ ArcGIS endpoint into PostGIS.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow.sdk import dag, task
 
@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 1,
-        "retry_delay": timedelta(minutes=10),
+        "retries": 0,
     },
     tags=["data", "collection", "usgs", "trails"],
 )

@@ -5,8 +5,9 @@ and S1200 secondary road MTFCC classes) for all US states and loads them
 into the ``roads`` table.
 """
 
-import io
 import logging
+import tempfile
+from pathlib import Path
 
 import geopandas as gpd
 import httpx
@@ -22,13 +23,25 @@ from pricepoint.db.models import Road
 logger = logging.getLogger(__name__)
 
 
-def _tiger_road_url(state_fips: str) -> str:
+_FALLBACK_YEARS = 3  # Number of previous years to try if current year fails
+
+
+def _tiger_road_url(state_fips: str, year: int | None = None) -> str:
     """Build a TIGER/Line PRISECROADS shapefile download URL."""
     settings = get_settings()
+    yr = year if year is not None else settings.tiger_year
     return (
-        f"{settings.tiger_base_url}/TIGER{settings.tiger_year}"
-        f"/PRISECROADS/tl_{settings.tiger_year}_{state_fips}_prisecroads.zip"
+        f"{settings.tiger_base_url}/TIGER{yr}"
+        f"/PRISECROADS/tl_{yr}_{state_fips}_prisecroads.zip"
     )
+
+
+def _is_valid_zip(response: httpx.Response) -> bool:
+    """Check if an HTTP response contains a valid ZIP file."""
+    content_type = response.headers.get("content-type", "")
+    if "application/zip" not in content_type and "application/octet-stream" not in content_type:
+        return False
+    return response.content[:4] == b"PK\x03\x04"
 
 
 def _download_tiger_zip(url: str) -> bytes:
@@ -36,12 +49,24 @@ def _download_tiger_zip(url: str) -> bytes:
     logger.info("Downloading TIGER shapefile: %s", url)
     response = httpx.get(url, timeout=300, follow_redirects=True)
     response.raise_for_status()
+
+    if not _is_valid_zip(response):
+        content_type = response.headers.get("content-type", "")
+        raise RuntimeError(
+            f"TIGER download returned unexpected content "
+            f"(content-type: {content_type}). Expected a ZIP file. "
+            f"URL: {url}"
+        )
+
     return response.content
 
 
 def _read_shapefile(zip_bytes: bytes) -> gpd.GeoDataFrame:
     """Read a shapefile from zip archive bytes into a GeoDataFrame."""
-    return gpd.read_file(io.BytesIO(zip_bytes))
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        zip_path = Path(tmp_dir) / "shapefile.zip"
+        zip_path.write_bytes(zip_bytes)
+        return gpd.read_file(zip_path)
 
 
 def _to_multilinestring_wkb(geom):
@@ -49,6 +74,38 @@ def _to_multilinestring_wkb(geom):
     if geom.geom_type == "LineString":
         geom = MultiLineString([geom])
     return from_shape(geom, srid=4326)
+
+
+def _download_with_year_fallback(state_fips: str, year: int) -> bytes | None:
+    """Try downloading TIGER roads for the given year, falling back to previous years.
+
+    Returns the ZIP bytes on success, or None if the state is unavailable.
+    """
+    for yr in range(year, year - _FALLBACK_YEARS - 1, -1):
+        url = _tiger_road_url(state_fips, yr)
+        try:
+            return _download_tiger_zip(url)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                logger.warning("TIGER PRISECROADS %d not found for state %s", yr, state_fips)
+            else:
+                raise
+        except RuntimeError:
+            if yr > year - _FALLBACK_YEARS:
+                logger.warning(
+                    "TIGER PRISECROADS %d unavailable for state %s, trying %d",
+                    yr,
+                    state_fips,
+                    yr - 1,
+                )
+            else:
+                logger.warning(
+                    "TIGER PRISECROADS unavailable for state %s (tried years %d–%d)",
+                    state_fips,
+                    year,
+                    yr,
+                )
+    return None
 
 
 def fetch_roads(state_fips: str | None = None) -> None:
@@ -66,16 +123,12 @@ def fetch_roads(state_fips: str | None = None) -> None:
     try:
         session.execute(delete(Road))
 
+        settings = get_settings()
         total = 0
         for fips in fips_list:
-            url = _tiger_road_url(fips)
-            try:
-                zip_bytes = _download_tiger_zip(url)
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 404:
-                    logger.warning("TIGER PRISECROADS not found for state %s, skipping", fips)
-                    continue
-                raise
+            zip_bytes = _download_with_year_fallback(fips, settings.tiger_year)
+            if zip_bytes is None:
+                continue
 
             gdf = _read_shapefile(zip_bytes)
 

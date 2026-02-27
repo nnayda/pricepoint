@@ -5,7 +5,7 @@ from the EDGE ArcGIS REST API and loads it into the nces_schools table.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow.sdk import Asset, dag, task
 
@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 1,
-        "retry_delay": timedelta(minutes=10),
+        "retries": 0,
     },
     tags=["data", "collection", "nces", "schools"],
 )

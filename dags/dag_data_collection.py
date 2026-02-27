@@ -3,7 +3,7 @@
 Runs daily to ingest geospatial, housing, and economic data.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow.sdk import dag, task
 
@@ -16,8 +16,7 @@ from airflow.sdk import dag, task
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 2,
-        "retry_delay": timedelta(minutes=5),
+        "retries": 0,
     },
     tags=["data", "collection"],
 )

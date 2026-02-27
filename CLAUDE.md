@@ -112,3 +112,4 @@ Copy `.env.example` to `.env`. Key variables:
 - **Ruff config:** 100-char line length, target py311
 - **PostGIS geography casts:** Never use `func.cast(col, func.geography)` or `cast(col, text("geography"))` — both break SQLAlchemy 2.0's query cache (`_static_cache_key` error). Always use `from geoalchemy2 import Geography` then `cast(col, Geography())`.
 - **Docker Host** You are running in a container with an attached docker in docker host
+- **Airflow DAG retries:** Data collection DAGs must use `"retries": 0` — errors in data downloads likely need manual review, not automatic retries. Only processing/transform DAGs (feature engineering, model training, scoring, etc.) should use retries.

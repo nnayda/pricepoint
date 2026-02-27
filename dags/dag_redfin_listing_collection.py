@@ -5,7 +5,7 @@ Manual DAG reprocesses archived files from S3 when parsing logic changes.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from airflow.sdk import Asset, dag, task
 from sqlalchemy import func, select
@@ -23,8 +23,7 @@ STAGING_DATASET = Asset("staging_redfin_listings")
     max_active_runs=1,
     default_args={
         "owner": "pricepoint",
-        "retries": 2,
-        "retry_delay": timedelta(minutes=5),
+        "retries": 0,
     },
     tags=["data", "collection", "housing", "redfin"],
 )
@@ -70,8 +69,7 @@ redfin_listing_collection()
     catchup=False,
     default_args={
         "owner": "pricepoint",
-        "retries": 1,
-        "retry_delay": timedelta(minutes=5),
+        "retries": 0,
     },
     tags=["data", "collection", "housing", "redfin", "reprocess"],
 )
