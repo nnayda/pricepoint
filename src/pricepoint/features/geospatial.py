@@ -115,7 +115,6 @@ dist_hospital AS (
         ORDER BY p.location <-> h.geom
         LIMIT 1
     ) h
-),
 )
 SELECT
     p.property_id,
