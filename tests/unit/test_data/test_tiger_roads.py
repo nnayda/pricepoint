@@ -187,7 +187,7 @@ def test_fetch_roads_single_state(mock_settings, mock_session_cls, mock_download
     assert "37" in mock_download.call_args[0][0]
 
 
-@patch("pricepoint.data.geospatial.tiger_roads._download_tiger_zip")
+@patch("pricepoint.data.geospatial.tiger_roads._download_with_year_fallback")
 @patch("pricepoint.data.geospatial.tiger_roads.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_roads.get_settings")
 def test_fetch_roads_rollback_on_exception(mock_settings, mock_session_cls, mock_download):
@@ -210,21 +210,15 @@ def test_fetch_roads_rollback_on_exception(mock_settings, mock_session_cls, mock
     mock_session.close.assert_called_once()
 
 
-@patch("pricepoint.data.geospatial.tiger_roads._download_tiger_zip")
+@patch("pricepoint.data.geospatial.tiger_roads._download_with_year_fallback")
 @patch("pricepoint.data.geospatial.tiger_roads.SessionLocal")
 @patch("pricepoint.data.geospatial.tiger_roads.get_settings")
-def test_fetch_roads_skips_404_state(mock_settings, mock_session_cls, mock_download):
-    """fetch_roads should skip states that return 404."""
-    import httpx
-
+def test_fetch_roads_skips_unavailable_state(mock_settings, mock_session_cls, mock_download):
+    """fetch_roads should skip states where download returns None."""
     mock_settings.return_value = MagicMock(
         tiger_base_url="https://www2.census.gov/geo/tiger",
         tiger_year=2025,
     )
-
-    mock_response_404 = MagicMock()
-    mock_response_404.status_code = 404
-    http_error = httpx.HTTPStatusError("Not Found", request=MagicMock(), response=mock_response_404)
 
     columns = {
         "LINEARID": ["1101234567890"],
@@ -234,8 +228,8 @@ def test_fetch_roads_skips_404_state(mock_settings, mock_session_cls, mock_downl
     }
     zip_bytes = _make_tiger_zip(columns, [_make_simple_linestring()])
 
-    # First state 404s, second succeeds
-    mock_download.side_effect = [http_error, zip_bytes]
+    # First state unavailable, second succeeds
+    mock_download.side_effect = [None, zip_bytes]
 
     mock_session = MagicMock()
     mock_session_cls.return_value = mock_session

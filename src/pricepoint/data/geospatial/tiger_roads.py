@@ -30,10 +30,7 @@ def _tiger_road_url(state_fips: str, year: int | None = None) -> str:
     """Build a TIGER/Line PRISECROADS shapefile download URL."""
     settings = get_settings()
     yr = year if year is not None else settings.tiger_year
-    return (
-        f"{settings.tiger_base_url}/TIGER{yr}"
-        f"/PRISECROADS/tl_{yr}_{state_fips}_prisecroads.zip"
-    )
+    return f"{settings.tiger_base_url}/TIGER{yr}/PRISECROADS/tl_{yr}_{state_fips}_prisecroads.zip"
 
 
 def _is_valid_zip(response: httpx.Response) -> bool:
@@ -125,6 +122,7 @@ def fetch_roads(state_fips: str | None = None) -> None:
 
         settings = get_settings()
         total = 0
+        seen_linearids: set[str] = set()
         for fips in fips_list:
             zip_bytes = _download_with_year_fallback(fips, settings.tiger_year)
             if zip_bytes is None:
@@ -133,10 +131,16 @@ def fetch_roads(state_fips: str | None = None) -> None:
             gdf = _read_shapefile(zip_bytes)
 
             records = []
+            dupes = 0
             for _, row in gdf.iterrows():
+                lid = row.get("LINEARID")
+                if lid in seen_linearids:
+                    dupes += 1
+                    continue
+                seen_linearids.add(lid)
                 records.append(
                     Road(
-                        linearid=row.get("LINEARID"),
+                        linearid=lid,
                         fullname=row.get("FULLNAME"),
                         rttyp=row.get("RTTYP"),
                         mtfcc=row.get("MTFCC"),
@@ -148,8 +152,16 @@ def fetch_roads(state_fips: str | None = None) -> None:
                 session.add_all(records)
                 session.flush()
 
+            if dupes:
+                logger.info(
+                    "TIGER roads state %s: %d records (%d duplicate linearids skipped)",
+                    fips,
+                    len(records),
+                    dupes,
+                )
+            else:
+                logger.info("TIGER roads state %s: %d records", fips, len(records))
             total += len(records)
-            logger.info("TIGER roads state %s: %d records", fips, len(records))
 
         session.commit()
         logger.info("TIGER roads total: %d records", total)

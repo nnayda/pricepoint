@@ -88,8 +88,42 @@ def _parse_trail(feature: dict) -> dict | None:
     }
 
 
+def _deduplicate_batch(batch: list[dict]) -> list[dict]:
+    """Remove duplicate permanentidentifier entries, keeping the longest segment."""
+    seen: dict[str, int] = {}
+    for i, row in enumerate(batch):
+        pid = row["permanentidentifier"]
+        if pid in seen:
+            prev = batch[seen[pid]]
+            prev_len = prev.get("length_miles") or 0
+            curr_len = row.get("length_miles") or 0
+            if curr_len > prev_len:
+                logger.warning(
+                    "Dropping shorter duplicate trail: permanentidentifier=%s name=%s length_miles=%s"
+                    " (keeping length_miles=%s)",
+                    pid,
+                    prev.get("name"),
+                    prev_len,
+                    curr_len,
+                )
+                seen[pid] = i
+            else:
+                logger.warning(
+                    "Dropping shorter duplicate trail: permanentidentifier=%s name=%s length_miles=%s"
+                    " (keeping length_miles=%s)",
+                    pid,
+                    row.get("name"),
+                    curr_len,
+                    prev_len,
+                )
+        else:
+            seen[pid] = i
+    return [batch[i] for i in sorted(seen.values())]
+
+
 def _upsert_batch(session: Any, batch: list[dict]) -> None:
     """Upsert a batch of trail records."""
+    batch = _deduplicate_batch(batch)
     stmt = pg_insert(Trail).values(batch)
     stmt = stmt.on_conflict_do_update(
         index_elements=["permanentidentifier"],

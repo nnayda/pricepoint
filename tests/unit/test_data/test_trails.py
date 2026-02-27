@@ -2,7 +2,12 @@
 
 from unittest.mock import MagicMock, patch
 
-from pricepoint.data.geospatial.trails import _parse_trail, fetch_trails, verify_trails
+from pricepoint.data.geospatial.trails import (
+    _deduplicate_batch,
+    _parse_trail,
+    fetch_trails,
+    verify_trails,
+)
 
 # -- Helpers ------------------------------------------------------------------
 
@@ -85,6 +90,64 @@ class TestParseTrail:
         assert result["name"] is None
         assert result["length_miles"] is None
         assert result["maintainer"] is None
+
+
+# -- _deduplicate_batch tests -------------------------------------------------
+
+
+class TestDeduplicateBatch:
+    def test_no_duplicates_unchanged(self):
+        batch = [
+            {"permanentidentifier": "a", "name": "Trail A"},
+            {"permanentidentifier": "b", "name": "Trail B"},
+        ]
+        result = _deduplicate_batch(batch)
+        assert len(result) == 2
+
+    def test_duplicates_keep_longest(self):
+        batch = [
+            {"permanentidentifier": "a", "name": "Short", "length_miles": 1.0},
+            {"permanentidentifier": "b", "name": "Trail B", "length_miles": 2.0},
+            {"permanentidentifier": "a", "name": "Long", "length_miles": 3.0},
+        ]
+        result = _deduplicate_batch(batch)
+        assert len(result) == 2
+        names = {r["permanentidentifier"]: r["name"] for r in result}
+        assert names["a"] == "Long"
+        assert names["b"] == "Trail B"
+
+    def test_duplicates_keep_first_when_equal_length(self):
+        batch = [
+            {"permanentidentifier": "a", "name": "First", "length_miles": 5.0},
+            {"permanentidentifier": "a", "name": "Second", "length_miles": 5.0},
+        ]
+        result = _deduplicate_batch(batch)
+        assert len(result) == 1
+        assert result[0]["name"] == "First"
+
+    def test_duplicates_handle_none_length(self):
+        batch = [
+            {"permanentidentifier": "a", "name": "No length", "length_miles": None},
+            {"permanentidentifier": "a", "name": "Has length", "length_miles": 2.0},
+        ]
+        result = _deduplicate_batch(batch)
+        assert len(result) == 1
+        assert result[0]["name"] == "Has length"
+
+    def test_duplicates_logged(self, caplog):
+        batch = [
+            {"permanentidentifier": "a", "name": "Long", "length_miles": 3.0},
+            {"permanentidentifier": "a", "name": "Short", "length_miles": 1.0},
+        ]
+        with caplog.at_level("WARNING"):
+            _deduplicate_batch(batch)
+        assert "Dropping shorter duplicate trail: permanentidentifier=a" in caplog.text
+        assert "name=Short" in caplog.text
+        assert "length_miles=1.0" in caplog.text
+        assert "keeping length_miles=3.0" in caplog.text
+
+    def test_empty_batch(self):
+        assert _deduplicate_batch([]) == []
 
 
 # -- fetch_trails tests -------------------------------------------------------
