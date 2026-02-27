@@ -27,7 +27,7 @@ from pricepoint.db.models import Greenspace
 
 logger = logging.getLogger(__name__)
 
-_BATCH_SIZE = 5000
+_BATCH_SIZE = 500
 
 # Designation types to exclude (marine / aquatic / unknown)
 _EXCLUDED_DES_TP = {"MPA", "MR", "RNA", "UNKW"}
@@ -135,57 +135,67 @@ def fetch_pad_us() -> int:
 
     logger.info("PAD-US raw features: %d", len(gdf))
 
-    session = SessionLocal()
-    try:
-        total = 0
-        batch: list[dict[str, Any]] = []
+    total = 0
+    batch: list[dict[str, Any]] = []
 
-        for _, row in gdf.iterrows():
-            if not _should_include(row):
-                continue
+    for _, row in gdf.iterrows():
+        if not _should_include(row):
+            continue
 
-            values = _parse_pad_us_row(row)
-            values["loaded_at"] = run_started
-            batch.append(values)
+        values = _parse_pad_us_row(row)
+        values["loaded_at"] = run_started
+        batch.append(values)
 
-            if len(batch) >= _BATCH_SIZE:
-                _upsert_batch(session, batch)
-                total += len(batch)
-                logger.info("PAD-US upserted %d records so far", total)
-                batch = []
-
-        if batch:
-            _upsert_batch(session, batch)
+        if len(batch) >= _BATCH_SIZE:
+            _upsert_batch_safe(batch)
             total += len(batch)
+            logger.info("PAD-US upserted %d records so far", total)
+            batch = []
 
-        # Remove stale rows not seen in this run
-        if total > 0:
+    if batch:
+        _upsert_batch_safe(batch)
+        total += len(batch)
+
+    # Remove stale rows not seen in this run
+    if total > 0:
+        session = SessionLocal()
+        try:
             stale_count = session.execute(
                 delete(Greenspace).where(Greenspace.loaded_at < run_started)
             ).rowcount  # type: ignore[union-attr, attr-defined]
             session.commit()
             if stale_count:
                 logger.info("Removed %d stale greenspace records", stale_count)
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
-        logger.info("PAD-US total loaded: %d records", total)
-        return total
+    logger.info("PAD-US total loaded: %d records", total)
+    return total
 
+
+def _upsert_batch_safe(batch: list[dict[str, Any]]) -> None:
+    """Upsert a batch of records using a short-lived session.
+
+    Each batch gets its own session to avoid long-lived connections that
+    PostgreSQL may terminate during large multi-batch loads.
+    """
+    session = SessionLocal()
+    try:
+        stmt = pg_insert(Greenspace).values(batch)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["source_id"],
+            set_={col: stmt.excluded[col] for col in _UPDATABLE_COLUMNS},
+        )
+        session.execute(stmt)
+        session.commit()
     except Exception:
         session.rollback()
         raise
     finally:
         session.close()
-
-
-def _upsert_batch(session: Any, batch: list[dict[str, Any]]) -> None:
-    """Upsert a batch of records into the greenspaces table."""
-    stmt = pg_insert(Greenspace).values(batch)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["source_id"],
-        set_={col: stmt.excluded[col] for col in _UPDATABLE_COLUMNS},
-    )
-    session.execute(stmt)
-    session.commit()
 
 
 def verify_pad_us() -> int:
