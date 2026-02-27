@@ -263,7 +263,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
   // Build MapLibre filter for infra types
   const infraTypeFilter = useMemo(() => {
     const types: string[] = [];
-    if (activeInfra.has("road")) types.push("railroad"); // roads come from roads table
+    if (activeInfra.has("road")) types.push("road");
     if (activeInfra.has("railroad")) types.push("railroad");
     if (activeInfra.has("airport")) types.push("airport");
     return types.length > 0 ? ["in", "infra_type", ...types] : ["==", "infra_type", "__none__"];
