@@ -386,7 +386,9 @@ async def get_nuisance_geometries(
             )
         )
 
-    # Airports
+    # Airports — use a larger search radius since airport noise zones extend
+    # much further than the airport point itself (often 10+ miles).
+    airport_radius_meters = max(radius_meters, 15 * METERS_PER_MILE)
     airport_rows = db.execute(
         select(
             func.ST_AsGeoJSON(Airport.geom).label("geojson"),
@@ -397,7 +399,7 @@ async def get_nuisance_geometries(
             func.ST_DWithin(
                 cast(Airport.geom, geog_type),
                 cast(property_point, geog_type),
-                radius_meters,
+                airport_radius_meters,
             ),
         )
     ).all()
