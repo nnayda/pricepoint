@@ -37,6 +37,8 @@ interface DashboardMapProps {
   highlightedId?: string | null;
   selectedId?: string | null;
   cluster?: boolean;
+  interactiveLayerIds?: string[];
+  onLayerClick?: (e: MapLayerMouseEvent) => void;
   onMoveEnd?: (bounds: {
     swLat: number;
     swLon: number;
@@ -362,6 +364,8 @@ function DashboardMap({
   highlightedId,
   selectedId,
   cluster = false,
+  interactiveLayerIds: extraInteractiveIds = [],
+  onLayerClick,
   onMoveEnd,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
@@ -455,8 +459,14 @@ function DashboardMap({
         mapLib={maplibregl}
         onMoveEnd={handleMoveEnd}
         onLoad={handleLoad}
-        interactiveLayerIds={cluster ? ["cluster-circles"] : []}
-        onClick={cluster ? handleClusterClick : undefined}
+        interactiveLayerIds={[
+          ...(cluster ? ["cluster-circles"] : []),
+          ...extraInteractiveIds,
+        ]}
+        onClick={(e: MapLayerMouseEvent) => {
+          if (cluster) handleClusterClick(e);
+          if (onLayerClick) onLayerClick(e);
+        }}
       >
         <NavigationControl position="top-left" />
 

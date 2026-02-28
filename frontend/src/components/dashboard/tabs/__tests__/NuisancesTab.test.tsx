@@ -19,6 +19,10 @@ vi.mock("react-map-gl/maplibre", () => ({
     <div data-testid="vector-source">{children}</div>
   ),
   Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
+  Popup: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="map-popup">{children}</div>
+  ),
+  useMap: () => ({ current: null }),
 }));
 
 vi.mock("../../maps/DashboardMap", () => ({

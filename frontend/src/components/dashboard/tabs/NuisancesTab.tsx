@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
-import { Source, Layer } from "react-map-gl/maplibre";
+import { Source, Layer, Popup, useMap } from "react-map-gl/maplibre";
+import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
 import type { DashboardData, NegativePoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
@@ -7,6 +8,7 @@ import ChoroplethLegend from "../maps/ChoroplethLegend";
 import { MapPinIcon } from "../ui/Icons";
 import { useNuisanceSources } from "../../../hooks/useNuisanceSources";
 import { getNoiseLegendConfig } from "../../../utils/noiseColors";
+import { useEffect } from "react";
 
 interface NuisancesTabProps {
   data: DashboardData;
@@ -177,22 +179,88 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   rail: "Railroad",
 };
 
-// Noise band color mapping for vector tile fill-color expression
-// Bands match the actual noise_band values stored in the noises table
-const NOISE_BAND_COLORS: [string, string][] = [
-  ["45.0-49.9", "rgba(163, 230, 53, 0.4)"],
-  ["50.0-54.9", "rgba(250, 204, 21, 0.4)"],
-  ["55.0-59.9", "rgba(251, 146, 60, 0.4)"],
-  ["60.0-69.9", "rgba(249, 115, 22, 0.4)"],
-  ["70.0-79.9", "rgba(239, 68, 68, 0.4)"],
-  ["80.0-89.9", "rgba(220, 38, 38, 0.4)"],
-  [">90.0", "rgba(153, 27, 27, 0.4)"],
+// Noise fill-color as a step expression on noise_min_db (numeric).
+// Uses the same palette as noiseColors.ts but for MapLibre vector tile rendering.
+const NOISE_FILL_COLOR: maplibregl.ExpressionSpecification = [
+  "step",
+  ["get", "noise_min_db"],
+  "#a3e635", // < 45 dB
+  45,
+  "#a3e635", // 45-49
+  50,
+  "#facc15", // 50-54
+  55,
+  "#fb923c", // 55-59
+  60,
+  "#f97316", // 60-69
+  70,
+  "#ef4444", // 70-79
+  80,
+  "#dc2626", // 80-89
+  90,
+  "#991b1b", // 90+
 ];
+
+const NOISE_OUTLINE_COLOR: maplibregl.ExpressionSpecification = [
+  "step",
+  ["get", "noise_min_db"],
+  "#84cc16",
+  50,
+  "#eab308",
+  55,
+  "#f97316",
+  60,
+  "#ea580c",
+  70,
+  "#dc2626",
+  80,
+  "#b91c1c",
+  90,
+  "#7f1d1d",
+];
+
+// SVG airplane icon encoded as data URL for MapLibre image source
+const AIRPLANE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="%237C3AED" stroke="white" stroke-width="0.5"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
+
+/** Loads the airplane icon image into the MapLibre map instance */
+function AirplaneIconLoader() {
+  const { current: map } = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const gl = map.getMap();
+
+    function loadIcon() {
+      if (gl.hasImage("airplane-icon")) return;
+      const img = new Image(32, 32);
+      img.onload = () => {
+        if (!gl.hasImage("airplane-icon")) {
+          gl.addImage("airplane-icon", img, { sdf: false });
+        }
+      };
+      img.src = `data:image/svg+xml;charset=utf-8,${AIRPLANE_ICON_SVG}`;
+    }
+
+    loadIcon();
+    // Reload icon after style changes (style switch wipes images)
+    gl.on("styledata", loadIcon);
+    return () => {
+      gl.off("styledata", loadIcon);
+    };
+  }, [map]);
+
+  return null;
+}
 
 function NuisancesTab({ data }: NuisancesTabProps) {
   const { property } = data;
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [airportPopup, setAirportPopup] = useState<{
+    lon: number;
+    lat: number;
+    name: string;
+  } | null>(null);
 
   const { sources: apiSources, loading: sourcesLoading } = useNuisanceSources(
     property.lat,
@@ -258,27 +326,47 @@ function NuisancesTab({ data }: NuisancesTabProps) {
   const noiseLegend = getNoiseLegendConfig();
 
   // Build MapLibre filter for noise source layers
-  const noiseSourceFilter = useMemo(() => {
+  const noiseSourceFilter = useMemo((): maplibregl.FilterSpecification | undefined => {
     if (activeSources.size === ALL_SOURCES.size) return undefined;
+    if (activeSources.size === 0) return ["==", "source_layer", "__none__"];
     return ["in", "source_layer", ...Array.from(activeSources)];
   }, [activeSources]);
 
   // Build MapLibre filter for infra types
-  const infraTypeFilter = useMemo(() => {
+  const infraTypeFilter = useMemo((): maplibregl.FilterSpecification => {
     const types: string[] = [];
     if (activeInfra.has("road")) types.push("road");
     if (activeInfra.has("railroad")) types.push("railroad");
     if (activeInfra.has("airport")) types.push("airport");
-    return types.length > 0 ? ["in", "infra_type", ...types] : ["==", "infra_type", "__none__"];
+    return types.length > 0
+      ? (["in", "infra_type", ...types] as unknown as maplibregl.FilterSpecification)
+      : (["==", "infra_type", "__none__"] as unknown as maplibregl.FilterSpecification);
   }, [activeInfra]);
 
-  // Noise fill-color expression
-  const noiseFillColor = [
-    "match",
-    ["get", "noise_band"],
-    ...NOISE_BAND_COLORS.flatMap(([band, color]) => [band, color]),
-    "rgba(200, 200, 200, 0.2)",
-  ] as unknown as maplibregl.ExpressionSpecification;
+  // Airport symbol filter
+  const airportFilter = useMemo((): maplibregl.FilterSpecification => {
+    return [
+      "all",
+      ["==", "infra_type", "airport"],
+      ...(activeInfra.has("airport")
+        ? []
+        : [["==", "infra_type", "__none__"] as unknown as maplibregl.FilterSpecification]),
+    ] as unknown as maplibregl.FilterSpecification;
+  }, [activeInfra]);
+
+  // Handle click on airport icon
+  const handleLayerClick = useCallback((e: MapLayerMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    if (feature.layer.id === "infra-airports" && feature.geometry.type === "Point") {
+      const [lon, lat] = feature.geometry.coordinates;
+      setAirportPopup({
+        lon,
+        lat,
+        name: (feature.properties?.name as string) || "Airport",
+      });
+    }
+  }, []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -402,7 +490,11 @@ function NuisancesTab({ data }: NuisancesTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
+              interactiveLayerIds={["infra-airports"]}
+              onLayerClick={handleLayerClick}
             >
+              <AirplaneIconLoader />
+
               {/* Noise polygon vector tiles */}
               <Source
                 id="noises-tiles"
@@ -415,21 +507,21 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                   id="noises-fill"
                   type="fill"
                   source-layer="noises"
-                  filter={noiseSourceFilter as maplibregl.FilterSpecification | undefined}
+                  {...(noiseSourceFilter ? { filter: noiseSourceFilter } : {})}
                   paint={{
-                    "fill-color": noiseFillColor,
-                    "fill-opacity": 0.6,
+                    "fill-color": NOISE_FILL_COLOR,
+                    "fill-opacity": 0.35,
                   }}
                 />
                 <Layer
                   id="noises-outline"
                   type="line"
                   source-layer="noises"
-                  filter={noiseSourceFilter as maplibregl.FilterSpecification | undefined}
+                  {...(noiseSourceFilter ? { filter: noiseSourceFilter } : {})}
                   paint={{
-                    "line-color": noiseFillColor,
-                    "line-width": 1,
-                    "line-opacity": 0.8,
+                    "line-color": NOISE_OUTLINE_COLOR,
+                    "line-width": 1.5,
+                    "line-opacity": 0.7,
                   }}
                 />
               </Source>
@@ -442,50 +534,66 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                 minzoom={0}
                 maxzoom={14}
               >
+                {/* Line geometries: roads, railroads, pipelines, etc. */}
                 <Layer
                   id="infra-lines"
                   type="line"
                   source-layer="v_infrastructure"
-                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  filter={infraTypeFilter}
                   paint={{
                     "line-color": [
                       "match",
                       ["get", "infra_type"],
                       "railroad",
                       "#F97316",
-                      "airport",
-                      "#7C3AED",
+                      "road",
                       "#3B82F6",
+                      "#94A3B8",
                     ],
                     "line-width": 2,
                     "line-opacity": 0.7,
                   }}
                 />
+                {/* Airport symbol layer — airplane icons */}
                 <Layer
-                  id="infra-points"
-                  type="circle"
+                  id="infra-airports"
+                  type="symbol"
                   source-layer="v_infrastructure"
-                  filter={
-                    [
-                      "all",
-                      infraTypeFilter as maplibregl.FilterSpecification,
-                      ["==", "$type", "Point"],
-                    ] as unknown as maplibregl.FilterSpecification
-                  }
+                  filter={airportFilter}
+                  layout={{
+                    "icon-image": "airplane-icon",
+                    "icon-size": 0.7,
+                    "icon-allow-overlap": true,
+                    "icon-ignore-placement": false,
+                  }}
                   paint={{
-                    "circle-radius": 5,
-                    "circle-color": [
-                      "match",
-                      ["get", "infra_type"],
-                      "airport",
-                      "#7C3AED",
-                      "#94A3B8",
-                    ],
-                    "circle-stroke-width": 1,
-                    "circle-stroke-color": "#ffffff",
+                    "icon-opacity": 0.9,
                   }}
                 />
               </Source>
+
+              {/* Airport name popup */}
+              {airportPopup && (
+                <Popup
+                  longitude={airportPopup.lon}
+                  latitude={airportPopup.lat}
+                  anchor="bottom"
+                  onClose={() => setAirportPopup(null)}
+                  closeOnClick={false}
+                  offset={16}
+                >
+                  <span
+                    style={{
+                      fontFamily: "var(--font-db-sans)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--color-db-text-primary)",
+                    }}
+                  >
+                    {airportPopup.name}
+                  </span>
+                </Popup>
+              )}
             </DashboardMap>
             {activeSources.size > 0 && <ChoroplethLegend config={noiseLegend} />}
           </div>
