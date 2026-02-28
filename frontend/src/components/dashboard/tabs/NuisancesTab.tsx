@@ -469,7 +469,7 @@ function NuisancesTab({ data }: NuisancesTabProps) {
                     [
                       "all",
                       infraTypeFilter as maplibregl.FilterSpecification,
-                      ["==", ["geometry-type"], "Point"],
+                      ["==", "$type", "Point"],
                     ] as unknown as maplibregl.FilterSpecification
                   }
                   paint={{
