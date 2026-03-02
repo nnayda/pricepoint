@@ -71,7 +71,48 @@ def _make_listing(id: int = 10, street_address: str = "123 Main St") -> MagicMoc
     listing = MagicMock(spec=RedfinListing)
     listing.id = id
     listing.street_address = street_address
+    listing.city = "Cary"
+    listing.state = "NC"
+    listing.zip_code = "27513"
+    listing.listing_status = "Sold"
+    listing.listing_price = 350000.0
+    listing.sold_price = 345000.0
+    listing.num_beds = 3
+    listing.num_baths = 2.5
+    listing.sqft = 1800
+    listing.year_built = 2005
+    listing.property_photos = ["photos/abc123.jpg", "photos/def456.jpg"]
+    listing.location = MagicMock()  # non-None to trigger coord query
     return listing
+
+
+def _make_enriched_row(sp: MagicMock) -> MagicMock:
+    """Build a mock row returned by the enriched list query."""
+    row = MagicMock()
+    # Index access: row[0] returns the SavedProperty
+    row.__getitem__ = lambda self, idx: sp if idx == 0 else None
+    row.street_address = "123 Main St"
+    row.city = "Cary"
+    row.state = "NC"
+    row.zip_code = "27513"
+    row.listing_status = "Sold"
+    row.listing_price = 350000.0
+    row.sold_price = 345000.0
+    row.num_beds = 3
+    row.num_baths = 2.5
+    row.sqft = 1800
+    row.year_built = 2005
+    row.property_photos = ["photos/abc123.jpg", "photos/def456.jpg"]
+    row.lat = 35.79
+    row.lon = -78.78
+    return row
+
+
+def _make_enriched_row_no_photos(sp: MagicMock) -> MagicMock:
+    """Build a mock row with no photos."""
+    row = _make_enriched_row(sp)
+    row.property_photos = None
+    return row
 
 
 class TestListSaved:
@@ -85,7 +126,8 @@ class TestListSaved:
 
     def test_list_returns_saved_properties(self, client, mock_db):
         sp = _make_saved_property()
-        mock_db.execute.return_value.all.return_value = [(sp, "123 Main St")]
+        row = _make_enriched_row(sp)
+        mock_db.execute.return_value.all.return_value = [row]
         resp = client.get("/api/saved")
         assert resp.status_code == 200
         data = resp.json()
@@ -93,6 +135,34 @@ class TestListSaved:
         assert data[0]["id"] == 1
         assert data[0]["listing_id"] == 10
         assert data[0]["listing_address"] == "123 Main St"
+        assert data[0]["city"] == "Cary"
+        assert data[0]["state"] == "NC"
+        assert data[0]["zip_code"] == "27513"
+        assert data[0]["listing_status"] == "Sold"
+        assert data[0]["listing_price"] == 350000.0
+        assert data[0]["sold_price"] == 345000.0
+        assert data[0]["num_beds"] == 3
+        assert data[0]["num_baths"] == 2.5
+        assert data[0]["sqft"] == 1800
+        assert data[0]["year_built"] == 2005
+        assert data[0]["lat"] == 35.79
+        assert data[0]["lon"] == -78.78
+
+    def test_list_photo_url_construction(self, client, mock_db):
+        sp = _make_saved_property()
+        row = _make_enriched_row(sp)
+        mock_db.execute.return_value.all.return_value = [row]
+        resp = client.get("/api/saved")
+        data = resp.json()
+        assert data[0]["photo_url"] == "/api/photos/photos/abc123.jpg"
+
+    def test_list_null_photos(self, client, mock_db):
+        sp = _make_saved_property()
+        row = _make_enriched_row_no_photos(sp)
+        mock_db.execute.return_value.all.return_value = [row]
+        resp = client.get("/api/saved")
+        data = resp.json()
+        assert data[0]["photo_url"] is None
 
 
 class TestSaveProperty:
@@ -102,7 +172,12 @@ class TestSaveProperty:
         listing = _make_listing()
         # First execute: listing lookup
         # Second execute: duplicate check
+        # Third execute: coord query (location is non-None)
+        coord_row = MagicMock()
+        coord_row.lat = 35.79
+        coord_row.lon = -78.78
         mock_db.execute.return_value.scalar_one_or_none.side_effect = [listing, None]
+        mock_db.execute.return_value.one.return_value = coord_row
 
         # After commit + refresh, the saved object needs to have attributes
         def _refresh(obj):
@@ -117,6 +192,9 @@ class TestSaveProperty:
         assert data["listing_id"] == 10
         assert data["notes"] == "Great house"
         assert data["listing_address"] == "123 Main St"
+        assert data["city"] == "Cary"
+        assert data["num_beds"] == 3
+        assert data["photo_url"] == "/api/photos/photos/abc123.jpg"
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
 
@@ -140,10 +218,26 @@ class TestUpdateSaved:
 
     def test_update_notes(self, client, mock_db):
         sp = _make_saved_property(notes="old")
-        listing = _make_listing()
 
-        # First call: lookup saved property; second call: lookup listing for address
-        mock_db.execute.return_value.scalar_one_or_none.side_effect = [sp, listing]
+        # First call: lookup saved property; second call: enriched listing row
+        enriched_row = MagicMock()
+        enriched_row.street_address = "123 Main St"
+        enriched_row.city = "Cary"
+        enriched_row.state = "NC"
+        enriched_row.zip_code = "27513"
+        enriched_row.listing_status = "Sold"
+        enriched_row.listing_price = 350000.0
+        enriched_row.sold_price = 345000.0
+        enriched_row.num_beds = 3
+        enriched_row.num_baths = 2.5
+        enriched_row.sqft = 1800
+        enriched_row.year_built = 2005
+        enriched_row.property_photos = ["photos/abc123.jpg"]
+        enriched_row.lat = 35.79
+        enriched_row.lon = -78.78
+
+        mock_db.execute.return_value.scalar_one_or_none.return_value = sp
+        mock_db.execute.return_value.one_or_none.return_value = enriched_row
 
         def _refresh(obj):
             pass  # notes already updated in-place

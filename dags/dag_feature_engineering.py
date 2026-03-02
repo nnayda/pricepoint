@@ -84,12 +84,13 @@ def feature_engineering():
         finally:
             db.close()
 
-    geo = build_geospatial()
+    # NOTE: build_geospatial temporarily unlinked — takes too long to run
+    # geo = build_geospatial()
     housing = build_housing()
     econ = build_economic()
     assembly = assemble_feature_matrix()
 
-    [geo, housing, econ] >> assembly
+    [housing, econ] >> assembly
 
 
 feature_engineering()

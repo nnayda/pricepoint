@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { DashboardData, MortgageBreakdown } from "../../../types";
+import type { MapMarker } from "../maps/DashboardMap";
 import DashboardCard from "../DashboardCard";
+import DashboardMap from "../maps/DashboardMap";
 import MonoValue from "../ui/MonoValue";
 import EstimateRangeBar from "../charts/EstimateRangeBar";
 import PriceHistoryChart from "../charts/PriceHistoryChart";
@@ -75,6 +77,116 @@ function getOutcome(v: DashboardData["valuation"]): Outcome {
   };
 }
 
+function fmtPrice(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toLocaleString("en-US")}`;
+}
+
+function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
+  const { property, neighborhood_properties } = data;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const markers: MapMarker[] = useMemo(() => {
+    const subjectMarker: MapMarker = {
+      lat: property.lat,
+      lon: property.lon,
+      label: property.address,
+      color: "#6366F1",
+      id: "subject",
+      isProperty: true,
+    };
+
+    if (!neighborhood_properties || neighborhood_properties.length === 0) {
+      return [subjectMarker];
+    }
+
+    const propMarkers: MapMarker[] = neighborhood_properties.map((p, i) => ({
+      lat: p.lat,
+      lon: p.lon,
+      label: `${p.address} — ${fmtPrice(p.effective_price)}`,
+      color:
+        p.listing_status === "Sold"
+          ? "#94A3B8"
+          : p.listing_status === "Estimated"
+            ? "#A78BFA"
+            : "#34D399",
+      id: `np-${i}`,
+      priceLabel: fmtPrice(p.effective_price),
+    }));
+
+    return [subjectMarker, ...propMarkers];
+  }, [property, neighborhood_properties]);
+
+  const renderPopup = useCallback(
+    (marker: MapMarker) => {
+      if (marker.id === "subject") {
+        return (
+          <div style={{ fontFamily: "var(--font-db-sans)", minWidth: 160 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Your Property</div>
+            <div style={{ fontSize: 11, color: "#9BA3BF" }}>{property.address}</div>
+          </div>
+        );
+      }
+      const idx = marker.id ? parseInt(marker.id.replace("np-", ""), 10) : -1;
+      const np = neighborhood_properties?.[idx];
+      if (!np) return <span>{marker.label}</span>;
+      return (
+        <div style={{ fontFamily: "var(--font-db-sans)", minWidth: 160 }}>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtPrice(np.effective_price)}</div>
+          <div style={{ fontSize: 11, color: "#9BA3BF" }}>{np.address}</div>
+          <div
+            style={{
+              fontSize: 10,
+              marginTop: 2,
+              color: np.listing_status === "Sold" ? "#94A3B8" : "#34D399",
+            }}
+          >
+            {np.listing_status}
+          </div>
+        </div>
+      );
+    },
+    [property, neighborhood_properties],
+  );
+
+  return (
+    <DashboardCard className="flex flex-col">
+      <SectionHeading className="mb-3">Neighborhood Prices</SectionHeading>
+      <div className="flex-1" style={{ minHeight: 300 }}>
+        <DashboardMap
+          center={[property.lat, property.lon]}
+          zoom={14}
+          markers={markers}
+          height="100%"
+          minHeight="300px"
+          selectedId={selectedId}
+          onMarkerSelect={setSelectedId}
+          onMarkerDeselect={() => setSelectedId(null)}
+          renderPopup={renderPopup}
+        />
+      </div>
+      {neighborhood_properties && neighborhood_properties.length > 0 && (
+        <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--color-db-text-muted)]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#34D399]" />
+            For Sale
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#94A3B8]" />
+            Sold
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#A78BFA]" />
+            Estimated
+          </span>
+          <span className="ml-auto">{neighborhood_properties.length} properties</span>
+        </div>
+      )}
+    </DashboardCard>
+  );
+}
+
 function ValuationTab({ data }: ValuationTabProps) {
   const { valuation, shap_features, price_history, mortgage_defaults, notFound } = data;
   const outcome = getOutcome(valuation);
@@ -99,8 +211,11 @@ function ValuationTab({ data }: ValuationTabProps) {
   );
 
   const donutData = [
-    { label: "Principal", value: mortgage.principal, color: MORTGAGE_COLORS.principal },
-    { label: "Interest", value: mortgage.interest, color: MORTGAGE_COLORS.interest },
+    {
+      label: "Principal & Interest",
+      value: mortgage.principal + mortgage.interest,
+      color: MORTGAGE_COLORS.principal,
+    },
     { label: "Tax", value: mortgage.tax, color: MORTGAGE_COLORS.tax },
     { label: "Insurance", value: mortgage.insurance, color: MORTGAGE_COLORS.insurance },
     { label: "HOA", value: mortgage.hoa, color: MORTGAGE_COLORS.hoa },
@@ -187,12 +302,37 @@ function ValuationTab({ data }: ValuationTabProps) {
         </DashboardCard>
       </div>
 
-      {/* Mortgage Calculator */}
-      <DashboardCard>
-        <SectionHeading className="mb-4">Mortgage Calculator</SectionHeading>
-        <div className="grid gap-6 lg:grid-cols-2">
+      {/* Mortgage Calculator + Neighborhood Prices — side by side */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DashboardCard>
+          <SectionHeading className="mb-4">Mortgage Calculator</SectionHeading>
+
+          {/* Donut + breakdown */}
+          <div className="flex items-center gap-4">
+            <DashboardDonut
+              data={donutData}
+              centerLabel="Monthly"
+              centerValue={fmtUsd(Math.round(mortgage.total))}
+              size={170}
+            />
+            <div className="flex-1 space-y-1.5">
+              {donutData.map((d) => (
+                <div key={d.label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    <span className="text-xs text-[var(--color-db-text-secondary)]">{d.label}</span>
+                  </div>
+                  <MonoValue value={fmtUsd(Math.round(d.value))} size="sm" />
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Sliders */}
-          <div className="flex flex-col gap-3">
+          <div className="mt-4 flex flex-col gap-3">
             <div>
               <div className="mb-1 flex justify-between text-xs text-[var(--color-db-text-tertiary)]">
                 <span>Home Price</span>
@@ -264,32 +404,10 @@ function ValuationTab({ data }: ValuationTabProps) {
               </div>
             </div>
           </div>
+        </DashboardCard>
 
-          {/* Donut + breakdown — side by side */}
-          <div className="flex items-center gap-4">
-            <DashboardDonut
-              data={donutData}
-              centerLabel="Monthly"
-              centerValue={fmtUsd(Math.round(mortgage.total))}
-              size={200}
-            />
-            <div className="flex-1 space-y-1.5">
-              {donutData.map((d) => (
-                <div key={d.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: d.color }}
-                    />
-                    <span className="text-xs text-[var(--color-db-text-secondary)]">{d.label}</span>
-                  </div>
-                  <MonoValue value={fmtUsd(Math.round(d.value))} size="sm" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </DashboardCard>
+        <NeighborhoodPricesCard data={data} />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { Source, Layer } from "react-map-gl/maplibre";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Source, Layer, Popup, useMap } from "react-map-gl/maplibre";
+import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
 import type { DashboardData, NegativePoi, InfrastructureType } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap from "../maps/DashboardMap";
@@ -53,6 +54,46 @@ const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
 ];
 
 const ALL_TYPES = new Set<InfrastructureType>(INFRA_TYPE_OPTIONS.map((o) => o.value));
+
+// SVG icons for point infrastructure types (cell towers & power plants)
+const CELL_TOWER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%2360A5FA" stroke="white" stroke-width="0.8"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="M12 14v8"/></svg>`;
+const POWER_PLANT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23EF4444" stroke="white" stroke-width="0.8"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+
+const INFRA_ICON_MAP: Record<string, { svg: string; name: string }> = {
+  cell_tower: { svg: CELL_TOWER_ICON_SVG, name: "cell-tower-icon" },
+  power_plant: { svg: POWER_PLANT_ICON_SVG, name: "power-plant-icon" },
+};
+
+/** Loads cell tower and power plant icons into the MapLibre map instance */
+function InfraIconLoader() {
+  const { current: map } = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const gl = map.getMap();
+
+    function loadIcons() {
+      for (const { svg, name } of Object.values(INFRA_ICON_MAP)) {
+        if (gl.hasImage(name)) continue;
+        const img = new Image(28, 28);
+        img.onload = () => {
+          if (!gl.hasImage(name)) {
+            gl.addImage(name, img, { sdf: false });
+          }
+        };
+        img.src = `data:image/svg+xml;charset=utf-8,${svg}`;
+      }
+    }
+
+    loadIcons();
+    gl.on("styledata", loadIcons);
+    return () => {
+      gl.off("styledata", loadIcons);
+    };
+  }, [map]);
+
+  return null;
+}
 
 function SeverityBadge({ severity }: { severity: string }) {
   const size = 52;
@@ -172,6 +213,12 @@ function RisksTab({ data }: RisksTabProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<Set<InfrastructureType>>(ALL_TYPES);
+  const [infraPopup, setInfraPopup] = useState<{
+    lon: number;
+    lat: number;
+    name: string;
+    type: string;
+  } | null>(null);
 
   const { data: risksData, loading } = useRisks(property.lat, property.lon, 5);
 
@@ -238,12 +285,44 @@ function RisksTab({ data }: RisksTabProps) {
     return ["in", "infra_type", ...types];
   }, [activeTypes]);
 
+  // Build filter for point-geometry infrastructure (cell towers, power plants)
+  const infraPointFilter = useMemo(() => {
+    const pointTypes = ["cell_tower", "power_plant"].filter((t) =>
+      activeTypes.has(t as InfrastructureType),
+    );
+    if (pointTypes.length === 0) return ["==", "infra_type", "__none__"];
+    return ["in", "infra_type", ...pointTypes];
+  }, [activeTypes]);
+
   // Build infra type filter for risk_boundaries tiles (uses "infrastructure_type" column)
+  // risk_boundaries table uses plural forms (e.g. "cell_towers") while
+  // the UI toggle values use singular forms (e.g. "cell_tower")
   const riskBoundaryFilter = useMemo(() => {
-    const types = Array.from(activeTypes);
+    const types = Array.from(activeTypes).map((t) => `${t}s`);
     if (types.length === 0) return ["==", "infrastructure_type", "__none__"];
     return ["in", "infrastructure_type", ...types];
   }, [activeTypes]);
+
+  const INFRA_TYPE_LABEL: Record<string, string> = {
+    cell_tower: "Cell Tower",
+    power_plant: "Power Plant",
+  };
+
+  // Handle click on infrastructure point icons
+  const handleLayerClick = useCallback((e: MapLayerMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    if (feature.layer.id === "infra-points" && feature.geometry.type === "Point") {
+      const [lon, lat] = feature.geometry.coordinates;
+      const infraType = (feature.properties?.infra_type as string) || "";
+      setInfraPopup({
+        lon,
+        lat,
+        name: (feature.properties?.name as string) || INFRA_TYPE_LABEL[infraType] || "Unknown",
+        type: INFRA_TYPE_LABEL[infraType] || infraType.replace(/_/g, " "),
+      });
+    }
+  }, []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -341,7 +420,11 @@ function RisksTab({ data }: RisksTabProps) {
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
+              interactiveLayerIds={["infra-points"]}
+              onLayerClick={handleLayerClick}
             >
+              <InfraIconLoader />
+
               {/* Risk boundary vector tiles */}
               <Source
                 id="risk-boundaries-tiles"
@@ -396,6 +479,7 @@ function RisksTab({ data }: RisksTabProps) {
                 minzoom={0}
                 maxzoom={14}
               >
+                {/* Line geometries: transmission lines, pipelines */}
                 <Layer
                   id="infra-lines"
                   type="line"
@@ -421,7 +505,62 @@ function RisksTab({ data }: RisksTabProps) {
                     "line-opacity": 0.85,
                   }}
                 />
+                {/* Point geometries: cell towers and power plants as icons */}
+                <Layer
+                  id="infra-points"
+                  type="symbol"
+                  source-layer="v_infrastructure"
+                  filter={infraPointFilter as maplibregl.FilterSpecification}
+                  layout={{
+                    "icon-image": [
+                      "match",
+                      ["get", "infra_type"],
+                      "cell_tower",
+                      "cell-tower-icon",
+                      "power_plant",
+                      "power-plant-icon",
+                      "cell-tower-icon",
+                    ],
+                    "icon-size": 0.85,
+                    "icon-allow-overlap": true,
+                    "icon-ignore-placement": false,
+                  }}
+                  paint={{
+                    "icon-opacity": 0.9,
+                  }}
+                />
               </Source>
+
+              {/* Infrastructure point popup */}
+              {infraPopup && (
+                <Popup
+                  longitude={infraPopup.lon}
+                  latitude={infraPopup.lat}
+                  anchor="bottom"
+                  onClose={() => setInfraPopup(null)}
+                  closeOnClick={false}
+                  offset={16}
+                >
+                  <div
+                    style={{
+                      fontFamily: "var(--font-db-sans)",
+                      fontSize: 13,
+                      color: "var(--color-db-text-primary)",
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{infraPopup.name}</div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--color-db-text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {infraPopup.type}
+                    </div>
+                  </div>
+                </Popup>
+              )}
             </DashboardMap>
             <div
               className="absolute bottom-3 right-3 z-[1000] rounded-lg border p-3"

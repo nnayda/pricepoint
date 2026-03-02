@@ -23,6 +23,8 @@ export interface MapMarker {
   id?: string;
   isProperty?: boolean;
   infrastructureType?: string;
+  /** Persistent label shown next to the marker on the map */
+  priceLabel?: string;
 }
 
 export type MapStyle = "street" | "satellite" | "dark" | "light";
@@ -536,12 +538,32 @@ function DashboardMap({
                 }
               }}
             >
-              <MarkerIcon
-                marker={m}
-                highlighted={
-                  (m.id != null && m.id === highlightedId) || (m.id != null && m.id === selectedId)
-                }
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <MarkerIcon
+                  marker={m}
+                  highlighted={
+                    (m.id != null && m.id === highlightedId) ||
+                    (m.id != null && m.id === selectedId)
+                  }
+                />
+                {m.priceLabel && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fontFamily: "var(--font-db-mono)",
+                      color: "#fff",
+                      background: "rgba(0,0,0,0.6)",
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      whiteSpace: "nowrap",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {m.priceLabel}
+                  </span>
+                )}
+              </div>
             </Marker>
           ))
         )}

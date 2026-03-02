@@ -18,6 +18,7 @@ vi.mock("../../hooks/useDemographics", () => ({
 vi.mock("../../hooks/useNeighborhoodValuation", () => ({
   useNeighborhoodValuation: () => ({ data: null, loading: false, error: null }),
   useNeighborhoodValuationHistory: () => ({ data: null, loading: false, error: null }),
+  useNeighborhoodProperties: () => ({ data: null, loading: false }),
 }));
 
 // Mock mapPropertyResponse to return mockDashboardData

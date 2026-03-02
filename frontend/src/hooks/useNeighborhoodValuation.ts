@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import {
+  getNeighborhoodProperties,
   getNeighborhoodValuation,
   getNeighborhoodValuationHistory,
   type NeighborhoodValuation,
 } from "../services/property";
-import type { NeighborhoodValuationHistory } from "../types";
+import type { NeighborhoodPropertiesResponse, NeighborhoodValuationHistory } from "../types";
 
 interface UseNeighborhoodValuationResult {
   data: NeighborhoodValuation | null;
@@ -67,6 +68,43 @@ export function useNeighborhoodValuationHistory(
       })
       .catch(() => {
         // Silently handle — chart shows without neighborhood line
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lon]);
+
+  return { data, loading };
+}
+
+interface UseNeighborhoodPropertiesResult {
+  data: NeighborhoodPropertiesResponse | null;
+  loading: boolean;
+}
+
+export function useNeighborhoodProperties(
+  lat: number | null,
+  lon: number | null,
+): UseNeighborhoodPropertiesResult {
+  const [data, setData] = useState<NeighborhoodPropertiesResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (lat == null || lon == null) return;
+
+    let cancelled = false;
+    setLoading(true);
+
+    getNeighborhoodProperties(lat, lon)
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch(() => {
+        // Silently handle — map shows without neighborhood properties
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

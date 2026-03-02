@@ -27,6 +27,7 @@ from pricepoint.api.schemas.property import (
     SaleHistoryEntry,
     SchoolNearby,
     TaxHistoryEntry,
+    UtilityDetails,
     ValuationData,
 )
 from pricepoint.config.settings import get_settings
@@ -43,6 +44,52 @@ from pricepoint.db.models import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["property"])
+
+
+def _split_csv(value: str | None) -> list[str]:
+    """Split a comma-separated string into trimmed items, dropping empties."""
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _build_interior(prop: RedfinListing) -> InteriorFeatures:
+    """Extract interior features from the property_details JSON column."""
+    details: dict = prop.property_details or {}
+    return InteriorFeatures(
+        flooring=_split_csv(details.get("flooring")),
+        appliances=_split_csv(details.get("appliances")),
+        heating=details.get("heating") or "Unknown",
+        cooling=details.get("cooling") or "Unknown",
+        fireplace=prop.has_fireplace or False,
+        basement=details.get("basement") or details.get("basement_details") or None,
+        laundry=details.get("laundry") or None,
+    )
+
+
+def _build_exterior(prop: RedfinListing) -> ExteriorFeatures:
+    """Extract exterior features from the property_details JSON column."""
+    details: dict = prop.property_details or {}
+    return ExteriorFeatures(
+        roof=details.get("roof") or details.get("roof_details") or "Unknown",
+        siding=prop.facade_type or details.get("construction_type") or "Unknown",
+        foundation=details.get("foundation_details") or details.get("foundation_type") or "Unknown",
+        parking=prop.parking_type or details.get("parking_features") or "None",
+        pool=(prop.has_private_pool or prop.has_community_pool) or False,
+        fence=details.get("fencing") or "None",
+        lot_features=details.get("lot_features") or None,
+    )
+
+
+def _build_utilities(prop: RedfinListing) -> UtilityDetails | None:
+    """Extract utility info from the property_details JSON column."""
+    details: dict = prop.property_details or {}
+    water = details.get("water_source") or None
+    sewer = details.get("sewer") or None
+    electric = details.get("electric") or None
+    if not any([water, sewer, electric]):
+        return None
+    return UtilityDetails(water=water, sewer=sewer, electric=electric)
 
 
 def _build_response_from_db(
@@ -176,6 +223,7 @@ def _build_response_from_db(
             )
 
     return PropertyResponse(
+        listing_id=prop.id,
         property=PropertyDetails(
             address=prop.street_address or "",
             city=prop.city or "",
@@ -217,22 +265,9 @@ def _build_response_from_db(
                 ml_val.estimated_at.strftime("%Y-%m-%d") if ml_val and ml_val.estimated_at else None
             ),
         ),
-        interior=InteriorFeatures(
-            flooring=[],
-            appliances=[],
-            heating="Unknown",
-            cooling="Unknown",
-            fireplace=prop.has_fireplace or False,
-            basement=None,
-        ),
-        exterior=ExteriorFeatures(
-            roof="Unknown",
-            siding=prop.facade_type or "Unknown",
-            foundation="Unknown",
-            parking=prop.parking_type or "None",
-            pool=prop.has_private_pool or False,
-            fence="None",
-        ),
+        interior=_build_interior(prop),
+        exterior=_build_exterior(prop),
+        utilities=_build_utilities(prop),
         financial=FinancialDetails(
             hoa_monthly=(prop.association_fee / 12) if prop.association_fee else None,
             tax_annual=tax_history[0].tax_amount if tax_history else 0.0,

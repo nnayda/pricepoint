@@ -13,6 +13,7 @@ class GreenspaceFeature(BaseModel):
     lon: float
     distance_miles: float
     acreage: float | None = None
+    length_miles: float | None = None
 
 
 class GreenspaceMetrics(BaseModel):

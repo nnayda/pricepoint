@@ -4,6 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from geoalchemy2.functions import ST_X, ST_Y
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,37 @@ DbSession = Annotated[Session, Depends(get_db)]
 AuthUser = Annotated[User, Depends(get_current_user)]
 
 
+def _first_photo_url(photos: list[str] | None) -> str | None:
+    """Build /api/photos/ URL from the first element of property_photos JSON."""
+    if photos and len(photos) > 0:
+        return f"/api/photos/{photos[0]}"
+    return None
+
+
+def _build_response(sp: SavedProperty, row: object) -> SavedPropertyResponse:
+    """Build an enriched SavedPropertyResponse from a query row."""
+    return SavedPropertyResponse(
+        id=sp.id,
+        listing_id=sp.listing_id,
+        notes=sp.notes,
+        created_at=sp.created_at,
+        listing_address=getattr(row, "street_address", None),
+        city=getattr(row, "city", None),
+        state=getattr(row, "state", None),
+        zip_code=getattr(row, "zip_code", None),
+        listing_status=getattr(row, "listing_status", None),
+        listing_price=getattr(row, "listing_price", None),
+        sold_price=getattr(row, "sold_price", None),
+        num_beds=getattr(row, "num_beds", None),
+        num_baths=getattr(row, "num_baths", None),
+        sqft=getattr(row, "sqft", None),
+        year_built=getattr(row, "year_built", None),
+        photo_url=_first_photo_url(getattr(row, "property_photos", None)),
+        lat=getattr(row, "lat", None),
+        lon=getattr(row, "lon", None),
+    )
+
+
 @router.get("/saved", response_model=list[SavedPropertyResponse])
 def list_saved(
     db: DbSession,
@@ -31,21 +63,28 @@ def list_saved(
 ) -> list[SavedPropertyResponse]:
     """Return all saved properties for the authenticated user."""
     rows = db.execute(
-        select(SavedProperty, RedfinListing.street_address)
+        select(
+            SavedProperty,
+            RedfinListing.street_address,
+            RedfinListing.city,
+            RedfinListing.state,
+            RedfinListing.zip_code,
+            RedfinListing.listing_status,
+            RedfinListing.listing_price,
+            RedfinListing.sold_price,
+            RedfinListing.num_beds,
+            RedfinListing.num_baths,
+            RedfinListing.sqft,
+            RedfinListing.year_built,
+            RedfinListing.property_photos,
+            ST_Y(RedfinListing.location).label("lat"),
+            ST_X(RedfinListing.location).label("lon"),
+        )
         .outerjoin(RedfinListing, SavedProperty.listing_id == RedfinListing.id)
         .where(SavedProperty.user_id == user.id)
         .order_by(SavedProperty.created_at.desc())
     ).all()
-    return [
-        SavedPropertyResponse(
-            id=sp.id,
-            listing_id=sp.listing_id,
-            notes=sp.notes,
-            created_at=sp.created_at,
-            listing_address=address,
-        )
-        for sp, address in rows
-    ]
+    return [_build_response(row[0], row) for row in rows]
 
 
 @router.post("/saved", response_model=SavedPropertyResponse, status_code=status.HTTP_201_CREATED)
@@ -87,12 +126,38 @@ def save_property(
     db.commit()
     db.refresh(saved)
 
+    photos = listing.property_photos if listing.property_photos else None
+    lat_val = None
+    lon_val = None
+    if listing.location is not None:
+        coords = db.execute(
+            select(
+                ST_Y(RedfinListing.location).label("lat"),
+                ST_X(RedfinListing.location).label("lon"),
+            ).where(RedfinListing.id == listing.id)
+        ).one()
+        lat_val = coords.lat
+        lon_val = coords.lon
+
     return SavedPropertyResponse(
         id=saved.id,
         listing_id=saved.listing_id,
         notes=saved.notes,
         created_at=saved.created_at,
         listing_address=listing.street_address,
+        city=listing.city,
+        state=listing.state,
+        zip_code=listing.zip_code,
+        listing_status=listing.listing_status,
+        listing_price=listing.listing_price,
+        sold_price=listing.sold_price,
+        num_beds=listing.num_beds,
+        num_baths=listing.num_baths,
+        sqft=listing.sqft,
+        year_built=listing.year_built,
+        photo_url=_first_photo_url(photos),
+        lat=lat_val,
+        lon=lon_val,
     )
 
 
@@ -123,16 +188,44 @@ def update_saved(
     db.commit()
     db.refresh(saved)
 
-    listing = db.execute(
-        select(RedfinListing).where(RedfinListing.id == saved.listing_id)
-    ).scalar_one_or_none()
+    row = db.execute(
+        select(
+            RedfinListing.street_address,
+            RedfinListing.city,
+            RedfinListing.state,
+            RedfinListing.zip_code,
+            RedfinListing.listing_status,
+            RedfinListing.listing_price,
+            RedfinListing.sold_price,
+            RedfinListing.num_beds,
+            RedfinListing.num_baths,
+            RedfinListing.sqft,
+            RedfinListing.year_built,
+            RedfinListing.property_photos,
+            ST_Y(RedfinListing.location).label("lat"),
+            ST_X(RedfinListing.location).label("lon"),
+        ).where(RedfinListing.id == saved.listing_id)
+    ).one_or_none()
 
     return SavedPropertyResponse(
         id=saved.id,
         listing_id=saved.listing_id,
         notes=saved.notes,
         created_at=saved.created_at,
-        listing_address=listing.street_address if listing else None,
+        listing_address=getattr(row, "street_address", None) if row else None,
+        city=getattr(row, "city", None) if row else None,
+        state=getattr(row, "state", None) if row else None,
+        zip_code=getattr(row, "zip_code", None) if row else None,
+        listing_status=getattr(row, "listing_status", None) if row else None,
+        listing_price=getattr(row, "listing_price", None) if row else None,
+        sold_price=getattr(row, "sold_price", None) if row else None,
+        num_beds=getattr(row, "num_beds", None) if row else None,
+        num_baths=getattr(row, "num_baths", None) if row else None,
+        sqft=getattr(row, "sqft", None) if row else None,
+        year_built=getattr(row, "year_built", None) if row else None,
+        photo_url=_first_photo_url(getattr(row, "property_photos", None)) if row else None,
+        lat=getattr(row, "lat", None) if row else None,
+        lon=getattr(row, "lon", None) if row else None,
     )
 
 

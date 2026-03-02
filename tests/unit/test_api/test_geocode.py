@@ -1,7 +1,7 @@
 """Tests for the geocode endpoint."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -360,3 +360,104 @@ class TestGeocodeLimitCapped:
         with _patch_geocode_async([]) as mock_fn:
             client.get("/api/geocode", params={"q": "Raleigh", "limit": 50})
             mock_fn.assert_called_once_with("Raleigh", limit=10)
+
+
+DB_PROPERTY_ROW = MagicMock(
+    display_name="111 Bonner Ct, Cary, NC 27511",
+    lat=35.79,
+    lon=-78.80,
+    id=42,
+)
+
+
+def _mock_db_with_results(app, rows):
+    """Configure the app's mock DB session to return *rows* from the query chain."""
+    from pricepoint.api.dependencies import get_db
+
+    mock_session = MagicMock()
+    mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = (
+        rows
+    )
+
+    def _override():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = _override
+    return mock_session
+
+
+@pytest.mark.usefixtures("_no_valkey")
+class TestGeocodeDbSearch:
+    """Database-first property search behavior."""
+
+    def test_db_match_returns_property_results(self, app, client):
+        """When DB returns a match, response has osm_type='property' and geocode_async is NOT called."""
+        _mock_db_with_results(app, [DB_PROPERTY_ROW])
+
+        with _patch_geocode_async() as mock_fn:
+            resp = client.get("/api/geocode", params={"q": "111 Bonner"})
+            mock_fn.assert_not_called()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["results"]) == 1
+        result = data["results"][0]
+        assert result["osm_type"] == "property"
+        assert result["display_name"] == "111 Bonner Ct, Cary, NC 27511"
+        assert result["lat"] == 35.79
+        assert result["lon"] == -78.80
+
+    def test_no_db_match_falls_through_to_geocoder(self, client):
+        """When DB returns nothing, geocode_async IS called."""
+        with _patch_geocode_async() as mock_fn:
+            resp = client.get("/api/geocode", params={"q": "Raleigh"})
+            mock_fn.assert_called_once()
+
+        assert resp.status_code == 200
+        assert len(resp.json()["results"]) == 1
+
+    def test_db_results_have_null_place_id(self, app, client):
+        """DB results have place_id=None."""
+        _mock_db_with_results(app, [DB_PROPERTY_ROW])
+
+        with _patch_geocode_async():
+            resp = client.get("/api/geocode", params={"q": "111 Bonner"})
+
+        result = resp.json()["results"][0]
+        assert result["place_id"] is None
+
+    def test_db_error_falls_through_to_geocoder(self, app, client):
+        """If DB query raises, fall through to external geocoder gracefully."""
+        from pricepoint.api.dependencies import get_db
+
+        mock_session = MagicMock()
+        mock_session.query.side_effect = RuntimeError("DB down")
+
+        def _override():
+            yield mock_session
+
+        app.dependency_overrides[get_db] = _override
+
+        with _patch_geocode_async() as mock_fn:
+            resp = client.get("/api/geocode", params={"q": "111 Bonner"})
+            mock_fn.assert_called_once()
+
+        assert resp.status_code == 200
+        assert len(resp.json()["results"]) == 1
+
+
+@pytest.mark.usefixtures("_with_valkey")
+class TestGeocodeDbSearchCaching:
+    """DB results are cached in Valkey."""
+
+    def test_db_results_are_cached(self, app, client, mock_valkey):
+        """Valkey set is called when DB returns results."""
+        _mock_db_with_results(app, [DB_PROPERTY_ROW])
+
+        with _patch_geocode_async():
+            resp = client.get("/api/geocode", params={"q": "111 Bonner"})
+
+        assert resp.status_code == 200
+        mock_valkey.set.assert_called_once()
+        stored = json.loads(mock_valkey.set.call_args.args[1])
+        assert stored[0]["osm_type"] == "property"

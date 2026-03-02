@@ -135,6 +135,48 @@ function NavBar() {
                   </svg>
                   Settings
                 </Link>
+                <Link
+                  to="/upload"
+                  role="menuitem"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Upload
+                </Link>
+                <Link
+                  to="/saved"
+                  role="menuitem"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5 2a2 2 0 00-2 2v14l7-3.5L17 18V4a2 2 0 00-2-2H5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Saved
+                </Link>
                 <button
                   type="button"
                   role="menuitem"
@@ -227,6 +269,20 @@ function NavBar() {
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
                 >
                   Settings
+                </Link>
+                <Link
+                  to="/upload"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+                >
+                  Upload
+                </Link>
+                <Link
+                  to="/saved"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-sec transition-colors hover:bg-bg-main hover:text-text-pri"
+                >
+                  Saved
                 </Link>
                 <button
                   type="button"

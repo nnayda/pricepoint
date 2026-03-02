@@ -202,7 +202,6 @@ function SchoolsTab({ data }: SchoolsTabProps) {
   const { property } = data;
   const {
     schools: apiSchools,
-    schoolDistricts,
     loading,
     error,
   } = useSchoolsNearby(property.lat, property.lon);
@@ -243,11 +242,6 @@ function SchoolsTab({ data }: SchoolsTabProps) {
       return true;
     },
     [activeLevels, ALL_LEVELS.size],
-  );
-
-  const homeDistrict = useMemo(
-    () => schoolDistricts.find((d) => d.is_home) ?? null,
-    [schoolDistricts],
   );
 
   const allSchools = useMemo(() => {

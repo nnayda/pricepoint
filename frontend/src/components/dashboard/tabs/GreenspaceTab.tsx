@@ -28,6 +28,7 @@ interface DisplayFeature {
   lon: number;
   distance_miles: number;
   acreage: number;
+  length_miles: number;
 }
 
 function mapApiFeature(f: GreenspaceFeature): DisplayFeature {
@@ -39,6 +40,7 @@ function mapApiFeature(f: GreenspaceFeature): DisplayFeature {
     lon: f.lon,
     distance_miles: f.distance_miles,
     acreage: f.acreage ?? 0,
+    length_miles: f.length_miles ?? 0,
   };
 }
 
@@ -101,8 +103,11 @@ function FeatureCard({
           <span className="inline-flex items-center gap-1">
             <MapPinIcon size={14} /> {feature.distance_miles} mi
           </span>
-          {feature.acreage > 0 && (
+          {feature.type === "Park" && feature.acreage > 0 && (
             <span className="inline-flex items-center gap-1">{feature.acreage} acres</span>
+          )}
+          {feature.type === "Trail" && feature.length_miles > 0 && (
+            <span className="inline-flex items-center gap-1">{feature.length_miles} mi long</span>
           )}
         </div>
       </div>
@@ -188,7 +193,12 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
         id: f.id,
         lat: f.lat,
         lon: f.lon,
-        label: `${f.name} (${f.type})`,
+        label:
+          f.type === "Trail" && f.length_miles > 0
+            ? `${f.name} — ${f.length_miles} mi`
+            : f.type === "Park" && f.acreage > 0
+              ? `${f.name} — ${f.acreage} acres`
+              : `${f.name} (${f.type})`,
         color: f.type === "Park" ? "#34D399" : "#22D3EE",
       })),
     [typeFilteredFeatures],
@@ -229,8 +239,9 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
             <span style={{ fontSize: 11, color: "#9BA3BF" }}>{feature.type}</span>
           </div>
           <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#9BA3BF" }}>
-            <span>{feature.distance_miles} mi</span>
-            {feature.acreage > 0 && <span>{feature.acreage} acres</span>}
+            <span>{feature.distance_miles} mi away</span>
+            {isPark && feature.acreage > 0 && <span>{feature.acreage} acres</span>}
+            {!isPark && feature.length_miles > 0 && <span>{feature.length_miles} mi long</span>}
           </div>
         </div>
       );

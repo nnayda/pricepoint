@@ -6,6 +6,7 @@ import type {
 } from "../types";
 import { mockDashboardData } from "../data/mockDashboardData";
 import { buildPriceHistory } from "./buildPriceHistory";
+import { buildPropertyDetails } from "./buildPropertyDetails";
 
 /**
  * Normalize listing status from the API ("FOR SALE", "SOLD", "PENDING")
@@ -89,6 +90,7 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
   };
 
   return {
+    listing_id: resp.listing_id ?? null,
     property,
     valuation,
     // Tabs that don't have real API endpoints yet — use mock data
@@ -143,7 +145,10 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
             description_score: resp.listing_quality.description_score,
           }
         : undefined,
-    property_details: mockDashboardData.property_details,
+    property_details: (() => {
+      const sections = buildPropertyDetails(resp);
+      return sections.length > 0 ? sections : mockDashboardData.property_details;
+    })(),
     model_features: mockDashboardData.model_features,
   };
 }

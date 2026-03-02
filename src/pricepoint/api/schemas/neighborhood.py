@@ -21,3 +21,17 @@ class NeighborhoodValuationHistoryResponse(BaseModel):
     tract_geoid: str
     sample_size: int
     monthly_medians: list[NeighborhoodMedianPoint]
+
+
+class NeighborhoodPropertyPoint(BaseModel):
+    address: str
+    lat: float
+    lon: float
+    effective_price: float
+    listing_status: str
+
+
+class NeighborhoodPropertiesResponse(BaseModel):
+    tract_geoid: str
+    sample_size: int
+    properties: list[NeighborhoodPropertyPoint]

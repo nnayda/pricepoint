@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -46,9 +45,6 @@ def _agg_columns():
         "property_id",
         "avg_school_rating_2mi",
         "count_schools_2mi",
-        "crime_count_500m_1yr",
-        "crime_count_1km_1yr",
-        "crime_count_2km_1yr",
         "count_parks_2km",
         "total_park_acres_2km",
     ]
@@ -82,7 +78,7 @@ def _mock_db_four_queries(
     if dist_rows is None:
         dist_rows = [(pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0)]
     if agg_rows is None:
-        agg_rows = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5)]
+        agg_rows = [(pid, 7.5, 3, 4, 120.5)]
     if contain_rows is None:
         contain_rows = [(pid, "37183052403", "371830524031", "Brier Creek")]
     if llm_rows is None:
@@ -117,11 +113,11 @@ class TestBuildGeospatialFeatures:
         assert result.index.name == "property_id"
         assert list(result.index) == [1]
 
-    def test_has_all_20_feature_columns(self):
+    def test_has_all_16_feature_columns(self):
         db = _mock_db_four_queries()
         result = build_geospatial_features(db, property_ids=[1])
         assert list(result.columns) == FEATURE_COLUMNS
-        assert len(result.columns) == 20
+        assert len(result.columns) == 16
 
     def test_distance_features_populated(self):
         db = _mock_db_four_queries()
@@ -141,21 +137,6 @@ class TestBuildGeospatialFeatures:
         row = result.loc[1]
         assert row["avg_school_rating_2mi"] == 7.5
         assert row["count_schools_2mi"] == 3
-
-    def test_crime_count_features(self):
-        db = _mock_db_four_queries()
-        result = build_geospatial_features(db, property_ids=[1])
-        row = result.loc[1]
-        assert row["crime_count_500m_1yr"] == 5
-        assert row["crime_count_1km_1yr"] == 10
-        assert row["crime_count_2km_1yr"] == 25
-
-    def test_crime_density_derived(self):
-        db = _mock_db_four_queries()
-        result = build_geospatial_features(db, property_ids=[1])
-        row = result.loc[1]
-        expected = 10 / (math.pi * 1.0**2)
-        assert row["crime_density_1km"] == pytest.approx(expected)
 
     def test_park_aggregate_features(self):
         db = _mock_db_four_queries()
@@ -202,8 +183,8 @@ class TestBuildGeospatialFeatures:
             (2, 110.0, 210.0, 310.0, 410.0, 160.0, 260.0, 3100.0),
         ]
         agg_rows = [
-            (1, 7.5, 3, 5, 10, 25, 4, 120.5),
-            (2, 8.0, 5, 2, 8, 20, 6, 200.0),
+            (1, 7.5, 3, 4, 120.5),
+            (2, 8.0, 5, 6, 200.0),
         ]
         contain_rows = [
             (1, "37183052403", "371830524031", "Brier Creek"),
@@ -246,14 +227,14 @@ class TestBuildGeospatialFeatures:
         dist_rows_1 = [
             (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0) for pid in ids[:BATCH_SIZE]
         ]
-        agg_rows_1 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[:BATCH_SIZE]]
+        agg_rows_1 = [(pid, 7.5, 3, 4, 120.5) for pid in ids[:BATCH_SIZE]]
         contain_rows_1 = [(pid, "37183052403", "371830524031", "Test") for pid in ids[:BATCH_SIZE]]
         llm_rows_1 = [(pid, 8, 7) for pid in ids[:BATCH_SIZE]]
 
         dist_rows_2 = [
             (pid, 100.0, 200.0, 300.0, 400.0, 150.0, 250.0, 3000.0) for pid in ids[BATCH_SIZE:]
         ]
-        agg_rows_2 = [(pid, 7.5, 3, 5, 10, 25, 4, 120.5) for pid in ids[BATCH_SIZE:]]
+        agg_rows_2 = [(pid, 7.5, 3, 4, 120.5) for pid in ids[BATCH_SIZE:]]
         contain_rows_2 = [(pid, "37183052403", "371830524031", "Test") for pid in ids[BATCH_SIZE:]]
         llm_rows_2 = [(pid, 8, 7) for pid in ids[BATCH_SIZE:]]
 
@@ -275,14 +256,6 @@ class TestBuildGeospatialFeatures:
         assert len(result) == len(ids)
         assert db.execute.call_count == 8  # 4 queries * 2 batches
 
-    def test_zero_crime_density(self):
-        """Crime density should be 0 when no crime within 1km."""
-        db = _mock_db_four_queries(
-            agg_rows=[(1, 7.5, 3, 0, 0, 0, 4, 120.5)],
-        )
-        result = build_geospatial_features(db, property_ids=[1])
-        assert result.loc[1, "crime_density_1km"] == 0.0
-
     def test_no_results_returns_empty(self):
         """When DB returns no rows, return empty DataFrame."""
         db = MagicMock()
@@ -301,5 +274,5 @@ class TestBuildGeospatialFeatures:
         assert TWO_MILES_M == 3218.0
 
     def test_feature_columns_count(self):
-        """There should be exactly 20 feature columns."""
-        assert len(FEATURE_COLUMNS) == 20
+        """There should be exactly 16 feature columns."""
+        assert len(FEATURE_COLUMNS) == 16

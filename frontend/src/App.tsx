@@ -11,6 +11,8 @@ const PropertyDashboardPage = lazy(() => import("./pages/PropertyDashboardPage")
 const SignInPage = lazy(() => import("./pages/SignInPage"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
 const UserSettingsPage = lazy(() => import("./pages/UserSettingsPage"));
+const UploadPage = lazy(() => import("./pages/UploadPage"));
+const SavedPropertiesPage = lazy(() => import("./pages/SavedPropertiesPage"));
 
 function PageLoader() {
   return (
@@ -37,6 +39,8 @@ function App() {
                 <Route path="/signin" element={<SignInPage />} />
                 <Route path="/signup" element={<SignUpPage />} />
                 <Route path="/settings" element={<UserSettingsPage />} />
+                <Route path="/upload" element={<UploadPage />} />
+                <Route path="/saved" element={<SavedPropertiesPage />} />
                 <Route path="/property/:address" element={<PropertyDashboardPage />} />
                 <Route path="/results" element={<Navigate to="/" replace />} />
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />

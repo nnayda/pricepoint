@@ -61,6 +61,7 @@ class InteriorFeatures(BaseModel):
     cooling: str
     fireplace: bool
     basement: str | None = None
+    laundry: str | None = None
 
 
 class ExteriorFeatures(BaseModel):
@@ -72,6 +73,15 @@ class ExteriorFeatures(BaseModel):
     parking: str
     pool: bool
     fence: str
+    lot_features: str | None = None
+
+
+class UtilityDetails(BaseModel):
+    """Utility/infrastructure details."""
+
+    water: str | None = None
+    sewer: str | None = None
+    electric: str | None = None
 
 
 class FinancialDetails(BaseModel):
@@ -173,11 +183,13 @@ class ListingQuality(BaseModel):
 class PropertyResponse(BaseModel):
     """Response body for property lookup."""
 
+    listing_id: int | None = None
     property: PropertyDetails
     valuation: ValuationData
     interior: InteriorFeatures
     exterior: ExteriorFeatures
     financial: FinancialDetails
+    utilities: UtilityDetails | None = None
     schools: list[SchoolNearby]
     sale_history: list[SaleHistoryEntry]
     tax_history: list[TaxHistoryEntry]

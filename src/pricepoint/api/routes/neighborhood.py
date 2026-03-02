@@ -9,13 +9,15 @@ from statistics import median
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from geoalchemy2.functions import ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import Float, case, cast, func, select
+from geoalchemy2.functions import ST_X, ST_Y, ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
+from sqlalchemy import Float, case, cast, func, literal_column, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.neighborhood import (
     NeighborhoodMedianPoint,
+    NeighborhoodPropertiesResponse,
+    NeighborhoodPropertyPoint,
     NeighborhoodValuationHistoryResponse,
     NeighborhoodValuationResponse,
 )
@@ -349,4 +351,122 @@ async def get_neighborhood_valuation_history(
         tract_geoid=tract_geoid,
         sample_size=sample_size,
         monthly_medians=monthly_medians,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Neighborhood valuation properties — individual property points
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/neighborhood/valuation/properties",
+    response_model=NeighborhoodPropertiesResponse,
+)
+async def get_neighborhood_valuation_properties(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+    db: Annotated[Session, Depends(get_db)],
+) -> NeighborhoodPropertiesResponse:
+    """Return individual properties in the census tract with their effective prices."""
+    point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+
+    # 1. Find census tract
+    tract_geoid: str | None = None
+
+    lookup = db.execute(
+        select(PropertyGeoLookup.census_tract_geoid)
+        .join(RedfinListing, RedfinListing.id == PropertyGeoLookup.property_id)
+        .where(
+            RedfinListing.location.isnot(None),
+            ST_DWithin(RedfinListing.location, point, 0.001),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if lookup:
+        tract_geoid = lookup
+    else:
+        tract_row = db.execute(
+            select(Tract.geoid).where(ST_Contains(Tract.geom, point)).limit(1)
+        ).scalar_one_or_none()
+        if tract_row:
+            tract_geoid = str(tract_row)
+
+    if not tract_geoid:
+        return NeighborhoodPropertiesResponse(
+            tract_geoid="unknown", sample_size=0, properties=[]
+        )
+
+    # 2. Build effective price expression (same logic as valuation endpoint)
+    two_years_ago = datetime.now(tz=UTC) - timedelta(days=730)
+
+    ml_value = (
+        select(PropertyValuation.value)
+        .where(
+            PropertyValuation.property_id == RedfinListing.id,
+            PropertyValuation.source == "ml_model",
+        )
+        .order_by(PropertyValuation.estimated_at.desc())
+        .limit(1)
+        .correlate(RedfinListing)
+        .scalar_subquery()
+    )
+
+    effective_price = case(
+        (
+            func.lower(RedfinListing.listing_status).in_(_ACTIVE_STATUSES),
+            RedfinListing.listing_price,
+        ),
+        (
+            RedfinListing.sold_date >= two_years_ago,
+            RedfinListing.sold_price,
+        ),
+        else_=ml_value,
+    )
+
+    listing_status_label = case(
+        (
+            func.lower(RedfinListing.listing_status).in_(_ACTIVE_STATUSES),
+            func.initcap(RedfinListing.listing_status),
+        ),
+        (
+            RedfinListing.sold_date >= two_years_ago,
+            literal_column("'Sold'"),
+        ),
+        else_=literal_column("'Estimated'"),
+    )
+
+    # 3. Query individual listings in tract
+    rows = db.execute(
+        select(
+            RedfinListing.street_address,
+            ST_Y(RedfinListing.location).label("lat"),
+            ST_X(RedfinListing.location).label("lon"),
+            cast(effective_price, Float).label("effective_price"),
+            listing_status_label.label("listing_status"),
+        )
+        .join(PropertyGeoLookup, PropertyGeoLookup.property_id == RedfinListing.id)
+        .where(
+            PropertyGeoLookup.census_tract_geoid == tract_geoid,
+            RedfinListing.location.isnot(None),
+        )
+    ).all()
+
+    properties = [
+        NeighborhoodPropertyPoint(
+            address=row.street_address or "Unknown",
+            lat=float(row.lat),
+            lon=float(row.lon),
+            effective_price=round(float(row.effective_price), 2),
+            listing_status=row.listing_status or "Unknown",
+        )
+        for row in rows
+        if row.effective_price is not None
+    ]
+
+    return NeighborhoodPropertiesResponse(
+        tract_geoid=tract_geoid,
+        sample_size=len(properties),
+        properties=properties,
     )

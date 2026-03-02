@@ -51,6 +51,10 @@ vi.mock("react-map-gl/maplibre", () => ({
     <div data-testid="vector-source">{children}</div>
   ),
   Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
+  Popup: ({ children }: { children?: React.ReactNode }) => (
+    <div data-testid="map-popup">{children}</div>
+  ),
+  useMap: () => ({ current: null }),
 }));
 
 let capturedMarkers: Record<string, unknown>[] = [];
@@ -128,13 +132,13 @@ describe("RisksTab", () => {
   it("shows empty state when no features", () => {
     mockUseRisksReturn.data = { features: [] };
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
+    expect(screen.getByText("No infrastructure risks found")).toBeInTheDocument();
   });
 
   it("shows empty state when all features are Safe", () => {
     mockUseRisksReturn.data = { features: [mockFeatures[0]] };
     render(<RisksTab data={mockDashboardData} />);
-    expect(screen.getByText("No infrastructure risks in property boundary")).toBeInTheDocument();
+    expect(screen.getByText("No infrastructure risks found")).toBeInTheDocument();
   });
 
   it("renders Risk Map heading", () => {

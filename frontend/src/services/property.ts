@@ -4,6 +4,7 @@ import type {
   DataRequestResponse,
   DemographicsApiResponse,
   GreenspaceResponse,
+  NeighborhoodPropertiesResponse,
   NeighborhoodValuationHistory,
   NuisanceSourcesResponse,
   PoisSearchResponse,
@@ -117,6 +118,17 @@ export async function getGreenspace(
   const { data } = await client.get<GreenspaceResponse>("/api/greenspace", {
     params: { lat, lon, radius_miles: radiusMiles },
   });
+  return data;
+}
+
+export async function getNeighborhoodProperties(
+  lat: number,
+  lon: number,
+): Promise<NeighborhoodPropertiesResponse> {
+  const { data } = await client.get<NeighborhoodPropertiesResponse>(
+    "/api/neighborhood/valuation/properties",
+    { params: { lat, lon } },
+  );
   return data;
 }
 

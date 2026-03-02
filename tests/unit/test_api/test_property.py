@@ -3,6 +3,124 @@
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
+from pricepoint.api.routes.property import _build_interior, _build_exterior, _build_utilities
+
+
+class TestBuildInteriorFromDetails:
+    """Test _build_interior extracts fields from property_details JSON."""
+
+    def test_extracts_flooring_and_appliances(self):
+        prop = MagicMock()
+        prop.property_details = {
+            "flooring": "Hardwood, Tile, Carpet",
+            "appliances": "Dishwasher, Microwave",
+            "heating": "Forced Air",
+            "cooling": "Central Air",
+        }
+        prop.has_fireplace = True
+        result = _build_interior(prop)
+        assert result.flooring == ["Hardwood", "Tile", "Carpet"]
+        assert result.appliances == ["Dishwasher", "Microwave"]
+        assert result.heating == "Forced Air"
+        assert result.cooling == "Central Air"
+        assert result.fireplace is True
+
+    def test_falls_back_to_unknown_when_empty(self):
+        prop = MagicMock()
+        prop.property_details = {}
+        prop.has_fireplace = False
+        result = _build_interior(prop)
+        assert result.flooring == []
+        assert result.appliances == []
+        assert result.heating == "Unknown"
+        assert result.cooling == "Unknown"
+        assert result.fireplace is False
+
+    def test_handles_none_property_details(self):
+        prop = MagicMock()
+        prop.property_details = None
+        prop.has_fireplace = False
+        result = _build_interior(prop)
+        assert result.heating == "Unknown"
+
+    def test_basement_fallback_to_basement_details(self):
+        prop = MagicMock()
+        prop.property_details = {"basement_details": "Walk-Out"}
+        prop.has_fireplace = False
+        result = _build_interior(prop)
+        assert result.basement == "Walk-Out"
+
+
+class TestBuildExteriorFromDetails:
+    """Test _build_exterior extracts fields from property_details JSON."""
+
+    def test_extracts_roof_and_fencing(self):
+        prop = MagicMock()
+        prop.property_details = {
+            "roof": "Shingle",
+            "fencing": "Wood Privacy",
+            "foundation_details": "Crawl Space",
+        }
+        prop.facade_type = "Vinyl"
+        prop.parking_type = "2-Car Garage"
+        prop.has_private_pool = False
+        prop.has_community_pool = False
+        result = _build_exterior(prop)
+        assert result.roof == "Shingle"
+        assert result.fence == "Wood Privacy"
+        assert result.foundation == "Crawl Space"
+        assert result.siding == "Vinyl"
+        assert result.parking == "2-Car Garage"
+        assert result.pool is False
+
+    def test_pool_true_from_community(self):
+        prop = MagicMock()
+        prop.property_details = {}
+        prop.facade_type = None
+        prop.parking_type = None
+        prop.has_private_pool = False
+        prop.has_community_pool = True
+        result = _build_exterior(prop)
+        assert result.pool is True
+
+
+class TestBuildUtilities:
+    """Test _build_utilities extraction."""
+
+    def test_returns_utilities_when_present(self):
+        prop = MagicMock()
+        prop.property_details = {
+            "water_source": "City Water",
+            "sewer": "Public Sewer",
+            "electric": "Duke Energy",
+        }
+        result = _build_utilities(prop)
+        assert result is not None
+        assert result.water == "City Water"
+        assert result.sewer == "Public Sewer"
+        assert result.electric == "Duke Energy"
+
+    def test_returns_none_when_no_utilities(self):
+        prop = MagicMock()
+        prop.property_details = {}
+        result = _build_utilities(prop)
+        assert result is None
+
+
+class TestPropertyResponseSchema:
+    """Test PropertyResponse schema includes listing_id."""
+
+    def test_listing_id_defaults_to_none(self):
+        """PropertyResponse listing_id defaults to None."""
+        from pricepoint.api.schemas.property import PropertyResponse
+
+        data = PropertyResponse.model_json_schema()
+        props = data.get("properties", {})
+        assert "listing_id" in props
+        # Default is None
+        listing_id_schema = props["listing_id"]
+        assert listing_id_schema.get("default") is None
+
 
 class TestPropertyNotFound:
     def test_returns_404_when_not_in_db(self, client):

@@ -42,6 +42,8 @@ def app():
         mock_session = MagicMock()
         # Default: queries return None (no DB records found) → stubs used
         mock_session.execute.return_value.scalar_one_or_none.return_value = None
+        # Default: .query(...).filter(...).limit(...).all() returns [] (geocode DB search)
+        mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = []
 
         def _override_get_db():
             yield mock_session

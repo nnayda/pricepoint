@@ -162,6 +162,84 @@ def _detail_text(infra_type: str, rb_severity: str | None) -> str:
     return f"{label} — outside risk zones"
 
 
+_INFRA_MODELS: dict[str, tuple] = {
+    "cell_tower": (CellTower, CellTower.geom, func.coalesce(CellTower.licensee, "Cell Tower")),
+    "transmission_line": (
+        TransmissionLine,
+        TransmissionLine.geom,
+        func.coalesce(TransmissionLine.owner, "Transmission Line"),
+    ),
+    "power_plant": (PowerPlant, PowerPlant.geom, func.coalesce(PowerPlant.name, "Power Plant")),
+    "nat_gas_pipeline": (
+        NatGasPipeline,
+        NatGasPipeline.geom,
+        func.coalesce(NatGasPipeline.operator, "Natural Gas Pipeline"),
+    ),
+    "petroleum_pipeline": (
+        PetroleumPipeline,
+        PetroleumPipeline.geom,
+        func.coalesce(PetroleumPipeline.operator, "Petroleum Pipeline"),
+    ),
+}
+
+
+def _fetch_remote_infra(
+    db: Session,
+    missing: dict[tuple[str, str], str],
+    property_point,  # noqa: ANN001
+) -> list[RiskFeature]:
+    """Fetch infrastructure items whose boundaries contain the property but are
+    outside the normal search radius (e.g. large nuclear plant caution zones)."""
+    features: list[RiskFeature] = []
+    # Group by infra type
+    by_type: dict[str, list[tuple[str, str]]] = {}
+    for (itype, iid), severity in missing.items():
+        by_type.setdefault(itype, []).append((iid, severity))
+
+    for itype, items in by_type.items():
+        cfg = _INFRA_MODELS.get(itype)
+        if cfg is None:
+            continue
+        model, geom_col, name_expr = cfg
+        is_line = model in _LINE_MODELS
+        lat_expr = ST_Y(func.ST_PointOnSurface(geom_col)) if is_line else ST_Y(geom_col)
+        lon_expr = ST_X(func.ST_PointOnSurface(geom_col)) if is_line else ST_X(geom_col)
+
+        ids = [int(iid) for iid, _ in items]
+        sev_map = {iid: sev for iid, sev in items}
+
+        rows = db.execute(
+            select(
+                cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
+                name_expr.label("name"),
+                lat_expr.label("lat"),
+                lon_expr.label("lon"),
+                (_st_distance_geography(geom_col, property_point) / METERS_PER_MILE).label(
+                    "distance_miles"
+                ),
+            ).where(model.id.in_(ids))  # type: ignore[union-attr]
+        ).all()
+
+        for row in rows:
+            rb_severity = sev_map.get(row.infra_id)
+            severity = _severity_label(rb_severity)
+            dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
+            features.append(
+                RiskFeature(
+                    id=f"RB-{itype[0].upper()}-{row.infra_id}",
+                    name=row.name or itype.replace("_", " ").title(),
+                    infrastructure_type=itype,
+                    severity=severity,
+                    distance_miles=dist,
+                    lat=row.lat,
+                    lon=row.lon,
+                    detail=_detail_text(itype, rb_severity),
+                )
+            )
+
+    return features
+
+
 def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
     raw = f"risks:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}"
     digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
@@ -222,12 +300,18 @@ async def get_risks(
         # Query 2: risk boundary polygons (with containment check)
         boundary_rows = db.execute(_build_boundaries_query(property_point, radius_miles)).all()
 
-        # Build severity lookup from boundaries that contain the property point
+        # Build severity lookup from boundaries that contain the property point.
+        # risk_boundaries stores plural types (e.g. "cell_towers") but the infra
+        # CTE uses singular (e.g. "cell_tower"), so strip the trailing "s".
         for brow in boundary_rows:
             if brow.contains_property:
-                key = (brow.infrastructure_type, str(brow.infrastructure_id))
+                infra_type_singular = brow.infrastructure_type.rstrip("s")
+                key = (infra_type_singular, str(brow.infrastructure_id))
                 if key not in severity_lookup or brow.severity == "critical":
                     severity_lookup[key] = brow.severity
+
+    # Build set of infrastructure IDs already found in the radius query
+    found_infra_keys = {(row.infrastructure_type, row.infra_id) for row in rows}
 
     features: list[RiskFeature] = []
     for row in rows:
@@ -248,6 +332,12 @@ async def get_risks(
                 detail=_detail_text(row.infrastructure_type, rb_severity),
             )
         )
+
+    # Add features for infrastructure whose boundary contains the property but
+    # whose source is outside the search radius (e.g. large nuclear plant zones).
+    missing = {k: v for k, v in severity_lookup.items() if k not in found_infra_keys}
+    if missing:
+        features.extend(_fetch_remote_infra(db, missing, property_point))
 
     # Sort: Concern first, Caution second, Safe last; then by distance
     features.sort(key=lambda f: (SEVERITY_SORT.get(f.severity, 9), f.distance_miles))

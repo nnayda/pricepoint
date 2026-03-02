@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import type { DashboardData } from "../../types";
+import { useAuth } from "../../contexts/AuthContext";
+import { useSavedProperty } from "../../hooks/useSavedProperty";
 import DashboardNav from "./DashboardNav";
 import DashboardBreadcrumb from "./DashboardBreadcrumb";
 import DashboardTabs from "./DashboardTabs";
@@ -14,6 +17,20 @@ interface DashboardLayoutProps {
 
 function DashboardLayout({ data, banner }: DashboardLayoutProps) {
   const { property } = data;
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { isSaved, isLoading: isSaveLoading, toggle } = useSavedProperty(
+    data.listing_id,
+    isAuthenticated,
+  );
+
+  function handleSaveToggle() {
+    if (!isAuthenticated) {
+      navigate("/signin");
+      return;
+    }
+    void toggle();
+  }
 
   return (
     <div
@@ -34,7 +51,15 @@ function DashboardLayout({ data, banner }: DashboardLayoutProps) {
           <aside className="scrollbar-none w-full shrink-0 xl:sticky xl:top-[calc(64px+36px+12px)] xl:h-[calc(100vh-64px-36px-24px)] xl:w-[360px] xl:overflow-y-auto">
             <div className="flex flex-col gap-4">
               <PhotoCarousel images={property.images} />
-              <KeyFactsCard property={property} valuation={data.valuation} notFound={data.notFound} />
+              <KeyFactsCard
+                property={property}
+                valuation={data.valuation}
+                notFound={data.notFound}
+                listingId={data.listing_id}
+                isSaved={isSaved}
+                isSaveLoading={isSaveLoading}
+                onSaveToggle={handleSaveToggle}
+              />
               <DescriptionCard property={property} listingQuality={data.listing_quality} />
             </div>
           </aside>

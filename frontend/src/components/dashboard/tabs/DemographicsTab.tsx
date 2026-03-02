@@ -107,11 +107,11 @@ function RegionPopup({
   const name = (props.name as string) ?? "";
   const rows: { label: string; value: string }[] = [];
 
-  const pop = props.total_population as number | undefined;
+  const pop = props.population as number | undefined;
   if (pop != null) rows.push({ label: "Population", value: pop.toLocaleString() });
 
   if (subTab === "income" || subTab === "population") {
-    const inc = props.median_household_income as number | undefined;
+    const inc = props.median_income as number | undefined;
     if (inc != null)
       rows.push({ label: "Median Income", value: `$${inc.toLocaleString()}` });
   }
@@ -125,10 +125,10 @@ function RegionPopup({
   }
   if (subTab === "race") {
     const raceRows: { key: string; label: string; prop: string }[] = [
-      { key: "white", label: "White", prop: "white_pct" },
-      { key: "black", label: "Black", prop: "black_pct" },
-      { key: "hispanic", label: "Hispanic", prop: "hispanic_pct" },
-      { key: "asian", label: "Asian", prop: "asian_pct" },
+      { key: "white", label: "White", prop: "pct_white" },
+      { key: "black", label: "Black", prop: "pct_black" },
+      { key: "hispanic", label: "Hispanic", prop: "pct_hispanic" },
+      { key: "asian", label: "Asian", prop: "pct_asian" },
     ];
     if (raceFilter && raceFilter !== "all") {
       const r = raceRows.find((x) => x.key === raceFilter);

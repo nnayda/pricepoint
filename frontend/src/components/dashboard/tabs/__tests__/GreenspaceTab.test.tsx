@@ -29,6 +29,7 @@ const mockGreenspaceResponse: GreenspaceResponse = {
       lat: 35.79,
       lon: -78.78,
       distance_miles: 0.3,
+      length_miles: 4.2,
     },
     {
       id: "park-padus-20",
@@ -60,9 +61,7 @@ vi.mock("../../../../hooks/useGreenspace", () => ({
 
 let capturedOnMarkerSelect: ((id: string) => void) | undefined;
 let capturedOnMarkerDeselect: (() => void) | undefined;
-let capturedRenderPopup:
-  | ((marker: { id?: string; label: string }) => React.ReactNode)
-  | undefined;
+let capturedRenderPopup: ((marker: { id?: string; label: string }) => React.ReactNode) | undefined;
 
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
@@ -140,6 +139,12 @@ describe("GreenspaceTab", () => {
 
     expect(screen.getByText("55.3 acres")).toBeInTheDocument();
     expect(screen.getByText("28 acres")).toBeInTheDocument();
+  });
+
+  it("shows trail length for trail features instead of acreage", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    expect(screen.getByText("4.2 mi long")).toBeInTheDocument();
   });
 
   it("renders metric stats from API data", () => {
@@ -339,8 +344,24 @@ describe("GreenspaceTab", () => {
 
     expect(container.textContent).toContain("Umstead State Park");
     expect(container.textContent).toContain("Park");
-    expect(container.textContent).toContain("0.5 mi");
+    expect(container.textContent).toContain("0.5 mi away");
     expect(container.textContent).toContain("55.3 acres");
+  });
+
+  it("renderPopup shows trail length for trail markers", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const popup = capturedRenderPopup!({
+      id: "trail-usgs-100",
+      label: "Black Creek Greenway — 4.2 mi",
+    });
+    const { container } = render(popup as React.ReactElement);
+
+    expect(container.textContent).toContain("Black Creek Greenway");
+    expect(container.textContent).toContain("Trail");
+    expect(container.textContent).toContain("0.3 mi away");
+    expect(container.textContent).toContain("4.2 mi long");
+    expect(container.textContent).not.toContain("acres");
   });
 
   it("renderPopup returns label for unknown marker", () => {

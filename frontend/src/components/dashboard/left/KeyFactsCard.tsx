@@ -9,6 +9,10 @@ interface KeyFactsCardProps {
   property: DashboardProperty;
   valuation: DashboardValuation;
   notFound?: boolean;
+  listingId?: number | null;
+  isSaved?: boolean;
+  isSaveLoading?: boolean;
+  onSaveToggle?: () => void;
 }
 
 function fmt(n: number): string {
@@ -34,7 +38,15 @@ function daysSince(dateStr: string): number {
   return Math.max(0, Math.floor(diff / 86_400_000));
 }
 
-function KeyFactsCard({ property, valuation, notFound }: KeyFactsCardProps) {
+function KeyFactsCard({
+  property,
+  valuation,
+  notFound,
+  listingId,
+  isSaved = false,
+  isSaveLoading = false,
+  onSaveToggle,
+}: KeyFactsCardProps) {
   const isSold = property.listing_status === "Sold";
   const badgeDays =
     isSold && property.sold_date ? daysSince(property.sold_date) : property.days_on_market;
@@ -149,12 +161,18 @@ function KeyFactsCard({ property, valuation, notFound }: KeyFactsCardProps) {
         <div className="flex gap-2">
           <button
             type="button"
-            aria-label="Save listing"
-            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-db-sm)] bg-[var(--color-db-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-db-accent-hover)]"
+            aria-label={isSaved ? "Unsave listing" : "Save listing"}
+            disabled={isSaveLoading || !listingId}
+            onClick={onSaveToggle}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-db-sm)] px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+              isSaved
+                ? "border border-[var(--color-db-accent)] bg-transparent text-[var(--color-db-accent)] hover:bg-[var(--color-db-accent)] hover:text-white"
+                : "bg-[var(--color-db-accent)] text-white hover:bg-[var(--color-db-accent-hover)]"
+            }`}
           >
             <svg
               className="h-4 w-4"
-              fill="none"
+              fill={isSaved ? "currentColor" : "none"}
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
@@ -165,7 +183,7 @@ function KeyFactsCard({ property, valuation, notFound }: KeyFactsCardProps) {
                 d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
               />
             </svg>
-            Save
+            {isSaveLoading ? "Saving..." : isSaved ? "Saved" : "Save"}
           </button>
           <button
             type="button"

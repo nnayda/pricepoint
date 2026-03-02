@@ -80,8 +80,8 @@ function DashboardNav() {
 
       <div className="flex items-center gap-1">
         {/* Upload */}
-        <button
-          type="button"
+        <Link
+          to="/upload"
           aria-label="Upload listing data"
           className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
         >
@@ -98,7 +98,7 @@ function DashboardNav() {
               d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
             />
           </svg>
-        </button>
+        </Link>
 
         {/* Comparison mode toggle */}
         <button
@@ -122,8 +122,8 @@ function DashboardNav() {
         </button>
 
         {/* Saved listings */}
-        <button
-          type="button"
+        <Link
+          to="/saved"
           aria-label="Saved listings"
           className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
         >
@@ -140,7 +140,7 @@ function DashboardNav() {
               d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
             />
           </svg>
-        </button>
+        </Link>
 
         {/* Theme toggle */}
         <button

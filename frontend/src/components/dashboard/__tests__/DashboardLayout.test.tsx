@@ -4,6 +4,16 @@ import { MemoryRouter } from "react-router-dom";
 import DashboardLayout from "../DashboardLayout";
 import { mockDashboardData } from "../../../data/mockDashboardData";
 
+// Mock AuthContext
+vi.mock("../../../contexts/AuthContext", () => ({
+  useAuth: () => ({ isAuthenticated: false, user: null }),
+}));
+
+// Mock useSavedProperty hook
+vi.mock("../../../hooks/useSavedProperty", () => ({
+  useSavedProperty: () => ({ isSaved: false, savedId: null, isLoading: false, toggle: vi.fn() }),
+}));
+
 // Mock child components to keep tests focused on layout
 vi.mock("../DashboardNav", () => ({
   default: () => <nav data-testid="dashboard-nav" />,

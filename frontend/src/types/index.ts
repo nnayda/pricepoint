@@ -83,6 +83,7 @@ export interface InteriorFeatures {
   cooling: string;
   fireplace: boolean;
   basement?: string;
+  laundry?: string;
 }
 
 export interface ExteriorFeatures {
@@ -92,6 +93,13 @@ export interface ExteriorFeatures {
   parking: string;
   pool: boolean;
   fence: string;
+  lot_features?: string;
+}
+
+export interface UtilityDetails {
+  water?: string;
+  sewer?: string;
+  electric?: string;
 }
 
 export interface FinancialDetails {
@@ -160,11 +168,13 @@ export interface ApiListingQuality {
 }
 
 export interface PropertyResponse {
+  listing_id?: number | null;
   property: PropertyDetails;
   valuation: ValuationData;
   interior: InteriorFeatures;
   exterior: ExteriorFeatures;
   financial: FinancialDetails;
+  utilities?: UtilityDetails;
   schools: SchoolNearby[];
   sale_history: SaleHistoryEntry[];
   tax_history: TaxHistoryEntry[];
@@ -232,6 +242,7 @@ export interface GreenspaceFeature {
   lon: number;
   distance_miles: number;
   acreage?: number;
+  length_miles?: number;
 }
 
 export interface GreenspaceMetrics {
@@ -434,6 +445,20 @@ export interface NeighborhoodValuationHistory {
   tract_geoid: string;
   sample_size: number;
   monthly_medians: NeighborhoodMedianPoint[];
+}
+
+export interface NeighborhoodProperty {
+  address: string;
+  lat: number;
+  lon: number;
+  effective_price: number;
+  listing_status: string;
+}
+
+export interface NeighborhoodPropertiesResponse {
+  tract_geoid: string;
+  sample_size: number;
+  properties: NeighborhoodProperty[];
 }
 
 export interface RiskCategory {
@@ -710,6 +735,7 @@ export interface DataRequestResponse {
 }
 
 export interface DashboardData {
+  listing_id?: number | null;
   property: DashboardProperty;
   valuation: DashboardValuation;
   shap_features: ShapFeature[];
@@ -732,6 +758,7 @@ export interface DashboardData {
   listing_quality?: ListingQualityScore;
   property_details: PropertyDetailSection[];
   model_features: ModelFeature[];
+  neighborhood_properties?: NeighborhoodProperty[];
   /** True when the property was not found in the database */
   notFound?: boolean;
 }

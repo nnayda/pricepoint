@@ -185,6 +185,11 @@ class Settings(BaseSettings):
     ]
     fred_lookback_years: int = 10
 
+    # Airflow API
+    airflow_base_url: str = "http://airflow-api-server:8080"
+    airflow_username: str = "admin"
+    airflow_password: str = "admin"
+
     # Redfin listing HTML collector
     redfin_html_dir: str = "/data/raw/redfin"
     redfin_s3_archive_prefix: str = "redfin/archive"

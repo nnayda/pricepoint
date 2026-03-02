@@ -69,6 +69,7 @@ def _build_greenways_query(property_point, radius_miles: float):  # noqa: ANN001
         (_st_distance_geography(Trail.geom, property_point) / METERS_PER_MILE).label(
             "distance_miles"
         ),
+        Trail.length_miles.label("length_miles"),
         literal("usgs").label("source"),
     ).where(
         Trail.geom.isnot(None),
@@ -154,6 +155,7 @@ async def get_greenspace(
             greenways_cte.c.lat,
             greenways_cte.c.lon,
             greenways_cte.c.distance_miles,
+            greenways_cte.c.length_miles,
             greenways_cte.c.source,
         ).order_by(greenways_cte.c.distance_miles)
     ).all()
@@ -186,6 +188,7 @@ async def get_greenspace(
                     lon=round(row.lon, 6),
                     distance_miles=round(row.distance_miles, 2),
                     acreage=None,
+                    length_miles=round(row.length_miles, 1) if row.length_miles else None,
                 )
             )
 

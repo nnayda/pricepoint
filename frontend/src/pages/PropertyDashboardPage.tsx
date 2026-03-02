@@ -4,6 +4,7 @@ import DashboardLayout from "../components/dashboard/DashboardLayout";
 import DataRequestBanner from "../components/DataRequestBanner";
 import { useDemographics } from "../hooks/useDemographics";
 import {
+  useNeighborhoodProperties,
   useNeighborhoodValuation,
   useNeighborhoodValuationHistory,
 } from "../hooks/useNeighborhoodValuation";
@@ -25,6 +26,7 @@ function PropertyDashboardPage() {
   const { data: demoApi } = useDemographics(lat, lon);
   const { data: neighborhoodVal } = useNeighborhoodValuation(lat, lon);
   const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
+  const { data: neighborhoodProps } = useNeighborhoodProperties(lat, lon);
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -69,8 +71,11 @@ function PropertyDashboardPage() {
       merged.sort((a, b) => a.date.localeCompare(b.date));
       result = { ...result, price_history: merged };
     }
+    if (neighborhoodProps && neighborhoodProps.properties.length > 0) {
+      result = { ...result, neighborhood_properties: neighborhoodProps.properties };
+    }
     return result;
-  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory]);
+  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory, neighborhoodProps]);
 
   if (loading) {
     return (

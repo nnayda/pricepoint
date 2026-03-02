@@ -21,9 +21,13 @@ depends_on = None
 
 
 # Common demographic columns selected from ACS join
+# Column names must match frontend tile property expectations:
+#   population, median_income, median_age, home_ownership_rate,
+#   pct_white, pct_black, pct_hispanic, pct_asian, pct_other,
+#   dominant_race, dominant_race_pct
 _DEMO_COLS = """
-               d.total_population,
-               d.median_household_income,
+               d.total_population AS population,
+               d.median_household_income AS median_income,
                d.median_age,
                CASE WHEN d.housing_total_occupied > 0
                     THEN round(d.housing_owner_occupied * 100.0
@@ -31,22 +35,67 @@ _DEMO_COLS = """
                END AS home_ownership_rate,
                CASE WHEN d.total_population > 0
                     THEN round(d.race_white * 100.0 / d.total_population, 1)::float8
-               END AS white_pct,
+               END AS pct_white,
                CASE WHEN d.total_population > 0
                     THEN round(d.race_black * 100.0 / d.total_population, 1)::float8
-               END AS black_pct,
+               END AS pct_black,
                CASE WHEN d.total_population > 0
                     THEN round(d.hispanic * 100.0 / d.total_population, 1)::float8
-               END AS hispanic_pct,
+               END AS pct_hispanic,
                CASE WHEN d.total_population > 0
                     THEN round(d.race_asian * 100.0 / d.total_population, 1)::float8
-               END AS asian_pct"""
+               END AS pct_asian,
+               CASE WHEN d.total_population > 0
+                    THEN round(
+                        (d.total_population
+                         - COALESCE(d.race_white, 0)
+                         - COALESCE(d.race_black, 0)
+                         - COALESCE(d.hispanic, 0)
+                         - COALESCE(d.race_asian, 0)
+                        ) * 100.0 / d.total_population, 1)::float8
+               END AS pct_other,
+               CASE WHEN d.total_population > 0 THEN
+                    (SELECT r.race FROM (VALUES
+                        (d.race_white, 'White'),
+                        (d.race_black, 'Black'),
+                        (d.hispanic, 'Hispanic'),
+                        (d.race_asian, 'Asian'),
+                        (d.total_population
+                         - COALESCE(d.race_white, 0)
+                         - COALESCE(d.race_black, 0)
+                         - COALESCE(d.hispanic, 0)
+                         - COALESCE(d.race_asian, 0), 'Other')
+                    ) AS r(cnt, race) ORDER BY r.cnt DESC NULLS LAST LIMIT 1)
+               END AS dominant_race,
+               CASE WHEN d.total_population > 0 THEN
+                    round(
+                        GREATEST(
+                            COALESCE(d.race_white, 0),
+                            COALESCE(d.race_black, 0),
+                            COALESCE(d.hispanic, 0),
+                            COALESCE(d.race_asian, 0),
+                            d.total_population
+                             - COALESCE(d.race_white, 0)
+                             - COALESCE(d.race_black, 0)
+                             - COALESCE(d.hispanic, 0)
+                             - COALESCE(d.race_asian, 0)
+                        ) * 100.0 / d.total_population, 1)::float8
+               END AS dominant_race_pct"""
 
 
 def upgrade() -> None:
-    # Drop existing views first — CREATE OR REPLACE cannot reorder/rename columns
+    # Drop label views first (they depend on demographic views)
+    op.execute("DROP VIEW IF EXISTS v_tract_labels")
+    op.execute("DROP VIEW IF EXISTS v_block_group_labels")
+    op.execute("DROP VIEW IF EXISTS v_county_labels")
+    op.execute("DROP VIEW IF EXISTS v_township_labels")
+    op.execute("DROP VIEW IF EXISTS v_subdivision_labels")
+    # Drop demographic views — CREATE OR REPLACE cannot reorder/rename columns
     op.execute("DROP VIEW IF EXISTS v_tract_demographics")
     op.execute("DROP VIEW IF EXISTS v_block_group_demographics")
+    op.execute("DROP VIEW IF EXISTS v_county_demographics")
+    op.execute("DROP VIEW IF EXISTS v_township_demographics")
+    op.execute("DROP VIEW IF EXISTS v_subdivision_demographics")
 
     # -- Tract demographics --------------------------------------------------
     op.execute(f"""
@@ -144,11 +193,12 @@ def upgrade() -> None:
             SELECT id, geoid,
                    ST_PointOnSurface(geom) AS geom,
                    name,
-                   total_population,
-                   median_household_income,
+                   population,
+                   median_income,
                    median_age,
                    home_ownership_rate,
-                   white_pct, black_pct, hispanic_pct, asian_pct
+                   pct_white, pct_black, pct_hispanic, pct_asian, pct_other,
+                   dominant_race, dominant_race_pct
             FROM {source_view}
         """)
 

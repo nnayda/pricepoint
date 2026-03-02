@@ -7,7 +7,6 @@ distance to nearest school, crime density within radius, nearby amenity counts, 
 from __future__ import annotations
 
 import logging
-import math
 
 import pandas as pd
 from sqlalchemy import text
@@ -152,34 +151,6 @@ school_agg AS (
         AND ST_DWithin(p.location::geography, s.location::geography, :two_miles_m)
     GROUP BY p.property_id
 ),
-all_crimes AS (
-    SELECT location, date_from AS occurred_at FROM staging_cary_police_incidents
-        WHERE location IS NOT NULL
-    UNION ALL
-    SELECT location, reported_date AS occurred_at FROM staging_raleigh_police_incidents
-        WHERE location IS NOT NULL
-    UNION ALL
-    SELECT location, CASE
-        WHEN date_occu IS NOT NULL AND date_occu != '' THEN date_occu::timestamp
-        ELSE NULL
-    END AS occurred_at FROM staging_morrisville_police_incidents
-        WHERE location IS NOT NULL
-),
-crime_agg AS (
-    SELECT
-        p.property_id,
-        COUNT(*) FILTER (WHERE ST_DWithin(p.location::geography, c.location::geography, 500))
-            AS crime_count_500m_1yr,
-        COUNT(*) FILTER (WHERE ST_DWithin(p.location::geography, c.location::geography, 1000))
-            AS crime_count_1km_1yr,
-        COUNT(*) FILTER (WHERE ST_DWithin(p.location::geography, c.location::geography, 2000))
-            AS crime_count_2km_1yr
-    FROM props p
-    CROSS JOIN all_crimes c
-    WHERE c.occurred_at >= (NOW() - INTERVAL '1 year')
-        AND ST_DWithin(p.location::geography, c.location::geography, 2000)
-    GROUP BY p.property_id
-),
 park_centroids AS (
     SELECT ST_Centroid(geom) AS location, gis_acres AS acres FROM greenspaces WHERE geom IS NOT NULL
 ),
@@ -196,14 +167,10 @@ SELECT
     p.property_id,
     sa.avg_school_rating_2mi,
     COALESCE(sa.count_schools_2mi, 0) AS count_schools_2mi,
-    COALESCE(ca.crime_count_500m_1yr, 0) AS crime_count_500m_1yr,
-    COALESCE(ca.crime_count_1km_1yr, 0) AS crime_count_1km_1yr,
-    COALESCE(ca.crime_count_2km_1yr, 0) AS crime_count_2km_1yr,
     COALESCE(pa.count_parks_2km, 0) AS count_parks_2km,
     COALESCE(pa.total_park_acres_2km, 0) AS total_park_acres_2km
 FROM props p
 LEFT JOIN school_agg sa ON sa.property_id = p.property_id
-LEFT JOIN crime_agg ca ON ca.property_id = p.property_id
 LEFT JOIN park_agg pa ON pa.property_id = p.property_id
 """
 
@@ -347,9 +314,6 @@ def _query_batch(
     if result.empty:
         return _empty_frame()
 
-    # Compute derived feature: crime density per km^2 within 1km radius
-    result["crime_density_1km"] = result["crime_count_1km_1yr"] / (math.pi * 1.0**2)
-
     result = result.set_index("property_id")
 
     # Ensure column order
@@ -385,10 +349,6 @@ FEATURE_COLUMNS = [
     "dist_nearest_hospital_m",
     "avg_school_rating_2mi",
     "count_schools_2mi",
-    "crime_count_500m_1yr",
-    "crime_count_1km_1yr",
-    "crime_count_2km_1yr",
-    "crime_density_1km",
     "count_parks_2km",
     "total_park_acres_2km",
     "census_tract_geoid",
