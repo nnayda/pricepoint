@@ -287,6 +287,7 @@ def _build_response_from_db(
             ListingQuality(
                 description_score=llm_score.quality_score,
                 quality_reasoning=llm_score.quality_reasoning,
+                positive_factors=llm_score.positive_factors or [],
             )
             if llm_score and llm_score.quality_score is not None
             else None

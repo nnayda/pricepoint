@@ -19,6 +19,7 @@ class RiskFeature(BaseModel):
     lat: float
     lon: float
     detail: str
+    metadata: dict[str, str | float | None] = {}
 
 
 class RisksResponse(BaseModel):

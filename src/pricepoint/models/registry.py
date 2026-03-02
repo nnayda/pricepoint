@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "pricepoint-home-value"
@@ -20,6 +22,7 @@ def log_model(
     metrics: dict[str, Any],
     run_name: str | None = None,
     model_name: str = MODEL_NAME,
+    input_example: pd.DataFrame | None = None,
 ) -> str:
     """Log a trained model and its metrics to MLflow.
 
@@ -33,6 +36,8 @@ def log_model(
         Name for the MLflow run.
     model_name : str
         Name for model registration.
+    input_example : pd.DataFrame, optional
+        A small sample of input data used to infer the model signature.
 
     Returns
     -------
@@ -41,7 +46,7 @@ def log_model(
     """
     try:
         import mlflow
-        import mlflow.xgboost
+        import mlflow.sklearn
     except ImportError as exc:
         msg = "mlflow is required for model registry. Install with: pip install mlflow"
         raise ImportError(msg) from exc
@@ -61,10 +66,11 @@ def log_model(
         mlflow.log_params(params_to_log)
         mlflow.log_metrics(scalar_metrics)
 
-        mlflow.xgboost.log_model(
+        mlflow.sklearn.log_model(
             model,
             artifact_path="model",
             registered_model_name=model_name,
+            input_example=input_example,
         )
 
         run_id = run.info.run_id
@@ -77,9 +83,9 @@ def promote_model(
     *,
     model_name: str = MODEL_NAME,
     version: int,
-    stage: str = "Production",
+    alias: str = "champion",
 ) -> None:
-    """Transition a registered model version to the given stage.
+    """Set an alias on a registered model version.
 
     Parameters
     ----------
@@ -87,8 +93,8 @@ def promote_model(
         Registered model name.
     version : int
         Model version number.
-    stage : str
-        Target stage (e.g. 'Staging', 'Production', 'Archived').
+    alias : str
+        Alias to assign (e.g. 'champion', 'challenger').
     """
     try:
         import mlflow
@@ -97,14 +103,14 @@ def promote_model(
         raise ImportError(msg) from exc
 
     client = mlflow.tracking.MlflowClient()
-    client.transition_model_version_stage(
+    client.set_registered_model_alias(
         name=model_name,
-        version=version,
-        stage=stage,
+        alias=alias,
+        version=str(version),
     )
     logger.info(
-        "Promoted model '%s' version %d to '%s'",
+        "Set alias '%s' on model '%s' version %d",
+        alias,
         model_name,
         version,
-        stage,
     )

@@ -21,6 +21,7 @@ const mockResponse: RisksApiResponse = {
       lat: 35.8,
       lon: -78.77,
       detail: "Cell Tower — outside risk zones",
+      metadata: { structure_type: "TOWER", height_ft: "150" },
     },
     {
       id: "RB-P-30",
@@ -31,6 +32,7 @@ const mockResponse: RisksApiResponse = {
       lat: 35.785,
       lon: -78.769,
       detail: "Power Plant — within critical risk zone",
+      metadata: { fuel_source: "Nuclear", utility_name: "Duke Energy Progress" },
     },
   ],
 };

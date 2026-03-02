@@ -22,39 +22,40 @@ from pricepoint.models.registry import MODEL_NAME
 logger = logging.getLogger(__name__)
 
 
-def load_production_model(*, model_name: str = MODEL_NAME) -> Any:
-    """Load the Production-stage model from MLflow registry.
+def load_production_model(*, model_name: str = MODEL_NAME, alias: str = "champion") -> Any:
+    """Load the champion model from MLflow registry.
 
     Parameters
     ----------
     model_name : str
         Registered model name in MLflow.
+    alias : str
+        Model alias to load (default: 'champion').
 
     Returns
     -------
     model
-        The loaded model object, or ``None`` if no Production model exists.
+        The loaded model object, or ``None`` if no champion model exists.
     """
     try:
         import mlflow
-        import mlflow.xgboost
+        import mlflow.sklearn
     except ImportError as exc:
         msg = "mlflow is required for model inference. Install with: pip install mlflow"
         raise ImportError(msg) from exc
 
     client = mlflow.tracking.MlflowClient()
 
-    # Find the latest Production version
-    versions = client.get_latest_versions(model_name, stages=["Production"])
-    if not versions:
-        logger.warning("No Production model found for '%s'", model_name)
+    try:
+        version = client.get_model_version_by_alias(model_name, alias)
+    except mlflow.exceptions.MlflowException:
+        logger.warning("No '%s' model found for '%s'", alias, model_name)
         return None
 
-    version = versions[0]
-    model_uri = f"models:/{model_name}/{version.version}"
+    model_uri = f"models:/{model_name}@{alias}"
     logger.info("Loading model '%s' version %s from %s", model_name, version.version, model_uri)
 
-    model = mlflow.xgboost.load_model(model_uri)
+    model = mlflow.sklearn.load_model(model_uri)
     return model
 
 
@@ -75,6 +76,22 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
     """
     # Keep only numeric columns
     numeric_df = features_df.select_dtypes(include="number")
+
+    # Align columns to model's expected features to avoid mismatch errors
+    # when the feature pipeline has added/removed columns since training.
+    expected_features = getattr(model, "feature_names_in_", None)
+    if expected_features is not None:
+        expected = list(expected_features)
+        extra = set(numeric_df.columns) - set(expected)
+        missing = set(expected) - set(numeric_df.columns)
+        if extra:
+            logger.warning(
+                "Dropping %d features not in trained model: %s", len(extra), sorted(extra)
+            )
+        if missing:
+            logger.warning("Adding %d missing features as NaN: %s", len(missing), sorted(missing))
+        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+
     predictions = model.predict(numeric_df)
     logger.info("Generated %d predictions", len(predictions))
     return np.asarray(predictions)

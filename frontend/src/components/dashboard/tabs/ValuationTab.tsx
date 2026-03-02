@@ -55,17 +55,18 @@ function calcMortgage(
 type Outcome = { label: string; style: string };
 
 function getOutcome(v: DashboardData["valuation"]): Outcome {
-  if (v.listed_price < v.confidence_low)
+  const { listed_price, confidence_low, predicted_value, confidence_high } = v;
+  if (confidence_low != null && listed_price < confidence_low)
     return {
       label: "Bargain",
       style: "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)]",
     };
-  if (v.listed_price < v.predicted_value)
+  if (predicted_value != null && listed_price < predicted_value)
     return {
       label: "Value",
       style: "bg-[var(--color-db-surface-alt)] text-[var(--color-db-text-secondary)]",
     };
-  if (v.listed_price < v.confidence_high)
+  if (confidence_high != null && listed_price < confidence_high)
     return {
       label: "Fair",
       style:
@@ -189,7 +190,8 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
 
 function ValuationTab({ data }: ValuationTabProps) {
   const { valuation, shap_features, price_history, mortgage_defaults, notFound } = data;
-  const outcome = getOutcome(valuation);
+  const hasEstimate = valuation.predicted_value != null;
+  const outcome = hasEstimate ? getOutcome(valuation) : null;
 
   const [homePrice, setHomePrice] = useState(mortgage_defaults.home_price);
   const [downPct, setDownPct] = useState(mortgage_defaults.down_payment_pct);
@@ -229,7 +231,7 @@ function ValuationTab({ data }: ValuationTabProps) {
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[var(--color-db-text-primary)]">
-              Model Valuation Estimate
+              {hasEstimate ? "Model Valuation Estimate" : "Price Comparison"}
             </h3>
             <a
               href="/model-methodology"
@@ -251,18 +253,20 @@ function ValuationTab({ data }: ValuationTabProps) {
               </svg>
             </a>
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${outcome.style}`}
-          >
-            {outcome.label}
-          </span>
+          {outcome && (
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${outcome.style}`}
+            >
+              {outcome.label}
+            </span>
+          )}
         </div>
         <EstimateRangeBar valuation={valuation} />
       </DashboardCard>
 
       {/* Price History + SHAP side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCard className="relative overflow-hidden">
+        <DashboardCard className="relative overflow-hidden" expandable title="Price History">
           {notFound && <NoDataOverlay message="Price history not available." />}
           <div className="mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
@@ -274,6 +278,7 @@ function ValuationTab({ data }: ValuationTabProps) {
 
         <DashboardCard className="relative overflow-hidden">
           {notFound && <NoDataOverlay message="Value drivers not available." />}
+          {!notFound && !hasEstimate && <NoDataOverlay message="Value drivers not available." />}
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Value Drivers (SHAP)

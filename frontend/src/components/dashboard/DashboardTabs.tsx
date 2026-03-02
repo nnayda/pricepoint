@@ -34,16 +34,18 @@ const TABS: TabDef[] = [
 function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, string>> {
   const dots: Partial<Record<DashboardTab, string>> = {};
 
-  // Dot color on Valuation matches outcome label
+  // Dot color on Valuation matches outcome label (only if model estimate exists)
   const v = data.valuation;
-  if (v.listed_price < v.confidence_low) {
-    dots.valuation = "#34D399"; // Bargain → green
-  } else if (v.listed_price >= v.confidence_high) {
-    dots.valuation = "#F87171"; // Overpriced → red
-  } else if (v.listed_price >= v.predicted_value) {
-    dots.valuation = "#FBBF24"; // Fair → amber
+  if (v.predicted_value != null) {
+    if (v.confidence_low != null && v.listed_price < v.confidence_low) {
+      dots.valuation = "#34D399"; // Bargain → green
+    } else if (v.confidence_high != null && v.listed_price >= v.confidence_high) {
+      dots.valuation = "#F87171"; // Overpriced → red
+    } else if (v.listed_price >= v.predicted_value) {
+      dots.valuation = "#FBBF24"; // Fair → amber
+    }
+    // Value (listed < predicted but >= CI low) → no dot
   }
-  // Value (listed < predicted but >= CI low) → no dot
 
   // Red dot on Risks if any risk score > 70
   if (data.risks.categories.some((c) => c.score > 70)) {

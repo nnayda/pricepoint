@@ -30,7 +30,11 @@ describe("buildEmptyDashboardData", () => {
   it("provides zeroed valuation with 'No Data' verdict", () => {
     const data = buildEmptyDashboardData("123 Main St", 35.5, -78.7);
     expect(data.valuation.listed_price).toBe(0);
-    expect(data.valuation.predicted_value).toBe(0);
+    expect(data.valuation.predicted_value).toBeUndefined();
+    expect(data.valuation.confidence_low).toBeUndefined();
+    expect(data.valuation.confidence_high).toBeUndefined();
+    expect(data.valuation.model_version).toBeUndefined();
+    expect(data.valuation.prediction_date).toBeUndefined();
     expect(data.valuation.verdict).toBe("No Data");
   });
 

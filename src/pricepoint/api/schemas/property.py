@@ -178,6 +178,7 @@ class ListingQuality(BaseModel):
 
     description_score: int | None = None
     quality_reasoning: str | None = None
+    positive_factors: list[str] = []
 
 
 class PropertyResponse(BaseModel):

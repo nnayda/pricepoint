@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Source, Layer, Popup, useMap } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
-import type { DashboardData, NegativePoi, InfrastructureType } from "../../../types";
+import type { DashboardData, RiskFeature, InfrastructureType } from "../../../types";
 import DashboardCard from "../DashboardCard";
-import DashboardMap from "../maps/DashboardMap";
+import DashboardMap, { type MapMarker } from "../maps/DashboardMap";
 import { MapPinIcon } from "../ui/Icons";
 import { useRisks } from "../../../hooks/useRisks";
 
@@ -55,7 +55,7 @@ const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
 
 const ALL_TYPES = new Set<InfrastructureType>(INFRA_TYPE_OPTIONS.map((o) => o.value));
 
-// SVG icons for point infrastructure types (cell towers & power plants)
+// SVG icons for point infrastructure types (cell towers & power plants) on vector tiles
 const CELL_TOWER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%2360A5FA" stroke="white" stroke-width="0.8"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="M12 14v8"/></svg>`;
 const POWER_PLANT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23EF4444" stroke="white" stroke-width="0.8"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
 
@@ -95,77 +95,197 @@ function InfraIconLoader() {
   return null;
 }
 
-function SeverityBadge({ severity }: { severity: string }) {
-  const size = 52;
-  const stroke = 4;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = 0;
+/** Severity icon for the badge — exclamation for Caution, X for Concern. */
+function SeverityIcon({ severity, size }: { severity: string; size: number }) {
+  const props = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "white",
+    strokeWidth: 2.5,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (severity === "Concern") {
+    return (
+      <svg {...props}>
+        <path d="M18 6 6 18" />
+        <path d="M6 6l12 12" />
+      </svg>
+    );
+  }
+  // Caution — exclamation mark
+  return (
+    <svg {...props}>
+      <path d="M12 5v8" />
+      <circle cx="12" cy="17" r="0.5" fill="white" />
+    </svg>
+  );
+}
+
+function InfraBadge({ severity }: { severity: string }) {
+  const size = 40;
   const color = severityStyles[severity]?.text ?? "var(--color-db-text-muted)";
 
-  const iconSize = 18;
-
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--color-db-border-subtle)"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center">
-        <svg
-          width={iconSize}
-          height={iconSize}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={color}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {severity === "Safe" && <path d="M20 6 9 17l-5-5" />}
-          {severity === "Caution" && (
-            <>
-              <path d="M12 5v9" />
-              <path d="M12 18h.01" />
-            </>
-          )}
-          {severity === "Concern" && (
-            <>
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </>
-          )}
-        </svg>
-      </span>
+    <div
+      className="relative shrink-0 flex items-center justify-center rounded-full"
+      style={{ width: size, height: size, backgroundColor: color }}
+    >
+      <SeverityIcon severity={severity} size={20} />
     </div>
   );
 }
 
-function NegativePoiCard({
-  poi,
+const INFRA_TYPE_LABEL: Record<string, string> = {
+  cell_tower: "Cell Tower",
+  transmission_line: "Transmission Line",
+  power_plant: "Power Plant",
+  nat_gas_pipeline: "Gas Pipeline",
+  petroleum_pipeline: "Oil Pipeline",
+};
+
+/** Render type-specific metadata tags for a risk feature. */
+function MetadataTags({ feature }: { feature: RiskFeature }) {
+  const m = feature.metadata ?? {};
+  const tags: string[] = [];
+
+  switch (feature.infrastructure_type) {
+    case "cell_tower":
+      if (m.structure_type) tags.push(String(m.structure_type));
+      if (m.height_ft) tags.push(`${m.height_ft} ft`);
+      break;
+    case "power_plant":
+      if (m.fuel_source) tags.push(String(m.fuel_source));
+      if (m.utility_name) tags.push(String(m.utility_name));
+      break;
+    case "nat_gas_pipeline":
+      if (m.pipe_type) tags.push(String(m.pipe_type));
+      if (m.status) tags.push(String(m.status));
+      break;
+    case "petroleum_pipeline":
+      if (m.operator) tags.push(String(m.operator));
+      break;
+    case "transmission_line":
+      if (m.line_type) tags.push(String(m.line_type));
+      if (m.status) tags.push(String(m.status));
+      if (m.voltage_class) tags.push(String(m.voltage_class));
+      break;
+  }
+
+  if (tags.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-2">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+          style={{
+            backgroundColor: "var(--color-db-surface)",
+            color: "var(--color-db-text-secondary)",
+            border: "1px solid var(--color-db-border-subtle)",
+          }}
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Compact popup content for map markers, matching the card details. */
+function RiskPopupContent({ feature }: { feature: RiskFeature }) {
+  const m = feature.metadata ?? {};
+  const tags: string[] = [];
+  switch (feature.infrastructure_type) {
+    case "cell_tower":
+      if (m.structure_type) tags.push(String(m.structure_type));
+      if (m.height_ft) tags.push(`${m.height_ft} ft`);
+      break;
+    case "power_plant":
+      if (m.fuel_source) tags.push(String(m.fuel_source));
+      if (m.utility_name) tags.push(String(m.utility_name));
+      break;
+    case "nat_gas_pipeline":
+      if (m.pipe_type) tags.push(String(m.pipe_type));
+      if (m.status) tags.push(String(m.status));
+      break;
+    case "petroleum_pipeline":
+      if (m.operator) tags.push(String(m.operator));
+      break;
+    case "transmission_line":
+      if (m.line_type) tags.push(String(m.line_type));
+      if (m.status) tags.push(String(m.status));
+      if (m.voltage_class) tags.push(String(m.voltage_class));
+      break;
+  }
+
+  return (
+    <div style={{ fontFamily: "var(--font-db-sans)", fontSize: 13 }}>
+      <div
+        style={{
+          fontWeight: 600,
+          color: "var(--color-db-text-primary)",
+        }}
+      >
+        {feature.name}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--color-db-text-muted)", marginTop: 2 }}>
+        {INFRA_TYPE_LABEL[feature.infrastructure_type] ?? feature.infrastructure_type} ·{" "}
+        <span
+          style={{
+            color: severityStyles[feature.severity]?.text ?? "var(--color-db-text-muted)",
+          }}
+        >
+          {feature.severity}
+        </span>
+      </div>
+      {tags.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              style={{
+                fontSize: 10,
+                fontWeight: 500,
+                padding: "1px 6px",
+                borderRadius: 9999,
+                backgroundColor: "var(--color-db-surface)",
+                color: "var(--color-db-text-secondary)",
+                border: "1px solid var(--color-db-border-subtle)",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 3,
+          marginTop: 4,
+          fontSize: 11,
+          color: "var(--color-db-text-tertiary)",
+        }}
+      >
+        <MapPinIcon size={12} /> {feature.distance_miles} mi
+      </div>
+    </div>
+  );
+}
+
+function RiskCard({
+  feature,
   isSelected,
   onHover,
   onLeave,
   onClick,
 }: {
-  poi: NegativePoi;
+  feature: RiskFeature;
   isSelected: boolean;
   onHover: () => void;
   onLeave: () => void;
@@ -184,23 +304,30 @@ function NegativePoiCard({
       onMouseLeave={onLeave}
       onClick={onClick}
     >
-      <SeverityBadge severity={poi.severity} />
+      <InfraBadge severity={feature.severity} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between">
           <div>
             <h4 className="text-[15px] font-semibold leading-snug text-[var(--color-db-text-primary)]">
-              {poi.name}
+              {feature.name}
             </h4>
             <p className="text-[13px] text-[var(--color-db-text-muted)]">
-              {poi.type} · {poi.severity}
+              {INFRA_TYPE_LABEL[feature.infrastructure_type] ?? feature.infrastructure_type} ·{" "}
+              <span
+                style={{
+                  color: severityStyles[feature.severity]?.text ?? "var(--color-db-text-muted)",
+                }}
+              >
+                {feature.severity}
+              </span>
             </p>
           </div>
         </div>
-        <div className="mt-1 text-[12px] text-[var(--color-db-text-tertiary)]">{poi.detail}</div>
+        <MetadataTags feature={feature} />
         <div className="mt-2 flex flex-wrap gap-4 text-[13px] text-[var(--color-db-text-tertiary)]">
           <span className="inline-flex items-center gap-1">
-            <MapPinIcon size={14} /> {poi.distance_miles} mi
+            <MapPinIcon size={14} /> {feature.distance_miles} mi
           </span>
         </div>
       </div>
@@ -242,41 +369,38 @@ function RisksTab({ data }: RisksTabProps) {
     [risksData.features, activeTypes],
   );
 
-  const cards: NegativePoi[] = useMemo(
-    () =>
-      filteredFeatures.map((f) => ({
-        id: f.id,
-        name: f.name,
-        type: f.infrastructure_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        severity: f.severity,
-        distance_miles: f.distance_miles,
-        lat: f.lat,
-        lon: f.lon,
-        detail: f.detail,
-      })),
+  const sidebarFeatures = useMemo(
+    () => filteredFeatures.filter((f) => f.severity === "Caution" || f.severity === "Concern"),
     [filteredFeatures],
   );
 
-  const sidebarCards = useMemo(
-    () => cards.filter((c) => c.severity === "Caution" || c.severity === "Concern"),
-    [cards],
-  );
-
-  // All features are point features (line geometry served via tiles)
-  const pointFeatures = filteredFeatures;
-
-  const markers = useMemo(
-    () =>
-      pointFeatures.map((f) => ({
+  // Deduplicate markers — line features (pipelines, transmission lines) may have
+  // multiple segments sharing the same name; show only one marker per unique name+type.
+  const markers = useMemo(() => {
+    const seen = new Set<string>();
+    const result: {
+      id: string;
+      lat: number;
+      lon: number;
+      label: string;
+      color: string;
+      infrastructureType: string;
+    }[] = [];
+    for (const f of filteredFeatures) {
+      const key = `${f.infrastructure_type}::${f.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({
         id: f.id,
         lat: f.lat,
         lon: f.lon,
         label: `${f.name} (${f.severity})`,
         color: INFRA_TYPE_COLORS[f.infrastructure_type] ?? severityMapColors[f.severity],
         infrastructureType: f.infrastructure_type,
-      })),
-    [pointFeatures],
-  );
+      });
+    }
+    return result;
+  }, [filteredFeatures]);
 
   // Build infra type filter for v_infrastructure tiles (uses "infra_type" column)
   const infraTypeFilter = useMemo(() => {
@@ -285,7 +409,7 @@ function RisksTab({ data }: RisksTabProps) {
     return ["in", "infra_type", ...types];
   }, [activeTypes]);
 
-  // Build filter for point-geometry infrastructure (cell towers, power plants)
+  // Build filter for point-geometry infrastructure (cell towers, power plants) on tiles
   const infraPointFilter = useMemo(() => {
     const pointTypes = ["cell_tower", "power_plant"].filter((t) =>
       activeTypes.has(t as InfrastructureType),
@@ -303,26 +427,47 @@ function RisksTab({ data }: RisksTabProps) {
     return ["in", "infrastructure_type", ...types];
   }, [activeTypes]);
 
-  const INFRA_TYPE_LABEL: Record<string, string> = {
-    cell_tower: "Cell Tower",
-    power_plant: "Power Plant",
-  };
+  // Handle click on infrastructure point icons on tiles — select the matching
+  // API feature so the React marker popup (with full details) opens.
+  // Falls back to a basic tile popup if no API match exists.
+  const handleLayerClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      if (feature.layer.id === "infra-points" && feature.geometry.type === "Point") {
+        const [lon, lat] = feature.geometry.coordinates;
+        const name = (feature.properties?.name as string) || "";
+        const infraType = (feature.properties?.infra_type as string) || "";
+        const match = risksData.features.find(
+          (f) => f.name === name && f.infrastructure_type === infraType,
+        );
+        if (match) {
+          // Select the feature — DashboardMap's PanToSelected will open the
+          // React marker popup which uses renderPopup for full card details.
+          setSelectedId(match.id);
+          setInfraPopup(null);
+        } else {
+          setInfraPopup({
+            lon,
+            lat,
+            name: name || INFRA_TYPE_LABEL[infraType] || "Unknown",
+            type: INFRA_TYPE_LABEL[infraType] || infraType.replace(/_/g, " "),
+          });
+        }
+      }
+    },
+    [risksData.features],
+  );
 
-  // Handle click on infrastructure point icons
-  const handleLayerClick = useCallback((e: MapLayerMouseEvent) => {
-    const feature = e.features?.[0];
-    if (!feature) return;
-    if (feature.layer.id === "infra-points" && feature.geometry.type === "Point") {
-      const [lon, lat] = feature.geometry.coordinates;
-      const infraType = (feature.properties?.infra_type as string) || "";
-      setInfraPopup({
-        lon,
-        lat,
-        name: (feature.properties?.name as string) || INFRA_TYPE_LABEL[infraType] || "Unknown",
-        type: INFRA_TYPE_LABEL[infraType] || infraType.replace(/_/g, " "),
-      });
-    }
-  }, []);
+  // Render rich popup content matching the card details
+  const renderPopup = useCallback(
+    (marker: MapMarker) => {
+      const feature = risksData.features.find((f) => f.id === marker.id);
+      if (!feature) return <span style={{ fontSize: 12 }}>{marker.label}</span>;
+      return <RiskPopupContent feature={feature} />;
+    },
+    [risksData.features],
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
@@ -337,7 +482,7 @@ function RisksTab({ data }: RisksTabProps) {
           </h3>
 
           <div className="flex flex-col gap-2">
-            {!loading && sidebarCards.length === 0 && (
+            {!loading && sidebarFeatures.length === 0 && (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <svg
                   width={32}
@@ -359,14 +504,14 @@ function RisksTab({ data }: RisksTabProps) {
                 </p>
               </div>
             )}
-            {sidebarCards.map((n) => (
-              <NegativePoiCard
-                key={n.id}
-                poi={n}
-                isSelected={selectedId === n.id}
-                onHover={() => setHoveredId(n.id)}
+            {sidebarFeatures.map((f) => (
+              <RiskCard
+                key={f.id}
+                feature={f}
+                isSelected={selectedId === f.id}
+                onHover={() => setHoveredId(f.id)}
                 onLeave={() => setHoveredId(null)}
-                onClick={() => setSelectedId(selectedId === n.id ? null : n.id)}
+                onClick={() => setSelectedId(selectedId === f.id ? null : f.id)}
               />
             ))}
           </div>
@@ -422,6 +567,9 @@ function RisksTab({ data }: RisksTabProps) {
               selectedId={selectedId}
               interactiveLayerIds={["infra-points"]}
               onLayerClick={handleLayerClick}
+              onMarkerSelect={(id) => setSelectedId(id)}
+              onMarkerDeselect={() => setSelectedId(null)}
+              renderPopup={renderPopup}
             >
               <InfraIconLoader />
 
@@ -531,7 +679,7 @@ function RisksTab({ data }: RisksTabProps) {
                 />
               </Source>
 
-              {/* Infrastructure point popup */}
+              {/* Fallback popup for tile points not in API results */}
               {infraPopup && (
                 <Popup
                   longitude={infraPopup.lon}

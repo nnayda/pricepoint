@@ -58,7 +58,12 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     garage_spaces: p.garage_spaces,
     description: p.description,
     ai_summary: resp.listing_quality?.quality_reasoning ?? "",
-    highlights: p.highlights.length > 0 ? p.highlights : mockDashboardData.property.highlights,
+    highlights:
+      resp.listing_quality?.positive_factors && resp.listing_quality.positive_factors.length > 0
+        ? resp.listing_quality.positive_factors
+        : p.highlights.length > 0
+          ? p.highlights
+          : mockDashboardData.property.highlights,
     images:
       p.images.length > 0 ? p.images.map((img) => img.url) : mockDashboardData.property.images,
     listing_status: normalizeStatus(p.listing_status),
@@ -75,16 +80,16 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
 
   const valuation: DashboardValuation = {
     listed_price: displayPrice,
-    predicted_value: v.predicted_value ?? mockDashboardData.valuation.predicted_value,
-    confidence_low: v.confidence_interval_low ?? mockDashboardData.valuation.confidence_low,
-    confidence_high: v.confidence_interval_high ?? mockDashboardData.valuation.confidence_high,
+    predicted_value: v.predicted_value ?? undefined,
+    confidence_low: v.confidence_interval_low ?? undefined,
+    confidence_high: v.confidence_interval_high ?? undefined,
     redfin_estimate: v.redfin_estimate ?? mockDashboardData.valuation.redfin_estimate,
     tax_assessment: resp.financial.assessed_value ?? mockDashboardData.valuation.tax_assessment,
     price_per_sqft: pricePerSqft,
     neighborhood_median: mockDashboardData.valuation.neighborhood_median,
     neighborhood_max: mockDashboardData.valuation.neighborhood_max,
-    model_version: v.model_version ?? mockDashboardData.valuation.model_version,
-    prediction_date: v.prediction_date ?? mockDashboardData.valuation.prediction_date,
+    model_version: v.model_version ?? undefined,
+    prediction_date: v.prediction_date ?? undefined,
     verdict: mockDashboardData.valuation.verdict,
     verdict_detail: mockDashboardData.valuation.verdict_detail,
   };

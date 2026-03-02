@@ -1,6 +1,16 @@
-import { useMemo } from "react";
-import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceArea,
+} from "recharts";
 import type { PriceHistoryPoint } from "../../../types";
+import { useCardExpanded } from "../DashboardCard";
 import {
   TOOLTIP_CONTENT_STYLE,
   TOOLTIP_ITEM_STYLE,
@@ -80,6 +90,58 @@ function useXAxisConfig(data: PriceHistoryPoint[]) {
   }, [data]);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ChartMouseEvent = { activeTooltipIndex?: number | null | any };
+
+/** Hook to manage drag-to-zoom on a categorical (index-based) recharts axis. */
+function useZoom(dataLength: number) {
+  const [zoomLeft, setZoomLeft] = useState<number | null>(null);
+  const [zoomRight, setZoomRight] = useState<number | null>(null);
+  // Visible window: [start, end) indices into the full data array
+  const [window, setWindow] = useState<[number, number] | null>(null);
+
+  const onMouseDown = useCallback(
+    (e: ChartMouseEvent) => {
+      const idx = typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null;
+      if (idx != null) {
+        setZoomLeft(idx);
+        setZoomRight(null);
+      }
+    },
+    [],
+  );
+
+  const onMouseMove = useCallback(
+    (e: ChartMouseEvent) => {
+      const idx = typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null;
+      if (zoomLeft != null && idx != null) {
+        setZoomRight(idx);
+      }
+    },
+    [zoomLeft],
+  );
+
+  const onMouseUp = useCallback(() => {
+    if (zoomLeft != null && zoomRight != null && zoomLeft !== zoomRight) {
+      const lo = Math.min(zoomLeft, zoomRight);
+      const hi = Math.min(Math.max(zoomLeft, zoomRight) + 1, dataLength);
+      if (hi - lo >= 2) {
+        setWindow((prev) => {
+          // Map indices relative to current window back to full data
+          const base = prev ? prev[0] : 0;
+          return [base + lo, base + hi];
+        });
+      }
+    }
+    setZoomLeft(null);
+    setZoomRight(null);
+  }, [zoomLeft, zoomRight, dataLength]);
+
+  const resetZoom = useCallback(() => setWindow(null), []);
+
+  return { zoomLeft, zoomRight, window, onMouseDown, onMouseMove, onMouseUp, resetZoom };
+}
+
 interface PriceHistoryChartProps {
   data: PriceHistoryPoint[];
   showNeighborhood?: boolean;
@@ -126,14 +188,26 @@ const tooltipFormatter: any = (value: number | undefined, name: string) => {
 };
 
 function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHistoryChartProps) {
-  const data = useMemo(() => trimLeadingEmpty(rawData), [rawData]);
+  const allData = useMemo(() => trimLeadingEmpty(rawData), [rawData]);
+  const isExpanded = useCardExpanded();
+
+  const zoom = useZoom(allData.length);
+
+  // Slice data to the visible zoom window
+  const data = useMemo(
+    () => (zoom.window ? allData.slice(zoom.window[0], zoom.window[1]) : allData),
+    [allData, zoom.window],
+  );
+
   const hasTaxData = data.some((d) => d.tax_assessed != null);
   const hasNeighborhoodData = showNeighborhood && data.some((d) => d.neighborhood_median != null);
   const xAxis = useXAxisConfig(data);
 
+  const chartHeight = isExpanded ? "100%" : 280;
+
   return (
-    <div className="flex flex-col">
-      {/* Legend */}
+    <div className={`flex flex-col ${isExpanded ? "h-full" : ""}`}>
+      {/* Legend + zoom controls */}
       <div className="mb-2 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5">
           <span
@@ -166,75 +240,120 @@ function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHist
             </span>
           </div>
         )}
+        {zoom.window && (
+          <button
+            type="button"
+            onClick={zoom.resetZoom}
+            className="ml-auto flex items-center gap-1 rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-2 py-0.5 text-[11px] text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M1 1v5h5" />
+              <path d="M3.51 10a6 6 0 1 0 .34-5.37L1 6" />
+            </svg>
+            Reset zoom
+          </button>
+        )}
+        {!zoom.window && (
+          <span className="ml-auto text-[10px] text-[var(--color-db-text-muted)]">
+            Drag to zoom
+          </span>
+        )}
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <ComposedChart data={data} margin={{ top: 22, right: 10, left: 10, bottom: 5 }}>
-          <defs>
-            <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={COLOR_INDIGO} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={COLOR_INDIGO} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis
-            dataKey="date"
-            tick={AXIS_TICK_MONO}
-            axisLine={AXIS_LINE_STYLE}
-            tickLine={false}
-            interval={0}
-            tickFormatter={xAxis.formatter}
-          />
-          <YAxis
-            tick={AXIS_TICK_MONO}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
-            width={55}
-          />
-          <Tooltip
-            contentStyle={TOOLTIP_CONTENT_STYLE}
-            itemStyle={TOOLTIP_ITEM_STYLE}
-            labelStyle={TOOLTIP_LABEL_STYLE}
-            cursor={CURSOR_LINE}
-            formatter={tooltipFormatter}
-            labelFormatter={(d) => {
-              const s = String(d);
-              const [y, m] = s.split("-");
-              return `${MONTH_SHORT[parseInt(m, 10) - 1]} ${y}`;
-            }}
-          />
-          <Area
-            type="monotone"
-            dataKey="price"
-            stroke={COLOR_INDIGO}
-            strokeWidth={2}
-            fill="url(#priceGradient)"
-            dot={<SaleDot />}
-            activeDot={false}
-            connectNulls
-          />
-          {hasTaxData && (
-            <Line
+      <div className={isExpanded ? "min-h-0 flex-1" : ""}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <ComposedChart
+            data={data}
+            margin={{ top: 22, right: 10, left: 10, bottom: 5 }}
+            onMouseDown={zoom.onMouseDown}
+            onMouseMove={zoom.onMouseMove}
+            onMouseUp={zoom.onMouseUp}
+          >
+            <defs>
+              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLOR_INDIGO} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={COLOR_INDIGO} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              tick={AXIS_TICK_MONO}
+              axisLine={AXIS_LINE_STYLE}
+              tickLine={false}
+              interval={0}
+              tickFormatter={xAxis.formatter}
+            />
+            <YAxis
+              tick={AXIS_TICK_MONO}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              width={55}
+              domain={["auto", "auto"]}
+            />
+            <Tooltip
+              contentStyle={TOOLTIP_CONTENT_STYLE}
+              itemStyle={TOOLTIP_ITEM_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
+              cursor={CURSOR_LINE}
+              formatter={tooltipFormatter}
+              labelFormatter={(d) => {
+                const s = String(d);
+                const [y, m] = s.split("-");
+                return `${MONTH_SHORT[parseInt(m, 10) - 1]} ${y}`;
+              }}
+            />
+            <Area
               type="monotone"
-              dataKey="tax_assessed"
-              stroke={COLOR_AMBER}
-              strokeWidth={1.5}
-              dot={false}
+              dataKey="price"
+              stroke={COLOR_INDIGO}
+              strokeWidth={2}
+              fill="url(#priceGradient)"
+              dot={<SaleDot />}
+              activeDot={false}
               connectNulls
             />
-          )}
-          {hasNeighborhoodData && (
-            <Line
-              type="monotone"
-              dataKey="neighborhood_median"
-              stroke={COLOR_CYAN}
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              dot={false}
-              connectNulls
-            />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+            {hasTaxData && (
+              <Line
+                type="monotone"
+                dataKey="tax_assessed"
+                stroke={COLOR_AMBER}
+                strokeWidth={1.5}
+                dot={false}
+                connectNulls
+              />
+            )}
+            {hasNeighborhoodData && (
+              <Line
+                type="monotone"
+                dataKey="neighborhood_median"
+                stroke={COLOR_CYAN}
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                dot={false}
+                connectNulls
+              />
+            )}
+            {zoom.zoomLeft != null && zoom.zoomRight != null && (
+              <ReferenceArea
+                x1={data[zoom.zoomLeft]?.date}
+                x2={data[zoom.zoomRight]?.date}
+                strokeOpacity={0.3}
+                fill={COLOR_INDIGO}
+                fillOpacity={0.1}
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

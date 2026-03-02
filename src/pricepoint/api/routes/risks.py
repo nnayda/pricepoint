@@ -81,33 +81,69 @@ def _build_infra_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
     radius_miles: float,
 ):
-    """Build UNION ALL across 5 infrastructure tables (no JOIN to risk_boundaries)."""
+    """Build UNION ALL across 5 infrastructure tables (no JOIN to risk_boundaries).
+
+    Each sub-query selects up to 4 generic metadata columns (meta1..meta4) with
+    type-specific values so the caller can build a per-type metadata dict.
+    """
+    _null = literal(None).label  # shorthand for NULL placeholders
     queries = []
 
-    infra_tables = [
-        (CellTower, "cell_tower", CellTower.geom, func.coalesce(CellTower.licensee, "Cell Tower")),
+    # (model, type_label, geom_col, name_expr, meta1, meta2, meta3, meta4)
+    infra_defs: list[tuple] = [
+        (
+            CellTower,
+            "cell_tower",
+            CellTower.geom,
+            func.coalesce(CellTower.licensee, "Cell Tower"),
+            cast(CellTower.structure_type, String).label("meta1"),
+            cast(CellTower.height_ft, String).label("meta2"),
+            _null("meta3"),
+            _null("meta4"),
+        ),
         (
             TransmissionLine,
             "transmission_line",
             TransmissionLine.geom,
             func.coalesce(TransmissionLine.owner, "Transmission Line"),
+            cast(TransmissionLine.line_type, String).label("meta1"),
+            cast(TransmissionLine.status, String).label("meta2"),
+            cast(TransmissionLine.volt_class, String).label("meta3"),
+            _null("meta4"),
         ),
-        (PowerPlant, "power_plant", PowerPlant.geom, func.coalesce(PowerPlant.name, "Power Plant")),
+        (
+            PowerPlant,
+            "power_plant",
+            PowerPlant.geom,
+            func.coalesce(PowerPlant.name, "Power Plant"),
+            cast(PowerPlant.primary_source, String).label("meta1"),
+            cast(PowerPlant.utility_name, String).label("meta2"),
+            _null("meta3"),
+            _null("meta4"),
+        ),
         (
             NatGasPipeline,
             "nat_gas_pipeline",
             NatGasPipeline.geom,
             func.coalesce(NatGasPipeline.operator, "Natural Gas Pipeline"),
+            cast(NatGasPipeline.pipe_type, String).label("meta1"),
+            cast(NatGasPipeline.status, String).label("meta2"),
+            _null("meta3"),
+            _null("meta4"),
         ),
         (
             PetroleumPipeline,
             "petroleum_pipeline",
             PetroleumPipeline.geom,
             func.coalesce(PetroleumPipeline.operator, "Petroleum Pipeline"),
+            _null("meta1"),
+            _null("meta2"),
+            _null("meta3"),
+            _null("meta4"),
         ),
     ]
 
-    for model, type_label, geom_col, name_expr in infra_tables:
+    for model, type_label, geom_col, name_expr, m1, m2, m3, m4 in infra_defs:
         is_line = model in _LINE_MODELS
         lat_expr = ST_Y(func.ST_PointOnSurface(geom_col)) if is_line else ST_Y(geom_col)
         lon_expr = ST_X(func.ST_PointOnSurface(geom_col)) if is_line else ST_X(geom_col)
@@ -121,6 +157,10 @@ def _build_infra_query(  # noqa: ANN201
             (_st_distance_geography(geom_col, property_point) / METERS_PER_MILE).label(
                 "distance_miles"
             ),
+            m1,
+            m2,
+            m3,
+            m4,
         ).where(
             geom_col.isnot(None),
             _st_dwithin_geometry(geom_col, property_point, radius_miles),
@@ -162,23 +202,57 @@ def _detail_text(infra_type: str, rb_severity: str | None) -> str:
     return f"{label} — outside risk zones"
 
 
+def _build_metadata(
+    infra_type: str,
+    meta1: str | None,
+    meta2: str | None,
+    meta3: str | None,
+    meta4: str | None,  # noqa: ARG001
+) -> dict[str, str | float | None]:
+    """Build a type-specific metadata dict from the generic meta1..meta4 columns."""
+    if infra_type == "cell_tower":
+        return {"structure_type": meta1, "height_ft": meta2}
+    if infra_type == "power_plant":
+        return {"fuel_source": meta1, "utility_name": meta2}
+    if infra_type == "nat_gas_pipeline":
+        return {"pipe_type": meta1, "status": meta2}
+    if infra_type == "petroleum_pipeline":
+        return {"operator": meta1}
+    if infra_type == "transmission_line":
+        return {"line_type": meta1, "status": meta2, "voltage_class": meta3}
+    return {}
+
+
 _INFRA_MODELS: dict[str, tuple] = {
-    "cell_tower": (CellTower, CellTower.geom, func.coalesce(CellTower.licensee, "Cell Tower")),
+    "cell_tower": (
+        CellTower,
+        CellTower.geom,
+        func.coalesce(CellTower.licensee, "Cell Tower"),
+        [CellTower.structure_type, CellTower.height_ft, None, None],
+    ),
     "transmission_line": (
         TransmissionLine,
         TransmissionLine.geom,
         func.coalesce(TransmissionLine.owner, "Transmission Line"),
+        [TransmissionLine.line_type, TransmissionLine.status, TransmissionLine.volt_class, None],
     ),
-    "power_plant": (PowerPlant, PowerPlant.geom, func.coalesce(PowerPlant.name, "Power Plant")),
+    "power_plant": (
+        PowerPlant,
+        PowerPlant.geom,
+        func.coalesce(PowerPlant.name, "Power Plant"),
+        [PowerPlant.primary_source, PowerPlant.utility_name, None, None],
+    ),
     "nat_gas_pipeline": (
         NatGasPipeline,
         NatGasPipeline.geom,
         func.coalesce(NatGasPipeline.operator, "Natural Gas Pipeline"),
+        [NatGasPipeline.pipe_type, NatGasPipeline.status, None, None],
     ),
     "petroleum_pipeline": (
         PetroleumPipeline,
         PetroleumPipeline.geom,
         func.coalesce(PetroleumPipeline.operator, "Petroleum Pipeline"),
+        [None, None, None, None],
     ),
 }
 
@@ -200,13 +274,19 @@ def _fetch_remote_infra(
         cfg = _INFRA_MODELS.get(itype)
         if cfg is None:
             continue
-        model, geom_col, name_expr = cfg
+        model, geom_col, name_expr, meta_cols = cfg
         is_line = model in _LINE_MODELS
         lat_expr = ST_Y(func.ST_PointOnSurface(geom_col)) if is_line else ST_Y(geom_col)
         lon_expr = ST_X(func.ST_PointOnSurface(geom_col)) if is_line else ST_X(geom_col)
 
         ids = [int(iid) for iid, _ in items]
         sev_map = {iid: sev for iid, sev in items}
+
+        meta_selects = []
+        for i, c in enumerate(meta_cols):
+            lbl = f"meta{i + 1}"
+            col = cast(c, String).label(lbl) if c is not None else literal(None).label(lbl)
+            meta_selects.append(col)
 
         rows = db.execute(
             select(
@@ -217,6 +297,7 @@ def _fetch_remote_infra(
                 (_st_distance_geography(geom_col, property_point) / METERS_PER_MILE).label(
                     "distance_miles"
                 ),
+                *meta_selects,
             ).where(model.id.in_(ids))  # type: ignore[union-attr]
         ).all()
 
@@ -234,6 +315,7 @@ def _fetch_remote_infra(
                     lat=row.lat,
                     lon=row.lon,
                     detail=_detail_text(itype, rb_severity),
+                    metadata=_build_metadata(itype, row.meta1, row.meta2, row.meta3, row.meta4),
                 )
             )
 
@@ -279,6 +361,10 @@ async def get_risks(
             cte.c.lat,
             cte.c.lon,
             cte.c.distance_miles,
+            cte.c.meta1,
+            cte.c.meta2,
+            cte.c.meta3,
+            cte.c.meta4,
         ).order_by(
             cte.c.distance_miles,
         )
@@ -330,6 +416,9 @@ async def get_risks(
                 lat=row.lat,
                 lon=row.lon,
                 detail=_detail_text(row.infrastructure_type, rb_severity),
+                metadata=_build_metadata(
+                    row.infrastructure_type, row.meta1, row.meta2, row.meta3, row.meta4
+                ),
             )
         )
 

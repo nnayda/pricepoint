@@ -25,6 +25,10 @@ def _make_infra_row(
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
+    meta1=None,
+    meta2=None,
+    meta3=None,
+    meta4=None,
 ):
     return _FakeRow(
         infra_id=infra_id,
@@ -33,6 +37,10 @@ def _make_infra_row(
         lat=lat,
         lon=lon,
         distance_miles=distance_miles,
+        meta1=meta1,
+        meta2=meta2,
+        meta3=meta3,
+        meta4=meta4,
     )
 
 
@@ -64,6 +72,8 @@ def risks_app():
             lat=35.80,
             lon=-78.77,
             distance_miles=0.8,
+            meta1="TOWER",
+            meta2="150",
         ),
         _make_infra_row(
             infra_id="20",
@@ -72,6 +82,9 @@ def risks_app():
             lat=35.791,
             lon=-78.781,
             distance_miles=0.3,
+            meta1="AC",
+            meta2="In Service",
+            meta3="100-161",
         ),
         _make_infra_row(
             infra_id="30",
@@ -80,6 +93,8 @@ def risks_app():
             lat=35.785,
             lon=-78.769,
             distance_miles=1.2,
+            meta1="Nuclear",
+            meta2="Duke Energy Progress",
         ),
     ]
 
@@ -221,6 +236,7 @@ class TestRisksFeatureFields:
             "lat",
             "lon",
             "detail",
+            "metadata",
         ]:
             assert field in features[0], f"Missing field: {field}"
 
@@ -235,6 +251,28 @@ class TestRisksFeatureFields:
         features = resp.json()["features"]
         pp = [f for f in features if f["infrastructure_type"] == "power_plant"]
         assert "critical risk zone" in pp[0]["detail"]
+
+    def test_cell_tower_metadata(self, risks_client):
+        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        ct = [f for f in features if f["infrastructure_type"] == "cell_tower"]
+        assert ct[0]["metadata"]["structure_type"] == "TOWER"
+        assert ct[0]["metadata"]["height_ft"] == "150"
+
+    def test_power_plant_metadata(self, risks_client):
+        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        pp = [f for f in features if f["infrastructure_type"] == "power_plant"]
+        assert pp[0]["metadata"]["fuel_source"] == "Nuclear"
+        assert pp[0]["metadata"]["utility_name"] == "Duke Energy Progress"
+
+    def test_transmission_line_metadata(self, risks_client):
+        resp = risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
+        features = resp.json()["features"]
+        tl = [f for f in features if f["infrastructure_type"] == "transmission_line"]
+        assert tl[0]["metadata"]["line_type"] == "AC"
+        assert tl[0]["metadata"]["status"] == "In Service"
+        assert tl[0]["metadata"]["voltage_class"] == "100-161"
 
 
 class TestRisksMissingParams:
@@ -301,6 +339,7 @@ class TestRisksValkeyCaching:
                     "lat": 35.80,
                     "lon": -78.77,
                     "detail": "Cell Tower — outside risk zones",
+                    "metadata": {"structure_type": "TOWER", "height_ft": "150"},
                 }
             ],
         }

@@ -11,9 +11,9 @@ import pandas as pd
 class TestLoadProductionModel:
     """Tests for load_production_model."""
 
-    @patch("mlflow.xgboost.load_model")
+    @patch("mlflow.sklearn.load_model")
     @patch("mlflow.tracking.MlflowClient")
-    def test_returns_model_when_production_exists(
+    def test_returns_model_when_champion_exists(
         self,
         mock_client_cls: MagicMock,
         mock_load: MagicMock,
@@ -21,7 +21,7 @@ class TestLoadProductionModel:
         mock_client = MagicMock()
         mock_version = MagicMock()
         mock_version.version = "3"
-        mock_client.get_latest_versions.return_value = [mock_version]
+        mock_client.get_model_version_by_alias.return_value = mock_version
         mock_client_cls.return_value = mock_client
 
         sentinel_model = MagicMock()
@@ -32,18 +32,22 @@ class TestLoadProductionModel:
         result = load_production_model()
 
         assert result is sentinel_model
-        mock_client.get_latest_versions.assert_called_once_with(
-            "pricepoint-home-value", stages=["Production"]
+        mock_client.get_model_version_by_alias.assert_called_once_with(
+            "pricepoint-home-value", "champion"
         )
-        mock_load.assert_called_once_with("models:/pricepoint-home-value/3")
+        mock_load.assert_called_once_with("models:/pricepoint-home-value@champion")
 
     @patch("mlflow.tracking.MlflowClient")
-    def test_returns_none_when_no_production_model(
+    def test_returns_none_when_no_champion_alias(
         self,
         mock_client_cls: MagicMock,
     ) -> None:
+        import mlflow.exceptions
+
         mock_client = MagicMock()
-        mock_client.get_latest_versions.return_value = []
+        mock_client.get_model_version_by_alias.side_effect = (
+            mlflow.exceptions.MlflowException("not found")
+        )
         mock_client_cls.return_value = mock_client
 
         from pricepoint.models.inference import load_production_model
@@ -51,7 +55,7 @@ class TestLoadProductionModel:
         result = load_production_model()
         assert result is None
 
-    @patch("mlflow.xgboost.load_model")
+    @patch("mlflow.sklearn.load_model")
     @patch("mlflow.tracking.MlflowClient")
     def test_custom_model_name(
         self,
@@ -61,16 +65,38 @@ class TestLoadProductionModel:
         mock_client = MagicMock()
         mock_version = MagicMock()
         mock_version.version = "1"
-        mock_client.get_latest_versions.return_value = [mock_version]
+        mock_client.get_model_version_by_alias.return_value = mock_version
         mock_client_cls.return_value = mock_client
         mock_load.return_value = MagicMock()
 
         from pricepoint.models.inference import load_production_model
 
         load_production_model(model_name="custom-model")
-        mock_client.get_latest_versions.assert_called_once_with(
-            "custom-model", stages=["Production"]
+        mock_client.get_model_version_by_alias.assert_called_once_with(
+            "custom-model", "champion"
         )
+
+    @patch("mlflow.sklearn.load_model")
+    @patch("mlflow.tracking.MlflowClient")
+    def test_custom_alias(
+        self,
+        mock_client_cls: MagicMock,
+        mock_load: MagicMock,
+    ) -> None:
+        mock_client = MagicMock()
+        mock_version = MagicMock()
+        mock_version.version = "2"
+        mock_client.get_model_version_by_alias.return_value = mock_version
+        mock_client_cls.return_value = mock_client
+        mock_load.return_value = MagicMock()
+
+        from pricepoint.models.inference import load_production_model
+
+        load_production_model(alias="challenger")
+        mock_client.get_model_version_by_alias.assert_called_once_with(
+            "pricepoint-home-value", "challenger"
+        )
+        mock_load.assert_called_once_with("models:/pricepoint-home-value@challenger")
 
 
 class TestPredictBatch:
@@ -98,6 +124,7 @@ class TestPredictBatch:
 
         model = MagicMock()
         model.predict.return_value = np.array([150000.0])
+        model.feature_names_in_ = None  # No feature alignment
 
         features = pd.DataFrame(
             {"sqft": [1500], "city": ["Raleigh"], "bedrooms": [3]},
@@ -111,6 +138,26 @@ class TestPredictBatch:
         assert "city" not in called_df.columns
         assert "sqft" in called_df.columns
         assert "bedrooms" in called_df.columns
+
+    def test_aligns_columns_to_model_features(self) -> None:
+        from pricepoint.models.inference import predict_batch
+
+        model = MagicMock()
+        model.predict.return_value = np.array([200000.0])
+        model.feature_names_in_ = np.array(["sqft", "bedrooms", "lot_size"])
+
+        features = pd.DataFrame(
+            {"sqft": [1500], "bedrooms": [3], "extra_col": [42]},
+            index=[1],
+        )
+
+        predict_batch(model, features)
+
+        called_df = model.predict.call_args[0][0]
+        assert list(called_df.columns) == ["sqft", "bedrooms", "lot_size"]
+        assert "extra_col" not in called_df.columns
+        # Missing column should be filled with NaN
+        assert np.isnan(called_df["lot_size"].iloc[0])
 
 
 class TestScoreAllProperties:

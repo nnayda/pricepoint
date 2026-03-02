@@ -165,6 +165,7 @@ export interface ClimateRisk {
 export interface ApiListingQuality {
   description_score?: number;
   quality_reasoning?: string;
+  positive_factors?: string[];
 }
 
 export interface PropertyResponse {
@@ -405,16 +406,16 @@ export interface DashboardProperty {
 
 export interface DashboardValuation {
   listed_price: number;
-  predicted_value: number;
-  confidence_low: number;
-  confidence_high: number;
+  predicted_value?: number;
+  confidence_low?: number;
+  confidence_high?: number;
   redfin_estimate: number;
   tax_assessment: number;
   price_per_sqft: number;
   neighborhood_median?: number;
   neighborhood_max?: number;
-  model_version: string;
-  prediction_date: string;
+  model_version?: string;
+  prediction_date?: string;
   verdict: string;
   verdict_detail: string;
 }
@@ -713,6 +714,7 @@ export interface RiskFeature {
   lat: number;
   lon: number;
   detail: string;
+  metadata: Record<string, string | number | null>;
 }
 
 export interface RisksApiResponse {

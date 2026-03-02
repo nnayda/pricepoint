@@ -14,6 +14,7 @@ const mockFeatures: RiskFeature[] = [
     lat: 35.8,
     lon: -78.77,
     detail: "Cell Tower — outside risk zones",
+    metadata: { structure_type: "TOWER", height_ft: "150" },
   },
   {
     id: "RB-T-20",
@@ -24,6 +25,7 @@ const mockFeatures: RiskFeature[] = [
     lat: 35.791,
     lon: -78.781,
     detail: "Transmission Line — within caution risk zone",
+    metadata: { line_type: "AC", status: "In Service", voltage_class: "100-161" },
   },
   {
     id: "RB-P-30",
@@ -34,6 +36,7 @@ const mockFeatures: RiskFeature[] = [
     lat: 35.785,
     lon: -78.769,
     detail: "Power Plant — within critical risk zone",
+    metadata: { fuel_source: "Nuclear", utility_name: "Duke Energy Progress" },
   },
 ];
 
@@ -97,9 +100,12 @@ describe("RisksTab", () => {
 
   it("renders cards sorted by severity (Concern first)", () => {
     render(<RisksTab data={mockDashboardData} />);
-    const cards = screen.getAllByText(/risk zone|outside risk/);
-    // Concern (critical) should be first
-    expect(cards[0].textContent).toContain("critical risk zone");
+    // Concern items appear before Caution items
+    const names = screen.getAllByRole("heading", { level: 4 });
+    const sidebarNames = names.map((n) => n.textContent);
+    const harrisIdx = sidebarNames.indexOf("Shearon Harris");
+    const dukeIdx = sidebarNames.indexOf("Duke Energy Line");
+    expect(harrisIdx).toBeLessThan(dukeIdx);
   });
 
   it("renders filter toggle buttons", () => {
@@ -176,5 +182,24 @@ describe("RisksTab", () => {
     render(<RisksTab data={mockDashboardData} />);
     const sources = screen.getAllByTestId("vector-source");
     expect(sources.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders metadata tags for power plant (fuel source and utility)", () => {
+    render(<RisksTab data={mockDashboardData} />);
+    expect(screen.getByText("Nuclear")).toBeInTheDocument();
+    expect(screen.getByText("Duke Energy Progress")).toBeInTheDocument();
+  });
+
+  it("renders metadata tags for transmission line", () => {
+    render(<RisksTab data={mockDashboardData} />);
+    expect(screen.getByText("AC")).toBeInTheDocument();
+    expect(screen.getByText("In Service")).toBeInTheDocument();
+    expect(screen.getByText("100-161")).toBeInTheDocument();
+  });
+
+  it("renders infrastructure type label in card subtitle", () => {
+    render(<RisksTab data={mockDashboardData} />);
+    expect(screen.getAllByText(/Power Plant/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Transmission Line/).length).toBeGreaterThan(0);
   });
 });
