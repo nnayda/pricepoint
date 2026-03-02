@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,17 @@ from pricepoint.models.registry import MODEL_NAME
 logger = logging.getLogger(__name__)
 
 
-def load_production_model(*, model_name: str = MODEL_NAME, alias: str = "champion") -> Any:
+class ModelInfo(NamedTuple):
+    """Loaded model with its registry metadata."""
+
+    model: Any
+    version: str
+    run_id: str
+
+
+def load_production_model(
+    *, model_name: str = MODEL_NAME, alias: str = "champion"
+) -> ModelInfo | None:
     """Load the champion model from MLflow registry.
 
     Parameters
@@ -34,8 +44,9 @@ def load_production_model(*, model_name: str = MODEL_NAME, alias: str = "champio
 
     Returns
     -------
-    model
-        The loaded model object, or ``None`` if no champion model exists.
+    ModelInfo | None
+        The loaded model with version/run metadata, or ``None`` if no
+        champion model exists.
     """
     try:
         import mlflow
@@ -56,7 +67,59 @@ def load_production_model(*, model_name: str = MODEL_NAME, alias: str = "champio
     logger.info("Loading model '%s' version %s from %s", model_name, version.version, model_uri)
 
     model = mlflow.sklearn.load_model(model_uri)
-    return model
+    return ModelInfo(model=model, version=version.version, run_id=version.run_id)
+
+
+def get_model_metrics(run_id: str) -> dict[str, float]:
+    """Fetch logged metrics from an MLflow run.
+
+    Parameters
+    ----------
+    run_id : str
+        MLflow run ID associated with the model version.
+
+    Returns
+    -------
+    dict[str, float]
+        Metric name to value mapping (e.g. mae, rmse, mape, r2).
+    """
+    import mlflow
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run_id)
+    return dict(run.data.metrics)
+
+
+def compute_confidence_interval(
+    predicted_value: float, metrics: dict[str, float]
+) -> tuple[float, float]:
+    """Derive a confidence interval from model performance metrics.
+
+    Strategy:
+    1. **Primary** — use MAPE (percentage error scales with value).
+    2. **Fallback** — use RMSE as a fixed-dollar margin.
+    3. **Last resort** — 10 % of predicted value.
+
+    Parameters
+    ----------
+    predicted_value : float
+        The point prediction for a single property.
+    metrics : dict[str, float]
+        Model metrics keyed by name (from ``get_model_metrics``).
+
+    Returns
+    -------
+    tuple[float, float]
+        ``(confidence_low, confidence_high)``
+    """
+    if "mape" in metrics:
+        margin = predicted_value * (metrics["mape"] / 100.0)
+    elif "rmse" in metrics:
+        margin = metrics["rmse"]
+    else:
+        margin = predicted_value * 0.10
+
+    return (predicted_value - margin, predicted_value + margin)
 
 
 def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
@@ -114,10 +177,19 @@ def score_all_properties(db: Session) -> int:
     int
         Number of properties scored.
     """
-    model = load_production_model()
-    if model is None:
+    info = load_production_model()
+    if info is None:
         logger.warning("No production model available; skipping batch scoring")
         return 0
+
+    model, model_version, run_id = info
+
+    # Fetch model performance metrics for confidence intervals
+    try:
+        metrics = get_model_metrics(run_id)
+    except Exception:
+        logger.warning("Could not fetch model metrics for run %s; using defaults", run_id)
+        metrics = {}
 
     # Get IDs of properties with a location
     rows = db.execute(text("SELECT id FROM redfin_listings WHERE location IS NOT NULL")).fetchall()
@@ -145,6 +217,9 @@ def score_all_properties(db: Session) -> int:
     scored_ids = features.index.tolist()
 
     for prop_id, pred_value in zip(scored_ids, predictions, strict=True):
+        pred_float = float(pred_value)
+        ci_low, ci_high = compute_confidence_interval(pred_float, metrics)
+
         existing = (
             db.query(PropertyValuation)
             .filter(
@@ -155,14 +230,20 @@ def score_all_properties(db: Session) -> int:
         )
 
         if existing:
-            existing.value = float(pred_value)
+            existing.value = pred_float
             existing.estimated_at = now
+            existing.model_version = model_version
+            existing.confidence_low = ci_low
+            existing.confidence_high = ci_high
         else:
             valuation = PropertyValuation(
                 property_id=int(prop_id),
                 source="ml_model",
-                value=float(pred_value),
+                value=pred_float,
                 estimated_at=now,
+                model_version=model_version,
+                confidence_low=ci_low,
+                confidence_high=ci_high,
             )
             db.add(valuation)
 
