@@ -11,8 +11,8 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_DWithin, ST_MakePoint, ST_SetSRID
-from geoalchemy2.types import Geography
 from redis.asyncio import Redis
 from sqlalchemy import String, cast, func, literal, select, union_all
 from sqlalchemy.orm import Session
@@ -39,6 +39,8 @@ router = APIRouter(tags=["risks"])
 
 METERS_PER_MILE = 1609.344
 CACHE_TTL = 604800  # 7 days
+# Approximate degree-per-mile at mid-latitudes (~35-40°N) for fast geometry queries.
+_MILES_TO_DEGREES = 1.0 / 69.0
 
 TYPE_LABELS: dict[str, str] = {
     "cell_tower": "Cell Tower",
@@ -62,18 +64,22 @@ SEVERITY_MAP: dict[str, str] = {
 SEVERITY_SORT = {"Concern": 0, "Caution": 1, "Safe": 2}
 
 
-def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
-    """ST_DWithin using geography cast for meter-based distance."""
-    return func.ST_DWithin(
-        cast(geom_col, Geography),
-        cast(point, Geography),
-        radius_meters,
+def _st_dwithin_geometry(geom_col, point, radius_miles: float):  # noqa: ANN001, ANN201
+    """ST_DWithin using geometry (degrees) for fast GiST-indexed spatial filter."""
+    return func.ST_DWithin(geom_col, point, radius_miles * _MILES_TO_DEGREES)
+
+
+def _st_distance_geography(geom_col, point):  # noqa: ANN001, ANN201
+    """ST_Distance using geography cast for meter-based distance."""
+    return func.ST_Distance(
+        cast(geom_col, Geography()),
+        cast(point, Geography()),
     )
 
 
 def _build_infra_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
-    radius_meters: float,
+    radius_miles: float,
 ):
     """Build UNION ALL across 5 infrastructure tables (no JOIN to risk_boundaries)."""
     queries = []
@@ -103,8 +109,8 @@ def _build_infra_query(  # noqa: ANN201
 
     for model, type_label, geom_col, name_expr in infra_tables:
         is_line = model in _LINE_MODELS
-        lat_expr = ST_Y(func.ST_Centroid(geom_col)) if is_line else ST_Y(geom_col)
-        lon_expr = ST_X(func.ST_Centroid(geom_col)) if is_line else ST_X(geom_col)
+        lat_expr = ST_Y(func.ST_PointOnSurface(geom_col)) if is_line else ST_Y(geom_col)
+        lon_expr = ST_X(func.ST_PointOnSurface(geom_col)) if is_line else ST_X(geom_col)
 
         q = select(
             cast(model.id, String).label("infra_id"),  # type: ignore[union-attr]
@@ -112,16 +118,12 @@ def _build_infra_query(  # noqa: ANN201
             literal(type_label).label("infrastructure_type"),
             lat_expr.label("lat"),
             lon_expr.label("lon"),
-            (
-                func.ST_Distance(
-                    cast(property_point, Geography),
-                    cast(geom_col, Geography),
-                )
-                / METERS_PER_MILE
-            ).label("distance_miles"),
+            (_st_distance_geography(geom_col, property_point) / METERS_PER_MILE).label(
+                "distance_miles"
+            ),
         ).where(
             geom_col.isnot(None),
-            _st_dwithin_geography(geom_col, property_point, radius_meters),
+            _st_dwithin_geometry(geom_col, property_point, radius_miles),
         )
         queries.append(q)
 
@@ -130,7 +132,7 @@ def _build_infra_query(  # noqa: ANN201
 
 def _build_boundaries_query(  # noqa: ANN201
     property_point,  # noqa: ANN001
-    radius_meters: float,
+    radius_miles: float,
 ):
     """Select risk boundary polygons within the radius, with containment check.
 
@@ -143,7 +145,7 @@ def _build_boundaries_query(  # noqa: ANN201
         RiskBoundary.severity,
         func.ST_Contains(RiskBoundary.geom, property_point).label("contains_property"),
     ).where(
-        _st_dwithin_geography(RiskBoundary.geom, property_point, radius_meters),
+        _st_dwithin_geometry(RiskBoundary.geom, property_point, radius_miles),
     )
 
 
@@ -186,11 +188,10 @@ async def get_risks(
         except Exception:
             logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
 
-    radius_meters = radius_miles * METERS_PER_MILE
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
     # Query 1: infrastructure features (no JOIN to risk_boundaries)
-    cte = _build_infra_query(property_point, radius_meters)
+    cte = _build_infra_query(property_point, radius_miles)
 
     rows = db.execute(
         select(
@@ -219,7 +220,7 @@ async def get_risks(
     severity_lookup: dict[tuple[str, str], str] = {}
     if risk_lookup is None or risk_lookup:
         # Query 2: risk boundary polygons (with containment check)
-        boundary_rows = db.execute(_build_boundaries_query(property_point, radius_meters)).all()
+        boundary_rows = db.execute(_build_boundaries_query(property_point, radius_miles)).all()
 
         # Build severity lookup from boundaries that contain the property point
         for brow in boundary_rows:

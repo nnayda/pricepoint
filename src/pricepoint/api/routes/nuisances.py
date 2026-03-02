@@ -5,16 +5,19 @@ vector tiles (see docker/martin/config.yaml).  This module only provides
 the card-level severity data for the sidebar.
 """
 
+import hashlib
+import json
 import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
+from redis.asyncio import Redis
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
-from pricepoint.api.dependencies import get_db
+from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.schemas.nuisances import (
     NuisanceSource,
     NuisanceSourcesResponse,
@@ -33,6 +36,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["nuisances"])
 
 METERS_PER_MILE = 1609.344
+CACHE_TTL = 604800  # 7 days
+# Search radius (miles) for nearest infrastructure when property is in a noise zone.
+_INFRA_SEARCH_RADIUS_MILES = 30.0
+# Approximate degree-per-mile at mid-latitudes (~35-40°N) for fast geometry queries.
+_MILES_TO_DEGREES = 1.0 / 69.0
+
+
+def _cache_key(lat: float, lon: float) -> str:
+    raw = f"nuisances:{lat:.6f}:{lon:.6f}"
+    digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
+    return f"nuisances:{digest}"
 
 
 @router.get("/nuisances/sources", response_model=NuisanceSourcesResponse)
@@ -40,6 +54,7 @@ async def get_nuisance_sources(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
     db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
+    valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
 ) -> NuisanceSourcesResponse:
     """Return identified nuisance sources near the given location.
 
@@ -47,6 +62,17 @@ async def get_nuisance_sources(
     polygon per source layer, then queries the nearest matching infrastructure
     (airport, road, or railroad) for detail.
     """
+    # Check cache
+    c_key = _cache_key(lat, lon)
+    if valkey is not None:
+        try:
+            cached = await valkey.get(c_key)
+            if cached is not None:
+                data = json.loads(cached)
+                return NuisanceSourcesResponse(**data)
+        except Exception:
+            logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
+
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
     geog_type = Geography(srid=4326)
 
@@ -101,7 +127,20 @@ async def get_nuisance_sources(
                 db, property_point, geog_type, source_layer, severity, max_db, noise_band, sources
             )
 
-    return NuisanceSourcesResponse(sources=sources)
+    response = NuisanceSourcesResponse(sources=sources)
+
+    # Write to cache
+    if valkey is not None:
+        try:
+            await valkey.set(
+                c_key,
+                json.dumps(response.model_dump()),
+                ex=CACHE_TTL,
+            )
+        except Exception:
+            logger.warning("Valkey write failed for key %s", c_key, exc_info=True)
+
+    return response
 
 
 def _add_aviation_source(
@@ -128,7 +167,10 @@ def _add_aviation_source(
             func.ST_X(Airport.geom).label("lon"),
             dist_col,
         )
-        .where(Airport.geom.isnot(None))
+        .where(
+            Airport.geom.isnot(None),
+            ST_DWithin(Airport.geom, point, _INFRA_SEARCH_RADIUS_MILES * _MILES_TO_DEGREES),
+        )
         .order_by(dist_col)
         .limit(1)
     ).first()
@@ -178,7 +220,10 @@ def _add_road_source(
             func.ST_X(closest_pt).label("lon"),
             dist_col,
         )
-        .where(Road.geom.isnot(None))
+        .where(
+            Road.geom.isnot(None),
+            ST_DWithin(Road.geom, point, _INFRA_SEARCH_RADIUS_MILES * _MILES_TO_DEGREES),
+        )
         .order_by(dist_col)
         .limit(1)
     ).first()
@@ -227,7 +272,10 @@ def _add_rail_source(
             func.ST_X(closest_pt).label("lon"),
             dist_col,
         )
-        .where(Railroad.geom.isnot(None))
+        .where(
+            Railroad.geom.isnot(None),
+            ST_DWithin(Railroad.geom, point, _INFRA_SEARCH_RADIUS_MILES * _MILES_TO_DEGREES),
+        )
         .order_by(dist_col)
         .limit(1)
     ).first()
@@ -250,5 +298,3 @@ def _add_rail_source(
                 noise_band=noise_band,
             )
         )
-
-

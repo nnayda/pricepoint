@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from pricepoint.api.dependencies import get_db
+from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.main import create_app
 
 
@@ -67,7 +67,11 @@ def sources_app():
     def _override_get_db():
         yield mock_session
 
+    async def _override_get_valkey():
+        yield None
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_valkey] = _override_get_valkey
     yield app
     app.dependency_overrides.clear()
 
@@ -94,7 +98,11 @@ def empty_sources_app():
     def _override_get_db():
         yield mock_session
 
+    async def _override_get_valkey():
+        yield None
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_valkey] = _override_get_valkey
     yield app
     app.dependency_overrides.clear()
 

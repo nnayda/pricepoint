@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { useRisks } from "../useRisks";
+import { useRisks, _clearRisksCache } from "../useRisks";
 import { getRisksData } from "../../services/property";
 import type { RisksApiResponse } from "../../types";
 
@@ -38,6 +38,7 @@ const mockResponse: RisksApiResponse = {
 describe("useRisks hook", () => {
   beforeEach(() => {
     mockGetRisksData.mockReset();
+    _clearRisksCache();
   });
 
   it("starts in loading state", () => {
