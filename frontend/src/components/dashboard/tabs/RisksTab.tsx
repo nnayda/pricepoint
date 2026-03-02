@@ -231,11 +231,18 @@ function RisksTab({ data }: RisksTabProps) {
     [pointFeatures],
   );
 
-  // Build infra type filter for vector tile layers
+  // Build infra type filter for v_infrastructure tiles (uses "infra_type" column)
   const infraTypeFilter = useMemo(() => {
     const types = Array.from(activeTypes);
     if (types.length === 0) return ["==", "infra_type", "__none__"];
     return ["in", "infra_type", ...types];
+  }, [activeTypes]);
+
+  // Build infra type filter for risk_boundaries tiles (uses "infrastructure_type" column)
+  const riskBoundaryFilter = useMemo(() => {
+    const types = Array.from(activeTypes);
+    if (types.length === 0) return ["==", "infrastructure_type", "__none__"];
+    return ["in", "infrastructure_type", ...types];
   }, [activeTypes]);
 
   return (
@@ -252,9 +259,26 @@ function RisksTab({ data }: RisksTabProps) {
 
           <div className="flex flex-col gap-2">
             {!loading && sidebarCards.length === 0 && (
-              <p className="py-6 text-center text-sm text-[var(--color-db-text-muted)]">
-                No infrastructure risks in property boundary
-              </p>
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <svg
+                  width={32}
+                  height={32}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--color-db-green)"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <p className="text-sm font-medium text-[var(--color-db-text-primary)]">
+                  No infrastructure risks found
+                </p>
+                <p className="text-xs text-[var(--color-db-text-tertiary)]">
+                  No significant infrastructure concerns were detected near this property.
+                </p>
+              </div>
             )}
             {sidebarCards.map((n) => (
               <NegativePoiCard
@@ -330,7 +354,7 @@ function RisksTab({ data }: RisksTabProps) {
                   id="risk-boundaries-fill"
                   type="fill"
                   source-layer="risk_boundaries"
-                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  filter={riskBoundaryFilter as maplibregl.FilterSpecification}
                   paint={{
                     "fill-color": [
                       "match",
@@ -348,7 +372,7 @@ function RisksTab({ data }: RisksTabProps) {
                   id="risk-boundaries-outline"
                   type="line"
                   source-layer="risk_boundaries"
-                  filter={infraTypeFilter as maplibregl.FilterSpecification}
+                  filter={riskBoundaryFilter as maplibregl.FilterSpecification}
                   paint={{
                     "line-color": [
                       "match",

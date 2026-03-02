@@ -374,7 +374,7 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     [schoolById],
   );
 
-  const headerText = homeDistrict ? `${homeDistrict.name} Schools` : "Schools";
+  const headerText = "Nearby Schools";
 
   const handleBoundsChange = useCallback((bbox: Bbox) => setMapBounds(bbox), []);
   const handleMarkerSelect = useCallback((id: string) => setSelectedId(id), []);
