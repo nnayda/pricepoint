@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -37,9 +38,39 @@ def assemble_features(
     pd.DataFrame
         Indexed by ``property_id`` with all feature columns.
     """
+    id_desc = f"{len(property_ids)} properties" if property_ids else "all properties"
+    logger.info("Starting feature assembly for %s", id_desc)
+    overall_start = time.monotonic()
+
+    logger.info("[1/3] Building geospatial features...")
+    t0 = time.monotonic()
     geo = build_geospatial_features(db, property_ids=property_ids)
+    logger.info(
+        "[1/3] Geospatial features complete: %s rows × %s cols in %.1fs",
+        geo.shape[0],
+        geo.shape[1],
+        time.monotonic() - t0,
+    )
+
+    logger.info("[2/3] Building housing features...")
+    t0 = time.monotonic()
     housing = build_housing_features(db, property_ids=property_ids)
+    logger.info(
+        "[2/3] Housing features complete: %s rows × %s cols in %.1fs",
+        housing.shape[0],
+        housing.shape[1],
+        time.monotonic() - t0,
+    )
+
+    logger.info("[3/3] Building economic features...")
+    t0 = time.monotonic()
     econ = build_economic_features(db, property_ids=property_ids)
+    logger.info(
+        "[3/3] Economic features complete: %s rows × %s cols in %.1fs",
+        econ.shape[0],
+        econ.shape[1],
+        time.monotonic() - t0,
+    )
 
     logger.info(
         "Feature shapes — geo: %s, housing: %s, econ: %s",
@@ -48,10 +79,21 @@ def assemble_features(
         econ.shape,
     )
 
+    t0 = time.monotonic()
     combined = pd.concat([geo, housing, econ], axis=1)
 
     # Drop rows where every column is NaN
+    before_drop = len(combined)
     combined = combined.dropna(how="all")
+    dropped = before_drop - len(combined)
+    if dropped:
+        logger.info("Dropped %d all-NaN rows", dropped)
 
-    logger.info("Assembled feature matrix: %s", combined.shape)
+    elapsed = time.monotonic() - overall_start
+    logger.info(
+        "Assembled feature matrix: %s rows × %s cols (total time: %.1fs)",
+        combined.shape[0],
+        combined.shape[1],
+        elapsed,
+    )
     return combined

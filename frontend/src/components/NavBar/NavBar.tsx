@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import SearchBar from "../SearchBar/SearchBar";
+import PricePointLogo from "../ui/PricePointLogo";
 import { startViewTransition } from "../../utils/viewTransition";
 import { useScrollProgress } from "../../hooks/useScrollProgress";
 import { useAuth } from "../../contexts/AuthContext";
@@ -16,7 +17,9 @@ function NavBar() {
 
   function handleSelect(result: GeocodeResult) {
     startViewTransition(() => {
-      navigate(`/property/${encodeURIComponent(result.display_name)}`);
+      navigate(
+        `/property/${encodeURIComponent(result.display_name)}?lat=${result.lat}&lon=${result.lon}`,
+      );
     });
   }
 
@@ -64,11 +67,8 @@ function NavBar() {
           boxShadow: `0px 10px 30px rgba(0, 0, 0, ${shadowOpacity})`,
         }}
       >
-        <Link
-          to="/"
-          className="whitespace-nowrap text-base font-bold tracking-tight text-text-pri transition-colors hover:text-brand-blue sm:text-lg"
-        >
-          PricePoint
+        <Link to="/" className="transition-opacity hover:opacity-80">
+          <PricePointLogo variant="compact" />
         </Link>
         <SearchBar onSelect={handleSelect} placeholder="Search address..." />
         {/* Desktop auth */}

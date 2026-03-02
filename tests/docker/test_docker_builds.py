@@ -94,7 +94,6 @@ class TestAirflowDagDiscovery:
 
     EXPECTED_DAGS = {
         "cary_police_collection",
-        "data_collection",
         "feature_engineering",
         "model_training",
         "morrisville_police_collection",

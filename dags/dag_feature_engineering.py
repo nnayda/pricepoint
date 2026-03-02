@@ -2,7 +2,9 @@
 
 from datetime import datetime, timedelta
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
+
+FEATURES_READY = Asset("feature_matrix")
 
 
 @dag(
@@ -68,7 +70,7 @@ def feature_engineering():
         finally:
             db.close()
 
-    @task()
+    @task(outlets=[FEATURES_READY])
     def assemble_feature_matrix():
         """Join all feature sets into a single training matrix."""
         import logging

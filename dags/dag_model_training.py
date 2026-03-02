@@ -5,14 +5,15 @@ Runs after feature engineering completes.
 
 from datetime import datetime, timedelta
 
-from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
+
+from dag_feature_engineering import FEATURES_READY
 
 
 @dag(
     dag_id="model_training",
     description="Train, validate, evaluate, and register the home value model",
-    schedule="@daily",
+    schedule=(FEATURES_READY,),
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -23,13 +24,6 @@ from airflow.sdk import dag, task
     tags=["model", "training"],
 )
 def model_training():
-    wait_for_features = ExternalTaskSensor(
-        task_id="wait_for_feature_engineering",
-        external_dag_id="feature_engineering",
-        external_task_id="assemble_feature_matrix",
-        timeout=3600,
-        poke_interval=60,
-    )
 
     @task()
     def train() -> dict:
@@ -127,7 +121,7 @@ def model_training():
     evaluate_step = evaluate(train_step)
     register_step = register_model(validate_step, evaluate_step)
 
-    wait_for_features >> train_step >> [validate_step, evaluate_step] >> register_step
+    train_step >> [validate_step, evaluate_step] >> register_step
 
 
 model_training()

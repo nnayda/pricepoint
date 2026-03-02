@@ -6,6 +6,8 @@ price per sqft, days on market, listing premium over assessment, etc.
 
 from __future__ import annotations
 
+import logging
+import time
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -17,6 +19,8 @@ from pricepoint.db.models import (
     SaleHistoryRecord,
     TaxHistoryRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 # Boolean columns on RedfinListing considered "luxury" features
 LUXURY_COLUMNS: list[str] = [
@@ -91,6 +95,9 @@ def _compute_property_features(listing: RedfinListing, now: datetime) -> dict:
     """Compute property-level features from a single RedfinListing row."""
     current_year = now.year
     result: dict = {"property_id": listing.id}
+
+    # Target column — needed by the training pipeline
+    result["sold_price"] = listing.sold_price
 
     # property_age
     result["property_age"] = (
@@ -344,10 +351,13 @@ def build_housing_features(
     now = datetime.now(tz=UTC)
 
     # Load listings
+    logger.info("Loading listings from database...")
+    t0 = time.monotonic()
     query = db.query(RedfinListing)
     if property_ids is not None:
         query = query.filter(RedfinListing.id.in_(property_ids))
     listings: list[RedfinListing] = query.all()
+    logger.info("Loaded %d listings in %.1fs", len(listings), time.monotonic() - t0)
 
     if not listings:
         return pd.DataFrame()
@@ -355,6 +365,8 @@ def build_housing_features(
     listing_ids = [listing.id for listing in listings]
 
     # Bulk load related records
+    logger.info("Bulk-loading tax, sale, and valuation records...")
+    t0 = time.monotonic()
     tax_records = (
         db.query(TaxHistoryRecord).filter(TaxHistoryRecord.property_id.in_(listing_ids)).all()
     )
@@ -371,6 +383,13 @@ def build_housing_features(
         )
         .all()
     )
+    logger.info(
+        "Loaded %d tax records, %d sale records, %d valuations in %.1fs",
+        len(tax_records),
+        len(sale_records),
+        len(redfin_valuations),
+        time.monotonic() - t0,
+    )
 
     # Group by property_id
     tax_by_prop: dict[int, list[TaxHistoryRecord]] = {}
@@ -386,6 +405,8 @@ def build_housing_features(
         redfin_est_by_prop[v.property_id] = v.value
 
     # Build per-property features
+    logger.info("Computing per-property features for %d listings...", len(listings))
+    t0 = time.monotonic()
     all_rows: list[dict] = []
     for listing in listings:
         pid = listing.id
@@ -418,8 +439,11 @@ def build_housing_features(
         all_rows.append(row)
 
     df = pd.DataFrame(all_rows).set_index("property_id")
+    logger.info("Per-property features computed in %.1fs", time.monotonic() - t0)
 
     # Compute location aggregates and merge
+    logger.info("Computing zip/city aggregate features...")
+    t0 = time.monotonic()
     agg_df = _compute_zip_and_city_aggregates(db, property_ids)
     if not agg_df.empty:
         df = df.join(agg_df, how="left")
@@ -428,5 +452,6 @@ def build_housing_features(
         df["zip_median_price_per_sqft"] = None
         df["zip_price_rank_pct"] = None
         df["city_median_price"] = None
+    logger.info("Zip/city aggregates computed in %.1fs", time.monotonic() - t0)
 
     return df

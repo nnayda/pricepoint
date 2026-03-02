@@ -6,11 +6,15 @@ current mortgage rate, YoY CPI change, local unemployment rate, etc.
 
 from __future__ import annotations
 
+import logging
+import time
 from datetime import date
 
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 # FRED series IDs used for feature extraction
 SERIES_IDS: dict[str, str] = {
@@ -164,7 +168,10 @@ def build_economic_features(
     pd.DataFrame
         Indexed by ``property_id`` with 10 feature columns.
     """
+    logger.info("Fetching property reference dates...")
+    t0 = time.monotonic()
     prop_dates = _get_property_dates(db, property_ids)
+    logger.info("Got %d property dates in %.1fs", len(prop_dates), time.monotonic() - t0)
 
     if prop_dates.empty:
         cols = ["property_id"] + list(SERIES_IDS.keys()) + list(YOY_FEATURES.values())
@@ -173,7 +180,37 @@ def build_economic_features(
     if as_of_date is not None:
         prop_dates["ref_date"] = as_of_date
 
-    rows = [_build_row(db, int(r["property_id"]), r["ref_date"]) for _, r in prop_dates.iterrows()]
+    num_properties = len(prop_dates)
+    num_queries = num_properties * (len(SERIES_IDS) + len(YOY_FEATURES))
+    logger.info(
+        "Building economic features for %d properties (%d series + %d YoY = ~%d DB lookups)...",
+        num_properties,
+        len(SERIES_IDS),
+        len(YOY_FEATURES),
+        num_queries,
+    )
+
+    t0 = time.monotonic()
+    rows: list[dict] = []
+    log_interval = max(1, num_properties // 10)  # Log every ~10%
+    for i, (_, r) in enumerate(prop_dates.iterrows()):
+        rows.append(_build_row(db, int(r["property_id"]), r["ref_date"]))
+        if (i + 1) % log_interval == 0 or (i + 1) == num_properties:
+            elapsed = time.monotonic() - t0
+            rate = (i + 1) / elapsed if elapsed > 0 else 0
+            remaining = (num_properties - i - 1) / rate if rate > 0 else 0
+            logger.info(
+                "  Economic features: %d/%d properties (%.1f/s, ~%.0fs remaining)",
+                i + 1,
+                num_properties,
+                rate,
+                remaining,
+            )
 
     df = pd.DataFrame(rows)
+    logger.info(
+        "Economic features built in %.1fs (%.1f properties/s)",
+        time.monotonic() - t0,
+        num_properties / (time.monotonic() - t0) if (time.monotonic() - t0) > 0 else 0,
+    )
     return df.set_index("property_id")

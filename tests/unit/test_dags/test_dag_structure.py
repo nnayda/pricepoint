@@ -63,28 +63,6 @@ def _get_sensor_external_dag_id(tree: ast.Module) -> str | None:
     return None
 
 
-class TestDataCollectionDag:
-    """Validate the data_collection DAG structure."""
-
-    def test_dag_id(self, dags_dir):
-        tree = _parse_dag(dags_dir, "dag_data_collection.py")
-        kwargs = _find_dag_decorator_kwargs(tree)
-        assert kwargs["dag_id"] == "data_collection"
-
-    def test_schedule(self, dags_dir):
-        tree = _parse_dag(dags_dir, "dag_data_collection.py")
-        kwargs = _find_dag_decorator_kwargs(tree)
-        assert kwargs["schedule"] == "@daily"
-
-    def test_task_count(self, dags_dir):
-        tree = _parse_dag(dags_dir, "dag_data_collection.py")
-        assert _count_task_decorators(tree) == 8
-
-    def test_no_sensor(self, dags_dir):
-        tree = _parse_dag(dags_dir, "dag_data_collection.py")
-        assert not _has_external_task_sensor(tree)
-
-
 class TestFeatureEngineeringDag:
     """Validate the feature_engineering DAG structure."""
 
@@ -97,10 +75,9 @@ class TestFeatureEngineeringDag:
         tree = _parse_dag(dags_dir, "dag_feature_engineering.py")
         assert _count_task_decorators(tree) == 4
 
-    def test_sensor_targets_data_collection(self, dags_dir):
+    def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_feature_engineering.py")
-        assert _has_external_task_sensor(tree)
-        assert _get_sensor_external_dag_id(tree) == "data_collection"
+        assert not _has_external_task_sensor(tree)
 
 
 class TestModelTrainingDag:
@@ -115,10 +92,9 @@ class TestModelTrainingDag:
         tree = _parse_dag(dags_dir, "dag_model_training.py")
         assert _count_task_decorators(tree) == 4
 
-    def test_sensor_targets_feature_engineering(self, dags_dir):
+    def test_uses_dataset_schedule_not_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_model_training.py")
-        assert _has_external_task_sensor(tree)
-        assert _get_sensor_external_dag_id(tree) == "feature_engineering"
+        assert not _has_external_task_sensor(tree)
 
 
 class TestCaryPoliceCollectionDag:

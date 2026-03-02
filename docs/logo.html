@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PricePoint — Logo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-base: #0F1117; --bg-surface: #161B27; --bg-elevated: #1C2333;
+      --border: #2E3553; --text: #E8ECF4; --muted: #5C6480;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base); color: var(--text);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 100vh; gap: 48px; padding: 48px 32px;
+    }
+    .label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 20px; text-align: center; }
+    .card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px 56px; display: flex; align-items: center; gap: 30px; transition: box-shadow 180ms ease; }
+    .card:hover { box-shadow: 0 0 0 1px #5B7FFF, 0 12px 40px rgba(91,127,255,0.12); }
+    .card.light { background: #F5F6FA; border-color: #D4D8E8; }
+    .wordmark { display: flex; flex-direction: column; }
+    .wm-price { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); line-height: 1; }
+    .wm-price.dk { color: #111827; }
+    .wm-div { height: 1px; background: var(--border); margin: 6px 0; }
+    .wm-div.lt { background: #D4D8E8; }
+    .wm-sub { font-size: 13px; font-weight: 600; letter-spacing: 0.18em; background: linear-gradient(90deg,#5B7FFF,#8B5CF6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .wm-tag { font-size: 9px; font-weight: 400; letter-spacing: 0.11em; color: var(--muted); text-transform: uppercase; margin-top: 7px; }
+    .wm-tag.lt { color: #9BA3BF; }
+    .variants { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .chip { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 20px 28px; display: flex; align-items: center; justify-content: center; }
+    .sm { display: flex; align-items: center; gap: 10px; }
+    .sm-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+    .sm-name span { background: linear-gradient(90deg,#5B7FFF,#8B5CF6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .page-title { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+<p class="page-title">PricePoint — Logo System</p>
+
+<!--
+  viewBox: 0 0 100 130
+  Pin: cx=50, tip y=127
+  Dark circle: cx=50 cy=46 r=34
+
+  House scaled to fit INSIDE the circle comfortably:
+  Circle spans roughly x=16..84, y=12..80 but with stroke half-width
+  Safe inner bounds: x=20..80, y=16..78
+  
+  House:
+    Roof peak: (50, 20)
+    Eave corners: (24, 40) and (76, 40)
+    Left wall: (24,40) → (24,68)
+    Right wall: (76,40) → (76,68)
+    Floor: (24,68) → (76,68)
+    Chimney: rect(63,22,7,12)
+  
+  Circuit center: (50, 48) — sits inside house body
+  
+  Trend line (dramatic zigzag through 50,48):
+    20,70 → 30,55 → 40,66 → 50,48 → 60,60 → 70,40
+    Then block arrowhead at upper-right
+  
+  Trend line: WHITE so it pops clearly
+  Block arrow: white filled polygon
+-->
+
+<!-- PRIMARY DARK -->
+<div>
+  <p class="label">Primary — Dark Background</p>
+  <div class="card">
+    <svg width="80" height="104" viewBox="0 0 100 130" fill="none">
+          <defs>
+            <linearGradient id="pinGID" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7B9BFF"/><stop offset="100%" stop-color="#3A5FD0"/></linearGradient>
+            <linearGradient id="pSID" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="transparent"/><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.22)"/></linearGradient>
+            <linearGradient id="houseGID" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C8D4FF"/></linearGradient>
+            <radialGradient id="cgID" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#A0BFFF"/><stop offset="100%" stop-color="#3A5FFF" stop-opacity="0"/></radialGradient>
+            <filter id="ngID" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="dsID" x="-15%" y="-5%" width="130%" height="120%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1A3080" flood-opacity="0.5"/></filter>
+            <filter id="tgID" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <clipPath id="ccID"><circle cx="50" cy="46" r="34"/></clipPath>
+          </defs>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pinGID)" filter="url(#dsID)"/>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pSID)"/>
+          <circle cx="50" cy="46" r="34" fill="#0A0D18"/>
+          <g clip-path="url(#ccID)">
+            <rect x="62" y="20" width="6" height="12" rx="1" fill="url(#houseGID)"/>
+            <path d="M24,70 L24,40 L50,18 L76,40 L76,70" fill="none" stroke="url(#houseGID)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g clip-path="url(#ccID)" opacity="0.75">
+            <polyline points="50,48 50,37 44,31" fill="none" stroke="url(#houseGID)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,37 58,37" fill="none" stroke="url(#houseGID)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 59,48 69,65" fill="none" stroke="url(#houseGID)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,62 40,72" fill="none" stroke="url(#houseGID)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 36,48 31,44" fill="none" stroke="url(#houseGID)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="31" r="2" fill="url(#houseGID)"/>
+            <circle cx="58" cy="37" r="2" fill="url(#houseGID)"/>
+            <circle cx="69" cy="65" r="2" fill="url(#houseGID)"/>
+            <circle cx="40" cy="72" r="2" fill="url(#houseGID)"/>
+            <circle cx="31" cy="44" r="2" fill="url(#houseGID)"/>
+          </g>
+          <g clip-path="url(#ccID)" filter="url(#tgID)">
+            <polyline points="20,70 30,55 40,66 50,48 60,60 64,51" fill="none" stroke="#7EB5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polygon points="69,40 59,49 66,47 69,53" fill="#7EB5FF"/>
+          </g>
+          <circle cx="50" cy="48" r="8" fill="url(#cgID)" filter="url(#ngID)"/>
+          <circle cx="50" cy="48" r="3.5" fill="white" opacity="0.95"/>
+    </svg>
+
+    <div class="wordmark">
+      <div class="wm-price">PricePoint</div>
+      <div class="wm-div"></div>
+      <div class="wm-sub">PROPERTY INTELLIGENCE</div>
+      <div class="wm-tag">AI-Powered · Data-Driven · Decisive</div>
+    </div>
+  </div>
+</div>
+
+<!-- PRIMARY LIGHT -->
+<div>
+  <p class="label">Primary — Light Background</p>
+  <div class="card light">
+    <svg width="80" height="104" viewBox="0 0 100 130" fill="none">
+          <defs>
+            <linearGradient id="pinGIL" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7B9BFF"/><stop offset="100%" stop-color="#3A5FD0"/></linearGradient>
+            <linearGradient id="pSIL" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="transparent"/><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.22)"/></linearGradient>
+            <linearGradient id="houseGIL" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C8D4FF"/></linearGradient>
+            <radialGradient id="cgIL" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#A0BFFF"/><stop offset="100%" stop-color="#3A5FFF" stop-opacity="0"/></radialGradient>
+            <filter id="ngIL" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="dsIL" x="-15%" y="-5%" width="130%" height="120%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1A3080" flood-opacity="0.5"/></filter>
+            <filter id="tgIL" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <clipPath id="ccIL"><circle cx="50" cy="46" r="34"/></clipPath>
+          </defs>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pinGIL)" filter="url(#dsIL)"/>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pSIL)"/>
+          <circle cx="50" cy="46" r="34" fill="#0A0D18"/>
+          <g clip-path="url(#ccIL)">
+            <rect x="62" y="20" width="6" height="12" rx="1" fill="url(#houseGIL)"/>
+            <path d="M24,70 L24,40 L50,18 L76,40 L76,70" fill="none" stroke="url(#houseGIL)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g clip-path="url(#ccIL)" opacity="0.75">
+            <polyline points="50,48 50,37 44,31" fill="none" stroke="url(#houseGIL)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,37 58,37" fill="none" stroke="url(#houseGIL)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 59,48 69,65" fill="none" stroke="url(#houseGIL)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,62 40,72" fill="none" stroke="url(#houseGIL)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 36,48 31,44" fill="none" stroke="url(#houseGIL)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="31" r="2" fill="url(#houseGIL)"/>
+            <circle cx="58" cy="37" r="2" fill="url(#houseGIL)"/>
+            <circle cx="69" cy="65" r="2" fill="url(#houseGIL)"/>
+            <circle cx="40" cy="72" r="2" fill="url(#houseGIL)"/>
+            <circle cx="31" cy="44" r="2" fill="url(#houseGIL)"/>
+          </g>
+          <g clip-path="url(#ccIL)" filter="url(#tgIL)">
+            <polyline points="20,70 30,55 40,66 50,48 60,60 64,51" fill="none" stroke="#7EB5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polygon points="69,40 59,49 66,47 69,53" fill="#7EB5FF"/>
+          </g>
+          <circle cx="50" cy="48" r="8" fill="url(#cgIL)" filter="url(#ngIL)"/>
+          <circle cx="50" cy="48" r="3.5" fill="white" opacity="0.95"/>
+    </svg>
+    <div class="wordmark">
+      <div class="wm-price dk">PricePoint</div>
+      <div class="wm-div lt"></div>
+      <div class="wm-sub">PROPERTY INTELLIGENCE</div>
+      <div class="wm-tag lt">AI-Powered · Data-Driven · Decisive</div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPACT VARIANTS -->
+<div>
+  <p class="label">Compact Variants</p>
+  <div class="variants">
+
+    <!-- Nav compact -->
+    <div class="chip">
+      <div class="sm">
+        <svg width="36" height="47" viewBox="0 0 100 130" fill="none">
+          <defs>
+            <linearGradient id="pinGIC" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7B9BFF"/><stop offset="100%" stop-color="#3A5FD0"/></linearGradient>
+            <linearGradient id="pSIC" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="transparent"/><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.22)"/></linearGradient>
+            <linearGradient id="houseGIC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C8D4FF"/></linearGradient>
+            <radialGradient id="cgIC" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#A0BFFF"/><stop offset="100%" stop-color="#3A5FFF" stop-opacity="0"/></radialGradient>
+            <filter id="ngIC" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="dsIC" x="-15%" y="-5%" width="130%" height="120%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1A3080" flood-opacity="0.5"/></filter>
+            <filter id="tgIC" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <clipPath id="ccIC"><circle cx="50" cy="46" r="34"/></clipPath>
+          </defs>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pinGIC)" filter="url(#dsIC)"/>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pSIC)"/>
+          <circle cx="50" cy="46" r="34" fill="#0A0D18"/>
+          <g clip-path="url(#ccIC)">
+            <rect x="62" y="20" width="6" height="12" rx="1" fill="url(#houseGIC)"/>
+            <path d="M24,70 L24,40 L50,18 L76,40 L76,70" fill="none" stroke="url(#houseGIC)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g clip-path="url(#ccIC)" opacity="0.75">
+            <polyline points="50,48 50,37 44,31" fill="none" stroke="url(#houseGIC)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,37 58,37" fill="none" stroke="url(#houseGIC)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 59,48 69,65" fill="none" stroke="url(#houseGIC)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,62 40,72" fill="none" stroke="url(#houseGIC)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 36,48 31,44" fill="none" stroke="url(#houseGIC)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="31" r="2" fill="url(#houseGIC)"/>
+            <circle cx="58" cy="37" r="2" fill="url(#houseGIC)"/>
+            <circle cx="69" cy="65" r="2" fill="url(#houseGIC)"/>
+            <circle cx="40" cy="72" r="2" fill="url(#houseGIC)"/>
+            <circle cx="31" cy="44" r="2" fill="url(#houseGIC)"/>
+          </g>
+          <g clip-path="url(#ccIC)" filter="url(#tgIC)">
+            <polyline points="20,70 30,55 40,66 50,48 60,60 64,51" fill="none" stroke="#7EB5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polygon points="69,40 59,49 66,47 69,53" fill="#7EB5FF"/>
+          </g>
+          <circle cx="50" cy="48" r="8" fill="url(#cgIC)" filter="url(#ngIC)"/>
+          <circle cx="50" cy="48" r="3.5" fill="white" opacity="0.95"/>
+    </svg>
+        <div class="sm-name" style="color:#E8ECF4">Price<span>Point</span></div>
+      </div>
+    </div>
+
+    <!-- Icon only -->
+    <div class="chip" style="padding:16px">
+      <svg width="58" height="75" viewBox="0 0 100 130" fill="none">
+          <defs>
+            <linearGradient id="pinGII" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7B9BFF"/><stop offset="100%" stop-color="#3A5FD0"/></linearGradient>
+            <linearGradient id="pSII" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="transparent"/><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.22)"/></linearGradient>
+            <linearGradient id="houseGII" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#C8D4FF"/></linearGradient>
+            <radialGradient id="cgII" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#A0BFFF"/><stop offset="100%" stop-color="#3A5FFF" stop-opacity="0"/></radialGradient>
+            <filter id="ngII" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="dsII" x="-15%" y="-5%" width="130%" height="120%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#1A3080" flood-opacity="0.5"/></filter>
+            <filter id="tgII" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <clipPath id="ccII"><circle cx="50" cy="46" r="34"/></clipPath>
+          </defs>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pinGII)" filter="url(#dsII)"/>
+          <path d="M50 3 C27.4 3 9 21.4 9 44 C9 66.6 50 127 50 127 C50 127 91 66.6 91 44 C91 21.4 72.6 3 50 3 Z" fill="url(#pSII)"/>
+          <circle cx="50" cy="46" r="34" fill="#0A0D18"/>
+          <g clip-path="url(#ccII)">
+            <rect x="62" y="20" width="6" height="12" rx="1" fill="url(#houseGII)"/>
+            <path d="M24,70 L24,40 L50,18 L76,40 L76,70" fill="none" stroke="url(#houseGII)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g clip-path="url(#ccII)" opacity="0.75">
+            <polyline points="50,48 50,37 44,31" fill="none" stroke="url(#houseGII)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,37 58,37" fill="none" stroke="url(#houseGII)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 59,48 69,65" fill="none" stroke="url(#houseGII)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 50,62 40,72" fill="none" stroke="url(#houseGII)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="50,48 36,48 31,44" fill="none" stroke="url(#houseGII)" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="44" cy="31" r="2" fill="url(#houseGII)"/>
+            <circle cx="58" cy="37" r="2" fill="url(#houseGII)"/>
+            <circle cx="69" cy="65" r="2" fill="url(#houseGII)"/>
+            <circle cx="40" cy="72" r="2" fill="url(#houseGII)"/>
+            <circle cx="31" cy="44" r="2" fill="url(#houseGII)"/>
+          </g>
+          <g clip-path="url(#ccII)" filter="url(#tgII)">
+            <polyline points="20,70 30,55 40,66 50,48 60,60 64,51" fill="none" stroke="#7EB5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polygon points="69,40 59,49 66,47 69,53" fill="#7EB5FF"/>
+          </g>
+          <circle cx="50" cy="48" r="8" fill="url(#cgII)" filter="url(#ngII)"/>
+          <circle cx="50" cy="48" r="3.5" fill="white" opacity="0.95"/>
+    </svg>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

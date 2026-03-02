@@ -26,6 +26,7 @@ def _make_greenway_row(
     lon=-78.78,
     distance_miles=0.3,
     source="raleigh",
+    length_miles=None,
 ):
     return _FakeRow(
         feature_id=feature_id,
@@ -35,6 +36,7 @@ def _make_greenway_row(
         lon=lon,
         distance_miles=distance_miles,
         source=source,
+        length_miles=length_miles,
     )
 
 

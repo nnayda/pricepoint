@@ -143,7 +143,7 @@ describe("SchoolsTab", () => {
 
   it("displays home district name in header", () => {
     render(<SchoolsTab data={mockDashboardData} />);
-    expect(screen.getByText("Wake County Schools Schools")).toBeInTheDocument();
+    expect(screen.getByText("Nearby Schools")).toBeInTheDocument();
   });
 
   it("renders vector tile sources for school districts and schools", () => {

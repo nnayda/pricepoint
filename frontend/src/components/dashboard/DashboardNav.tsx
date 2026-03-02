@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
+import SearchBar from "../SearchBar/SearchBar";
+import PricePointLogo from "../ui/PricePointLogo";
+import { startViewTransition } from "../../utils/viewTransition";
+import type { GeocodeResult } from "../../types";
 
 function DashboardNav() {
   const { resolvedTheme, toggleTheme } = useTheme();
@@ -28,6 +32,14 @@ function DashboardNav() {
     navigate("/");
   }
 
+  function handleSearchSelect(result: GeocodeResult) {
+    startViewTransition(() => {
+      navigate(
+        `/property/${encodeURIComponent(result.display_name)}?lat=${result.lat}&lon=${result.lon}`,
+      );
+    });
+  }
+
   const initials = user?.display_name
     ? user.display_name
         .split(" ")
@@ -47,35 +59,18 @@ function DashboardNav() {
       }}
     >
       <div className="flex items-center gap-6">
-        <a href="/" className="flex items-center gap-2 text-[var(--color-db-text-primary)]">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-db-accent)]">
-            <span className="text-sm font-bold text-white">P</span>
-          </div>
-          <span className="text-base font-semibold">PricePoint</span>
+        <a href="/" className="transition-opacity hover:opacity-80">
+          <PricePointLogo variant="compact" />
         </a>
       </div>
 
       {/* Centered search bar */}
       <div className="hidden flex-1 justify-center sm:flex">
-        <div className="flex w-full max-w-md items-center gap-1.5 rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface)] px-4 py-2">
-          <svg
-            className="h-4 w-4 text-[var(--color-db-text-tertiary)]"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <span className="text-sm text-[var(--color-db-text-muted)]">Search address...</span>
-          <kbd className="ml-auto rounded border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-1.5 py-0.5 text-[10px] text-[var(--color-db-text-muted)]">
-            /
-          </kbd>
-        </div>
+        <SearchBar
+          onSelect={handleSearchSelect}
+          placeholder="Search address..."
+          variant="landing"
+        />
       </div>
 
       <div className="flex items-center gap-1">

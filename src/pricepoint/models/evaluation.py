@@ -53,6 +53,9 @@ def evaluate_model(
         msg = f"Target column '{target_col}' not found in test data"
         raise ValueError(msg)
 
+    # Drop rows where target is NaN (unsold listings have no ground truth)
+    test_features = test_features[test_features[target_col].notna()]
+
     y_true = test_features[target_col].values
     x_test = test_features.drop(columns=[target_col])
 

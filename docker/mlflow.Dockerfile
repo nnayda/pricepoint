@@ -11,4 +11,5 @@ CMD mlflow server \
     --host 0.0.0.0 \
     --port 5000 \
     --backend-store-uri "${MLFLOW_BACKEND_STORE_URI:-sqlite:///mlflow.db}" \
-    --default-artifact-root "${MLFLOW_ARTIFACT_ROOT:-./mlruns}"
+    --default-artifact-root "${MLFLOW_ARTIFACT_ROOT:-./mlruns}" \
+    --allowed-hosts "mlflow,localhost"

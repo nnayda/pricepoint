@@ -30,7 +30,9 @@ RUN pip install --no-cache-dir \
     "duckdb>=1.0,<2" \
     "Pillow>=10.0,<12" \
     "rasterio>=1.3,<2" \
-    "scipy>=1.11,<2"
+    "scipy>=1.11,<2" \
+    "scikit-learn>=1.5,<2" \
+    "xgboost>=2.0,<3"
 
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/

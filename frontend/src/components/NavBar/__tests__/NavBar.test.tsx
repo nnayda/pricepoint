@@ -116,12 +116,12 @@ describe("NavBar", () => {
 
   it("renders PricePoint home link", () => {
     renderNavBar();
-    expect(screen.getByRole("link", { name: "PricePoint" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Price\s*Point/ })).toBeInTheDocument();
   });
 
   it("home link points to /", () => {
     renderNavBar();
-    expect(screen.getByRole("link", { name: "PricePoint" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /Price\s*Point/ })).toHaveAttribute("href", "/");
   });
 
   // -- Compact SearchBar --
@@ -161,17 +161,16 @@ describe("NavBar", () => {
     await user.click(screen.getByText("123 Main St, Philadelphia, PA"));
 
     expect(mockNavigate).toHaveBeenCalledWith(
-      `/property/${encodeURIComponent("123 Main St, Philadelphia, PA")}`,
+      `/property/${encodeURIComponent("123 Main St, Philadelphia, PA")}?lat=39.9526&lon=-75.1652`,
     );
   });
 
   // -- Mobile responsiveness --
 
-  it("uses responsive text size on brand link", () => {
+  it("renders the logo SVG inside the brand link", () => {
     renderNavBar();
-    const link = screen.getByRole("link", { name: "PricePoint" });
-    expect(link.className).toContain("text-base");
-    expect(link.className).toContain("sm:text-lg");
+    const link = screen.getByRole("link", { name: /Price\s*Point/ });
+    expect(link.querySelector("svg")).toBeInTheDocument();
   });
 
   // -- Accessibility (axe) --

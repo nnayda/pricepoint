@@ -64,7 +64,7 @@ describe("LandingPage", () => {
   // -- Navigation --
   it("renders the PricePoint brand in the nav bar", () => {
     renderLandingPage();
-    const brands = screen.getAllByText("PricePoint");
+    const brands = screen.getAllByText(/Price/);
     expect(brands.length).toBeGreaterThanOrEqual(1);
   });
 
