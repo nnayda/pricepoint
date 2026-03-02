@@ -58,10 +58,19 @@ vi.mock("../../../../hooks/useGreenspace", () => ({
   useGreenspace: vi.fn(() => mockUseGreenspaceReturn),
 }));
 
+let capturedOnMarkerSelect: ((id: string) => void) | undefined;
+let capturedOnMarkerDeselect: (() => void) | undefined;
+let capturedRenderPopup:
+  | ((marker: { id?: string; label: string }) => React.ReactNode)
+  | undefined;
+
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
     markers,
     children,
+    onMarkerSelect,
+    onMarkerDeselect,
+    renderPopup,
   }: {
     children?: React.ReactNode;
     center: [number, number];
@@ -72,14 +81,22 @@ vi.mock("../../maps/DashboardMap", () => ({
     highlightedId?: string | null;
     selectedId?: string | null;
     onMoveEnd?: (bbox: { swLat: number; swLon: number; neLat: number; neLon: number }) => void;
-  }) => (
-    <div data-testid="dashboard-map" data-marker-count={markers.length}>
-      {markers.map((m, i) => (
-        <div key={i} data-testid="map-marker" data-label={m.label} data-color={m.color} />
-      ))}
-      {children}
-    </div>
-  ),
+    onMarkerSelect?: (id: string) => void;
+    onMarkerDeselect?: () => void;
+    renderPopup?: (marker: { id?: string; label: string }) => React.ReactNode;
+  }) => {
+    capturedOnMarkerSelect = onMarkerSelect;
+    capturedOnMarkerDeselect = onMarkerDeselect;
+    capturedRenderPopup = renderPopup;
+    return (
+      <div data-testid="dashboard-map" data-marker-count={markers.length}>
+        {markers.map((m, i) => (
+          <div key={i} data-testid="map-marker" data-label={m.label} data-color={m.color} />
+        ))}
+        {children}
+      </div>
+    );
+  },
 }));
 
 describe("GreenspaceTab", () => {
@@ -87,6 +104,9 @@ describe("GreenspaceTab", () => {
     vi.clearAllMocks();
     mockUseGreenspaceReturn.data = mockGreenspaceResponse;
     mockUseGreenspaceReturn.loading = false;
+    capturedOnMarkerSelect = undefined;
+    capturedOnMarkerDeselect = undefined;
+    capturedRenderPopup = undefined;
   });
 
   it("renders feature cards for all greenspace features", () => {
@@ -100,10 +120,11 @@ describe("GreenspaceTab", () => {
   it("displays feature type labels (Park/Trail)", () => {
     render(<GreenspaceTab data={mockDashboardData} />);
 
+    // Card labels + filter button labels
     const parkLabels = screen.getAllByText("Park");
     const trailLabels = screen.getAllByText("Trail");
-    expect(parkLabels).toHaveLength(2);
-    expect(trailLabels).toHaveLength(1);
+    expect(parkLabels.length).toBeGreaterThanOrEqual(2);
+    expect(trailLabels.length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows distance for each feature", () => {
@@ -124,8 +145,6 @@ describe("GreenspaceTab", () => {
   it("renders metric stats from API data", () => {
     render(<GreenspaceTab data={mockDashboardData} />);
 
-    expect(screen.getByText("Parks")).toBeInTheDocument();
-    expect(screen.getByText("Trails")).toBeInTheDocument();
     expect(screen.getByText("Nearest Park")).toBeInTheDocument();
     expect(screen.getByText("Nearest Trail")).toBeInTheDocument();
     expect(screen.getByText("Green Acres")).toBeInTheDocument();
@@ -246,5 +265,117 @@ describe("GreenspaceTab", () => {
 
     const sources = screen.getAllByTestId("vector-source");
     expect(sources.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // --- Type filter tests ---
+
+  it("renders Parks and Trails filter toggle buttons", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    expect(screen.getByRole("button", { name: "Parks" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trails" })).toBeInTheDocument();
+  });
+
+  it("filters out trails when Trails toggle is deactivated", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const trailsButton = screen.getByRole("button", { name: "Trails" });
+    fireEvent.click(trailsButton);
+
+    // Trail card should be hidden
+    expect(screen.queryByText("Black Creek Greenway")).not.toBeInTheDocument();
+    // Park cards remain
+    expect(screen.getByText("Umstead State Park")).toBeInTheDocument();
+    expect(screen.getByText("Lake Johnson Park")).toBeInTheDocument();
+  });
+
+  it("filters out parks when Parks toggle is deactivated", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const parksButton = screen.getByRole("button", { name: "Parks" });
+    fireEvent.click(parksButton);
+
+    // Park cards should be hidden
+    expect(screen.queryByText("Umstead State Park")).not.toBeInTheDocument();
+    expect(screen.queryByText("Lake Johnson Park")).not.toBeInTheDocument();
+    // Trail card remains
+    expect(screen.getByText("Black Creek Greenway")).toBeInTheDocument();
+  });
+
+  it("filters map markers when type toggle is used", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const trailsButton = screen.getByRole("button", { name: "Trails" });
+    fireEvent.click(trailsButton);
+
+    const map = screen.getByTestId("dashboard-map");
+    // 1 property + 2 parks = 3 markers (trail excluded)
+    expect(map.getAttribute("data-marker-count")).toBe("3");
+  });
+
+  // --- Map interaction tests ---
+
+  it("passes onMarkerSelect and onMarkerDeselect to the map", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    expect(capturedOnMarkerSelect).toBeTypeOf("function");
+    expect(capturedOnMarkerDeselect).toBeTypeOf("function");
+  });
+
+  it("passes renderPopup to the map", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    expect(capturedRenderPopup).toBeTypeOf("function");
+  });
+
+  it("renderPopup returns feature details for a known marker", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const popup = capturedRenderPopup!({
+      id: "park-padus-10",
+      label: "Umstead State Park (Park)",
+    });
+    const { container } = render(popup as React.ReactElement);
+
+    expect(container.textContent).toContain("Umstead State Park");
+    expect(container.textContent).toContain("Park");
+    expect(container.textContent).toContain("0.5 mi");
+    expect(container.textContent).toContain("55.3 acres");
+  });
+
+  it("renderPopup returns label for unknown marker", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const popup = capturedRenderPopup!({
+      id: "unknown-id",
+      label: "Unknown Feature",
+    });
+    const { container } = render(popup as React.ReactElement);
+
+    expect(container.textContent).toContain("Unknown Feature");
+  });
+
+  it("highlights card when it is hovered", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const card = screen.getByText("Umstead State Park").closest("[class*=cursor-pointer]")!;
+    fireEvent.mouseEnter(card);
+
+    // After hover the card should have accent-muted background
+    expect(card.style.backgroundColor).toBe("var(--color-db-accent-muted)");
+  });
+
+  it("selects card on click and toggles on second click", () => {
+    render(<GreenspaceTab data={mockDashboardData} />);
+
+    const card = screen.getByText("Umstead State Park").closest("[class*=cursor-pointer]")!;
+
+    // Click to select
+    fireEvent.click(card);
+    expect(card.style.borderColor).toBe("var(--color-db-accent)");
+
+    // Click again to deselect
+    fireEvent.click(card);
+    expect(card.style.borderColor).toBe("var(--color-db-border-subtle)");
   });
 });

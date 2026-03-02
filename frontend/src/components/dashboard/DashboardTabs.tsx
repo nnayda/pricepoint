@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, lazy, Suspense } from "react";
 import type { DashboardTab, DashboardData } from "../../types";
+import { preloadSchoolsNearby } from "../../hooks/useSchoolsNearby";
 import TabDot from "./ui/TabDot";
 
 const ValuationTab = lazy(() => import("./tabs/ValuationTab"));
@@ -84,6 +85,11 @@ function TabLoader() {
 function DashboardTabs({ data }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("valuation");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Preload schools data so it's ready when the tab is opened
+  useEffect(() => {
+    preloadSchoolsNearby(data.property.lat, data.property.lon);
+  }, [data.property.lat, data.property.lon]);
 
   const tabDots = useMemo(() => computeTabDots(data), [data]);
 

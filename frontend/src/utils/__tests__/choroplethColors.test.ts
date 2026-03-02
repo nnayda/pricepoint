@@ -3,6 +3,8 @@ import {
   computeDataRange,
   getChoroplethStyle,
   getLegendConfig,
+  getChoroplethColorExpression,
+  getChoroplethOpacityExpression,
   type DataRange,
 } from "../choroplethColors";
 import type { DemographicSubTab } from "../../types";
@@ -89,46 +91,37 @@ describe("computeDataRange", () => {
 /* ── getLegendConfig ── */
 
 describe("getLegendConfig", () => {
-  it("uses hardcoded fallback labels when no dataRange is provided", () => {
+  it("returns fixed labels for population", () => {
     const config = getLegendConfig("population");
-    expect(config.labels).toEqual(["1k", "10k"]);
+    expect(config.type).toBe("sequential");
+    expect(config.labels).toEqual(["0", "20k+"]);
   });
 
-  it("generates dynamic labels from dataRange for population", () => {
-    const range: DataRange = { min: 500, max: 2500000 };
-    const config = getLegendConfig("population", undefined, range);
-    expect(config.labels[0]).toBe("500");
-    expect(config.labels[1]).toBe("2.5M");
+  it("returns fixed labels for income", () => {
+    const config = getLegendConfig("income");
+    expect(config.type).toBe("sequential");
+    expect(config.labels).toEqual(["$0", "$100k+"]);
   });
 
-  it("generates dynamic labels from dataRange for income", () => {
-    const range: DataRange = { min: 25000, max: 200000 };
-    const config = getLegendConfig("income", undefined, range);
-    expect(config.labels[0]).toBe("$25k");
-    expect(config.labels[1]).toBe("$200k");
+  it("returns fixed labels for ownership", () => {
+    const config = getLegendConfig("ownership");
+    expect(config.type).toBe("sequential");
+    expect(config.labels).toEqual(["0%", "100%"]);
   });
 
-  it("generates dynamic labels from dataRange for ownership", () => {
-    const range: DataRange = { min: 45, max: 92 };
-    const config = getLegendConfig("ownership", undefined, range);
-    expect(config.labels[0]).toBe("45%");
-    expect(config.labels[1]).toBe("92%");
+  it("returns fixed labels for age", () => {
+    const config = getLegendConfig("age");
+    expect(config.type).toBe("sequential");
+    expect(config.labels).toEqual(["20", "55+"]);
   });
 
-  it("generates dynamic labels from dataRange for age", () => {
-    const range: DataRange = { min: 22, max: 65 };
-    const config = getLegendConfig("age", undefined, range);
-    expect(config.labels[0]).toBe("22");
-    expect(config.labels[1]).toBe("65");
-  });
-
-  it("race subtab is unaffected by dataRange", () => {
+  it("returns categorical legend for race (all)", () => {
     const config = getLegendConfig("race");
     expect(config.type).toBe("categorical");
     expect(config.labels).toContain("White");
   });
 
-  it("race filter subtab is unaffected by dataRange", () => {
+  it("returns sequential legend for race filter", () => {
     const config = getLegendConfig("race", "black");
     expect(config.type).toBe("sequential");
     expect(config.labels).toEqual(["0%", "100%"]);
@@ -163,5 +156,59 @@ describe("getChoroplethStyle", () => {
       null,
     );
     expect(style).toHaveProperty("fillColor");
+  });
+});
+
+/* ── getChoroplethColorExpression ── */
+
+describe("getChoroplethColorExpression", () => {
+  it("returns a case expression for race/all using dominant_race", () => {
+    const expr = getChoroplethColorExpression("race", "all");
+    expect(Array.isArray(expr)).toBe(true);
+    expect((expr as unknown[])[0]).toBe("case");
+    // Should contain race names
+    const flat = JSON.stringify(expr);
+    expect(flat).toContain("dominant_race");
+    expect(flat).toContain("White");
+    expect(flat).toContain("Black");
+    expect(flat).toContain("Hispanic");
+    expect(flat).toContain("Asian");
+  });
+
+  it("returns a solid color string for a filtered race", () => {
+    const expr = getChoroplethColorExpression("race", "black");
+    expect(typeof expr).toBe("string");
+    expect(expr).toBe("#22d3ee"); // Cyan for Black
+  });
+
+  it("returns an interpolate expression for non-race subTabs", () => {
+    for (const tab of ["population", "income", "age", "ownership"] as const) {
+      const expr = getChoroplethColorExpression(tab, "all");
+      expect(Array.isArray(expr)).toBe(true);
+      expect((expr as unknown[])[0]).toBe("interpolate");
+    }
+  });
+});
+
+/* ── getChoroplethOpacityExpression ── */
+
+describe("getChoroplethOpacityExpression", () => {
+  it("returns an interpolate expression for race/all based on dominant_race_pct", () => {
+    const expr = getChoroplethOpacityExpression("race", "all");
+    expect(Array.isArray(expr)).toBe(true);
+    const flat = JSON.stringify(expr);
+    expect(flat).toContain("dominant_race_pct");
+  });
+
+  it("returns an interpolate expression for a filtered race based on that race pct", () => {
+    const expr = getChoroplethOpacityExpression("race", "hispanic");
+    expect(Array.isArray(expr)).toBe(true);
+    const flat = JSON.stringify(expr);
+    expect(flat).toContain("pct_hispanic");
+  });
+
+  it("returns a fixed number for non-race subTabs", () => {
+    expect(getChoroplethOpacityExpression("population", "all")).toBe(0.7);
+    expect(getChoroplethOpacityExpression("income", "all")).toBe(0.7);
   });
 });

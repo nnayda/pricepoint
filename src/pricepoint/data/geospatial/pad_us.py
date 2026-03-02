@@ -133,6 +133,11 @@ def fetch_pad_us() -> int:
         logger.info("Reading layer %s from %s", settings.pad_us_layer_name, gdb_path.name)
         gdf = gpd.read_file(gdb_path, layer=settings.pad_us_layer_name)
 
+    # PAD-US GDB uses NAD83 Albers (EPSG:5070) — reproject to WGS84
+    if gdf.crs and gdf.crs.to_epsg() != 4326:
+        logger.info("Reprojecting from %s to EPSG:4326", gdf.crs)
+        gdf = gdf.to_crs(epsg=4326)
+
     logger.info("PAD-US raw features: %d", len(gdf))
 
     total = 0

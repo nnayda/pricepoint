@@ -7,7 +7,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
-from geoalchemy2.functions import ST_X, ST_Y, ST_DWithin, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import (
+    ST_X,
+    ST_Y,
+    ST_DWithin,
+    ST_MakePoint,
+    ST_PointOnSurface,
+    ST_SetSRID,
+)
 from redis.asyncio import Redis
 from sqlalchemy import String, cast, func, literal, select
 from sqlalchemy.orm import Session
@@ -33,15 +40,14 @@ router = APIRouter(tags=["greenspace"])
 
 METERS_PER_MILE = 1609.344
 CACHE_TTL = 604800  # 7 days
+# Approximate degree-per-mile at mid-latitudes (~35-40°N).
+# Used for fast geometry-mode ST_DWithin filtering (GiST index friendly).
+_MILES_TO_DEGREES = 1.0 / 69.0
 
 
-def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN001, ANN201
-    """ST_DWithin using geography cast for meter-based distance."""
-    return func.ST_DWithin(
-        cast(geom_col, Geography()),
-        cast(point, Geography()),
-        radius_meters,
-    )
+def _st_dwithin_geometry(geom_col, point, radius_miles: float):  # noqa: ANN001, ANN201
+    """ST_DWithin using geometry (degrees) for fast GiST-indexed spatial filter."""
+    return func.ST_DWithin(geom_col, point, radius_miles * _MILES_TO_DEGREES)
 
 
 def _st_distance_geography(geom_col, point):  # noqa: ANN001, ANN201
@@ -52,34 +58,34 @@ def _st_distance_geography(geom_col, point):  # noqa: ANN001, ANN201
     )
 
 
-def _build_greenways_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
+def _build_greenways_query(property_point, radius_miles: float):  # noqa: ANN001, ANN201
     """Build a query for trails from the USGS National Digital Trails table."""
     trails_q = select(
         cast(Trail.id, String).label("feature_id"),
         func.coalesce(Trail.name, "Unknown Trail").label("name"),
         literal("trail").label("feature_type"),
-        ST_Y(func.ST_Centroid(Trail.geom)).label("lat"),
-        ST_X(func.ST_Centroid(Trail.geom)).label("lon"),
+        ST_Y(ST_PointOnSurface(Trail.geom)).label("lat"),
+        ST_X(ST_PointOnSurface(Trail.geom)).label("lon"),
         (_st_distance_geography(Trail.geom, property_point) / METERS_PER_MILE).label(
             "distance_miles"
         ),
         literal("usgs").label("source"),
     ).where(
         Trail.geom.isnot(None),
-        _st_dwithin_geography(Trail.geom, property_point, radius_meters),
+        _st_dwithin_geometry(Trail.geom, property_point, radius_miles),
     )
 
     return trails_q.cte("all_greenways")
 
 
-def _build_parks_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
+def _build_parks_query(property_point, radius_miles: float):  # noqa: ANN001, ANN201
     """Build a query for greenspaces from the PAD-US table."""
     parks_q = select(
         cast(Greenspace.id, String).label("feature_id"),
         func.coalesce(Greenspace.name, "Unknown Park").label("name"),
         literal("park").label("feature_type"),
-        ST_Y(func.ST_Centroid(Greenspace.geom)).label("lat"),
-        ST_X(func.ST_Centroid(Greenspace.geom)).label("lon"),
+        ST_Y(ST_PointOnSurface(Greenspace.geom)).label("lat"),
+        ST_X(ST_PointOnSurface(Greenspace.geom)).label("lon"),
         (_st_distance_geography(Greenspace.geom, property_point) / METERS_PER_MILE).label(
             "distance_miles"
         ),
@@ -87,7 +93,7 @@ def _build_parks_query(property_point, radius_meters: float):  # noqa: ANN001, A
         literal("padus").label("source"),
     ).where(
         Greenspace.geom.isnot(None),
-        _st_dwithin_geography(Greenspace.geom, property_point, radius_meters),
+        _st_dwithin_geometry(Greenspace.geom, property_point, radius_miles),
     )
 
     return parks_q.cte("all_parks")
@@ -120,13 +126,11 @@ async def get_greenspace(
         except Exception:
             logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
 
-    radius_meters = radius_miles * METERS_PER_MILE
-
     # Build geography point
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
     # Query parks (PAD-US greenspaces)
-    parks_cte = _build_parks_query(property_point, radius_meters)
+    parks_cte = _build_parks_query(property_point, radius_miles)
     park_rows = db.execute(
         select(
             parks_cte.c.feature_id,
@@ -141,7 +145,7 @@ async def get_greenspace(
     ).all()
 
     # Query greenways (trails)
-    greenways_cte = _build_greenways_query(property_point, radius_meters)
+    greenways_cte = _build_greenways_query(property_point, radius_miles)
     greenway_rows = db.execute(
         select(
             greenways_cte.c.feature_id,

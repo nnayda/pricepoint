@@ -39,12 +39,13 @@ interface DashboardMapProps {
   cluster?: boolean;
   interactiveLayerIds?: string[];
   onLayerClick?: (e: MapLayerMouseEvent) => void;
-  onMoveEnd?: (bounds: {
-    swLat: number;
-    swLon: number;
-    neLat: number;
-    neLon: number;
-  }) => void;
+  onMoveEnd?: (bounds: { swLat: number; swLon: number; neLat: number; neLon: number }) => void;
+  /** Called when the user clicks a marker on the map (id of clicked marker) */
+  onMarkerSelect?: (id: string) => void;
+  /** Called when the user closes a popup (to deselect the marker) */
+  onMarkerDeselect?: () => void;
+  /** Custom popup renderer — receives the active marker; falls back to label text */
+  renderPopup?: (marker: MapMarker) => React.ReactNode;
 }
 
 // MapLibre GL style definitions — CARTO vector tiles for street/dark/light,
@@ -82,24 +83,15 @@ function getDefaultStyle(resolvedTheme: string): MapStyle {
 }
 
 const INFRA_SVG_PATHS: Record<string, string> = {
-  cell_tower:
-    "M12 2v8m0 0l-3-3m3 3l3-3M8 22h8m-4 0v-6m-6-2a6 6 0 0112 0m-16-2a10 10 0 0120 0",
+  cell_tower: "M12 2v8m0 0l-3-3m3 3l3-3M8 22h8m-4 0v-6m-6-2a6 6 0 0112 0m-16-2a10 10 0 0120 0",
   transmission_line: "M13 2L3 14h9l-1 10 10-12h-9l1-10z",
-  power_plant:
-    "M2 20h20M4 20v-8l4 2v-6l4 2V4l4 4v12M6 20v-3h2v3m4-3v-5h2v5",
+  power_plant: "M2 20h20M4 20v-8l4 2v-6l4 2V4l4 4v12M6 20v-3h2v3m4-3v-5h2v5",
   nat_gas_pipeline:
     "M12 2c-2 4-6 6-6 10a6 6 0 0012 0c0-4-4-6-6-10zm0 14a2 2 0 01-2-2c0-2 2-3 2-3s2 1 2 3a2 2 0 01-2 2z",
-  petroleum_pipeline:
-    "M12 2c-4 5.5-8 9-8 13a8 8 0 0016 0c0-4-4-7.5-8-13z",
+  petroleum_pipeline: "M12 2c-4 5.5-8 9-8 13a8 8 0 0016 0c0-4-4-7.5-8-13z",
 };
 
-function MarkerIcon({
-  marker,
-  highlighted,
-}: {
-  marker: MapMarker;
-  highlighted: boolean;
-}) {
+function MarkerIcon({ marker, highlighted }: { marker: MapMarker; highlighted: boolean }) {
   const color = marker.color || COLOR_INDIGO;
 
   if (marker.isProperty) {
@@ -115,9 +107,7 @@ function MarkerIcon({
           background: color,
           borderRadius: 6,
           border: `2px solid rgba(255,255,255,${highlighted ? 1 : 0.9})`,
-          boxShadow: highlighted
-            ? `0 0 14px ${color}`
-            : `0 0 8px ${color}80`,
+          boxShadow: highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`,
           transition: "all 0.15s ease",
           cursor: "pointer",
         }}
@@ -144,9 +134,7 @@ function MarkerIcon({
   if (marker.infrastructureType) {
     const size = highlighted ? 28 : 24;
     const svgSize = size * 0.58;
-    const path =
-      INFRA_SVG_PATHS[marker.infrastructureType] ??
-      INFRA_SVG_PATHS.cell_tower;
+    const path = INFRA_SVG_PATHS[marker.infrastructureType] ?? INFRA_SVG_PATHS.cell_tower;
     return (
       <div
         style={{
@@ -158,9 +146,7 @@ function MarkerIcon({
           background: color,
           borderRadius: 6,
           border: `2px solid rgba(255,255,255,${highlighted ? 1 : 0.9})`,
-          boxShadow: highlighted
-            ? `0 0 14px ${color}`
-            : `0 0 8px ${color}80`,
+          boxShadow: highlighted ? `0 0 14px ${color}` : `0 0 8px ${color}80`,
           transition: "all 0.15s ease",
           cursor: "pointer",
         }}
@@ -191,9 +177,7 @@ function MarkerIcon({
         borderRadius: "50%",
         background: color,
         border: `${border}px solid rgba(255,255,255,${highlighted ? 1 : 0.8})`,
-        boxShadow: highlighted
-          ? `0 0 12px ${color}`
-          : `0 0 6px ${color}80`,
+        boxShadow: highlighted ? `0 0 12px ${color}` : `0 0 6px ${color}80`,
         transition: "all 0.15s ease",
         cursor: "pointer",
       }}
@@ -295,9 +279,7 @@ function MapStyleControl({
                   width: "100%",
                   padding: "6px 12px",
                   background:
-                    s === style
-                      ? "var(--color-db-surface-hover, #252D44)"
-                      : "transparent",
+                    s === style ? "var(--color-db-surface-hover, #252D44)" : "transparent",
                   color: "var(--color-db-text-primary, #E8ECF4)",
                   border: "none",
                   cursor: "pointer",
@@ -308,12 +290,10 @@ function MapStyleControl({
                 }}
                 onMouseEnter={(e) => {
                   if (s !== style)
-                    e.currentTarget.style.background =
-                      "var(--color-db-surface-hover, #252D44)";
+                    e.currentTarget.style.background = "var(--color-db-surface-hover, #252D44)";
                 }}
                 onMouseLeave={(e) => {
-                  if (s !== style)
-                    e.currentTarget.style.background = "transparent";
+                  if (s !== style) e.currentTarget.style.background = "transparent";
                 }}
               >
                 {STYLE_LABELS[s]}
@@ -354,6 +334,20 @@ const CLUSTER_COUNT_LAYER: maplibregl.LayerSpecification = {
   },
 };
 
+/** Individual (unclustered) points — color read from GeoJSON feature properties */
+const UNCLUSTERED_POINT_LAYER: maplibregl.LayerSpecification = {
+  id: "unclustered-point",
+  type: "circle",
+  source: "clustered-markers",
+  filter: ["!", ["has", "point_count"]],
+  paint: {
+    "circle-color": ["get", "color"],
+    "circle-radius": 8,
+    "circle-stroke-width": 2,
+    "circle-stroke-color": "rgba(255,255,255,0.9)",
+  },
+};
+
 function DashboardMap({
   center,
   zoom = 14,
@@ -367,11 +361,19 @@ function DashboardMap({
   interactiveLayerIds: extraInteractiveIds = [],
   onLayerClick,
   onMoveEnd,
+  onMarkerSelect,
+  onMarkerDeselect,
+  renderPopup,
 }: DashboardMapProps) {
   const { resolvedTheme } = useTheme();
   const [mapStyle, handleStyleChange] = useMapStyle(getDefaultStyle(resolvedTheme));
   const mapRef = useRef<MapRef>(null);
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
+
+  // Clear popup when selection is removed
+  useEffect(() => {
+    if (!selectedId) setPopupMarker(null);
+  }, [selectedId]);
 
   const propertyMarkers = markers.filter((m) => m.isProperty);
   const otherMarkers = markers.filter((m) => !m.isProperty);
@@ -411,23 +413,40 @@ function DashboardMap({
     [onMoveEnd],
   );
 
-  // Handle click on cluster to zoom in
-  const handleClusterClick = useCallback((e: MapLayerMouseEvent) => {
-    const features = e.features;
-    if (!features || features.length === 0) return;
-    const feature = features[0];
-    if (!feature.properties?.cluster_id) return;
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const source = map.getSource("clustered-markers") as maplibregl.GeoJSONSource;
-    source.getClusterExpansionZoom(feature.properties.cluster_id).then((zoom) => {
-      const geometry = feature.geometry as GeoJSON.Point;
-      map.easeTo({
-        center: geometry.coordinates as [number, number],
-        zoom,
+  // Handle click on cluster to zoom in, or unclustered point to show popup
+  const handleClusterClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const features = e.features;
+      if (!features || features.length === 0) return;
+      const feature = features[0];
+
+      // Unclustered point — notify parent to select, which triggers PanToSelected
+      if (feature.layer?.id === "unclustered-point" && feature.properties?.id) {
+        const matchId = feature.properties.id as string;
+        if (onMarkerSelect) {
+          onMarkerSelect(matchId);
+        } else {
+          const match = markers.find((m) => (m.id ?? `${m.lat}-${m.lon}`) === matchId);
+          if (match) setPopupMarker(match);
+        }
+        return;
+      }
+
+      // Cluster bubble — zoom in
+      if (!feature.properties?.cluster_id) return;
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const source = map.getSource("clustered-markers") as maplibregl.GeoJSONSource;
+      source.getClusterExpansionZoom(feature.properties.cluster_id).then((zoom) => {
+        const geometry = feature.geometry as GeoJSON.Point;
+        map.easeTo({
+          center: geometry.coordinates as [number, number],
+          zoom,
+        });
       });
-    });
-  }, []);
+    },
+    [markers, onMarkerSelect],
+  );
 
   // Emit initial bounds after map loads
   const handleLoad = useCallback(() => {
@@ -460,7 +479,7 @@ function DashboardMap({
         onMoveEnd={handleMoveEnd}
         onLoad={handleLoad}
         interactiveLayerIds={[
-          ...(cluster ? ["cluster-circles"] : []),
+          ...(cluster ? ["cluster-circles", "unclustered-point"] : []),
           ...extraInteractiveIds,
         ]}
         onClick={(e: MapLayerMouseEvent) => {
@@ -481,8 +500,7 @@ function DashboardMap({
             <MarkerIcon
               marker={m}
               highlighted={
-                (m.id != null && m.id === highlightedId) ||
-                (m.id != null && m.id === selectedId)
+                (m.id != null && m.id === highlightedId) || (m.id != null && m.id === selectedId)
               }
             />
           </Marker>
@@ -500,6 +518,7 @@ function DashboardMap({
           >
             <Layer {...CLUSTER_LAYER} />
             <Layer {...CLUSTER_COUNT_LAYER} />
+            <Layer {...UNCLUSTERED_POINT_LAYER} />
           </Source>
         ) : (
           otherMarkers.map((m) => (
@@ -510,14 +529,17 @@ function DashboardMap({
               anchor="center"
               onClick={(e) => {
                 e.originalEvent.stopPropagation();
-                setPopupMarker(m);
+                if (onMarkerSelect && m.id) {
+                  onMarkerSelect(m.id);
+                } else {
+                  setPopupMarker(m);
+                }
               }}
             >
               <MarkerIcon
                 marker={m}
                 highlighted={
-                  (m.id != null && m.id === highlightedId) ||
-                  (m.id != null && m.id === selectedId)
+                  (m.id != null && m.id === highlightedId) || (m.id != null && m.id === selectedId)
                 }
               />
             </Marker>
@@ -530,23 +552,38 @@ function DashboardMap({
             longitude={popupMarker.lon}
             latitude={popupMarker.lat}
             anchor="bottom"
-            onClose={() => setPopupMarker(null)}
+            onClose={() => {
+              setPopupMarker(null);
+              onMarkerDeselect?.();
+            }}
             closeOnClick={false}
+            maxWidth="280px"
           >
-            <span
-              style={{
-                fontFamily: "var(--font-db-sans)",
-                fontSize: 12,
-                color: "var(--color-db-text-primary)",
-              }}
-            >
-              {popupMarker.label}
-            </span>
+            {renderPopup ? (
+              renderPopup(popupMarker)
+            ) : (
+              <span
+                style={{
+                  fontFamily: "var(--font-db-sans)",
+                  fontSize: 12,
+                  color: "var(--color-db-text-primary)",
+                }}
+              >
+                {popupMarker.label}
+              </span>
+            )}
           </Popup>
         )}
 
-        {/* Pan to selected marker */}
-        {selectedId && <PanToSelected markers={markers} selectedId={selectedId} mapRef={mapRef} />}
+        {/* Pan to selected marker and show popup */}
+        {selectedId && (
+          <PanToSelected
+            markers={markers}
+            selectedId={selectedId}
+            mapRef={mapRef}
+            onSelect={setPopupMarker}
+          />
+        )}
 
         {/* Tab-specific layers passed as children */}
         {children}
@@ -556,25 +593,27 @@ function DashboardMap({
   );
 }
 
-/** Pans the map to the selected marker when it changes. */
+/** Pans the map to the selected marker and opens its popup. */
 function PanToSelected({
   markers,
   selectedId,
   mapRef,
+  onSelect,
 }: {
   markers: MapMarker[];
   selectedId: string;
   mapRef: React.RefObject<MapRef | null>;
+  onSelect: (m: MapMarker | null) => void;
 }) {
   useEffect(() => {
     const marker = markers.find((m) => m.id === selectedId);
     if (marker && mapRef.current) {
-      mapRef.current.easeTo({
+      mapRef.current.jumpTo({
         center: [marker.lon, marker.lat],
-        duration: 300,
       });
+      onSelect(marker);
     }
-  }, [selectedId, markers, mapRef]);
+  }, [selectedId, markers, mapRef, onSelect]);
 
   return null;
 }

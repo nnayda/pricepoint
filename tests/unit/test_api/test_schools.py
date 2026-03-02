@@ -86,11 +86,10 @@ class TestSchoolsNearbyWithData:
         school = self._make_school(pct_frl_eligible=42.5)
 
         # Call order:
-        # 1: spatial school query
+        # 1: spatial school query (includes lat/lon columns)
         # 2: geo lookup (school_district_geoid) → None
         # 3: district DWithin query → empty
         # 4: property lookup → None
-        # 5: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -99,8 +98,8 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                # Spatial school query
-                result.all.return_value = [(school, 1609.0)]
+                # Spatial school query (school, distance_m, lat, lon)
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
                 # Geo lookup — no precomputed data
@@ -110,16 +109,9 @@ class TestSchoolsNearbyWithData:
                 # District DWithin query — no districts found
                 result.all.return_value = []
                 return result
-            elif call_count == 4:
+            else:
                 # Property lookup
                 result.scalar_one_or_none.return_value = None
-                return result
-            else:
-                # ST_Y / ST_X coordinate extraction
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
                 return result
 
         mock_db.execute = mock_execute
@@ -178,12 +170,11 @@ class TestSchoolsNearbyWithData:
         link.walk_minutes = 16
 
         # Call order:
-        # 1: spatial school query
+        # 1: spatial school query (includes lat/lon columns)
         # 2: geo lookup (school_district_geoid) → None
         # 3: district DWithin query → empty
         # 4: property lookup → prop
         # 5: PropertySchool linkage query
-        # 6: ST_Y/ST_X coord extraction
         call_count = 0
 
         def mock_execute(stmt):
@@ -192,8 +183,8 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                # Spatial school query
-                result.all.return_value = [(school, 1609.0)]
+                # Spatial school query (school, distance_m, lat, lon)
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
                 # Geo lookup — no precomputed data
@@ -207,16 +198,9 @@ class TestSchoolsNearbyWithData:
                 # Property lookup
                 result.scalar_one_or_none.return_value = prop
                 return result
-            elif call_count == 5:
+            else:
                 # PropertySchool linkage query
                 result.scalars.return_value.all.return_value = [link]
-                return result
-            else:
-                # ST_Y / ST_X coordinate extraction
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
                 return result
 
         mock_db.execute = mock_execute
@@ -260,24 +244,16 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                result.all.return_value = [(school, 1609.0)]
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
-                # Geo lookup — no precomputed data
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 3:
-                # Districts — empty
                 result.all.return_value = []
                 return result
-            elif call_count == 4:
-                result.scalar_one_or_none.return_value = None
-                return result
             else:
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
+                result.scalar_one_or_none.return_value = None
                 return result
 
         mock_db.execute = mock_execute
@@ -341,28 +317,19 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                result.all.return_value = [(school, 1609.0)]
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
-                # Geo lookup — no precomputed data
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 3:
-                # District DWithin query — home + neighbor
                 result.all.return_value = [
                     (home_district, True, json.dumps(home_geojson)),
                     (neighbor_district, False, json.dumps(neighbor_geojson)),
                 ]
                 return result
-            elif call_count == 4:
-                # Property lookup
-                result.scalar_one_or_none.return_value = None
-                return result
             else:
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
+                result.scalar_one_or_none.return_value = None
                 return result
 
         mock_db.execute = mock_execute
@@ -435,10 +402,9 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                result.all.return_value = [(school, 1609.0)]
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
-                # Geo lookup — no precomputed data
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 3:
@@ -447,14 +413,8 @@ class TestSchoolsNearbyWithData:
                     (sec_district, False, json.dumps(geojson)),
                 ]
                 return result
-            elif call_count == 4:
-                result.scalar_one_or_none.return_value = None
-                return result
             else:
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
+                result.scalar_one_or_none.return_value = None
                 return result
 
         mock_db.execute = mock_execute
@@ -511,26 +471,18 @@ class TestSchoolsNearbyWithData:
             result = MagicMock()
 
             if call_count == 1:
-                result.all.return_value = [(school, 1609.0)]
+                result.all.return_value = [(school, 1609.0, 35.79, -78.78)]
                 return result
             elif call_count == 2:
-                # Geo lookup — no precomputed data
                 result.scalar_one_or_none.return_value = None
                 return result
             elif call_count == 3:
-                # District DWithin — home district found
                 result.all.return_value = [
                     (district, True, json.dumps(geojson_dict)),
                 ]
                 return result
-            elif call_count == 4:
-                result.scalar_one_or_none.return_value = None
-                return result
             else:
-                coord = MagicMock()
-                coord.lat = 35.79
-                coord.lon = -78.78
-                result.one.return_value = coord
+                result.scalar_one_or_none.return_value = None
                 return result
 
         mock_db.execute = mock_execute

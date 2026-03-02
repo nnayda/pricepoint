@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, GreenspaceFeature } from "../../../types";
 import DashboardCard from "../DashboardCard";
-import DashboardMap from "../maps/DashboardMap";
+import DashboardMap, { type MapMarker } from "../maps/DashboardMap";
 import { TreesIcon, FootprintsIcon, MapPinIcon } from "../ui/Icons";
 import { useGreenspace } from "../../../hooks/useGreenspace";
 
@@ -18,11 +18,12 @@ interface GreenspaceTabProps {
 }
 
 type MapScope = "subdivision" | "neighborhood" | "town";
+type FeatureType = "Park" | "Trail";
 
 interface DisplayFeature {
   id: string;
   name: string;
-  type: string;
+  type: FeatureType;
   lat: number;
   lon: number;
   distance_miles: number;
@@ -44,24 +45,34 @@ function mapApiFeature(f: GreenspaceFeature): DisplayFeature {
 function FeatureCard({
   feature,
   isSelected,
+  isHighlighted,
   onHover,
   onLeave,
   onClick,
+  onRef,
 }: {
   feature: DisplayFeature;
   isSelected: boolean;
+  isHighlighted: boolean;
   onHover: () => void;
   onLeave: () => void;
   onClick: () => void;
+  onRef?: (el: HTMLDivElement | null) => void;
 }) {
+  const active = isSelected || isHighlighted;
   return (
     <div
+      ref={onRef}
       className="flex cursor-pointer gap-4 rounded-[var(--radius-db-sm)] border p-4 transition-colors"
       style={{
-        backgroundColor: isSelected
+        backgroundColor: active
           ? "var(--color-db-accent-muted)"
           : "var(--color-db-surface-alt)",
-        borderColor: isSelected ? "var(--color-db-accent)" : "var(--color-db-border-subtle)",
+        borderColor: isSelected
+          ? "var(--color-db-accent)"
+          : isHighlighted
+            ? "var(--color-db-accent-muted)"
+            : "var(--color-db-border-subtle)",
       }}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
@@ -105,6 +116,11 @@ const SCOPE_ZOOM: Record<MapScope, number> = {
   town: 12,
 };
 
+const TYPE_OPTIONS: { value: FeatureType; label: string }[] = [
+  { value: "Park", label: "Parks" },
+  { value: "Trail", label: "Trails" },
+];
+
 function GreenspaceTab({ data }: GreenspaceTabProps) {
   const { property } = data;
   const { data: greenspaceData, loading } = useGreenspace(property.lat, property.lon, 10);
@@ -112,24 +128,49 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapScope, setMapScope] = useState<MapScope>("neighborhood");
   const [mapBounds, setMapBounds] = useState<Bbox | null>(null);
+  const [activeTypes, setActiveTypes] = useState<Set<FeatureType>>(
+    new Set<FeatureType>(["Park", "Trail"]),
+  );
+  const cardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const handleBoundsChange = useCallback((bbox: Bbox) => setMapBounds(bbox), []);
+
+  const toggleType = useCallback((type: FeatureType) => {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }, []);
 
   const allFeatures = useMemo(
     () => greenspaceData.features.map(mapApiFeature),
     [greenspaceData.features],
   );
 
+  const typeFilteredFeatures = useMemo(
+    () =>
+      activeTypes.size === 2
+        ? allFeatures
+        : allFeatures.filter((f) => activeTypes.has(f.type)),
+    [allFeatures, activeTypes],
+  );
+
   const displayFeatures = useMemo(() => {
-    if (!mapBounds) return allFeatures;
-    return allFeatures.filter(
+    if (!mapBounds) return typeFilteredFeatures;
+    return typeFilteredFeatures.filter(
       (f) =>
         f.lat >= mapBounds.swLat &&
         f.lat <= mapBounds.neLat &&
         f.lon >= mapBounds.swLon &&
         f.lon <= mapBounds.neLon,
     );
-  }, [allFeatures, mapBounds]);
+  }, [typeFilteredFeatures, mapBounds]);
 
   const parkCount = useMemo(
     () => displayFeatures.filter((f) => f.type === "Park").length,
@@ -141,13 +182,74 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
     [displayFeatures],
   );
 
-  const markers = allFeatures.map((f) => ({
-    id: f.id,
-    lat: f.lat,
-    lon: f.lon,
-    label: `${f.name} (${f.type})`,
-    color: f.type === "Park" ? "#34D399" : "#22D3EE",
-  }));
+  const mapMarkers = useMemo(
+    () =>
+      typeFilteredFeatures.map((f) => ({
+        id: f.id,
+        lat: f.lat,
+        lon: f.lon,
+        label: `${f.name} (${f.type})`,
+        color: f.type === "Park" ? "#34D399" : "#22D3EE",
+      })),
+    [typeFilteredFeatures],
+  );
+
+  const featureById = useMemo(() => {
+    const map = new Map<string, DisplayFeature>();
+    for (const f of allFeatures) {
+      map.set(f.id, f);
+    }
+    return map;
+  }, [allFeatures]);
+
+  const renderPopup = useCallback(
+    (marker: MapMarker) => {
+      const feature = marker.id ? featureById.get(marker.id) : undefined;
+      if (!feature) return <span style={{ fontSize: 12 }}>{marker.label}</span>;
+      const isPark = feature.type === "Park";
+      const typeColor = isPark ? "#34D399" : "#22D3EE";
+      return (
+        <div style={{ fontFamily: "var(--font-db-sans)", minWidth: 180 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{feature.name}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: `${typeColor}22`,
+                color: typeColor,
+              }}
+            >
+              {isPark ? "P" : "T"}
+            </span>
+            <span style={{ fontSize: 11, color: "#9BA3BF" }}>{feature.type}</span>
+          </div>
+          <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#9BA3BF" }}>
+            <span>{feature.distance_miles} mi</span>
+            {feature.acreage > 0 && <span>{feature.acreage} acres</span>}
+          </div>
+        </div>
+      );
+    },
+    [featureById],
+  );
+
+  const handleMarkerSelect = useCallback((id: string) => setSelectedId(id), []);
+  const handleMarkerDeselect = useCallback(() => setSelectedId(null), []);
+
+  // Scroll selected card into view when selected from the map
+  useEffect(() => {
+    if (selectedId) {
+      const el = cardRefs.current.get(selectedId);
+      if (el) {
+        el.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [selectedId]);
 
   const { metrics } = greenspaceData;
 
@@ -173,17 +275,23 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               No greenspaces or trails found nearby.
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div ref={listRef} className="flex flex-col gap-2">
               {displayFeatures.map((f) => {
                 const isSelected2 = selectedId === f.id;
+                const isHighlighted = hoveredId === f.id;
                 return (
                   <FeatureCard
                     key={f.id}
                     feature={f}
                     isSelected={isSelected2}
+                    isHighlighted={isHighlighted}
                     onHover={() => setHoveredId(f.id)}
                     onLeave={() => setHoveredId(null)}
                     onClick={() => setSelectedId(isSelected2 ? null : f.id)}
+                    onRef={(el) => {
+                      if (el) cardRefs.current.set(f.id, el);
+                      else cardRefs.current.delete(f.id);
+                    }}
                   />
                 );
               })}
@@ -200,6 +308,22 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
               Greenspace Map
             </h3>
             <div className="flex items-center gap-2">
+              <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
+                {TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleType(opt.value)}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                      activeTypes.has(opt.value)
+                        ? "bg-[var(--color-db-accent)] text-white"
+                        : "text-[var(--color-db-text-tertiary)] hover:text-[var(--color-db-text-secondary)]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-1 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-0.5">
                 {(["subdivision", "neighborhood", "town"] as const).map((scope) => (
                   <button
@@ -261,13 +385,16 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
                   color: "#6366F1",
                   isProperty: true,
                 },
-                ...markers,
+                ...mapMarkers,
               ]}
               height="100%"
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
               onMoveEnd={handleBoundsChange}
+              onMarkerSelect={handleMarkerSelect}
+              onMarkerDeselect={handleMarkerDeselect}
+              renderPopup={renderPopup}
             >
               {/* Vector tile layers for greenspaces and trails */}
               <Source

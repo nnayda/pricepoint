@@ -3,7 +3,7 @@ import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, DashboardSchool, SchoolNearby } from "../../../types";
 import { useSchoolsNearby } from "../../../hooks/useSchoolsNearby";
 import DashboardCard from "../DashboardCard";
-import DashboardMap from "../maps/DashboardMap";
+import DashboardMap, { type MapMarker } from "../maps/DashboardMap";
 import { MapPinIcon, CarIcon, WalkIcon, UsersIcon } from "../ui/Icons";
 import { getSchoolMarkerColor, COLOR_INDIGO } from "../../../utils/chartTokens";
 
@@ -298,12 +298,87 @@ function SchoolsTab({ data }: SchoolsTabProps) {
     [allSchools, matchesLevel],
   );
 
+  const schoolById = useMemo(() => {
+    const map = new Map<string, DashboardSchool>();
+    for (const s of allSchools) {
+      map.set(schoolId(s), s);
+    }
+    return map;
+  }, [allSchools]);
+
+  const renderPopup = useCallback(
+    (marker: MapMarker) => {
+      const school = marker.id ? schoolById.get(marker.id) : undefined;
+      if (!school) return <span style={{ fontSize: 12 }}>{marker.label}</span>;
+      const color = ratingColor(school.rating);
+      return (
+        <div style={{ fontFamily: "var(--font-db-sans)", minWidth: 180 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{school.name}</div>
+          <div style={{ fontSize: 11, color: "#9BA3BF", marginBottom: 6 }}>
+            {school.school_type} · {school.grades}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                border: `2px solid ${color}`,
+                fontSize: 12,
+                fontWeight: 700,
+                color,
+              }}
+            >
+              {school.rating ?? "?"}
+            </span>
+            <span style={{ fontSize: 11, color: "#9BA3BF" }}>/ 10</span>
+            {school.assigned && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  background: "rgba(99,102,241,0.15)",
+                  color: "#818CF8",
+                  padding: "1px 6px",
+                  borderRadius: 9999,
+                }}
+              >
+                Assigned
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#9BA3BF" }}>
+            <span>{school.distance_miles} mi</span>
+            {school.drive_minutes > 0 && <span>{school.drive_minutes} min drive</span>}
+            {school.walk_minutes != null && school.walk_minutes > 0 && (
+              <span>{school.walk_minutes} min walk</span>
+            )}
+          </div>
+          {(school.student_teacher_ratio > 0 ||
+            (school.enrollment != null && school.enrollment > 0)) && (
+            <div style={{ display: "flex", gap: 10, fontSize: 11, color: "#9BA3BF", marginTop: 2 }}>
+              {school.student_teacher_ratio > 0 && (
+                <span>1:{Math.round(school.student_teacher_ratio)} ratio</span>
+              )}
+              {school.enrollment != null && school.enrollment > 0 && (
+                <span>{school.enrollment.toLocaleString()} students</span>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    },
+    [schoolById],
+  );
+
   const headerText = homeDistrict ? `${homeDistrict.name} Schools` : "Schools";
 
-  const handleBoundsChange = useCallback(
-    (bbox: Bbox) => setMapBounds(bbox),
-    [],
-  );
+  const handleBoundsChange = useCallback((bbox: Bbox) => setMapBounds(bbox), []);
+  const handleMarkerSelect = useCallback((id: string) => setSelectedId(id), []);
+  const handleMarkerDeselect = useCallback(() => setSelectedId(null), []);
 
   if (loading) {
     return (
@@ -411,6 +486,9 @@ function SchoolsTab({ data }: SchoolsTabProps) {
               highlightedId={hoveredId}
               selectedId={selectedId}
               onMoveEnd={handleBoundsChange}
+              onMarkerSelect={handleMarkerSelect}
+              onMarkerDeselect={handleMarkerDeselect}
+              renderPopup={renderPopup}
             >
               {/* School district boundaries via vector tiles */}
               <Source

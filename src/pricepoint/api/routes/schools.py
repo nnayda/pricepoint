@@ -6,7 +6,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
-from geoalchemy2.functions import ST_AsGeoJSON, ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import (
+    ST_AsGeoJSON,
+    ST_Contains,
+    ST_DWithin,
+    ST_MakePoint,
+    ST_SetSRID,
+    ST_Simplify,
+)
 from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
@@ -25,6 +32,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["schools"])
 
 _MILES_TO_METERS = 1609.344
+# Approximate degree-per-mile at mid-latitudes (~35-40°N) for fast geometry queries.
+# 1 degree latitude ≈ 69 miles; using a slightly generous factor for longitude.
+_MILES_TO_DEGREES = 1.0 / 69.0
+# Tolerance for ST_Simplify on district boundaries (in degrees, ~111m)
+_DISTRICT_SIMPLIFY_TOLERANCE = 0.001
 
 
 @router.get("/schools/nearby", response_model=SchoolsNearbyResponse)
@@ -53,7 +65,12 @@ async def get_nearby_schools(
     ).label("distance_m")
 
     stmt = (
-        select(School, dist_col)
+        select(
+            School,
+            dist_col,
+            func.ST_Y(School.location).label("school_lat"),
+            func.ST_X(School.location).label("school_lon"),
+        )
         .where(
             School.location.isnot(None),
             ST_DWithin(
@@ -79,8 +96,12 @@ async def get_nearby_schools(
         .limit(1)
     ).scalar_one_or_none()
 
-    # Query all school districts within the search radius
-    geojson_col = ST_AsGeoJSON(SchoolDistrict.geom).label("geojson")
+    # Query school districts using geometry bounding-box filter (much faster than
+    # geography cast on complex MULTIPOLYGON boundaries).  ST_Expand + ST_DWithin
+    # in geometry mode leverages the GiST index efficiently.
+    radius_degrees = radius_miles * _MILES_TO_DEGREES
+    simplified = ST_Simplify(SchoolDistrict.geom, _DISTRICT_SIMPLIFY_TOLERANCE)
+    geojson_col = ST_AsGeoJSON(simplified).label("geojson")
 
     if home_district_geoid:
         # Use precomputed geoid to determine home district
@@ -90,11 +111,7 @@ async def get_nearby_schools(
         is_home_expr = ST_Contains(SchoolDistrict.geom, point).label("is_home")
 
     district_stmt = select(SchoolDistrict, is_home_expr, geojson_col).where(
-        ST_DWithin(
-            cast(SchoolDistrict.geom, geo),
-            cast(point, geo),
-            radius_meters,
-        )
+        ST_DWithin(SchoolDistrict.geom, point, radius_degrees)
     )
     district_rows = db.execute(district_stmt).all()
 
@@ -140,23 +157,10 @@ async def get_nearby_schools(
         linkage = {link.school_id: link for link in links}
 
     schools: list[SchoolNearby] = []
-    for school, distance_m in rows:
+    for school, distance_m, school_lat, school_lon in rows:
         # Build address
         addr_parts = [p for p in [school.street, school.city, school.state, school.zip_code] if p]
         address = ", ".join(addr_parts) if addr_parts else None
-
-        # Extract lat/lon from geometry
-        school_lat: float | None = None
-        school_lon: float | None = None
-        if school.location is not None:
-            coords = db.execute(
-                select(
-                    func.ST_Y(school.location).label("lat"),
-                    func.ST_X(school.location).label("lon"),
-                )
-            ).one()
-            school_lat = coords.lat
-            school_lon = coords.lon
 
         distance_miles = distance_m / _MILES_TO_METERS
 

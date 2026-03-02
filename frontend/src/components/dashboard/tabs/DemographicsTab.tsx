@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -20,7 +20,8 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
 } from "recharts";
-import { Source, Layer as MapLayer } from "react-map-gl/maplibre";
+import { Source, Layer as MapLayer, Popup } from "react-map-gl/maplibre";
+import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
 import type {
   DashboardData,
   DemographicContext,
@@ -33,6 +34,8 @@ import ChoroplethLegend from "../maps/ChoroplethLegend";
 import SemiCircularGauge from "../charts/SemiCircularGauge";
 import {
   getLegendConfig,
+  getChoroplethColorExpression,
+  getChoroplethOpacityExpression,
 } from "../../../utils/choroplethColors";
 import {
   TOOLTIP_CONTENT_STYLE,
@@ -91,70 +94,100 @@ const RACE_FILTER_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-// Choropleth color expression for MapLibre vector tiles
-function getChoroplethColorExpression(
-  subTab: DemographicSubTab,
-  raceFilter: string,
-): maplibregl.ExpressionSpecification {
-  const metric =
-    subTab === "population"
-      ? "total_population"
-      : subTab === "race"
-        ? raceFilter === "all" || raceFilter === "white"
-          ? "white_pct"
-          : raceFilter === "black"
-            ? "black_pct"
-            : raceFilter === "hispanic"
-              ? "hispanic_pct"
-              : raceFilter === "asian"
-                ? "asian_pct"
-                : "white_pct"
-        : subTab === "income"
-          ? "median_household_income"
-          : subTab === "age"
-            ? "median_age"
-            : "total_population";
+/** Popup content shown when clicking a choropleth region. */
+function RegionPopup({
+  props,
+  subTab,
+  raceFilter,
+}: {
+  props: Record<string, unknown>;
+  subTab: DemographicSubTab;
+  raceFilter: string;
+}) {
+  const name = (props.name as string) ?? "";
+  const rows: { label: string; value: string }[] = [];
 
-  // Interpolate color based on the metric value
-  if (subTab === "population") {
-    return [
-      "interpolate",
-      ["linear"],
-      ["coalesce", ["get", metric], 0],
-      0,
-      "rgba(99,102,241,0.05)",
-      5000,
-      "rgba(99,102,241,0.4)",
-      20000,
-      "rgba(99,102,241,0.7)",
-    ];
+  const pop = props.total_population as number | undefined;
+  if (pop != null) rows.push({ label: "Population", value: pop.toLocaleString() });
+
+  if (subTab === "income" || subTab === "population") {
+    const inc = props.median_household_income as number | undefined;
+    if (inc != null)
+      rows.push({ label: "Median Income", value: `$${inc.toLocaleString()}` });
   }
-  if (subTab === "income") {
-    return [
-      "interpolate",
-      ["linear"],
-      ["coalesce", ["get", metric], 0],
-      0,
-      "rgba(248,113,113,0.3)",
-      50000,
-      "rgba(251,191,36,0.3)",
-      100000,
-      "rgba(52,211,153,0.5)",
-    ];
+  if (subTab === "age" || subTab === "population") {
+    const age = props.median_age as number | undefined;
+    if (age != null) rows.push({ label: "Median Age", value: String(age) });
   }
-  // Percentage-based metrics (race, age)
-  return [
-    "interpolate",
-    ["linear"],
-    ["coalesce", ["get", metric], 0],
-    0,
-    "rgba(99,102,241,0.05)",
-    50,
-    "rgba(99,102,241,0.4)",
-    100,
-    "rgba(99,102,241,0.7)",
-  ];
+  if (subTab === "ownership" || subTab === "population") {
+    const own = props.home_ownership_rate as number | undefined;
+    if (own != null) rows.push({ label: "Ownership", value: `${own}%` });
+  }
+  if (subTab === "race") {
+    const raceRows: { key: string; label: string; prop: string }[] = [
+      { key: "white", label: "White", prop: "white_pct" },
+      { key: "black", label: "Black", prop: "black_pct" },
+      { key: "hispanic", label: "Hispanic", prop: "hispanic_pct" },
+      { key: "asian", label: "Asian", prop: "asian_pct" },
+    ];
+    if (raceFilter && raceFilter !== "all") {
+      const r = raceRows.find((x) => x.key === raceFilter);
+      if (r) {
+        const pct = props[r.prop] as number | undefined;
+        if (pct != null) rows.push({ label: r.label, value: `${pct}%` });
+      }
+    } else {
+      for (const r of raceRows) {
+        const pct = props[r.prop] as number | undefined;
+        if (pct != null) rows.push({ label: r.label, value: `${pct}%` });
+      }
+    }
+  }
+
+  return (
+    <div style={{ fontFamily: "var(--font-db-sans)", fontSize: 12 }}>
+      {name && (
+        <div
+          style={{
+            fontWeight: 600,
+            marginBottom: 4,
+            color: "var(--color-db-text-primary)",
+          }}
+        >
+          {name}
+        </div>
+      )}
+      <table style={{ borderSpacing: "6px 2px", margin: "-2px -6px" }}>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <td
+                style={{
+                  color: "var(--color-db-text-secondary)",
+                  paddingRight: 8,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {r.label}
+              </td>
+              <td
+                style={{
+                  fontWeight: 500,
+                  fontFamily: "var(--font-db-mono)",
+                  color: "var(--color-db-text-primary)",
+                }}
+              >
+                {r.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
+
+// Choropleth expressions are now centralized in choroplethColors.ts
 
 function DemographicsTab({ data }: DemographicsTabProps) {
   const { demographics, property } = data;
@@ -177,10 +210,47 @@ function DemographicsTab({ data }: DemographicsTabProps) {
   );
 
   // Pick the right tile source based on context
-  const tileSource = context === "block_group" ? "v_block_group_demographics" : "v_tract_demographics";
+  const tileSourceMap: Record<DemographicContext, string> = {
+    subdivision: "v_subdivision_demographics",
+    block_group: "v_block_group_demographics",
+    neighborhood: "v_tract_demographics",
+    town: "v_township_demographics",
+    county: "v_county_demographics",
+  };
+  const tileSource = tileSourceMap[context];
+  const labelSource = tileSource.replace("_demographics", "_labels");
   const choroplethFillColor = useMemo(
     () => getChoroplethColorExpression(subTab, raceFilter),
     [subTab, raceFilter],
+  );
+  const choroplethFillOpacity = useMemo(
+    () => getChoroplethOpacityExpression(subTab, raceFilter),
+    [subTab, raceFilter],
+  );
+
+  // Click-on-region popup state
+  const [clickedFeature, setClickedFeature] = useState<{
+    lng: number;
+    lat: number;
+    props: Record<string, unknown>;
+  } | null>(null);
+
+  // Clear popup when context or subTab changes
+  useEffect(() => {
+    setClickedFeature(null);
+  }, [context, subTab, raceFilter]);
+
+  const handleRegionClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      setClickedFeature({
+        lng: e.lngLat.lng,
+        lat: e.lngLat.lat,
+        props: feature.properties as Record<string, unknown>,
+      });
+    },
+    [],
   );
 
   return (
@@ -283,9 +353,12 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                   },
                 ]}
                 height="100%"
+                interactiveLayerIds={["demographics-fill"]}
+                onLayerClick={handleRegionClick}
               >
-                {/* Choropleth via vector tiles from Martin */}
+                {/* Choropleth polygons via vector tiles from Martin */}
                 <Source
+                  key={tileSource}
                   id="demographics-tiles"
                   type="vector"
                   tiles={[`${window.location.origin}/tiles/${tileSource}/{z}/{x}/{y}`]}
@@ -298,7 +371,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     source-layer={tileSource}
                     paint={{
                       "fill-color": choroplethFillColor,
-                      "fill-opacity": 0.7,
+                      "fill-opacity": choroplethFillOpacity,
                     }}
                   />
                   <MapLayer
@@ -311,6 +384,61 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     }}
                   />
                 </Source>
+
+                {/* Label points — separate point source so each region gets exactly one label */}
+                <Source
+                  key={labelSource}
+                  id="demographics-labels-src"
+                  type="vector"
+                  tiles={[`${window.location.origin}/tiles/${labelSource}/{z}/{x}/{y}`]}
+                  minzoom={0}
+                  maxzoom={14}
+                >
+                  <MapLayer
+                    id="demographics-labels"
+                    type="symbol"
+                    source-layer={labelSource}
+                    layout={{
+                      "text-field": ["get", "name"],
+                      "text-size": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        8,
+                        10,
+                        14,
+                        13,
+                      ],
+                      "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+                      "text-anchor": "center",
+                      "text-max-width": 8,
+                      "text-allow-overlap": false,
+                    }}
+                    paint={{
+                      "text-color": "rgba(30, 30, 60, 0.85)",
+                      "text-halo-color": "rgba(255, 255, 255, 0.9)",
+                      "text-halo-width": 1.5,
+                    }}
+                  />
+                </Source>
+
+                {/* Click popup for region details */}
+                {clickedFeature && (
+                  <Popup
+                    longitude={clickedFeature.lng}
+                    latitude={clickedFeature.lat}
+                    anchor="bottom"
+                    onClose={() => setClickedFeature(null)}
+                    closeOnClick={false}
+                    maxWidth="240px"
+                  >
+                    <RegionPopup
+                      props={clickedFeature.props}
+                      subTab={subTab}
+                      raceFilter={raceFilter}
+                    />
+                  </Popup>
+                )}
               </DashboardMap>
               <ChoroplethLegend config={legendConfig} />
             </div>
