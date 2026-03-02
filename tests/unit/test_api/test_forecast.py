@@ -227,7 +227,7 @@ class TestFeatureImportance:
         assert len(data) == 13  # 10 positive + 3 negative from stub
 
     def test_stub_response_has_correct_schema(self, client):
-        """Each attribution has feature, display_name, impact_dollars."""
+        """Each attribution has feature, display_name, impact_dollars, group."""
         resp = client.get("/api/forecast/importance/1")
         data = resp.json()
         for item in data:
@@ -235,6 +235,8 @@ class TestFeatureImportance:
             assert "display_name" in item
             assert "impact_dollars" in item
             assert isinstance(item["impact_dollars"], float)
+            assert "group" in item
+            assert item["group"] in ("Property", "Location", "Economic", "Other")
 
     def test_stub_contains_positive_and_negative(self, client):
         """Stub data includes both positive and negative impacts."""
@@ -260,36 +262,42 @@ class TestFeatureImportance:
             index=[42],
         ),
     )
-    @patch("mlflow.pyfunc.load_model")
-    def test_returns_model_importances_when_available(self, mock_load_model, mock_features, client):
-        """When MLflow model has feature_importances_, use them."""
+    @patch("pricepoint.models.inference.shap")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_returns_shap_values_when_model_available(
+        self, mock_load, mock_shap, mock_features, client
+    ):
+        """When MLflow model is available, return per-instance SHAP values."""
+        from pricepoint.models.inference import ModelInfo
+
         mock_model = MagicMock()
-        mock_model._model_impl.feature_importances_ = np.array([0.5, -0.3, 0.1])
-        mock_load_model.return_value = mock_model
+        mock_model.feature_names_in_ = np.array(["feat_a", "feat_b", "feat_c"])
+        mock_load.return_value = ModelInfo(model=mock_model, version="1", run_id="run-1")
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[25000.0, -8000.0, 3000.0]])
+        mock_shap.TreeExplainer.return_value = mock_explainer
 
         resp = client.get("/api/forecast/importance/42")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
         assert len(data) > 0
-        # feat_a: 0.5 * 2.0 = 1.0 (positive)
-        # feat_b: -0.3 * 3.0 = -0.9 (negative)
-        # feat_c: 0.1 * 1.0 = 0.1 (positive)
         features = {d["feature"]: d["impact_dollars"] for d in data}
-        assert features["feat_a"] == 1.0
-        assert features["feat_b"] == -0.9
-        assert features["feat_c"] == 0.1
+        assert features["feat_a"] == 25000.0
+        assert features["feat_b"] == -8000.0
+        assert features["feat_c"] == 3000.0
 
     @patch(
         "pricepoint.api.routes.forecast._build_features_for_property",
         return_value=pd.DataFrame(),
     )
-    @patch("mlflow.pyfunc.load_model")
-    def test_falls_back_to_stub_when_features_empty(self, mock_load_model, mock_features, client):
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_falls_back_to_stub_when_features_empty(self, mock_load, mock_features, client):
         """When feature engineering returns empty DF, fall back to stub."""
-        mock_model = MagicMock()
-        mock_model._model_impl.feature_importances_ = np.array([0.5])
-        mock_load_model.return_value = mock_model
+        from pricepoint.models.inference import ModelInfo
+
+        mock_load.return_value = ModelInfo(model=MagicMock(), version="1", run_id="run-1")
 
         resp = client.get("/api/forecast/importance/99")
         assert resp.status_code == 200

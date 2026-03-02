@@ -181,6 +181,7 @@ export interface PropertyResponse {
   tax_history: TaxHistoryEntry[];
   climate_risk: ClimateRisk;
   listing_quality?: ApiListingQuality;
+  feature_attributions?: FeatureAttribution[];
 }
 
 // Crime types
@@ -330,6 +331,7 @@ export interface FeatureAttribution {
   feature: string;
   display_name: string;
   impact_dollars: number;
+  group?: string;
 }
 
 export interface ComparableProperty {

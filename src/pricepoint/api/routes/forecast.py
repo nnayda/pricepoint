@@ -24,6 +24,35 @@ router = APIRouter(tags=["forecast"])
 
 FORECAST_CACHE_TTL = 86400  # 24 hours
 
+FEATURE_GROUPS: dict[str, str] = {
+    "sqft": "Property",
+    "num_beds": "Property",
+    "num_baths": "Property",
+    "lot_size": "Property",
+    "year_built": "Property",
+    "num_stories": "Property",
+    "num_garage_spaces": "Property",
+    "has_fireplace": "Property",
+    "has_private_pool": "Property",
+    "has_community_pool": "Property",
+    "property_age": "Property",
+    "sqft_per_bedroom": "Property",
+    "bed_bath_ratio": "Property",
+    "luxury_feature_count": "Property",
+    "dist_nearest_school_m": "Location",
+    "dist_nearest_park_m": "Location",
+    "dist_nearest_hospital_m": "Location",
+    "crime_count_1km_1yr": "Location",
+    "avg_school_rating_2mi": "Location",
+    "total_park_acres_2km": "Location",
+    "zip_median_price": "Location",
+    "listing_premium_pct": "Location",
+    "mortgage_rate_30yr": "Economic",
+    "unemployment_rate": "Economic",
+    "cpi_yoy": "Economic",
+    "median_household_income": "Economic",
+}
+
 FEATURE_DISPLAY_NAMES: dict[str, str] = {
     "dist_nearest_school_m": "School proximity",
     "dist_nearest_park_m": "Park proximity",
@@ -262,69 +291,55 @@ def _load_feature_importances(
     property_id: int,
     db: Session,
 ) -> list[FeatureAttribution]:
-    """Load feature importances from the production model.
+    """Compute per-instance SHAP values for a property prediction.
 
-    Attempts to load the model from MLflow and compute importances
-    weighted by the property's feature values.  Falls back to a
-    predefined stub when the model is unavailable.
+    Attempts to load the production model from MLflow and compute
+    true Shapley values using ``shap.TreeExplainer``.  Each value
+    represents the feature's dollar contribution to the prediction.
+    Falls back to a predefined stub when the model is unavailable.
     """
     try:
-        import mlflow
+        from pricepoint.models.inference import compute_shap_values, load_production_model
 
-        model_name = "pricepoint-home-value"
-        model = mlflow.pyfunc.load_model(f"models:/{model_name}/Production")
+        info = load_production_model()
+        if info is None:
+            raise RuntimeError("No production model available")
 
-        # Try to get feature importances from the underlying model
-        unwrapped = model._model_impl  # noqa: SLF001
-        if hasattr(unwrapped, "feature_importances_"):
-            raw_importances = unwrapped.feature_importances_
-        elif hasattr(unwrapped, "coef_"):
-            raw_importances = unwrapped.coef_
-        else:
-            raise AttributeError("Model has no feature importances")
+        model = info.model
 
-        # Build features for this property to weight importances
+        # Build features for this property
         features = _build_features_for_property(db, property_id)
         if features.empty:
             raise ValueError("No features available")
 
-        # Compute per-feature impact as importance * normalized feature value
-        feature_names = list(features.columns)
-        impacts: list[tuple[str, float]] = []
-        for i, name in enumerate(feature_names):
-            if i < len(raw_importances):
-                val = float(features.iloc[0][name])
-                importance = float(raw_importances[i])
-                impact = importance * val
-                impacts.append((name, impact))
+        # Drop target column if present
+        if "sold_price" in features.columns:
+            features = features.drop(columns=["sold_price"])
 
-        # Sort by absolute impact, take top 10 positive and top 10 negative
-        positive = sorted(
-            [(n, v) for n, v in impacts if v > 0],
-            key=lambda x: abs(x[1]),
-            reverse=True,
-        )[:10]
-        negative = sorted(
-            [(n, v) for n, v in impacts if v < 0],
-            key=lambda x: abs(x[1]),
-            reverse=True,
-        )[:10]
+        shap_results = compute_shap_values(model, features)
+
+        # Take top 10 positive and top 10 negative
+        positive = [r for r in shap_results if float(r["shap_value"]) > 0][:10]
+        negative = [r for r in shap_results if float(r["shap_value"]) < 0][:10]
 
         results: list[FeatureAttribution] = []
-        for name, impact in positive + negative:
+        for entry in positive + negative:
+            name = str(entry["feature"])
             display = FEATURE_DISPLAY_NAMES.get(name, name.replace("_", " ").title())
+            group = FEATURE_GROUPS.get(name, "Other")
             results.append(
                 FeatureAttribution(
                     feature=name,
                     display_name=display,
-                    impact_dollars=round(impact, 2),
+                    impact_dollars=round(float(entry["shap_value"]), 2),
+                    group=group,
                 )
             )
         return results
 
     except Exception:
         logger.info(
-            "MLflow model unavailable for importance — returning stub data",
+            "SHAP computation unavailable — returning stub data",
             exc_info=True,
         )
 
@@ -337,6 +352,7 @@ def _load_feature_importances(
                 str(entry["feature"]).replace("_", " ").title(),
             ),
             impact_dollars=float(entry["impact_dollars"]),
+            group=FEATURE_GROUPS.get(str(entry["feature"]), "Other"),
         )
         for entry in _STUB_IMPORTANCES
     ]

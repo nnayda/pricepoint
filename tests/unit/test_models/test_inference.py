@@ -422,3 +422,81 @@ class TestScoreAllProperties:
         # 10% fallback: 200000 * 0.10 = 20000
         assert val.confidence_low == 180000.0
         assert val.confidence_high == 220000.0
+
+
+class TestComputeShapValues:
+    """Tests for compute_shap_values."""
+
+    @patch("pricepoint.models.inference.shap")
+    def test_returns_sorted_shap_values(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["sqft", "bedrooms", "lot_size"])
+
+        features = pd.DataFrame(
+            {"sqft": [1500.0], "bedrooms": [3.0], "lot_size": [0.25]},
+            index=[1],
+        )
+
+        # Mock TreeExplainer to return known SHAP values
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[25000.0, -5000.0, 8000.0]])
+        mock_shap.TreeExplainer.return_value = mock_explainer
+
+        result = compute_shap_values(model, features)
+
+        assert len(result) == 3
+        # Sorted by absolute value descending
+        assert result[0]["feature"] == "sqft"
+        assert result[0]["shap_value"] == 25000.0
+        assert result[1]["feature"] == "lot_size"
+        assert result[1]["shap_value"] == 8000.0
+        assert result[2]["feature"] == "bedrooms"
+        assert result[2]["shap_value"] == -5000.0
+
+    @patch("pricepoint.models.inference.shap")
+    def test_aligns_columns_to_model_features(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["sqft", "lot_size"])
+
+        # features has extra column "bedrooms" not in model
+        features = pd.DataFrame(
+            {"sqft": [1500.0], "bedrooms": [3.0], "lot_size": [0.25]},
+            index=[1],
+        )
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[20000.0, 5000.0]])
+        mock_shap.TreeExplainer.return_value = mock_explainer
+
+        result = compute_shap_values(model, features)
+
+        assert len(result) == 2
+        features_returned = {r["feature"] for r in result}
+        assert features_returned == {"sqft", "lot_size"}
+
+    @patch("pricepoint.models.inference.shap")
+    def test_handles_model_without_feature_names(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values
+
+        model = MagicMock(spec=[])  # No feature_names_in_ attribute
+
+        features = pd.DataFrame(
+            {"sqft": [1500.0], "bedrooms": [3.0]},
+            index=[1],
+        )
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[10000.0, -3000.0]])
+        mock_shap.TreeExplainer.return_value = mock_explainer
+
+        result = compute_shap_values(model, features)
+
+        assert len(result) == 2
+        assert result[0]["feature"] == "sqft"
+        assert result[0]["shap_value"] == 10000.0
+        assert result[1]["feature"] == "bedrooms"
+        assert result[1]["shap_value"] == -3000.0

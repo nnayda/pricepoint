@@ -12,6 +12,7 @@ from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
+import shap
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -158,6 +159,50 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
     predictions = model.predict(numeric_df)
     logger.info("Generated %d predictions", len(predictions))
     return np.asarray(predictions)
+
+
+def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str, object]]:
+    """Compute per-instance SHAP values for a single property.
+
+    Uses ``shap.TreeExplainer`` for tree-based models (XGBoost, LightGBM,
+    RandomForest) to produce exact Shapley values.  Each value represents
+    the feature's contribution (in prediction units, i.e. dollars) to
+    pushing the prediction away from the base value.
+
+    Parameters
+    ----------
+    model : fitted model
+        A tree-based model with a ``predict`` method.
+    features_df : pd.DataFrame
+        Feature matrix for a single property (one row).
+
+    Returns
+    -------
+    list[dict[str, object]]
+        ``[{"feature": str, "shap_value": float}, ...]`` sorted by
+        absolute impact descending.
+    """
+    # Align columns to model's expected features (same logic as predict_batch)
+    numeric_df = features_df.select_dtypes(include="number")
+    expected_features = getattr(model, "feature_names_in_", None)
+    if expected_features is not None:
+        expected = list(expected_features)
+        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(numeric_df)
+
+    # shap_values shape: (n_samples, n_features) — take first row
+    row_values = shap_values[0] if len(shap_values.shape) > 1 else shap_values
+    feature_names = list(numeric_df.columns)
+
+    results: list[dict[str, object]] = []
+    for name, val in zip(feature_names, row_values, strict=True):
+        results.append({"feature": name, "shap_value": float(val)})
+
+    # Sort by absolute impact descending
+    results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
+    return results
 
 
 def score_all_properties(db: Session) -> int:

@@ -28,3 +28,4 @@ class FeatureAttribution(BaseModel):
     feature: str
     display_name: str
     impact_dollars: float
+    group: str = "Other"

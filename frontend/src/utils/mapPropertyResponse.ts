@@ -98,8 +98,15 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     listing_id: resp.listing_id ?? null,
     property,
     valuation,
-    // Tabs that don't have real API endpoints yet — use mock data
-    shap_features: mockDashboardData.shap_features,
+    shap_features:
+      resp.feature_attributions && resp.feature_attributions.length > 0
+        ? resp.feature_attributions.map((fa) => ({
+            feature: fa.feature,
+            display_name: fa.display_name,
+            impact_dollars: fa.impact_dollars,
+            group: fa.group ?? "Other",
+          }))
+        : mockDashboardData.shap_features,
     price_history:
       resp.sale_history.length > 0 || resp.tax_history.length > 0
         ? buildPriceHistory(resp.sale_history, resp.tax_history, [])

@@ -1,6 +1,10 @@
 """Pydantic models for the property endpoint."""
 
+from __future__ import annotations
+
 from pydantic import BaseModel
+
+from pricepoint.api.schemas.forecast import FeatureAttribution  # noqa: TCH001
 
 
 class PropertyImage(BaseModel):
@@ -196,3 +200,4 @@ class PropertyResponse(BaseModel):
     tax_history: list[TaxHistoryEntry]
     climate_risk: ClimateRisk
     listing_quality: ListingQuality | None = None
+    feature_attributions: list[FeatureAttribution] = []
