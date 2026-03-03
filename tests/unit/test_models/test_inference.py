@@ -252,14 +252,14 @@ class TestScoreAllProperties:
         assert result == 0
         db.execute.assert_not_called()
 
-    @patch("pricepoint.models.inference.assemble_features")
+    @patch("pricepoint.models.inference.load_feature_matrix")
     @patch("pricepoint.models.inference.get_model_metrics")
     @patch("pricepoint.models.inference.load_production_model")
     def test_returns_zero_when_no_properties(
         self,
         mock_load: MagicMock,
         mock_metrics: MagicMock,
-        mock_assemble: MagicMock,
+        mock_load_features: MagicMock,
     ) -> None:
         from pricepoint.models.inference import ModelInfo
 
@@ -272,16 +272,16 @@ class TestScoreAllProperties:
 
         result = score_all_properties(db)
         assert result == 0
-        mock_assemble.assert_not_called()
+        mock_load_features.assert_not_called()
 
-    @patch("pricepoint.models.inference.assemble_features")
+    @patch("pricepoint.models.inference.load_feature_matrix")
     @patch("pricepoint.models.inference.get_model_metrics")
     @patch("pricepoint.models.inference.load_production_model")
     def test_scores_properties_and_commits(
         self,
         mock_load: MagicMock,
         mock_metrics: MagicMock,
-        mock_assemble: MagicMock,
+        mock_load_features: MagicMock,
     ) -> None:
         from pricepoint.models.inference import ModelInfo
 
@@ -300,7 +300,7 @@ class TestScoreAllProperties:
             {"sqft": [1500, 2200], "bedrooms": [3, 4]},
             index=pd.Index([1, 2], name="property_id"),
         )
-        mock_assemble.return_value = features
+        mock_load_features.return_value = features
 
         from pricepoint.models.inference import score_all_properties
 
@@ -323,14 +323,14 @@ class TestScoreAllProperties:
         assert second_val.confidence_low == 322000.0  # 350000 - 350000*0.08
         assert second_val.confidence_high == 378000.0  # 350000 + 350000*0.08
 
-    @patch("pricepoint.models.inference.assemble_features")
+    @patch("pricepoint.models.inference.load_feature_matrix")
     @patch("pricepoint.models.inference.get_model_metrics")
     @patch("pricepoint.models.inference.load_production_model")
     def test_updates_existing_valuations(
         self,
         mock_load: MagicMock,
         mock_metrics: MagicMock,
-        mock_assemble: MagicMock,
+        mock_load_features: MagicMock,
     ) -> None:
         from pricepoint.models.inference import ModelInfo
 
@@ -349,7 +349,7 @@ class TestScoreAllProperties:
             {"sqft": [2000]},
             index=pd.Index([5], name="property_id"),
         )
-        mock_assemble.return_value = features
+        mock_load_features.return_value = features
 
         from pricepoint.models.inference import score_all_properties
 
@@ -364,12 +364,14 @@ class TestScoreAllProperties:
         db.commit.assert_called_once()
 
     @patch("pricepoint.models.inference.assemble_features")
+    @patch("pricepoint.models.inference.load_feature_matrix")
     @patch("pricepoint.models.inference.get_model_metrics")
     @patch("pricepoint.models.inference.load_production_model")
     def test_returns_zero_when_features_empty(
         self,
         mock_load: MagicMock,
         mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
         mock_assemble: MagicMock,
     ) -> None:
         from pricepoint.models.inference import ModelInfo
@@ -378,6 +380,7 @@ class TestScoreAllProperties:
         mock_metrics.return_value = {}
         db = MagicMock()
         db.execute.return_value.fetchall.return_value = [(1,)]
+        mock_load_features.return_value = pd.DataFrame()
         mock_assemble.return_value = pd.DataFrame()
 
         from pricepoint.models.inference import score_all_properties
@@ -385,14 +388,14 @@ class TestScoreAllProperties:
         result = score_all_properties(db)
         assert result == 0
 
-    @patch("pricepoint.models.inference.assemble_features")
+    @patch("pricepoint.models.inference.load_feature_matrix")
     @patch("pricepoint.models.inference.get_model_metrics")
     @patch("pricepoint.models.inference.load_production_model")
     def test_handles_metrics_fetch_failure(
         self,
         mock_load: MagicMock,
         mock_metrics: MagicMock,
-        mock_assemble: MagicMock,
+        mock_load_features: MagicMock,
     ) -> None:
         """When get_model_metrics raises, scoring continues with 10% fallback."""
         from pricepoint.models.inference import ModelInfo
@@ -410,7 +413,7 @@ class TestScoreAllProperties:
             {"sqft": [1800]},
             index=pd.Index([10], name="property_id"),
         )
-        mock_assemble.return_value = features
+        mock_load_features.return_value = features
 
         from pricepoint.models.inference import score_all_properties
 

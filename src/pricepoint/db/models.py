@@ -1563,6 +1563,31 @@ class DataRequest(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class PropertyFeature(Base):
+    """Persisted feature matrix row for a single property.
+
+    Stores the assembled feature vector as JSONB so downstream consumers
+    (model training, SHAP API, batch scoring) can read features without
+    re-running the full feature engineering pipeline.
+    """
+
+    __tablename__ = "property_features"
+    __table_args__ = (Index("ix_property_features_computed_at", "computed_at"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(
+        Integer,
+        ForeignKey("redfin_listings.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    features = Column(JSON, nullable=False)
+    feature_hash = Column(String, nullable=False)
+    computed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class ApiKey(Base):
     """API key for programmatic access."""
 

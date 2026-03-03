@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from pricepoint.db.models import PropertyValuation
 from pricepoint.features.assembly import assemble_features
+from pricepoint.features.store import load_feature_matrix
 from pricepoint.models.registry import MODEL_NAME
 
 logger = logging.getLogger(__name__)
@@ -244,8 +245,11 @@ def score_all_properties(db: Session) -> int:
         logger.warning("No properties with location found; skipping batch scoring")
         return 0
 
-    logger.info("Assembling features for %d properties", len(property_ids))
-    features = assemble_features(db, property_ids=property_ids)
+    logger.info("Loading features for %d properties", len(property_ids))
+    features = load_feature_matrix(db, property_ids=property_ids)
+    if features.empty:
+        logger.info("No stored features; falling back to assembly")
+        features = assemble_features(db, property_ids=property_ids)
 
     if features.empty:
         logger.warning("Feature matrix is empty; skipping batch scoring")

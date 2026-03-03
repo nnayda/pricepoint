@@ -1,16 +1,22 @@
-"""DAG: Transform raw data into model-ready features."""
+"""DAG: Transform raw data into model-ready features.
+
+Triggered when new Redfin listings land.  Assembles the full feature
+matrix and persists it to ``property_features`` so downstream DAGs
+(model training, batch scoring) can read features without recomputing.
+"""
 
 from datetime import datetime, timedelta
 
 from airflow.sdk import Asset, dag, task
 
+LISTINGS_DATASET = Asset("redfin_listings")
 FEATURES_READY = Asset("feature_matrix")
 
 
 @dag(
     dag_id="feature_engineering",
     description="Transform raw data into model-ready feature matrices",
-    schedule="@daily",
+    schedule=[LISTINGS_DATASET],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -72,17 +78,20 @@ def feature_engineering():
 
     @task(outlets=[FEATURES_READY])
     def assemble_feature_matrix():
-        """Join all feature sets into a single training matrix."""
+        """Join all feature sets into a single training matrix and persist."""
         import logging
 
         from pricepoint.db.engine import SessionLocal
         from pricepoint.features.assembly import assemble_features
+        from pricepoint.features.store import save_feature_matrix
 
         logger = logging.getLogger(__name__)
         db = SessionLocal()
         try:
             df = assemble_features(db)
             logger.info("Assembled feature matrix shape: %s", df.shape)
+            saved = save_feature_matrix(db, df)
+            logger.info("Persisted %d feature rows to property_features", saved)
         finally:
             db.close()
 

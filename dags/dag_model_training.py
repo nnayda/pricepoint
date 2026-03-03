@@ -5,8 +5,7 @@ Runs after feature engineering completes.
 
 from datetime import datetime, timedelta
 
-from airflow.sdk import Asset, dag, task
-
+from airflow.sdk import dag, task
 from dag_feature_engineering import FEATURES_READY
 
 
@@ -33,12 +32,12 @@ def model_training():
         import pandas as pd
 
         from pricepoint.db.engine import SessionLocal
-        from pricepoint.features.assembly import assemble_features
+        from pricepoint.features.store import load_feature_matrix
         from pricepoint.models.training import train_model
 
         db = SessionLocal()
         try:
-            features: pd.DataFrame = assemble_features(db)
+            features: pd.DataFrame = load_feature_matrix(db)
         finally:
             db.close()
 
@@ -63,12 +62,12 @@ def model_training():
         import pandas as pd
 
         from pricepoint.db.engine import SessionLocal
-        from pricepoint.features.assembly import assemble_features
+        from pricepoint.features.store import load_feature_matrix
         from pricepoint.models.validation import cross_validate
 
         db = SessionLocal()
         try:
-            features: pd.DataFrame = assemble_features(db)
+            features: pd.DataFrame = load_feature_matrix(db)
         finally:
             db.close()
 
@@ -87,12 +86,12 @@ def model_training():
         import pandas as pd
 
         from pricepoint.db.engine import SessionLocal
-        from pricepoint.features.assembly import assemble_features
+        from pricepoint.features.store import load_feature_matrix
         from pricepoint.models.evaluation import evaluate_model
 
         db = SessionLocal()
         try:
-            features: pd.DataFrame = assemble_features(db)
+            features: pd.DataFrame = load_feature_matrix(db)
         finally:
             db.close()
 

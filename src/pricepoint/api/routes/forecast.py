@@ -110,9 +110,16 @@ def _build_features_for_property(
     db: Session,
     property_id: int,
 ) -> "pd.DataFrame":  # noqa: F821
-    """Assemble features for a single property."""
+    """Load persisted features for a property, falling back to assembly."""
     import pandas as pd
 
+    from pricepoint.features.store import load_single_property_features
+
+    features = load_single_property_features(db, property_id)
+    if not features.empty:
+        return features
+
+    # Fallback: compute on-the-fly for properties not yet in the store
     from pricepoint.features.assembly import assemble_features
 
     features = assemble_features(db, property_ids=[property_id])
