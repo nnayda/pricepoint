@@ -12,11 +12,10 @@ from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
-import shap
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from pricepoint.db.models import PropertyValuation
+from pricepoint.db.models import PropertyShapValue, PropertyValuation
 from pricepoint.features.assembly import assemble_features
 from pricepoint.features.store import load_feature_matrix
 from pricepoint.models.registry import MODEL_NAME
@@ -190,6 +189,8 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
         expected = list(expected_features)
         numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
 
+    import shap
+
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(numeric_df)
 
@@ -204,6 +205,103 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
     # Sort by absolute impact descending
     results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
     return results
+
+
+def compute_shap_values_batch(
+    model: Any, features_df: pd.DataFrame
+) -> tuple[list[list[dict[str, object]]], float | None]:
+    """Compute SHAP values for an entire batch of properties at once.
+
+    Uses ``shap.TreeExplainer`` which is optimised for batch computation
+    via C-level tree traversal.
+
+    Parameters
+    ----------
+    model : fitted model
+        A tree-based model.
+    features_df : pd.DataFrame
+        Feature matrix for multiple properties (N rows).
+
+    Returns
+    -------
+    tuple[list[list[dict[str, object]]], float | None]
+        ``(per_property_shap_list, base_value)`` — each element is a list
+        of ``{"feature": str, "shap_value": float}`` sorted by absolute
+        impact descending.  ``base_value`` is the explainer's
+        ``expected_value`` (average prediction).
+    """
+    numeric_df = features_df.select_dtypes(include="number")
+    expected_features = getattr(model, "feature_names_in_", None)
+    if expected_features is not None:
+        expected = list(expected_features)
+        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+
+    import shap
+
+    explainer = shap.TreeExplainer(model)
+    shap_matrix = explainer.shap_values(numeric_df)  # (n_samples, n_features)
+
+    # Extract base value (expected_value may be scalar or 1-element array)
+    raw_ev = getattr(explainer, "expected_value", None)
+    if raw_ev is not None:
+        base_value = float(raw_ev[0]) if isinstance(raw_ev, np.ndarray) else float(raw_ev)
+    else:
+        base_value = None
+
+    feature_names = list(numeric_df.columns)
+    all_results: list[list[dict[str, object]]] = []
+
+    for row_idx in range(len(numeric_df)):
+        row_values = shap_matrix[row_idx]
+        results: list[dict[str, object]] = [
+            {"feature": name, "shap_value": float(val)}
+            for name, val in zip(feature_names, row_values, strict=True)
+        ]
+        results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
+        all_results.append(results)
+
+    return all_results, base_value
+
+
+def _persist_shap_values(
+    db: Session,
+    scored_ids: list[int],
+    shap_results: list[list[dict[str, object]]],
+    base_value: float | None,
+    model_version: str,
+) -> int:
+    """Upsert precomputed SHAP values into the property_shap_values table.
+
+    Returns the number of rows upserted.
+    """
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    now = datetime.now(tz=UTC)
+    rows = [
+        {
+            "property_id": int(prop_id),
+            "model_version": model_version,
+            "shap_values": shap_list,
+            "base_value": base_value,
+            "computed_at": now,
+        }
+        for prop_id, shap_list in zip(scored_ids, shap_results, strict=True)
+    ]
+
+    if not rows:
+        return 0
+
+    stmt = pg_insert(PropertyShapValue).values(rows)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_property_shap_prop_version",
+        set_={
+            "shap_values": stmt.excluded.shap_values,
+            "base_value": stmt.excluded.base_value,
+            "computed_at": stmt.excluded.computed_at,
+        },
+    )
+    db.execute(stmt)
+    return len(rows)
 
 
 def score_all_properties(db: Session) -> int:
@@ -261,6 +359,14 @@ def score_all_properties(db: Session) -> int:
 
     predictions = predict_batch(model, features)
 
+    # Batch SHAP computation (best-effort, non-blocking)
+    try:
+        shap_results, base_value = compute_shap_values_batch(model, features)
+    except Exception:
+        logger.error("Batch SHAP computation failed; skipping SHAP persistence", exc_info=True)
+        shap_results = None
+        base_value = None
+
     # Upsert predictions into property_valuations
     now = datetime.now(tz=UTC)
     scored_ids = features.index.tolist()
@@ -297,5 +403,18 @@ def score_all_properties(db: Session) -> int:
             db.add(valuation)
 
     db.commit()
+
+    # Persist SHAP values after valuations are safely committed
+    if shap_results is not None:
+        try:
+            shap_count = _persist_shap_values(
+                db, scored_ids, shap_results, base_value, model_version
+            )
+            db.commit()
+            logger.info("Persisted SHAP values for %d properties", shap_count)
+        except Exception:
+            logger.error("Failed to persist SHAP values; rolling back", exc_info=True)
+            db.rollback()
+
     logger.info("Scored %d properties", len(scored_ids))
     return len(scored_ids)

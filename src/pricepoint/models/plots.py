@@ -36,22 +36,27 @@ def generate_evaluation_plots(
 
     preds = {"y_true": y_true, "y_pred": y_pred}
     generators = [
-        ("feature_importance.png", _plot_feature_importance,
-         {"feature_importance": feature_importance}),
+        (
+            "feature_importance.png",
+            _plot_feature_importance,
+            {"feature_importance": feature_importance},
+        ),
         ("actual_vs_predicted.png", _plot_actual_vs_predicted, preds),
         ("residuals_vs_predicted.png", _plot_residuals_vs_predicted, preds),
         ("residuals_distribution.png", _plot_residuals_distribution, preds),
-        ("cv_fold_comparison.png", _plot_cv_fold_comparison,
-         {"cv_metrics": cv_metrics}),
-        ("shap_summary.png", _plot_shap_summary,
-         {"model": model, "x_test": x_test}),
-        ("partial_dependence.png", _plot_partial_dependence,
-         {"model": model, "x_test": x_test,
-          "feature_importance": feature_importance}),
-        ("shap_force.png", _plot_shap_force,
-         {"model": model, "x_test": x_test, "y_pred": y_pred}),
-        ("learning_curves.png", _plot_learning_curves,
-         {"model": model, "x_test": x_test, "y_true": y_true}),
+        ("cv_fold_comparison.png", _plot_cv_fold_comparison, {"cv_metrics": cv_metrics}),
+        ("shap_summary.png", _plot_shap_summary, {"model": model, "x_test": x_test}),
+        (
+            "partial_dependence.png",
+            _plot_partial_dependence,
+            {"model": model, "x_test": x_test, "feature_importance": feature_importance},
+        ),
+        ("shap_force.png", _plot_shap_force, {"model": model, "x_test": x_test, "y_pred": y_pred}),
+        (
+            "learning_curves.png",
+            _plot_learning_curves,
+            {"model": model, "x_test": x_test, "y_true": y_true},
+        ),
     ]
 
     for filename, func, kwargs in generators:
@@ -117,8 +122,12 @@ def _plot_actual_vs_predicted(
     r2 = r2_score(y_true, y_pred)
     bbox = {"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5}
     ax.annotate(
-        f"R² = {r2:.4f}", xy=(0.05, 0.95), xycoords="axes fraction",
-        fontsize=12, verticalalignment="top", bbox=bbox,
+        f"R² = {r2:.4f}",
+        xy=(0.05, 0.95),
+        xycoords="axes fraction",
+        fontsize=12,
+        verticalalignment="top",
+        bbox=bbox,
     )
 
     ax.set_xlabel("Actual")
@@ -185,13 +194,22 @@ def _plot_residuals_distribution(
 
     ax.axvline(mean_r, color="red", linestyle="--", linewidth=1.5, label=f"Mean: {mean_r:,.0f}")
     ax.axvline(
-        median_r, color="blue", linestyle="--", linewidth=1.5,
+        median_r,
+        color="blue",
+        linestyle="--",
+        linewidth=1.5,
         label=f"Median: {median_r:,.0f}",
     )
 
-    ax.annotate(f"Std: {std_r:,.0f}", xy=(0.95, 0.95), xycoords="axes fraction", fontsize=11,
-                horizontalalignment="right", verticalalignment="top",
-                bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5})
+    ax.annotate(
+        f"Std: {std_r:,.0f}",
+        xy=(0.95, 0.95),
+        xycoords="axes fraction",
+        fontsize=11,
+        horizontalalignment="right",
+        verticalalignment="top",
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
+    )
 
     ax.set_xlabel("Residual")
     ax.set_ylabel("Frequency")
@@ -238,8 +256,14 @@ def _plot_cv_fold_comparison(
     bars = ax.bar(x, means, yerr=stds, capsize=5, color="#9C27B0", alpha=0.8, edgecolor="black")
 
     for bar, mean, std in zip(bars, means, stds, strict=True):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + std + 0.01 * abs(max(means)),
-                f"{mean:.2f}\n(+/-{std:.2f})", ha="center", va="bottom", fontsize=9)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + std + 0.01 * abs(max(means)),
+            f"{mean:.2f}\n(+/-{std:.2f})",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
 
     ax.set_xticks(x)
     ax.set_xticklabels(metric_names)
@@ -312,15 +336,21 @@ def _plot_partial_dependence(
     sample = x_test.sample(n=min(len(x_test), _LEARNING_CURVE_MAX_ROWS), random_state=42)
 
     fig, axes = plt.subplots(
-        nrows=2, ncols=3, figsize=(18, 10),
+        nrows=2,
+        ncols=3,
+        figsize=(18, 10),
         constrained_layout=True,
     )
     # Pad with None if fewer than 6 features
     flat_axes = axes.flatten()
 
     PartialDependenceDisplay.from_estimator(
-        model, sample, top_features, ax=flat_axes[:len(top_features)],
-        kind="average", grid_resolution=50,
+        model,
+        sample,
+        top_features,
+        ax=flat_axes[: len(top_features)],
+        kind="average",
+        grid_resolution=50,
     )
 
     # Hide unused axes
@@ -408,8 +438,17 @@ def _plot_learning_curves(
         x_sample = x_test
         y_sample = y_true
 
+    # Clone model without early_stopping_rounds so sklearn's learning_curve
+    # can fit without requiring eval_set.
+    from sklearn.base import clone
+
+    lc_model = clone(model)
+    lc_model.set_params(early_stopping_rounds=None)
+
     train_sizes, train_scores, val_scores = learning_curve(
-        model, x_sample, y_sample,
+        lc_model,
+        x_sample,
+        y_sample,
         cv=5,
         scoring="r2",
         train_sizes=np.linspace(0.1, 1.0, 8),
@@ -423,12 +462,18 @@ def _plot_learning_curves(
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.fill_between(
-        train_sizes, train_mean - train_std, train_mean + train_std,
-        alpha=0.1, color="blue",
+        train_sizes,
+        train_mean - train_std,
+        train_mean + train_std,
+        alpha=0.1,
+        color="blue",
     )
     ax.fill_between(
-        train_sizes, val_mean - val_std, val_mean + val_std,
-        alpha=0.1, color="orange",
+        train_sizes,
+        val_mean - val_std,
+        val_mean + val_std,
+        alpha=0.1,
+        color="orange",
     )
     ax.plot(train_sizes, train_mean, "o-", color="blue", label="Training score")
     ax.plot(train_sizes, val_mean, "o-", color="orange", label="Validation score")

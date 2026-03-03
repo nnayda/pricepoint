@@ -40,6 +40,7 @@ dependencies = [
     "scipy>=1.17.0",
     "shap>=0.43,<1",
     "matplotlib>=3.8,<4",
+    "optuna>=4.0,<5",
 ]
 
 [project.optional-dependencies]

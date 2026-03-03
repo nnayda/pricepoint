@@ -33,7 +33,7 @@ TEST_SIZE = 0.2
 MAX_NAN_FRACTION = 0.5
 
 
-def _prepare_features(features: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.Series]:
+def prepare_features(features: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.Series]:
     """Separate target from features and clean the data.
 
     Drops columns that are >50% NaN and non-numeric columns.
@@ -96,12 +96,15 @@ def train_model(
     XGBRegressor
         The fitted model object.
     """
-    x, y = _prepare_features(features, target_col)
+    x, y = prepare_features(features, target_col)
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=TEST_SIZE, random_state=42)
 
     model_params = {**DEFAULT_PARAMS, **(params or {})}
-    model = XGBRegressor(**model_params)
+    model = XGBRegressor(
+        early_stopping_rounds=EARLY_STOPPING_ROUNDS,
+        **model_params,
+    )
 
     logger.info(
         "Training XGBoost with %d samples (%d train, %d test), %d features",

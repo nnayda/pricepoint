@@ -218,7 +218,8 @@ class TestForecastCaching:
 class TestFeatureImportance:
     """Tests for GET /api/forecast/importance/{property_id}."""
 
-    def test_returns_stub_when_mlflow_unavailable(self, client):
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_returns_stub_when_mlflow_unavailable(self, _mock_precomputed, client):
         """Falls back to stub importances when no model is available."""
         resp = client.get("/api/forecast/importance/1")
         assert resp.status_code == 200
@@ -226,7 +227,8 @@ class TestFeatureImportance:
         assert isinstance(data, list)
         assert len(data) == 13  # 10 positive + 3 negative from stub
 
-    def test_stub_response_has_correct_schema(self, client):
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_stub_response_has_correct_schema(self, _mock_precomputed, client):
         """Each attribution has feature, display_name, impact_dollars, group."""
         resp = client.get("/api/forecast/importance/1")
         data = resp.json()
@@ -238,7 +240,8 @@ class TestFeatureImportance:
             assert "group" in item
             assert item["group"] in ("Property", "Location", "Economic", "Other")
 
-    def test_stub_contains_positive_and_negative(self, client):
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_stub_contains_positive_and_negative(self, _mock_precomputed, client):
         """Stub data includes both positive and negative impacts."""
         resp = client.get("/api/forecast/importance/1")
         data = resp.json()
@@ -247,7 +250,8 @@ class TestFeatureImportance:
         assert len(positives) > 0
         assert len(negatives) > 0
 
-    def test_display_names_match_mapping(self, client):
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_display_names_match_mapping(self, _mock_precomputed, client):
         """Display names should come from FEATURE_DISPLAY_NAMES."""
         resp = client.get("/api/forecast/importance/1")
         data = resp.json()
@@ -262,10 +266,11 @@ class TestFeatureImportance:
             index=[42],
         ),
     )
-    @patch("pricepoint.models.inference.shap")
+    @patch("shap.TreeExplainer")
     @patch("pricepoint.models.inference.load_production_model")
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
     def test_returns_shap_values_when_model_available(
-        self, mock_load, mock_shap, mock_features, client
+        self, _mock_precomputed, mock_load, mock_tree_explainer, mock_features, client
     ):
         """When MLflow model is available, return per-instance SHAP values."""
         from pricepoint.models.inference import ModelInfo
@@ -276,7 +281,7 @@ class TestFeatureImportance:
 
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = np.array([[25000.0, -8000.0, 3000.0]])
-        mock_shap.TreeExplainer.return_value = mock_explainer
+        mock_tree_explainer.return_value = mock_explainer
 
         resp = client.get("/api/forecast/importance/42")
         assert resp.status_code == 200
@@ -293,7 +298,10 @@ class TestFeatureImportance:
         return_value=pd.DataFrame(),
     )
     @patch("pricepoint.models.inference.load_production_model")
-    def test_falls_back_to_stub_when_features_empty(self, mock_load, mock_features, client):
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_falls_back_to_stub_when_features_empty(
+        self, _mock_precomputed, mock_load, mock_features, client
+    ):
         """When feature engineering returns empty DF, fall back to stub."""
         from pricepoint.models.inference import ModelInfo
 
@@ -309,3 +317,146 @@ class TestFeatureImportance:
         """Non-integer property_id returns 422."""
         resp = client.get("/api/forecast/importance/abc")
         assert resp.status_code == 422
+
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap")
+    def test_returns_precomputed_when_available(self, mock_precomputed, client):
+        """When precomputed SHAP exists, return it directly (no model load)."""
+        from pricepoint.api.schemas.forecast import FeatureAttribution
+
+        mock_precomputed.return_value = [
+            FeatureAttribution(
+                feature="sqft",
+                display_name="Sqft",
+                impact_dollars=25000.0,
+                group="Property",
+            ),
+            FeatureAttribution(
+                feature="crime_count_1km_1yr",
+                display_name="Crime density (1km)",
+                impact_dollars=-12000.0,
+                group="Location",
+            ),
+        ]
+
+        resp = client.get("/api/forecast/importance/42")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert data[0]["feature"] == "sqft"
+        assert data[0]["impact_dollars"] == 25000.0
+        assert data[1]["feature"] == "crime_count_1km_1yr"
+
+    @patch(
+        "pricepoint.api.routes.forecast._build_features_for_property",
+        return_value=pd.DataFrame(
+            {"feat_a": [2.0], "feat_b": [3.0]},
+            index=[42],
+        ),
+    )
+    @patch("shap.TreeExplainer")
+    @patch("pricepoint.models.inference.load_production_model")
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap", return_value=None)
+    def test_falls_back_to_ondemand_when_no_precomputed(
+        self, mock_precomputed, mock_load, mock_tree_explainer, mock_features, client
+    ):
+        """When no precomputed SHAP, falls back to on-demand computation."""
+        from pricepoint.models.inference import ModelInfo
+
+        mock_model = MagicMock()
+        mock_model.feature_names_in_ = np.array(["feat_a", "feat_b"])
+        mock_load.return_value = ModelInfo(model=mock_model, version="1", run_id="run-1")
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[15000.0, -6000.0]])
+        mock_tree_explainer.return_value = mock_explainer
+
+        resp = client.get("/api/forecast/importance/42")
+        assert resp.status_code == 200
+        data = resp.json()
+        features = {d["feature"]: d["impact_dollars"] for d in data}
+        assert features["feat_a"] == 15000.0
+        assert features["feat_b"] == -6000.0
+
+    @patch("pricepoint.api.routes.forecast._load_precomputed_shap")
+    def test_precomputed_error_falls_through_to_stub(self, mock_precomputed, client):
+        """When precomputed load raises and model unavailable, return stubs."""
+        mock_precomputed.side_effect = Exception("DB error")
+
+        resp = client.get("/api/forecast/importance/99")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 13  # Stub data
+
+
+class TestShapListToAttributions:
+    """Tests for _shap_list_to_attributions helper."""
+
+    def test_filters_top_10_positive_and_negative(self):
+        from pricepoint.api.routes.forecast import _shap_list_to_attributions
+
+        shap_list = [{"feature": f"pos_{i}", "shap_value": float(1000 * (i + 1))} for i in range(15)]
+        shap_list += [
+            {"feature": f"neg_{i}", "shap_value": float(-1000 * (i + 1))} for i in range(15)
+        ]
+
+        results = _shap_list_to_attributions(shap_list)
+
+        positives = [r for r in results if r.impact_dollars > 0]
+        negatives = [r for r in results if r.impact_dollars < 0]
+        assert len(positives) == 10
+        assert len(negatives) == 10
+
+    def test_applies_display_names_and_groups(self):
+        from pricepoint.api.routes.forecast import _shap_list_to_attributions
+
+        shap_list = [
+            {"feature": "dist_nearest_school_m", "shap_value": 5000.0},
+            {"feature": "crime_count_1km_1yr", "shap_value": -3000.0},
+        ]
+
+        results = _shap_list_to_attributions(shap_list)
+
+        by_feature = {r.feature: r for r in results}
+        assert by_feature["dist_nearest_school_m"].display_name == "School proximity"
+        assert by_feature["dist_nearest_school_m"].group == "Location"
+        assert by_feature["crime_count_1km_1yr"].display_name == "Crime density (1km)"
+        assert by_feature["crime_count_1km_1yr"].group == "Location"
+
+    def test_rounds_impact_dollars(self):
+        from pricepoint.api.routes.forecast import _shap_list_to_attributions
+
+        shap_list = [{"feature": "sqft", "shap_value": 12345.6789}]
+        results = _shap_list_to_attributions(shap_list)
+        assert results[0].impact_dollars == 12345.68
+
+
+class TestLoadPrecomputedShap:
+    """Tests for _load_precomputed_shap."""
+
+    def test_returns_none_when_no_record(self, mock_db):
+        from pricepoint.api.routes.forecast import _load_precomputed_shap
+
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            None
+        )
+
+        result = _load_precomputed_shap(42, mock_db)
+        assert result is None
+
+    def test_returns_attributions_from_db(self, mock_db):
+        from pricepoint.api.routes.forecast import _load_precomputed_shap
+
+        record = MagicMock()
+        record.shap_values = [
+            {"feature": "sqft", "shap_value": 25000.0},
+            {"feature": "bedrooms", "shap_value": -5000.0},
+        ]
+        mock_db.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
+            record
+        )
+
+        result = _load_precomputed_shap(42, mock_db)
+        assert result is not None
+        assert len(result) == 2
+        assert result[0].feature == "sqft"
+        assert result[0].impact_dollars == 25000.0

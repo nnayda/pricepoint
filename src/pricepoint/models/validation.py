@@ -11,7 +11,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold
 from xgboost import XGBRegressor
 
-from pricepoint.models.training import DEFAULT_PARAMS, MAX_NAN_FRACTION
+from pricepoint.models.training import DEFAULT_PARAMS, prepare_features
 
 logger = logging.getLogger(__name__)
 
@@ -41,26 +41,7 @@ def cross_validate(
     dict
         Mean and std of MAE, RMSE, R² across folds.
     """
-    if target_col not in features.columns:
-        msg = f"Target column '{target_col}' not found in DataFrame"
-        raise ValueError(msg)
-
-    y = features[target_col].copy()
-    x = features.drop(columns=[target_col])
-
-    # Drop non-numeric columns
-    x = x.select_dtypes(include="number")
-
-    # Drop columns with >50% NaN
-    nan_fractions = x.isna().mean()
-    high_nan_cols = nan_fractions[nan_fractions > MAX_NAN_FRACTION].index.tolist()
-    if high_nan_cols:
-        x = x.drop(columns=high_nan_cols)
-
-    # Drop rows where target is NaN
-    valid_mask = y.notna()
-    x = x.loc[valid_mask]
-    y = y.loc[valid_mask]
+    x, y = prepare_features(features, target_col)
 
     model_params = {**DEFAULT_PARAMS, **(params or {})}
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)

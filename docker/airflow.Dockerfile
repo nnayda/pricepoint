@@ -32,7 +32,10 @@ RUN pip install --no-cache-dir \
     "rasterio>=1.3,<2" \
     "scipy>=1.11,<2" \
     "scikit-learn>=1.5,<2" \
-    "xgboost>=2.0,<3"
+    "xgboost>=2.0,<3" \
+    "optuna>=4.0,<5" \
+    "shap>=0.43,<1" \
+    "matplotlib>=3.8,<4"
 
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/

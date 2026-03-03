@@ -430,7 +430,7 @@ class TestScoreAllProperties:
 class TestComputeShapValues:
     """Tests for compute_shap_values."""
 
-    @patch("pricepoint.models.inference.shap")
+    @patch("shap.TreeExplainer")
     def test_returns_sorted_shap_values(self, mock_shap: MagicMock) -> None:
         from pricepoint.models.inference import compute_shap_values
 
@@ -445,7 +445,7 @@ class TestComputeShapValues:
         # Mock TreeExplainer to return known SHAP values
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = np.array([[25000.0, -5000.0, 8000.0]])
-        mock_shap.TreeExplainer.return_value = mock_explainer
+        mock_shap.return_value = mock_explainer
 
         result = compute_shap_values(model, features)
 
@@ -458,7 +458,7 @@ class TestComputeShapValues:
         assert result[2]["feature"] == "bedrooms"
         assert result[2]["shap_value"] == -5000.0
 
-    @patch("pricepoint.models.inference.shap")
+    @patch("shap.TreeExplainer")
     def test_aligns_columns_to_model_features(self, mock_shap: MagicMock) -> None:
         from pricepoint.models.inference import compute_shap_values
 
@@ -473,7 +473,7 @@ class TestComputeShapValues:
 
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = np.array([[20000.0, 5000.0]])
-        mock_shap.TreeExplainer.return_value = mock_explainer
+        mock_shap.return_value = mock_explainer
 
         result = compute_shap_values(model, features)
 
@@ -481,7 +481,7 @@ class TestComputeShapValues:
         features_returned = {r["feature"] for r in result}
         assert features_returned == {"sqft", "lot_size"}
 
-    @patch("pricepoint.models.inference.shap")
+    @patch("shap.TreeExplainer")
     def test_handles_model_without_feature_names(self, mock_shap: MagicMock) -> None:
         from pricepoint.models.inference import compute_shap_values
 
@@ -494,7 +494,7 @@ class TestComputeShapValues:
 
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = np.array([[10000.0, -3000.0]])
-        mock_shap.TreeExplainer.return_value = mock_explainer
+        mock_shap.return_value = mock_explainer
 
         result = compute_shap_values(model, features)
 
@@ -503,3 +503,278 @@ class TestComputeShapValues:
         assert result[0]["shap_value"] == 10000.0
         assert result[1]["feature"] == "bedrooms"
         assert result[1]["shap_value"] == -3000.0
+
+
+class TestComputeShapValuesBatch:
+    """Tests for compute_shap_values_batch."""
+
+    @patch("shap.TreeExplainer")
+    def test_returns_shap_for_multiple_properties(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values_batch
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["sqft", "bedrooms"])
+
+        features = pd.DataFrame(
+            {"sqft": [1500.0, 2000.0, 2500.0], "bedrooms": [3.0, 4.0, 5.0]},
+            index=[1, 2, 3],
+        )
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array(
+            [[25000.0, -5000.0], [30000.0, -8000.0], [40000.0, -12000.0]]
+        )
+        mock_explainer.expected_value = 300000.0
+        mock_shap.return_value = mock_explainer
+
+        results, base_value = compute_shap_values_batch(model, features)
+
+        assert len(results) == 3
+        assert base_value == 300000.0
+        # Each row should have 2 features
+        for row in results:
+            assert len(row) == 2
+
+    @patch("shap.TreeExplainer")
+    def test_each_property_sorted_by_abs_impact(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values_batch
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["a", "b", "c"])
+
+        features = pd.DataFrame(
+            {"a": [1.0], "b": [2.0], "c": [3.0]},
+            index=[1],
+        )
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[1000.0, -5000.0, 3000.0]])
+        mock_explainer.expected_value = 200000.0
+        mock_shap.return_value = mock_explainer
+
+        results, _ = compute_shap_values_batch(model, features)
+
+        # Should be sorted by absolute value: b(-5000), c(3000), a(1000)
+        assert results[0][0]["feature"] == "b"
+        assert results[0][1]["feature"] == "c"
+        assert results[0][2]["feature"] == "a"
+
+    @patch("shap.TreeExplainer")
+    def test_returns_base_value_from_array(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values_batch
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["sqft"])
+
+        features = pd.DataFrame({"sqft": [1500.0]}, index=[1])
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[5000.0]])
+        mock_explainer.expected_value = np.array([250000.0])
+        mock_shap.return_value = mock_explainer
+
+        _, base_value = compute_shap_values_batch(model, features)
+
+        assert base_value == 250000.0
+
+    @patch("shap.TreeExplainer")
+    def test_aligns_columns_to_model_features(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values_batch
+
+        model = MagicMock()
+        model.feature_names_in_ = np.array(["sqft", "lot_size"])
+
+        features = pd.DataFrame(
+            {"sqft": [1500.0], "extra_col": [42.0], "lot_size": [0.25]},
+            index=[1],
+        )
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[20000.0, 5000.0]])
+        mock_explainer.expected_value = 300000.0
+        mock_shap.return_value = mock_explainer
+
+        results, _ = compute_shap_values_batch(model, features)
+
+        feature_names = {r["feature"] for r in results[0]}
+        assert feature_names == {"sqft", "lot_size"}
+        assert "extra_col" not in feature_names
+
+    @patch("shap.TreeExplainer")
+    def test_handles_model_without_feature_names(self, mock_shap: MagicMock) -> None:
+        from pricepoint.models.inference import compute_shap_values_batch
+
+        model = MagicMock(spec=[])  # No feature_names_in_
+
+        features = pd.DataFrame({"sqft": [1500.0], "bedrooms": [3.0]}, index=[1])
+
+        mock_explainer = MagicMock()
+        mock_explainer.shap_values.return_value = np.array([[10000.0, -3000.0]])
+        mock_explainer.expected_value = 200000.0
+        mock_shap.return_value = mock_explainer
+
+        results, base_value = compute_shap_values_batch(model, features)
+
+        assert len(results) == 1
+        assert len(results[0]) == 2
+        assert base_value == 200000.0
+
+
+class TestPersistShapValues:
+    """Tests for _persist_shap_values."""
+
+    def test_returns_zero_for_empty_input(self) -> None:
+        from pricepoint.models.inference import _persist_shap_values
+
+        db = MagicMock()
+        result = _persist_shap_values(db, [], [], None, "1")
+        assert result == 0
+        db.execute.assert_not_called()
+
+    def test_upserts_shap_values(self) -> None:
+        from pricepoint.models.inference import _persist_shap_values
+
+        db = MagicMock()
+        scored_ids = [1, 2]
+        shap_results = [
+            [{"feature": "sqft", "shap_value": 25000.0}],
+            [{"feature": "sqft", "shap_value": 30000.0}],
+        ]
+
+        result = _persist_shap_values(db, scored_ids, shap_results, 300000.0, "5")
+
+        assert result == 2
+        db.execute.assert_called_once()
+
+    def test_handles_none_base_value(self) -> None:
+        from pricepoint.models.inference import _persist_shap_values
+
+        db = MagicMock()
+        result = _persist_shap_values(
+            db, [1], [[{"feature": "sqft", "shap_value": 10000.0}]], None, "3"
+        )
+        assert result == 1
+        db.execute.assert_called_once()
+
+
+class TestScoreAllPropertiesShap:
+    """Tests for SHAP integration in score_all_properties."""
+
+    @patch("pricepoint.models.inference._persist_shap_values")
+    @patch("pricepoint.models.inference.compute_shap_values_batch")
+    @patch("pricepoint.models.inference.load_feature_matrix")
+    @patch("pricepoint.models.inference.get_model_metrics")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_computes_and_persists_shap(
+        self,
+        mock_load: MagicMock,
+        mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
+        mock_shap_batch: MagicMock,
+        mock_persist: MagicMock,
+    ) -> None:
+        from pricepoint.models.inference import ModelInfo
+
+        model = MagicMock()
+        model.predict.return_value = np.array([250000.0])
+        mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
+        mock_metrics.return_value = {"mape": 8.0}
+
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = [(1,)]
+        db.query.return_value.filter.return_value.first.return_value = None
+
+        features = pd.DataFrame(
+            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
+        )
+        mock_load_features.return_value = features
+
+        shap_data = [[{"feature": "sqft", "shap_value": 25000.0}]]
+        mock_shap_batch.return_value = (shap_data, 300000.0)
+        mock_persist.return_value = 1
+
+        from pricepoint.models.inference import score_all_properties
+
+        result = score_all_properties(db)
+
+        assert result == 1
+        mock_shap_batch.assert_called_once_with(model, features)
+        mock_persist.assert_called_once_with(db, [1], shap_data, 300000.0, "5")
+
+    @patch("pricepoint.models.inference.compute_shap_values_batch")
+    @patch("pricepoint.models.inference.load_feature_matrix")
+    @patch("pricepoint.models.inference.get_model_metrics")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_scoring_succeeds_when_shap_fails(
+        self,
+        mock_load: MagicMock,
+        mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
+        mock_shap_batch: MagicMock,
+    ) -> None:
+        from pricepoint.models.inference import ModelInfo
+
+        model = MagicMock()
+        model.predict.return_value = np.array([250000.0])
+        mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
+        mock_metrics.return_value = {"mape": 8.0}
+
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = [(1,)]
+        db.query.return_value.filter.return_value.first.return_value = None
+
+        features = pd.DataFrame(
+            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
+        )
+        mock_load_features.return_value = features
+
+        # SHAP computation raises
+        mock_shap_batch.side_effect = RuntimeError("SHAP failed")
+
+        from pricepoint.models.inference import score_all_properties
+
+        result = score_all_properties(db)
+
+        # Scoring should still succeed
+        assert result == 1
+        db.add.assert_called_once()
+
+    @patch("pricepoint.models.inference._persist_shap_values")
+    @patch("pricepoint.models.inference.compute_shap_values_batch")
+    @patch("pricepoint.models.inference.load_feature_matrix")
+    @patch("pricepoint.models.inference.get_model_metrics")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_shap_persist_failure_doesnt_block(
+        self,
+        mock_load: MagicMock,
+        mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
+        mock_shap_batch: MagicMock,
+        mock_persist: MagicMock,
+    ) -> None:
+        from pricepoint.models.inference import ModelInfo
+
+        model = MagicMock()
+        model.predict.return_value = np.array([250000.0])
+        mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
+        mock_metrics.return_value = {"mape": 8.0}
+
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = [(1,)]
+        db.query.return_value.filter.return_value.first.return_value = None
+
+        features = pd.DataFrame(
+            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
+        )
+        mock_load_features.return_value = features
+
+        mock_shap_batch.return_value = ([[{"feature": "sqft", "shap_value": 25000.0}]], 300000.0)
+        mock_persist.side_effect = Exception("DB error")
+
+        from pricepoint.models.inference import score_all_properties
+
+        result = score_all_properties(db)
+
+        # Scoring should still succeed even though SHAP persist failed
+        assert result == 1
+        db.rollback.assert_called_once()

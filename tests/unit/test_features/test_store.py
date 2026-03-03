@@ -127,7 +127,7 @@ class TestSaveFeatureMatrix:
         db.commit.assert_not_called()
 
     @patch("pricepoint.features.store.pg_insert")
-    def test_excludes_sold_price_from_features(self, mock_pg_insert: MagicMock) -> None:
+    def test_includes_sold_price_in_features(self, mock_pg_insert: MagicMock) -> None:
         from pricepoint.features.store import save_feature_matrix
 
         df = pd.DataFrame(
@@ -148,8 +148,34 @@ class TestSaveFeatureMatrix:
         db = MagicMock()
         save_feature_matrix(db, df)
 
-        assert "sold_price" not in captured_values[0]["features"]
-        assert "sqft" in captured_values[0]["features"]
+        assert captured_values[0]["features"]["sold_price"] == 300000.0
+        assert captured_values[0]["features"]["sqft"] == 1500.0
+
+    @patch("pricepoint.features.store.pg_insert")
+    def test_excludes_sold_price_from_feature_hash(self, mock_pg_insert: MagicMock) -> None:
+        """Feature hash should not change when sold_price values differ."""
+        from pricepoint.features.store import _feature_hash, save_feature_matrix
+
+        df = pd.DataFrame(
+            {"sqft": [1500.0], "sold_price": [300000.0]},
+            index=pd.Index([10], name="property_id"),
+        )
+
+        captured_values: list = []
+        mock_insert_obj = MagicMock()
+
+        mock_insert_obj.values.side_effect = lambda rows: (
+            captured_values.extend(rows) or mock_insert_obj
+        )
+        mock_insert_obj.on_conflict_do_update.return_value = mock_insert_obj
+        mock_insert_obj.excluded = MagicMock()
+        mock_pg_insert.return_value = mock_insert_obj
+
+        db = MagicMock()
+        save_feature_matrix(db, df)
+
+        expected_hash = _feature_hash(["sqft"])
+        assert captured_values[0]["feature_hash"] == expected_hash
 
 
 class TestLoadFeatureMatrix:

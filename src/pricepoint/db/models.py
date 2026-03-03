@@ -1588,6 +1588,33 @@ class PropertyFeature(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class PropertyShapValue(Base):
+    """Precomputed SHAP feature attributions for a property prediction.
+
+    Stores per-feature SHAP values (dollar contributions) computed during
+    batch scoring.  The API reads from this table instead of computing
+    SHAP on-the-fly, falling back to on-demand computation when no
+    precomputed values exist for the requested property.
+    """
+
+    __tablename__ = "property_shap_values"
+    __table_args__ = (
+        UniqueConstraint("property_id", "model_version", name="uq_property_shap_prop_version"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    property_id = Column(
+        Integer,
+        ForeignKey("redfin_listings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    model_version = Column(String, nullable=False)
+    shap_values = Column(JSON, nullable=False)
+    base_value = Column(Float, nullable=True)
+    computed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class ApiKey(Base):
     """API key for programmatic access."""
 

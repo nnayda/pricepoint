@@ -294,17 +294,79 @@ async def forecast(
     return response
 
 
+def _shap_list_to_attributions(
+    shap_list: list[dict[str, object]],
+) -> list[FeatureAttribution]:
+    """Convert raw SHAP dicts to FeatureAttribution objects.
+
+    Takes top 10 positive and top 10 negative contributors.
+    """
+    positive = [r for r in shap_list if float(r["shap_value"]) > 0][:10]
+    negative = [r for r in shap_list if float(r["shap_value"]) < 0][:10]
+
+    results: list[FeatureAttribution] = []
+    for entry in positive + negative:
+        name = str(entry["feature"])
+        display = FEATURE_DISPLAY_NAMES.get(name, name.replace("_", " ").title())
+        group = FEATURE_GROUPS.get(name, "Other")
+        results.append(
+            FeatureAttribution(
+                feature=name,
+                display_name=display,
+                impact_dollars=round(float(entry["shap_value"]), 2),
+                group=group,
+            )
+        )
+    return results
+
+
+def _load_precomputed_shap(
+    property_id: int,
+    db: Session,
+) -> list[FeatureAttribution] | None:
+    """Load precomputed SHAP values from the database.
+
+    Returns ``None`` if no precomputed values exist for this property.
+    """
+    from pricepoint.db.models import PropertyShapValue
+
+    record = (
+        db.query(PropertyShapValue)
+        .filter(PropertyShapValue.property_id == property_id)
+        .order_by(PropertyShapValue.computed_at.desc())
+        .first()
+    )
+    if record is None:
+        return None
+
+    shap_list: list[dict[str, object]] = record.shap_values  # type: ignore[assignment]
+    return _shap_list_to_attributions(shap_list)
+
+
 def _load_feature_importances(
     property_id: int,
     db: Session,
 ) -> list[FeatureAttribution]:
-    """Compute per-instance SHAP values for a property prediction.
+    """Load SHAP-based feature attributions for a property prediction.
 
-    Attempts to load the production model from MLflow and compute
-    true Shapley values using ``shap.TreeExplainer``.  Each value
-    represents the feature's dollar contribution to the prediction.
-    Falls back to a predefined stub when the model is unavailable.
+    Priority:
+    1. Precomputed SHAP values from property_shap_values table
+    2. On-demand SHAP computation via TreeExplainer
+    3. Stub importances (hardcoded fallback)
     """
+    # 1. Try precomputed values first (fast path)
+    try:
+        precomputed = _load_precomputed_shap(property_id, db)
+        if precomputed is not None:
+            return precomputed
+    except Exception:
+        logger.warning(
+            "Failed to load precomputed SHAP for property %d",
+            property_id,
+            exc_info=True,
+        )
+
+    # 2. Fall back to on-demand SHAP computation
     try:
         from pricepoint.models.inference import compute_shap_values, load_production_model
 
@@ -314,35 +376,15 @@ def _load_feature_importances(
 
         model = info.model
 
-        # Build features for this property
         features = _build_features_for_property(db, property_id)
         if features.empty:
             raise ValueError("No features available")
 
-        # Drop target column if present
         if "sold_price" in features.columns:
             features = features.drop(columns=["sold_price"])
 
         shap_results = compute_shap_values(model, features)
-
-        # Take top 10 positive and top 10 negative
-        positive = [r for r in shap_results if float(r["shap_value"]) > 0][:10]
-        negative = [r for r in shap_results if float(r["shap_value"]) < 0][:10]
-
-        results: list[FeatureAttribution] = []
-        for entry in positive + negative:
-            name = str(entry["feature"])
-            display = FEATURE_DISPLAY_NAMES.get(name, name.replace("_", " ").title())
-            group = FEATURE_GROUPS.get(name, "Other")
-            results.append(
-                FeatureAttribution(
-                    feature=name,
-                    display_name=display,
-                    impact_dollars=round(float(entry["shap_value"]), 2),
-                    group=group,
-                )
-            )
-        return results
+        return _shap_list_to_attributions(shap_results)
 
     except Exception:
         logger.info(
@@ -350,7 +392,7 @@ def _load_feature_importances(
             exc_info=True,
         )
 
-    # Fallback: return stub importances
+    # 3. Fallback: return stub importances
     return [
         FeatureAttribution(
             feature=str(entry["feature"]),

@@ -59,13 +59,14 @@ def save_feature_matrix(db: Session, df: pd.DataFrame) -> int:
         logger.warning("Empty feature matrix — nothing to save")
         return 0
 
-    feature_cols = [c for c in df.columns if c != "sold_price"]
+    all_cols = list(df.columns)
+    feature_cols = [c for c in all_cols if c != "sold_price"]
     fhash = _feature_hash(feature_cols)
     now = datetime.now(tz=UTC)
 
     rows: list[dict] = []
     for property_id, row in df.iterrows():
-        features_dict = {col: _sanitize_value(row[col]) for col in feature_cols}
+        features_dict = {col: _sanitize_value(row[col]) for col in all_cols}
         rows.append(
             {
                 "property_id": int(property_id),

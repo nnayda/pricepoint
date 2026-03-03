@@ -1,4 +1,4 @@
-"""DAG: Train, validate, and register the forecasting model.
+"""DAG: Tune, train, validate, and register the forecasting model.
 
 Runs after feature engineering completes.
 """
@@ -11,7 +11,7 @@ from dag_feature_engineering import FEATURES_READY
 
 @dag(
     dag_id="model_training",
-    description="Train, validate, evaluate, and register the home value model",
+    description="Tune, train, validate, evaluate, and register the home value model",
     schedule=(FEATURES_READY,),
     start_date=datetime(2024, 1, 1),
     catchup=False,
@@ -25,7 +25,45 @@ from dag_feature_engineering import FEATURES_READY
 def model_training():
 
     @task()
-    def train() -> dict:
+    def tune() -> dict:
+        """Run Bayesian hyperparameter tuning with Optuna."""
+        import pandas as pd
+
+        from pricepoint.config.settings import get_settings
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.store import load_feature_matrix
+
+        settings = get_settings()
+
+        if not settings.tuning_enabled:
+            return {"best_params": None, "skipped": True}
+
+        db = SessionLocal()
+        try:
+            features: pd.DataFrame = load_feature_matrix(db)
+        finally:
+            db.close()
+
+        from pricepoint.models.tuning import tune_hyperparameters
+
+        result = tune_hyperparameters(
+            features=features,
+            n_trials=settings.tuning_n_trials,
+            timeout=settings.tuning_timeout_seconds,
+            n_cv_folds=settings.tuning_cv_folds,
+            early_stopping_rounds=settings.tuning_early_stopping_rounds,
+            log_to_mlflow=True,
+        )
+
+        return {
+            "best_params": result.best_params,
+            "best_score": result.best_score,
+            "n_trials": result.n_trials,
+            "skipped": False,
+        }
+
+    @task()
+    def train(tune_output: dict) -> dict:
         """Train the forecasting model."""
         import pickle
 
@@ -41,7 +79,8 @@ def model_training():
         finally:
             db.close()
 
-        model = train_model(features=features)
+        best_params = tune_output.get("best_params")
+        model = train_model(features=features, params=best_params)
         model_bytes = pickle.dumps(model)
 
         # Build a small input example for MLflow signature inference
@@ -57,7 +96,7 @@ def model_training():
         }
 
     @task()
-    def validate(train_output: dict) -> dict:
+    def validate(train_output: dict, tune_output: dict) -> dict:
         """Run cross-validation on the trained model."""
         import pandas as pd
 
@@ -71,7 +110,8 @@ def model_training():
         finally:
             db.close()
 
-        cv_metrics = cross_validate(features=features)
+        best_params = tune_output.get("best_params")
+        cv_metrics = cross_validate(features=features, params=best_params)
 
         return {
             "cv_metrics": cv_metrics,
@@ -113,13 +153,19 @@ def model_training():
         if y_pred is not None:
             result["_y_pred"] = y_pred.tolist()
         if x_test is not None:
-            result["_x_test_values"] = x_test.values.tolist()
+            # Replace NaN with None for JSON serialization (XCom)
+            result["_x_test_values"] = x_test.fillna(0.0).values.tolist()
             result["_x_test_columns"] = list(x_test.columns)
 
         return result
 
     @task()
-    def register_model(validate_output: dict, evaluate_output: dict, train_output: dict) -> str:
+    def register_model(
+        validate_output: dict,
+        evaluate_output: dict,
+        train_output: dict,
+        tune_output: dict,
+    ) -> str:
         """Log model and metrics to MLflow; promote if improved."""
         import pickle
 
@@ -135,6 +181,13 @@ def model_training():
             **validate_output.get("cv_metrics", {}),
             **evaluate_output.get("eval_metrics", {}),
         }
+
+        # Add tuning metrics if available
+        if not tune_output.get("skipped"):
+            if tune_output.get("best_score") is not None:
+                metrics["tuning_best_mae"] = tune_output["best_score"]
+            if tune_output.get("n_trials") is not None:
+                metrics["tuning_n_trials"] = tune_output["n_trials"]
 
         # Reconstruct prediction arrays for plot generation
         if "_y_true" in evaluate_output:
@@ -157,12 +210,13 @@ def model_training():
         )
         return run_id
 
-    train_step = train()
-    validate_step = validate(train_step)
+    tune_step = tune()
+    train_step = train(tune_step)
+    validate_step = validate(train_step, tune_step)
     evaluate_step = evaluate(train_step)
-    register_step = register_model(validate_step, evaluate_step, train_step)
+    register_step = register_model(validate_step, evaluate_step, train_step, tune_step)
 
-    train_step >> [validate_step, evaluate_step] >> register_step
+    tune_step >> train_step >> [validate_step, evaluate_step] >> register_step
 
 
 model_training()

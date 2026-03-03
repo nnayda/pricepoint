@@ -195,6 +195,13 @@ class Settings(BaseSettings):
     redfin_s3_archive_prefix: str = "redfin/archive"
     redfin_s3_photos_prefix: str = "redfin/photos"
 
+    # Hyperparameter tuning
+    tuning_enabled: bool = True
+    tuning_n_trials: int = 50
+    tuning_cv_folds: int = 3
+    tuning_timeout_seconds: int = 3600
+    tuning_early_stopping_rounds: int = 50
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
