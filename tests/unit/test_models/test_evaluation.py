@@ -46,6 +46,19 @@ class TestEvaluateModel:
         # On training data, R² should be high
         assert metrics["r2"] > 0.9
 
+    def test_prediction_arrays_included(self, trained_model_and_data) -> None:
+        model, df = trained_model_and_data
+        metrics = evaluate_model(model=model, test_features=df)
+        assert "_y_true" in metrics
+        assert "_y_pred" in metrics
+        assert "_x_test" in metrics
+        import numpy as np
+
+        assert isinstance(metrics["_y_true"], np.ndarray)
+        assert isinstance(metrics["_y_pred"], np.ndarray)
+        assert isinstance(metrics["_x_test"], pd.DataFrame)
+        assert len(metrics["_y_true"]) == len(metrics["_y_pred"])
+
     def test_missing_target_raises(self, trained_model_and_data) -> None:
         model, df = trained_model_and_data
         with pytest.raises(ValueError, match="Target column"):

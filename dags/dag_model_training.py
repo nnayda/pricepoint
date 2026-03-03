@@ -99,16 +99,32 @@ def model_training():
         model = pickle.loads(bytes.fromhex(train_output["model_pickle_hex"]))  # noqa: S301
         eval_metrics = evaluate_model(model=model, test_features=features)
 
-        return {
+        # Extract arrays for downstream plot generation (not JSON-serializable as-is)
+        y_true = eval_metrics.pop("_y_true", None)
+        y_pred = eval_metrics.pop("_y_pred", None)
+        x_test = eval_metrics.pop("_x_test", None)
+
+        result: dict = {
             "eval_metrics": eval_metrics,
             "model_pickle_hex": train_output["model_pickle_hex"],
         }
+
+        if y_true is not None:
+            result["_y_true"] = y_true.tolist()
+        if y_pred is not None:
+            result["_y_pred"] = y_pred.tolist()
+        if x_test is not None:
+            result["_x_test_values"] = x_test.values.tolist()
+            result["_x_test_columns"] = list(x_test.columns)
+
+        return result
 
     @task()
     def register_model(validate_output: dict, evaluate_output: dict, train_output: dict) -> str:
         """Log model and metrics to MLflow; promote if improved."""
         import pickle
 
+        import numpy as np
         import pandas as pd
 
         from pricepoint.models.registry import log_model
@@ -116,10 +132,21 @@ def model_training():
         model = pickle.loads(  # noqa: S301
             bytes.fromhex(validate_output["model_pickle_hex"])
         )
-        metrics = {
+        metrics: dict = {
             **validate_output.get("cv_metrics", {}),
             **evaluate_output.get("eval_metrics", {}),
         }
+
+        # Reconstruct prediction arrays for plot generation
+        if "_y_true" in evaluate_output:
+            metrics["_y_true"] = np.array(evaluate_output["_y_true"], dtype=np.float64)
+        if "_y_pred" in evaluate_output:
+            metrics["_y_pred"] = np.array(evaluate_output["_y_pred"], dtype=np.float64)
+        if "_x_test_values" in evaluate_output and "_x_test_columns" in evaluate_output:
+            metrics["_x_test"] = pd.DataFrame(
+                evaluate_output["_x_test_values"],
+                columns=evaluate_output["_x_test_columns"],
+            )
 
         input_example = pd.DataFrame(train_output.get("input_example", {}))
 

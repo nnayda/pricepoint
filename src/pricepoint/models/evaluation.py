@@ -108,4 +108,9 @@ def evaluate_model(
         metrics["mape"],
     )
 
+    # Attach arrays for downstream plot generation (filtered out by registry scalar check)
+    metrics["_y_true"] = y_true_arr
+    metrics["_y_pred"] = y_pred_arr
+    metrics["_x_test"] = x_test
+
     return metrics
