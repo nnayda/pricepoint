@@ -877,6 +877,16 @@ class PropertyGeoLookup(Base):
     risk_max_severity = Column(String, nullable=True)
     risk_types = Column(JSON, nullable=True)
     school_district_geoid = Column(String(7), nullable=True)
+    dist_nearest_school_m = Column(Float, nullable=True)
+    dist_nearest_elementary_m = Column(Float, nullable=True)
+    dist_nearest_middle_m = Column(Float, nullable=True)
+    dist_nearest_high_m = Column(Float, nullable=True)
+    dist_nearest_park_m = Column(Float, nullable=True)
+    dist_nearest_greenway_m = Column(Float, nullable=True)
+    dist_nearest_hospital_m = Column(Float, nullable=True)
+    avg_school_rating = Column(Float, nullable=True)
+    avg_school_drive = Column(Float, nullable=True)
+    in_critical_risk_zone = Column(Boolean, default=False, server_default=text("false"))
     built_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -1613,6 +1623,36 @@ class PropertyShapValue(Base):
     shap_values = Column(JSON, nullable=False)
     base_value = Column(Float, nullable=True)
     computed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PropertyHistoryMetric(Base):
+    """Rolling market metrics aggregated by township and month.
+
+    Computes avg days on market, median sale price, and sample counts
+    at 1-month, 3-month, and 1-year rolling windows.  Township is
+    identified by county_subdivision_geoid from property_geo_lookups.
+    """
+
+    __tablename__ = "property_history_metrics"
+    __table_args__ = (
+        UniqueConstraint("township_geoid", "metric_month", name="uq_phm_township_month"),
+        Index("ix_phm_township", "township_geoid"),
+        Index("ix_phm_month", "metric_month"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    township_geoid = Column(String(10), nullable=False)
+    metric_month = Column(Date, nullable=False)
+    avg_days_on_market_1m = Column(Float, nullable=True)
+    avg_days_on_market_3m = Column(Float, nullable=True)
+    avg_days_on_market_1y = Column(Float, nullable=True)
+    median_sale_price_1m = Column(Float, nullable=True)
+    median_sale_price_3m = Column(Float, nullable=True)
+    median_sale_price_1y = Column(Float, nullable=True)
+    sample_count_1m = Column(Integer, nullable=True)
+    sample_count_3m = Column(Integer, nullable=True)
+    sample_count_1y = Column(Integer, nullable=True)
+    built_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class ApiKey(Base):

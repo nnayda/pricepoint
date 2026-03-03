@@ -90,7 +90,7 @@ class TestModelTrainingDag:
 
     def test_task_count(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_model_training.py")
-        assert _count_task_decorators(tree) == 5
+        assert _count_task_decorators(tree) == 6
 
     def test_uses_dataset_schedule_not_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_model_training.py")
@@ -260,6 +260,23 @@ class TestWakeSubdivisionCollectionDag:
 
     def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_wake_subdivision_collection.py")
+        assert not _has_external_task_sensor(tree)
+
+
+class TestPropertyHistoryMetricsDag:
+    """Validate the property_history_metrics DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_property_history_metrics.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "property_history_metrics"
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_property_history_metrics.py")
+        assert _count_task_decorators(tree) == 2
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_property_history_metrics.py")
         assert not _has_external_task_sensor(tree)
 
 

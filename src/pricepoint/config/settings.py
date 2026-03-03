@@ -202,6 +202,10 @@ class Settings(BaseSettings):
     tuning_timeout_seconds: int = 3600
     tuning_early_stopping_rounds: int = 50
 
+    # Model promotion
+    model_auto_promote: bool = True
+    model_primary_metric: str = "mae"  # "mae", "rmse", "mape", "r2"
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 

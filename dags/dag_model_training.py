@@ -166,7 +166,7 @@ def model_training():
         train_output: dict,
         tune_output: dict,
     ) -> str:
-        """Log model and metrics to MLflow; promote if improved."""
+        """Log model and metrics to MLflow."""
         import pickle
 
         import numpy as np
@@ -210,13 +210,27 @@ def model_training():
         )
         return run_id
 
+    @task()
+    def promote(run_id: str) -> dict:
+        """Compare new model against champion and promote if better."""
+        from pricepoint.config.settings import get_settings
+        from pricepoint.models.registry import compare_and_promote
+
+        settings = get_settings()
+        return compare_and_promote(
+            run_id=run_id,
+            primary_metric=settings.model_primary_metric,
+            auto_promote=settings.model_auto_promote,
+        )
+
     tune_step = tune()
     train_step = train(tune_step)
     validate_step = validate(train_step, tune_step)
     evaluate_step = evaluate(train_step)
     register_step = register_model(validate_step, evaluate_step, train_step, tune_step)
+    promote_step = promote(register_step)
 
-    tune_step >> train_step >> [validate_step, evaluate_step] >> register_step
+    tune_step >> train_step >> [validate_step, evaluate_step] >> register_step >> promote_step
 
 
 model_training()

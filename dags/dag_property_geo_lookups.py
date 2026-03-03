@@ -1,8 +1,10 @@
 """DAG: Build property geographic lookup table.
 
-Auto-triggered after Redfin transform produces new listings.  Precomputes
-geographic containment (census tract, block group, county subdivision, noise
-zone, risk zone, school district) for every property with a location.
+Auto-triggered after Redfin transform produces new listings or after
+property_schools is built.  Precomputes geographic containment (census tract,
+block group, county subdivision, noise zone, risk zone, school district) and
+distance metrics (nearest school, park, greenway, hospital) plus school
+averages for every property with a location.
 """
 
 import logging
@@ -15,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 @dag(
     dag_id="property_geo_lookups",
-    description="Precompute geographic containment lookups for properties",
-    schedule=[Asset("redfin_listings")],
+    description="Precompute geographic containment and distance metric lookups for properties",
+    schedule=[Asset("redfin_listings"), Asset("property_schools")],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
