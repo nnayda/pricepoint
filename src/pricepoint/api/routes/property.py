@@ -14,7 +14,6 @@ from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
-from pricepoint.api.routes.forecast import _load_feature_importances
 from pricepoint.api.schemas.property import (
     ClimateRisk,
     ComparableProperty,
@@ -223,13 +222,6 @@ def _build_response_from_db(
                 )
             )
 
-    # Compute per-instance SHAP feature attributions
-    try:
-        feature_attributions = _load_feature_importances(prop.id, db)
-    except Exception:
-        logger.warning("Feature attribution computation failed for property %d", prop.id)
-        feature_attributions = []
-
     return PropertyResponse(
         listing_id=prop.id,
         property=PropertyDetails(
@@ -300,7 +292,6 @@ def _build_response_from_db(
             if llm_score and llm_score.quality_score is not None
             else None
         ),
-        feature_attributions=feature_attributions,
     )
 
 

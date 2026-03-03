@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import DashboardLayout from "../components/dashboard/DashboardLayout";
 import DataRequestBanner from "../components/DataRequestBanner";
 import { useDemographics } from "../hooks/useDemographics";
+import { useFeatureAttributions } from "../hooks/useFeatureAttributions";
 import {
   useNeighborhoodProperties,
   useNeighborhoodValuation,
@@ -23,6 +24,7 @@ function PropertyDashboardPage() {
   const decodedAddress = address ? decodeURIComponent(address) : null;
 
   const { data, loading, notFound, error } = usePropertyLookup(lat, lon, decodedAddress);
+  const { data: shapData } = useFeatureAttributions(data?.listing_id ?? null);
   const { data: demoApi } = useDemographics(lat, lon);
   const { data: neighborhoodVal } = useNeighborhoodValuation(lat, lon);
   const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
@@ -74,8 +76,19 @@ function PropertyDashboardPage() {
     if (neighborhoodProps && neighborhoodProps.properties.length > 0) {
       result = { ...result, neighborhood_properties: neighborhoodProps.properties };
     }
+    if (shapData && shapData.length > 0) {
+      result = {
+        ...result,
+        shap_features: shapData.map((fa) => ({
+          feature: fa.feature,
+          display_name: fa.display_name,
+          impact_dollars: fa.impact_dollars,
+          group: fa.group ?? "Other",
+        })),
+      };
+    }
     return result;
-  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory, neighborhoodProps]);
+  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory, neighborhoodProps, shapData]);
 
   if (loading) {
     return (

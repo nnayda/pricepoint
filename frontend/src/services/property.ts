@@ -3,6 +3,7 @@ import type {
   DataRequestCreate,
   DataRequestResponse,
   DemographicsApiResponse,
+  FeatureAttribution,
   GreenspaceResponse,
   NeighborhoodPropertiesResponse,
   NeighborhoodValuationHistory,
@@ -128,6 +129,15 @@ export async function getNeighborhoodProperties(
   const { data } = await client.get<NeighborhoodPropertiesResponse>(
     "/api/neighborhood/valuation/properties",
     { params: { lat, lon } },
+  );
+  return data;
+}
+
+export async function getFeatureAttributions(
+  propertyId: number,
+): Promise<FeatureAttribution[]> {
+  const { data } = await client.get<FeatureAttribution[]>(
+    `/api/forecast/importance/${propertyId}`,
   );
   return data;
 }
