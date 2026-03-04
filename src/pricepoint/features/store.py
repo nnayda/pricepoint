@@ -129,6 +129,14 @@ def load_feature_matrix(
         data.append(row)
 
     df = pd.DataFrame(data).set_index("property_id")
+
+    # Restore categorical dtypes for known categorical columns
+    from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+    for col in CATEGORICAL_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].astype("category")
+
     logger.info("Loaded %d feature rows (%d columns)", len(df), len(df.columns))
     return df
 

@@ -123,7 +123,7 @@ class TestPredictBatch:
         assert len(result) == 3
         np.testing.assert_array_equal(result, [100000.0, 200000.0, 300000.0])
 
-    def test_drops_non_numeric_columns(self) -> None:
+    def test_drops_raw_string_columns(self) -> None:
         from pricepoint.models.inference import predict_batch
 
         model = MagicMock()
@@ -137,11 +137,31 @@ class TestPredictBatch:
 
         predict_batch(model, features)
 
-        # Model should only receive numeric columns
+        # Model should only receive numeric columns (city is raw string)
         called_df = model.predict.call_args[0][0]
         assert "city" not in called_df.columns
         assert "sqft" in called_df.columns
         assert "bedrooms" in called_df.columns
+
+    def test_keeps_categorical_columns(self) -> None:
+        from pricepoint.models.inference import predict_batch
+
+        model = MagicMock()
+        model.predict.return_value = np.array([150000.0])
+        model.feature_names_in_ = None
+
+        features = pd.DataFrame(
+            {
+                "sqft": [1500],
+                "parking_type": pd.Categorical(["Attached"]),
+            },
+            index=[1],
+        )
+
+        predict_batch(model, features)
+
+        called_df = model.predict.call_args[0][0]
+        assert "parking_type" in called_df.columns
 
     def test_aligns_columns_to_model_features(self) -> None:
         from pricepoint.models.inference import predict_batch
@@ -684,9 +704,7 @@ class TestScoreAllPropertiesShap:
         db.execute.return_value.fetchall.return_value = [(1,)]
         db.query.return_value.filter.return_value.first.return_value = None
 
-        features = pd.DataFrame(
-            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
-        )
+        features = pd.DataFrame({"sqft": [1500]}, index=pd.Index([1], name="property_id"))
         mock_load_features.return_value = features
 
         shap_data = [[{"feature": "sqft", "shap_value": 25000.0}]]
@@ -723,9 +741,7 @@ class TestScoreAllPropertiesShap:
         db.execute.return_value.fetchall.return_value = [(1,)]
         db.query.return_value.filter.return_value.first.return_value = None
 
-        features = pd.DataFrame(
-            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
-        )
+        features = pd.DataFrame({"sqft": [1500]}, index=pd.Index([1], name="property_id"))
         mock_load_features.return_value = features
 
         # SHAP computation raises
@@ -763,9 +779,7 @@ class TestScoreAllPropertiesShap:
         db.execute.return_value.fetchall.return_value = [(1,)]
         db.query.return_value.filter.return_value.first.return_value = None
 
-        features = pd.DataFrame(
-            {"sqft": [1500]}, index=pd.Index([1], name="property_id")
-        )
+        features = pd.DataFrame({"sqft": [1500]}, index=pd.Index([1], name="property_id"))
         mock_load_features.return_value = features
 
         mock_shap_batch.return_value = ([[{"feature": "sqft", "shap_value": 25000.0}]], 300000.0)

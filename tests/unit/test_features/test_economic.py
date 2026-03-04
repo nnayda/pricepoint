@@ -154,19 +154,18 @@ class TestBuildRow:
         for yoy_col in YOY_FEATURES.values():
             assert yoy_col in row
 
+    def test_nc_unemployment_not_in_series(self) -> None:
+        """NC unemployment rate should have been removed from SERIES_IDS."""
+        assert "unemployment_rate_nc" not in SERIES_IDS
+
     def test_yoy_computed_correctly(self) -> None:
         """When current=110 and yoy=100, pct should be 10.0."""
         db = MagicMock()
-        # We need to return different values for current vs yoy lookups.
-        # current lookup returns 110, yoy lookup returns 100.
         call_count = {"n": 0}
 
         def side_effect(*_args, **_kwargs):
             call_count["n"] += 1
             result = MagicMock()
-            # Odd calls are "current" lookups, even are "yoy" lookups
-            # But the pattern is: for each feature, one current lookup,
-            # and for yoy features an additional yoy lookup.
             result.fetchone.return_value = (100.0,)
             return result
 

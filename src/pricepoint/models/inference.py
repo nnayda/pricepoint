@@ -138,25 +138,32 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
     np.ndarray
         Predicted values, one per row.
     """
-    # Keep only numeric columns
-    numeric_df = features_df.select_dtypes(include="number")
+    from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+    # Keep numeric and category columns
+    usable_df = features_df.select_dtypes(include=["number", "category"])
 
     # Align columns to model's expected features to avoid mismatch errors
     # when the feature pipeline has added/removed columns since training.
     expected_features = getattr(model, "feature_names_in_", None)
     if expected_features is not None:
         expected = list(expected_features)
-        extra = set(numeric_df.columns) - set(expected)
-        missing = set(expected) - set(numeric_df.columns)
+        extra = set(usable_df.columns) - set(expected)
+        missing = set(expected) - set(usable_df.columns)
         if extra:
             logger.warning(
                 "Dropping %d features not in trained model: %s", len(extra), sorted(extra)
             )
         if missing:
             logger.warning("Adding %d missing features as NaN: %s", len(missing), sorted(missing))
-        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+        usable_df = usable_df.reindex(columns=expected, fill_value=np.nan)
 
-    predictions = model.predict(numeric_df)
+    # Re-cast categorical columns after reindex
+    for col in CATEGORICAL_COLUMNS:
+        if col in usable_df.columns:
+            usable_df[col] = usable_df[col].astype("category")
+
+    predictions = model.predict(usable_df)
     logger.info("Generated %d predictions", len(predictions))
     return np.asarray(predictions)
 
@@ -182,21 +189,28 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
         ``[{"feature": str, "shap_value": float}, ...]`` sorted by
         absolute impact descending.
     """
+    from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
     # Align columns to model's expected features (same logic as predict_batch)
-    numeric_df = features_df.select_dtypes(include="number")
+    usable_df = features_df.select_dtypes(include=["number", "category"])
     expected_features = getattr(model, "feature_names_in_", None)
     if expected_features is not None:
         expected = list(expected_features)
-        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+        usable_df = usable_df.reindex(columns=expected, fill_value=np.nan)
+
+    # Re-cast categorical columns after reindex
+    for col in CATEGORICAL_COLUMNS:
+        if col in usable_df.columns:
+            usable_df[col] = usable_df[col].astype("category")
 
     import shap
 
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(numeric_df)
+    shap_values = explainer.shap_values(usable_df)
 
     # shap_values shape: (n_samples, n_features) — take first row
     row_values = shap_values[0] if len(shap_values.shape) > 1 else shap_values
-    feature_names = list(numeric_df.columns)
+    feature_names = list(usable_df.columns)
 
     results: list[dict[str, object]] = []
     for name, val in zip(feature_names, row_values, strict=True):
@@ -230,16 +244,23 @@ def compute_shap_values_batch(
         impact descending.  ``base_value`` is the explainer's
         ``expected_value`` (average prediction).
     """
-    numeric_df = features_df.select_dtypes(include="number")
+    from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+    usable_df = features_df.select_dtypes(include=["number", "category"])
     expected_features = getattr(model, "feature_names_in_", None)
     if expected_features is not None:
         expected = list(expected_features)
-        numeric_df = numeric_df.reindex(columns=expected, fill_value=np.nan)
+        usable_df = usable_df.reindex(columns=expected, fill_value=np.nan)
+
+    # Re-cast categorical columns after reindex
+    for col in CATEGORICAL_COLUMNS:
+        if col in usable_df.columns:
+            usable_df[col] = usable_df[col].astype("category")
 
     import shap
 
     explainer = shap.TreeExplainer(model)
-    shap_matrix = explainer.shap_values(numeric_df)  # (n_samples, n_features)
+    shap_matrix = explainer.shap_values(usable_df)  # (n_samples, n_features)
 
     # Extract base value (expected_value may be scalar or 1-element array)
     raw_ev = getattr(explainer, "expected_value", None)
@@ -248,10 +269,10 @@ def compute_shap_values_batch(
     else:
         base_value = None
 
-    feature_names = list(numeric_df.columns)
+    feature_names = list(usable_df.columns)
     all_results: list[list[dict[str, object]]] = []
 
-    for row_idx in range(len(numeric_df)):
+    for row_idx in range(len(usable_df)):
         row_values = shap_matrix[row_idx]
         results: list[dict[str, object]] = [
             {"feature": name, "shap_value": float(val)}

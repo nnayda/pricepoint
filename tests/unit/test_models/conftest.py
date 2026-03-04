@@ -10,7 +10,8 @@ def synthetic_df() -> pd.DataFrame:
     """Create a synthetic feature DataFrame for testing.
 
     Generates 200 rows with numeric features that have a rough linear
-    relationship to the target, plus some noise.
+    relationship to the target, plus some noise.  Includes a categorical
+    column (parking_type) to exercise XGBoost categorical support.
     """
     rng = np.random.RandomState(42)
     n = 200
@@ -23,6 +24,9 @@ def synthetic_df() -> pd.DataFrame:
 
     sold_price = 50000 + 150 * sqft + 5000 * bedrooms + 8000 * bathrooms + noise
 
+    parking_choices = ["Attached", "Detached", "Carport", "None"]
+    parking_type = pd.Categorical(rng.choice(parking_choices, n))
+
     return pd.DataFrame(
         {
             "sqft": sqft,
@@ -30,6 +34,7 @@ def synthetic_df() -> pd.DataFrame:
             "bathrooms": bathrooms,
             "lot_size": lot_size,
             "year_built": year_built,
+            "parking_type": parking_type,
             "sold_price": sold_price,
         }
     )
@@ -53,7 +58,11 @@ def synthetic_df_with_nan(synthetic_df: pd.DataFrame) -> pd.DataFrame:
 
 @pytest.fixture()
 def synthetic_df_with_strings(synthetic_df: pd.DataFrame) -> pd.DataFrame:
-    """Synthetic DataFrame with a non-numeric column that should be dropped."""
+    """Synthetic DataFrame with a raw string column that should be dropped.
+
+    The 'parking_type' column (category dtype) should be kept, while the
+    raw 'city' string column should be dropped.
+    """
     df = synthetic_df.copy()
     df["city"] = "Raleigh"
     return df

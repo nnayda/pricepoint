@@ -326,9 +326,10 @@ def _plot_partial_dependence(
     import matplotlib.pyplot as plt
     from sklearn.inspection import PartialDependenceDisplay
 
-    # Get top N features that exist in x_test
+    # Get top N numeric features that exist in x_test (PDP requires numeric)
+    numeric_cols = set(x_test.select_dtypes(include="number").columns)
     sorted_feats = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
-    top_features = [f for f, _ in sorted_feats if f in x_test.columns][:_TOP_PDP_FEATURES]
+    top_features = [f for f, _ in sorted_feats if f in numeric_cols][:_TOP_PDP_FEATURES]
 
     if not top_features:
         return None

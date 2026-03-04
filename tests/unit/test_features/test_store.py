@@ -202,6 +202,21 @@ class TestLoadFeatureMatrix:
         assert result.loc[10, "sqft"] == 1500.0
         assert result.loc[20, "bedrooms"] == 4.0
 
+    def test_casts_categorical_columns(self) -> None:
+        from pricepoint.features.store import load_feature_matrix
+
+        rec = MagicMock()
+        rec.property_id = 10
+        rec.features = {"sqft": 1500.0, "parking_type": "Attached", "facade_type": "Brick"}
+
+        db = MagicMock()
+        db.query.return_value.all.return_value = [rec]
+
+        result = load_feature_matrix(db)
+
+        assert result["parking_type"].dtype.name == "category"
+        assert result["facade_type"].dtype.name == "category"
+
     def test_filters_by_property_ids(self) -> None:
         from pricepoint.features.store import load_feature_matrix
 

@@ -86,7 +86,14 @@ def model_training():
         # Build a small input example for MLflow signature inference
         target_col = "sold_price"
         feature_cols = [c for c in features.columns if c != target_col]
-        input_sample = features[feature_cols].head(3).fillna(0).to_dict(orient="list")
+        sample_df = features[feature_cols].head(3).copy()
+        # Fill NaN: "unknown" for categoricals, 0 for numerics
+        for col in sample_df.columns:
+            if sample_df[col].dtype.name == "category":
+                sample_df[col] = sample_df[col].cat.add_categories("unknown").fillna("unknown")
+            else:
+                sample_df[col] = sample_df[col].fillna(0)
+        input_sample = sample_df.to_dict(orient="list")
 
         return {
             "model_pickle_hex": model_bytes.hex(),

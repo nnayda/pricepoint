@@ -198,7 +198,7 @@ class Settings(BaseSettings):
     # Hyperparameter tuning
     tuning_enabled: bool = True
     tuning_n_trials: int = 50
-    tuning_cv_folds: int = 3
+    tuning_cv_folds: int = 5
     tuning_timeout_seconds: int = 3600
     tuning_early_stopping_rounds: int = 50
 

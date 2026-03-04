@@ -22,7 +22,6 @@ SERIES_IDS: dict[str, str] = {
     "mortgage_rate_15yr": "MORTGAGE15US",
     "cpi": "CPIAUCSL",
     "unemployment_rate_us": "UNRATE",
-    "unemployment_rate_nc": "NCUR",
     "housing_starts": "HOUST",
     "case_shiller_index": "CSUSHPISA",
     "consumer_sentiment": "UMCSENT",

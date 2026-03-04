@@ -17,15 +17,18 @@ logger = logging.getLogger(__name__)
 # Default XGBoost hyperparameters
 DEFAULT_PARAMS: dict[str, Any] = {
     "n_estimators": 500,
-    "max_depth": 6,
-    "learning_rate": 0.05,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "min_child_weight": 3,
-    "reg_alpha": 0.1,
-    "reg_lambda": 1.0,
+    "max_depth": 4,
+    "learning_rate": 0.03,
+    "subsample": 0.7,
+    "colsample_bytree": 0.5,
+    "min_child_weight": 5,
+    "reg_alpha": 0.3,
+    "reg_lambda": 3.0,
+    "gamma": 0.1,
     "random_state": 42,
     "n_jobs": -1,
+    "enable_categorical": True,
+    "tree_method": "hist",
 }
 
 EARLY_STOPPING_ROUNDS = 50
@@ -46,12 +49,19 @@ def prepare_features(features: pd.DataFrame, target_col: str) -> tuple[pd.DataFr
     y = features[target_col].copy()
     x = features.drop(columns=[target_col])
 
-    # Drop non-numeric columns
-    numeric_cols = x.select_dtypes(include="number").columns.tolist()
-    dropped_non_numeric = set(x.columns) - set(numeric_cols)
-    if dropped_non_numeric:
-        logger.info("Dropping non-numeric columns: %s", dropped_non_numeric)
-    x = x[numeric_cols]
+    # Keep numeric and category columns; drop everything else
+    from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+    kept_cols = x.select_dtypes(include=["number", "category"]).columns.tolist()
+    dropped = set(x.columns) - set(kept_cols)
+    if dropped:
+        logger.info("Dropping non-numeric/non-category columns: %s", dropped)
+    x = x[kept_cols]
+
+    # Ensure known categorical columns have category dtype
+    for col in CATEGORICAL_COLUMNS:
+        if col in x.columns:
+            x[col] = x[col].astype("category")
 
     # Drop columns with >50% NaN
     nan_fractions = x.isna().mean()

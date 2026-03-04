@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from pricepoint.models.tuning import TuningResult, tune_hyperparameters
+from pricepoint.models.tuning import FIXED_PARAMS, TuningResult, tune_hyperparameters
 
 
 class TestTuneHyperparameters:
@@ -42,13 +42,13 @@ class TestTuneHyperparameters:
         )
         p = result.best_params
         assert 200 <= p["n_estimators"] <= 1500
-        assert 3 <= p["max_depth"] <= 10
-        assert 0.01 <= p["learning_rate"] <= 0.3
-        assert 0.5 <= p["subsample"] <= 1.0
-        assert 0.3 <= p["colsample_bytree"] <= 1.0
-        assert 1 <= p["min_child_weight"] <= 10
-        assert 1e-3 <= p["reg_alpha"] <= 10.0
-        assert 1e-3 <= p["reg_lambda"] <= 10.0
+        assert 3 <= p["max_depth"] <= 6
+        assert 0.01 <= p["learning_rate"] <= 0.1
+        assert 0.5 <= p["subsample"] <= 0.8
+        assert 0.3 <= p["colsample_bytree"] <= 0.7
+        assert 3 <= p["min_child_weight"] <= 10
+        assert 0.1 <= p["reg_alpha"] <= 10.0
+        assert 1.0 <= p["reg_lambda"] <= 10.0
         assert 0.0 <= p["gamma"] <= 5.0
 
     def test_best_score_is_positive(self, synthetic_df: pd.DataFrame) -> None:
@@ -104,3 +104,7 @@ class TestTuneHyperparameters:
         )
         # Should complete far fewer than 1000 trials
         assert result.n_trials < 1000
+
+    def test_fixed_params_enable_categorical(self) -> None:
+        assert FIXED_PARAMS["enable_categorical"] is True
+        assert FIXED_PARAMS["tree_method"] == "hist"
