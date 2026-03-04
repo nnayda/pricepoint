@@ -53,6 +53,7 @@ def model_training():
             n_cv_folds=settings.tuning_cv_folds,
             early_stopping_rounds=settings.tuning_early_stopping_rounds,
             log_to_mlflow=True,
+            optimization_metric=settings.model_primary_metric,
         )
 
         return {
@@ -80,7 +81,7 @@ def model_training():
             db.close()
 
         best_params = tune_output.get("best_params")
-        model = train_model(features=features, params=best_params)
+        model, test_indices = train_model(features=features, params=best_params)
         model_bytes = pickle.dumps(model)
 
         # Build a small input example for MLflow signature inference
@@ -95,11 +96,22 @@ def model_training():
                 sample_df[col] = sample_df[col].fillna(0)
         input_sample = sample_df.to_dict(orient="list")
 
+        # Compute EDA metrics on cleaned training data
+        from pricepoint.models.eda import compute_eda_metrics
+        from pricepoint.models.selection import select_features
+        from pricepoint.models.training import prepare_features
+
+        x, y = prepare_features(features, target_col, log_transform_target=True)
+        x = select_features(x)
+        eda_metrics = compute_eda_metrics(x, y, log_transformed=True)
+
         return {
             "model_pickle_hex": model_bytes.hex(),
             "feature_columns": feature_cols,
             "input_example": input_sample,
             "n_samples": len(features),
+            "test_indices": test_indices,
+            "eda_metrics": eda_metrics,
         }
 
     @task()
@@ -120,6 +132,11 @@ def model_training():
         best_params = tune_output.get("best_params")
         cv_metrics = cross_validate(features=features, params=best_params)
 
+        # Temporal CV as a diagnostic sanity check
+        temporal_metrics = cross_validate(features=features, params=best_params, temporal=True)
+        for k, v in temporal_metrics.items():
+            cv_metrics[f"temporal_{k}"] = v
+
         return {
             "cv_metrics": cv_metrics,
             "model_pickle_hex": train_output["model_pickle_hex"],
@@ -127,7 +144,7 @@ def model_training():
 
     @task()
     def evaluate(train_output: dict) -> dict:
-        """Evaluate the model on held-out test data."""
+        """Evaluate the model on held-out test data only."""
         import pickle
 
         import pandas as pd
@@ -141,6 +158,12 @@ def model_training():
             features: pd.DataFrame = load_feature_matrix(db)
         finally:
             db.close()
+
+        # Filter to test-set rows only to avoid evaluating on training data
+        test_indices = train_output.get("test_indices")
+        if test_indices:
+            valid = features.index.isin(test_indices)
+            features = features.loc[valid]
 
         model = pickle.loads(bytes.fromhex(train_output["model_pickle_hex"]))  # noqa: S301
         eval_metrics = evaluate_model(model=model, test_features=features)
@@ -189,6 +212,9 @@ def model_training():
             **evaluate_output.get("eval_metrics", {}),
         }
 
+        # Merge EDA metrics (data.* prefix prevents collisions)
+        metrics.update(train_output.get("eda_metrics", {}))
+
         # Add tuning metrics if available
         if not tune_output.get("skipped"):
             if tune_output.get("best_score") is not None:
@@ -209,11 +235,33 @@ def model_training():
 
         input_example = pd.DataFrame(train_output.get("input_example", {}))
 
+        # Reconstruct cleaned feature matrix for EDA plot generation
+        eda_data = None
+        try:
+            from pricepoint.db.engine import SessionLocal
+            from pricepoint.features.store import load_feature_matrix
+            from pricepoint.models.selection import select_features
+            from pricepoint.models.training import prepare_features
+
+            db = SessionLocal()
+            try:
+                features: pd.DataFrame = load_feature_matrix(db)
+            finally:
+                db.close()
+            x, y = prepare_features(features, "sold_price", log_transform_target=True)
+            x = select_features(x)
+            eda_data = (x, y)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning("Failed to load EDA data for plots", exc_info=True)
+
         run_id = log_model(
             model=model,
             metrics=metrics,
             run_name="daily_training",
             input_example=input_example,
+            eda_data=eda_data,
         )
         return run_id
 

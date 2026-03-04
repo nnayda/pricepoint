@@ -36,9 +36,9 @@ class TuningResult:
 
 def _suggest_params(trial: Any) -> dict[str, Any]:
     """Define the Optuna search space for XGBoost hyperparameters."""
-    return {
+    params: dict[str, Any] = {
         "n_estimators": trial.suggest_int("n_estimators", 200, 1500, step=100),
-        "max_depth": trial.suggest_int("max_depth", 3, 6),
+        "max_depth": trial.suggest_int("max_depth", 3, 8),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
         "subsample": trial.suggest_float("subsample", 0.5, 0.8),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.3, 0.7),
@@ -46,7 +46,11 @@ def _suggest_params(trial: Any) -> dict[str, Any]:
         "reg_alpha": trial.suggest_float("reg_alpha", 0.1, 10.0, log=True),
         "reg_lambda": trial.suggest_float("reg_lambda", 1.0, 10.0, log=True),
         "gamma": trial.suggest_float("gamma", 0.0, 5.0),
+        "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
     }
+    if params["grow_policy"] == "lossguide":
+        params["max_leaves"] = trial.suggest_int("max_leaves", 15, 255)
+    return params
 
 
 def tune_hyperparameters(
@@ -58,6 +62,8 @@ def tune_hyperparameters(
     n_cv_folds: int = 3,
     early_stopping_rounds: int = EARLY_STOPPING_ROUNDS,
     log_to_mlflow: bool = True,
+    log_transform_target: bool = True,
+    optimization_metric: str = "mae",
 ) -> TuningResult:
     """Run Bayesian hyperparameter optimization using Optuna.
 
@@ -85,7 +91,7 @@ def tune_hyperparameters(
     """
     import optuna
 
-    x, y = prepare_features(features, target_col)
+    x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
     kf = KFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
     fold_splits = list(kf.split(x))
@@ -113,7 +119,7 @@ def tune_hyperparameters(
             except Exception:
                 logger.debug("MLflow logging failed for trial %d", trial.number)
 
-        mae_scores: list[float] = []
+        fold_scores: list[float] = []
         try:
             for fold_idx, (train_idx, val_idx) in enumerate(fold_splits):
                 x_train, x_val = x.iloc[train_idx], x.iloc[val_idx]
@@ -131,25 +137,38 @@ def tune_hyperparameters(
                 )
 
                 y_pred = model.predict(x_val)
-                fold_mae = float(np.mean(np.abs(y_val - y_pred)))
-                mae_scores.append(fold_mae)
+
+                # Compute metric in dollar-space
+                if log_transform_target:
+                    y_pred_dollar = np.expm1(y_pred)
+                    y_val_dollar = np.expm1(y_val)
+                else:
+                    y_pred_dollar = y_pred
+                    y_val_dollar = y_val
+
+                if optimization_metric == "rmse":
+                    score = float(np.sqrt(np.mean((y_val_dollar - y_pred_dollar) ** 2)))
+                else:
+                    # Default: MAE
+                    score = float(np.mean(np.abs(y_val_dollar - y_pred_dollar)))
+                fold_scores.append(score)
 
                 # Report intermediate value for pruning
-                trial.report(float(np.mean(mae_scores)), fold_idx)
+                trial.report(float(np.mean(fold_scores)), fold_idx)
                 if trial.should_prune():
                     raise optuna.TrialPruned()
 
-            mean_mae = float(np.mean(mae_scores))
+            mean_score = float(np.mean(fold_scores))
 
             if log_to_mlflow and mlflow_child_run is not None:
                 try:
                     import mlflow
 
-                    mlflow.log_metric("cv_mae", mean_mae)
+                    mlflow.log_metric(f"cv_{optimization_metric}", mean_score)
                 except Exception:
                     pass
 
-            return mean_mae
+            return mean_score
         finally:
             if mlflow_child_run is not None:
                 try:
@@ -177,7 +196,7 @@ def tune_hyperparameters(
             import mlflow
 
             mlflow.log_params(study.best_params)
-            mlflow.log_metric("best_cv_mae", study.best_value)
+            mlflow.log_metric(f"best_cv_{optimization_metric}", study.best_value)
             mlflow.log_metric("n_trials_completed", len(study.trials))
             mlflow.end_run()
         except Exception:
@@ -196,7 +215,8 @@ def tune_hyperparameters(
     best_params = {**FIXED_PARAMS, **study.best_params}
 
     logger.info(
-        "Tuning complete: best MAE=%.2f after %d trials",
+        "Tuning complete: best %s=%.2f after %d trials",
+        optimization_metric,
         study.best_value,
         len(study.trials),
     )

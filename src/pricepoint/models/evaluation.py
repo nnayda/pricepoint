@@ -32,6 +32,7 @@ def evaluate_model(
     model: Any,
     test_features: pd.DataFrame,
     target_col: str = "sold_price",
+    segment_col: str | None = "census_tract_geoid",
 ) -> dict[str, Any]:
     """Evaluate a trained model on test data.
 
@@ -56,6 +57,11 @@ def evaluate_model(
     # Drop rows where target is NaN (unsold listings have no ground truth)
     test_features = test_features[test_features[target_col].notna()]
 
+    # Extract segment column before dropping non-numeric columns
+    segment_values: pd.Series | None = None
+    if segment_col and segment_col in test_features.columns:
+        segment_values = test_features[segment_col].copy()
+
     y_true = test_features[target_col].values
     x_test = test_features.drop(columns=[target_col])
 
@@ -70,6 +76,12 @@ def evaluate_model(
         x_test = x_test[trained_features]
 
     y_pred = model.predict(x_test)
+
+    # Inverse log-transform predictions if the model was trained on log1p(target).
+    # y_true comes from the raw DataFrame (already in dollar-space).
+    log_target = getattr(model, "log_target", False) is True
+    if log_target:
+        y_pred = np.expm1(y_pred)
 
     y_true_arr = np.asarray(y_true, dtype=np.float64)
     y_pred_arr = np.asarray(y_pred, dtype=np.float64)
@@ -107,6 +119,26 @@ def evaluate_model(
         metrics["r2"],
         metrics["mape"],
     )
+
+    # Segmented metrics by census tract (or other segment column)
+    if segment_values is not None and len(segment_values) == len(y_true_arr):
+        seg_metrics: dict[str, dict[str, float]] = {}
+        for seg_val in segment_values.dropna().unique():
+            mask = (segment_values == seg_val).values
+            if mask.sum() < 2:
+                continue
+            seg_y_true = y_true_arr[mask]
+            seg_y_pred = y_pred_arr[mask]
+            seg_mae = float(mean_absolute_error(seg_y_true, seg_y_pred))
+            seg_mape = _mean_absolute_percentage_error(seg_y_true, seg_y_pred)
+            seg_metrics[str(seg_val)] = {"mae": seg_mae, "mape": seg_mape, "n": int(mask.sum())}
+
+        if seg_metrics:
+            metrics["segment_metrics"] = seg_metrics
+            # Log top/bottom 5 tracts by MAE
+            sorted_segs = sorted(seg_metrics.items(), key=lambda x: x[1]["mae"], reverse=True)
+            top5 = sorted_segs[:5]
+            logger.info("Worst 5 segments by MAE: %s", [(s, m["mae"]) for s, m in top5])
 
     # Attach arrays for downstream plot generation (filtered out by registry scalar check)
     metrics["_y_true"] = y_true_arr

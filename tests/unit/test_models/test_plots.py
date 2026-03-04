@@ -27,7 +27,7 @@ from pricepoint.models.training import train_model
 @pytest.fixture()
 def eval_data(synthetic_df: pd.DataFrame):
     """Produce a trained model and evaluation arrays."""
-    model = train_model(features=synthetic_df)
+    model, _ = train_model(features=synthetic_df, log_transform_target=False)
     x = synthetic_df.drop(columns=["sold_price"])
     if hasattr(model, "feature_names_in_"):
         x = x[list(model.feature_names_in_)]

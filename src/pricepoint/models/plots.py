@@ -25,6 +25,7 @@ def generate_evaluation_plots(
     feature_importance: dict[str, float] | None = None,
     cv_metrics: dict[str, Any] | None = None,
     x_test: pd.DataFrame | None = None,
+    segment_metrics: dict[str, dict[str, float]] | None = None,
     output_dir: Path,
 ) -> list[Path]:
     """Generate all evaluation plots and save to *output_dir*.
@@ -56,6 +57,16 @@ def generate_evaluation_plots(
             "learning_curves.png",
             _plot_learning_curves,
             {"model": model, "x_test": x_test, "y_true": y_true},
+        ),
+        (
+            "interval_calibration.png",
+            _plot_interval_calibration,
+            preds,
+        ),
+        (
+            "segment_error.png",
+            _plot_segment_error,
+            {"segment_metrics": segment_metrics},
         ),
     ]
 
@@ -484,6 +495,84 @@ def _plot_learning_curves(
     ax.set_title("Learning Curves")
     ax.legend(loc="lower right")
     ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_interval_calibration(
+    *,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    output_dir: Path,
+    filename: str,
+) -> Path | None:
+    """Plot expected vs actual coverage of prediction intervals."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    mape = float(np.mean(np.abs((y_true - y_pred) / np.where(y_true != 0, y_true, 1.0))) * 100)
+
+    coverage_levels = [50, 70, 80, 90, 95]
+    actual_coverages: list[float] = []
+
+    for level in coverage_levels:
+        margin = np.abs(y_pred) * (level / 100.0) * (mape / 100.0)
+        low = y_pred - margin
+        high = y_pred + margin
+        covered = ((y_true >= low) & (y_true <= high)).mean()
+        actual_coverages.append(float(covered * 100))
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.plot(coverage_levels, coverage_levels, "r--", linewidth=1.5, label="Ideal (diagonal)")
+    ax.plot(coverage_levels, actual_coverages, "bo-", linewidth=2, label="Actual coverage")
+
+    ax.set_xlabel("Expected Coverage (%)")
+    ax.set_ylabel("Actual Coverage (%)")
+    ax.set_title("Prediction Interval Calibration")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(40, 100)
+    ax.set_ylim(0, 105)
+    fig.tight_layout()
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_segment_error(
+    *,
+    segment_metrics: dict[str, dict[str, float]] | None,
+    output_dir: Path,
+    filename: str,
+) -> Path | None:
+    """Bar chart of top-10 worst-performing segments by MAE."""
+    if not segment_metrics:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    sorted_segs = sorted(segment_metrics.items(), key=lambda x: x[1]["mae"], reverse=True)
+    top10 = sorted_segs[:10]
+
+    names = [s for s, _ in top10]
+    maes = [m["mae"] for _, m in top10]
+
+    fig, ax = plt.subplots(figsize=(10, max(6, len(names) * 0.5)))
+    ax.barh(names, maes, color="#E91E63")
+    ax.set_xlabel("MAE ($)")
+    ax.set_title("Top 10 Worst-Performing Census Tracts by MAE")
+    ax.invert_yaxis()
     fig.tight_layout()
 
     path = output_dir / filename

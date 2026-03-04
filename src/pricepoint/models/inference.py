@@ -92,14 +92,21 @@ def get_model_metrics(run_id: str) -> dict[str, float]:
 
 
 def compute_confidence_interval(
-    predicted_value: float, metrics: dict[str, float]
+    predicted_value: float,
+    metrics: dict[str, float],
+    calibration_residuals: np.ndarray | None = None,
+    confidence_level: float = 0.90,
 ) -> tuple[float, float]:
-    """Derive a confidence interval from model performance metrics.
+    """Derive a confidence interval for a prediction.
 
     Strategy:
-    1. **Primary** — use MAPE (percentage error scales with value).
-    2. **Fallback** — use RMSE as a fixed-dollar margin.
-    3. **Last resort** — 10 % of predicted value.
+    1. **Primary** — split conformal prediction using calibration residuals.
+       The interval width is the α-quantile of sorted absolute residuals
+       from a held-out calibration set.  This is distribution-free and
+       provides valid marginal coverage.
+    2. **Fallback** — use MAPE (percentage error scales with value).
+    3. **Fallback** — use RMSE as a fixed-dollar margin.
+    4. **Last resort** — 10 % of predicted value.
 
     Parameters
     ----------
@@ -107,13 +114,21 @@ def compute_confidence_interval(
         The point prediction for a single property.
     metrics : dict[str, float]
         Model metrics keyed by name (from ``get_model_metrics``).
+    calibration_residuals : np.ndarray | None
+        Sorted absolute residuals from a held-out calibration set.
+    confidence_level : float
+        Desired coverage probability (default 0.90).
 
     Returns
     -------
     tuple[float, float]
         ``(confidence_low, confidence_high)``
     """
-    if "mape" in metrics:
+    if calibration_residuals is not None and len(calibration_residuals) > 0:
+        # Conformal prediction: quantile of calibration residuals
+        q = min(confidence_level, (1 + 1 / len(calibration_residuals)) * confidence_level)
+        margin = float(np.quantile(np.abs(calibration_residuals), min(q, 1.0)))
+    elif "mape" in metrics:
         margin = predicted_value * (metrics["mape"] / 100.0)
     elif "rmse" in metrics:
         margin = metrics["rmse"]
@@ -164,6 +179,11 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
             usable_df[col] = usable_df[col].astype("category")
 
     predictions = model.predict(usable_df)
+
+    # Inverse log-transform if the model was trained on log1p(target)
+    if getattr(model, "log_target", False) is True:
+        predictions = np.expm1(predictions)
+
     logger.info("Generated %d predictions", len(predictions))
     return np.asarray(predictions)
 
@@ -380,6 +400,9 @@ def score_all_properties(db: Session) -> int:
 
     predictions = predict_batch(model, features)
 
+    # Retrieve calibration residuals for conformal prediction intervals
+    cal_residuals = getattr(model, "calibration_residuals_", None)
+
     # Batch SHAP computation (best-effort, non-blocking)
     try:
         shap_results, base_value = compute_shap_values_batch(model, features)
@@ -394,7 +417,9 @@ def score_all_properties(db: Session) -> int:
 
     for prop_id, pred_value in zip(scored_ids, predictions, strict=True):
         pred_float = float(pred_value)
-        ci_low, ci_high = compute_confidence_interval(pred_float, metrics)
+        ci_low, ci_high = compute_confidence_interval(
+            pred_float, metrics, calibration_residuals=cal_residuals
+        )
 
         existing = (
             db.query(PropertyValuation)

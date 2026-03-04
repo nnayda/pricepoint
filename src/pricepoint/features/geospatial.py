@@ -30,7 +30,8 @@ SELECT
     gl.dist_nearest_hospital_m,
     gl.in_noise_zone::int AS in_noise_zone,
     gl.in_critical_risk_zone::int AS in_critical_risk_zone,
-    gl.county_subdivision_geoid
+    gl.county_subdivision_geoid,
+    gl.census_tract_geoid
 FROM property_geo_lookups gl
 JOIN redfin_listings rl ON rl.id = gl.property_id
 WHERE rl.location IS NOT NULL
@@ -147,6 +148,7 @@ def build_geospatial_features(
         return _empty_frame()
 
     # Drop county_subdivision_geoid (used only for joining, not a feature)
+    # Keep census_tract_geoid as a pass-through for segmented evaluation
     if "county_subdivision_geoid" in geo_df.columns:
         geo_df = geo_df.drop(columns=["county_subdivision_geoid"])
 

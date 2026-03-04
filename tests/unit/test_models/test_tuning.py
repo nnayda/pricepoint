@@ -42,7 +42,7 @@ class TestTuneHyperparameters:
         )
         p = result.best_params
         assert 200 <= p["n_estimators"] <= 1500
-        assert 3 <= p["max_depth"] <= 6
+        assert 3 <= p["max_depth"] <= 8
         assert 0.01 <= p["learning_rate"] <= 0.1
         assert 0.5 <= p["subsample"] <= 0.8
         assert 0.3 <= p["colsample_bytree"] <= 0.7

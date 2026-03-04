@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
@@ -34,12 +35,21 @@ DEFAULT_PARAMS: dict[str, Any] = {
 EARLY_STOPPING_ROUNDS = 50
 TEST_SIZE = 0.2
 MAX_NAN_FRACTION = 0.5
+OUTLIER_PERCENTILE_LOW = 0.01
+OUTLIER_PERCENTILE_HIGH = 0.99
 
 
-def prepare_features(features: pd.DataFrame, target_col: str) -> tuple[pd.DataFrame, pd.Series]:
+def prepare_features(
+    features: pd.DataFrame,
+    target_col: str,
+    *,
+    log_transform_target: bool = False,
+    filter_outliers: bool = True,
+) -> tuple[pd.DataFrame, pd.Series]:
     """Separate target from features and clean the data.
 
     Drops columns that are >50% NaN and non-numeric columns.
+    Optionally filters target outliers and applies log-transform.
     Returns (X, y).
     """
     if target_col not in features.columns:
@@ -77,9 +87,29 @@ def prepare_features(features: pd.DataFrame, target_col: str) -> tuple[pd.DataFr
         x = x.loc[valid_mask]
         y = y.loc[valid_mask]
 
+    # Filter target outliers (e.g. $1 family transfers, $10M+ properties)
+    if filter_outliers and len(y) > 0:
+        low = float(np.percentile(y, OUTLIER_PERCENTILE_LOW * 100))
+        high = float(np.percentile(y, OUTLIER_PERCENTILE_HIGH * 100))
+        outlier_mask = (y >= low) & (y <= high)
+        n_outliers = (~outlier_mask).sum()
+        if n_outliers > 0:
+            logger.info(
+                "Filtering %d target outliers outside [%.0f, %.0f]",
+                n_outliers,
+                low,
+                high,
+            )
+            x = x.loc[outlier_mask]
+            y = y.loc[outlier_mask]
+
     if x.empty:
         msg = "No features remaining after cleaning"
         raise ValueError(msg)
+
+    # Log-transform target for more symmetric residuals
+    if log_transform_target:
+        y = np.log1p(y)
 
     return x, y
 
@@ -89,7 +119,8 @@ def train_model(
     features: pd.DataFrame,
     target_col: str = "sold_price",
     params: dict[str, Any] | None = None,
-) -> XGBRegressor:
+    log_transform_target: bool = True,
+) -> tuple[XGBRegressor, list[int]]:
     """Train an XGBoost model on the given feature matrix.
 
     Parameters
@@ -100,13 +131,21 @@ def train_model(
         Name of the target column.
     params : dict, optional
         Override default hyperparameters.
+    log_transform_target : bool
+        Apply ``log1p`` to the target variable before training.
 
     Returns
     -------
-    XGBRegressor
-        The fitted model object.
+    tuple[XGBRegressor, list[int]]
+        The fitted model and the index values of the held-out test set
+        (used downstream to evaluate on unseen data only).
     """
-    x, y = prepare_features(features, target_col)
+    x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
+
+    # Correlation-based feature selection
+    from pricepoint.models.selection import select_features
+
+    x = select_features(x)
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=TEST_SIZE, random_state=42)
 
@@ -131,9 +170,22 @@ def train_model(
         verbose=False,
     )
 
+    # Store log-transform flag as model attribute for downstream use
+    model.log_target = log_transform_target  # type: ignore[attr-defined]
+
+    # Compute calibration residuals on test set for conformal prediction intervals
+    y_pred_test = model.predict(x_test)
+    if log_transform_target:
+        cal_residuals = np.expm1(y_test.values) - np.expm1(y_pred_test)
+    else:
+        cal_residuals = y_test.values - y_pred_test
+    model.calibration_residuals_ = np.sort(np.abs(cal_residuals))  # type: ignore[attr-defined]
+
     try:
         best_iter = model.best_iteration
     except AttributeError:
         best_iter = model_params.get("n_estimators", "N/A")
     logger.info("Training complete. Best iteration: %s", best_iter)
-    return model
+
+    test_indices = x_test.index.tolist()
+    return model, test_indices

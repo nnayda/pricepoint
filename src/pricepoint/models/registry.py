@@ -32,6 +32,7 @@ def log_model(
     model_name: str = MODEL_NAME,
     input_example: pd.DataFrame | None = None,
     generate_plots: bool = True,
+    eda_data: tuple[pd.DataFrame, pd.Series] | None = None,
 ) -> str:
     """Log a trained model and its metrics to MLflow.
 
@@ -49,6 +50,9 @@ def log_model(
         A small sample of input data used to infer the model signature.
     generate_plots : bool
         Whether to generate and log evaluation plots as artifacts.
+    eda_data : tuple[pd.DataFrame, pd.Series], optional
+        (X, y) tuple for generating EDA plots. If provided, EDA plots are
+        generated and logged under the ``eda/`` artifact subdirectory.
 
     Returns
     -------
@@ -78,6 +82,7 @@ def log_model(
     y_pred: np.ndarray | None = metrics.get("_y_pred")
     x_test: pd.DataFrame | None = metrics.get("_x_test")
     feature_importance: dict[str, float] | None = metrics.get("feature_importance_top20")
+    segment_metrics: dict[str, dict[str, float]] | None = metrics.get("segment_metrics")
 
     # Extract CV metrics for fold comparison plot
     cv_metrics: dict[str, Any] = {
@@ -110,6 +115,7 @@ def log_model(
                         feature_importance=feature_importance,
                         cv_metrics=cv_metrics or None,
                         x_test=x_test,
+                        segment_metrics=segment_metrics,
                         output_dir=Path(tmpdir),
                     )
                     for plot_path in plot_paths:
@@ -117,6 +123,25 @@ def log_model(
                     logger.info("Logged %d evaluation plots", len(plot_paths))
             except Exception:
                 logger.warning("Failed to generate evaluation plots", exc_info=True)
+
+        # Generate and log EDA plots
+        if eda_data is not None:
+            try:
+                from pricepoint.models.eda import generate_eda_plots
+
+                eda_x, eda_y = eda_data
+                with tempfile.TemporaryDirectory() as eda_tmpdir:
+                    eda_paths = generate_eda_plots(
+                        eda_x,
+                        eda_y,
+                        log_transformed=True,
+                        output_dir=Path(eda_tmpdir),
+                    )
+                    for eda_path in eda_paths:
+                        mlflow.log_artifact(str(eda_path), artifact_path="eda")
+                    logger.info("Logged %d EDA plots", len(eda_paths))
+            except Exception:
+                logger.warning("Failed to generate EDA plots", exc_info=True)
 
         run_id = run.info.run_id
         logger.info("Logged model to MLflow run %s", run_id)

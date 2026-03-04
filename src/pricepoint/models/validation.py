@@ -22,6 +22,8 @@ def cross_validate(
     target_col: str = "sold_price",
     n_splits: int = 5,
     params: dict[str, Any] | None = None,
+    log_transform_target: bool = True,
+    temporal: bool = False,
 ) -> dict[str, float]:
     """Run k-fold cross-validation and return aggregated metrics.
 
@@ -35,22 +37,47 @@ def cross_validate(
         Number of folds.
     params : dict, optional
         Override default XGBoost hyperparameters.
+    log_transform_target : bool
+        Apply ``log1p`` to the target variable before training.
+    temporal : bool
+        If True, sort by ``sold_date`` (if present) and use
+        ``TimeSeriesSplit`` instead of ``KFold``.  Metrics are still
+        computed in dollar-space when ``log_transform_target=True``.
 
     Returns
     -------
     dict
-        Mean and std of MAE, RMSE, R² across folds.
+        Mean and std of MAE, RMSE, R² across folds, plus
+        ``importance_stability`` (mean Spearman rho of feature importance
+        rankings across fold pairs).
     """
-    x, y = prepare_features(features, target_col)
+    from scipy.stats import spearmanr
+    from sklearn.model_selection import TimeSeriesSplit
+
+    x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
+
+    # For temporal CV, sort by sold_date then drop it
+    if temporal and "sold_date" in x.columns:
+        sort_order = x["sold_date"].argsort()
+        x = x.iloc[sort_order]
+        y = y.iloc[sort_order]
+        x = x.drop(columns=["sold_date"])
+    elif "sold_date" in x.columns:
+        x = x.drop(columns=["sold_date"])
 
     model_params = {**DEFAULT_PARAMS, **(params or {})}
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+    if temporal:
+        splitter: KFold | TimeSeriesSplit = TimeSeriesSplit(n_splits=n_splits)
+    else:
+        splitter = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     mae_scores: list[float] = []
     rmse_scores: list[float] = []
     r2_scores: list[float] = []
+    fold_importances: list[np.ndarray] = []
 
-    for fold, (train_idx, test_idx) in enumerate(kf.split(x), 1):
+    for fold, (train_idx, test_idx) in enumerate(splitter.split(x), 1):
         x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
@@ -64,9 +91,21 @@ def cross_validate(
 
         y_pred = model.predict(x_test)
 
-        mae_scores.append(float(mean_absolute_error(y_test, y_pred)))
-        rmse_scores.append(float(np.sqrt(mean_squared_error(y_test, y_pred))))
-        r2_scores.append(float(r2_score(y_test, y_pred)))
+        # Convert back to dollar-space for metrics if log-transformed
+        if log_transform_target:
+            y_pred_dollar = np.expm1(y_pred)
+            y_test_dollar = np.expm1(y_test)
+        else:
+            y_pred_dollar = y_pred
+            y_test_dollar = y_test
+
+        mae_scores.append(float(mean_absolute_error(y_test_dollar, y_pred_dollar)))
+        rmse_scores.append(float(np.sqrt(mean_squared_error(y_test_dollar, y_pred_dollar))))
+        r2_scores.append(float(r2_score(y_test_dollar, y_pred_dollar)))
+
+        # Collect feature importances for stability check
+        if hasattr(model, "feature_importances_"):
+            fold_importances.append(model.feature_importances_)
 
         logger.info(
             "Fold %d/%d: MAE=%.2f, RMSE=%.2f, R²=%.4f",
@@ -77,7 +116,7 @@ def cross_validate(
             r2_scores[-1],
         )
 
-    return {
+    result: dict[str, float] = {
         "mae_mean": float(np.mean(mae_scores)),
         "mae_std": float(np.std(mae_scores)),
         "rmse_mean": float(np.mean(rmse_scores)),
@@ -85,3 +124,14 @@ def cross_validate(
         "r2_mean": float(np.mean(r2_scores)),
         "r2_std": float(np.std(r2_scores)),
     }
+
+    # Feature importance stability: mean Spearman rho across fold pairs
+    if len(fold_importances) >= 2:
+        rhos: list[float] = []
+        for i in range(len(fold_importances)):
+            for j in range(i + 1, len(fold_importances)):
+                rho, _ = spearmanr(fold_importances[i], fold_importances[j])
+                rhos.append(float(rho))
+        result["importance_stability"] = float(np.mean(rhos))
+
+    return result
