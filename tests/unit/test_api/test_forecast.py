@@ -394,7 +394,9 @@ class TestShapListToAttributions:
     def test_filters_top_10_positive_and_negative(self):
         from pricepoint.api.routes.forecast import _shap_list_to_attributions
 
-        shap_list = [{"feature": f"pos_{i}", "shap_value": float(1000 * (i + 1))} for i in range(15)]
+        shap_list = [
+            {"feature": f"pos_{i}", "shap_value": float(1000 * (i + 1))} for i in range(15)
+        ]
         shap_list += [
             {"feature": f"neg_{i}", "shap_value": float(-1000 * (i + 1))} for i in range(15)
         ]

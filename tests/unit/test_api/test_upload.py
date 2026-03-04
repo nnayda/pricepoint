@@ -114,9 +114,7 @@ def test_upload_no_dag_trigger_on_failure(client, tmp_path):
     """DAG is not triggered when no files are saved."""
     with (
         patch("pricepoint.api.routes.upload.get_settings") as mock,
-        patch(
-            "pricepoint.api.routes.upload._trigger_airflow_dag"
-        ) as trigger_mock,
+        patch("pricepoint.api.routes.upload._trigger_airflow_dag") as trigger_mock,
     ):
         mock.return_value.redfin_html_dir = str(tmp_path)
         resp = client.post(

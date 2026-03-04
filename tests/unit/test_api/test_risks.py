@@ -322,6 +322,7 @@ class TestRisksEmptyResults:
         resp = empty_risks_client.get("/api/risks", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["features"] == []
 
+
 class TestRisksValkeyCaching:
     def test_cache_hit_returns_cached_data(self):
         app = create_app()

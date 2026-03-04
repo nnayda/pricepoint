@@ -3,7 +3,7 @@
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from pricepoint.api.routes.property import _build_interior, _build_exterior, _build_utilities
+from pricepoint.api.routes.property import _build_exterior, _build_interior, _build_utilities
 
 
 class TestBuildInteriorFromDetails:

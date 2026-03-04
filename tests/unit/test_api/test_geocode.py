@@ -375,9 +375,7 @@ def _mock_db_with_results(app, rows):
     from pricepoint.api.dependencies import get_db
 
     mock_session = MagicMock()
-    mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = (
-        rows
-    )
+    mock_session.query.return_value.filter.return_value.limit.return_value.all.return_value = rows
 
     def _override():
         yield mock_session
@@ -391,7 +389,7 @@ class TestGeocodeDbSearch:
     """Database-first property search behavior."""
 
     def test_db_match_returns_property_results(self, app, client):
-        """When DB returns a match, response has osm_type='property' and geocode_async is NOT called."""
+        """When DB returns a match, response has osm_type='property'."""
         _mock_db_with_results(app, [DB_PROPERTY_ROW])
 
         with _patch_geocode_async() as mock_fn:

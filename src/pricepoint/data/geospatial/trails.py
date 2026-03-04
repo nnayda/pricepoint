@@ -99,8 +99,8 @@ def _deduplicate_batch(batch: list[dict]) -> list[dict]:
             curr_len = row.get("length_miles") or 0
             if curr_len > prev_len:
                 logger.warning(
-                    "Dropping shorter duplicate trail: permanentidentifier=%s name=%s length_miles=%s"
-                    " (keeping length_miles=%s)",
+                    "Dropping shorter duplicate trail: permanentidentifier=%s"
+                    " name=%s length_miles=%s (keeping length_miles=%s)",
                     pid,
                     prev.get("name"),
                     prev_len,
@@ -109,8 +109,8 @@ def _deduplicate_batch(batch: list[dict]) -> list[dict]:
                 seen[pid] = i
             else:
                 logger.warning(
-                    "Dropping shorter duplicate trail: permanentidentifier=%s name=%s length_miles=%s"
-                    " (keeping length_miles=%s)",
+                    "Dropping shorter duplicate trail: permanentidentifier=%s"
+                    " name=%s length_miles=%s (keeping length_miles=%s)",
                     pid,
                     row.get("name"),
                     curr_len,

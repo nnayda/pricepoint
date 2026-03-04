@@ -394,9 +394,7 @@ async def get_neighborhood_valuation_properties(
             tract_geoid = str(tract_row)
 
     if not tract_geoid:
-        return NeighborhoodPropertiesResponse(
-            tract_geoid="unknown", sample_size=0, properties=[]
-        )
+        return NeighborhoodPropertiesResponse(tract_geoid="unknown", sample_size=0, properties=[])
 
     # 2. Build effective price expression (same logic as valuation endpoint)
     two_years_ago = datetime.now(tz=UTC) - timedelta(days=730)

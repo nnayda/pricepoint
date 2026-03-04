@@ -109,7 +109,9 @@ def fetch_pad_us() -> int:
         ) as resp:
             resp.raise_for_status()
             content_type = resp.headers.get("content-type", "")
-            if "application/zip" not in content_type and "application/octet-stream" not in content_type:
+            valid_types = ("application/zip", "application/octet-stream")
+            is_valid = any(t in content_type for t in valid_types)
+            if not is_valid:
                 raise RuntimeError(
                     f"PAD-US download URL returned unexpected content "
                     f"(content-type: {content_type}). Expected a ZIP file. "
