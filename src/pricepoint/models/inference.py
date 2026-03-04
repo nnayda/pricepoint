@@ -95,18 +95,19 @@ def compute_confidence_interval(
     predicted_value: float,
     metrics: dict[str, float],
     calibration_residuals: np.ndarray | None = None,
+    calibration_residuals_normalized: np.ndarray | None = None,
     confidence_level: float = 0.90,
 ) -> tuple[float, float]:
     """Derive a confidence interval for a prediction.
 
     Strategy:
-    1. **Primary** — split conformal prediction using calibration residuals.
-       The interval width is the α-quantile of sorted absolute residuals
-       from a held-out calibration set.  This is distribution-free and
-       provides valid marginal coverage.
-    2. **Fallback** — use MAPE (percentage error scales with value).
-    3. **Fallback** — use RMSE as a fixed-dollar margin.
-    4. **Last resort** — 10 % of predicted value.
+    1. **Primary** — price-adaptive conformal prediction using normalized
+       calibration residuals (``|residual| / |predicted|``).  The margin
+       scales proportionally with the property value.
+    2. **Fallback** — global conformal prediction using absolute residuals.
+    3. **Fallback** — use MAPE (percentage error scales with value).
+    4. **Fallback** — use RMSE as a fixed-dollar margin.
+    5. **Last resort** — 10 % of predicted value.
 
     Parameters
     ----------
@@ -116,6 +117,10 @@ def compute_confidence_interval(
         Model metrics keyed by name (from ``get_model_metrics``).
     calibration_residuals : np.ndarray | None
         Sorted absolute residuals from a held-out calibration set.
+    calibration_residuals_normalized : np.ndarray | None
+        Sorted normalized residuals (``|residual| / |predicted|``) from
+        a held-out calibration set.  When available, intervals scale
+        proportionally with the predicted value.
     confidence_level : float
         Desired coverage probability (default 0.90).
 
@@ -124,8 +129,14 @@ def compute_confidence_interval(
     tuple[float, float]
         ``(confidence_low, confidence_high)``
     """
-    if calibration_residuals is not None and len(calibration_residuals) > 0:
-        # Conformal prediction: quantile of calibration residuals
+    if calibration_residuals_normalized is not None and len(calibration_residuals_normalized) > 0:
+        # Price-adaptive conformal: margin scales with predicted value
+        n = len(calibration_residuals_normalized)
+        q = min(confidence_level, (1 + 1 / n) * confidence_level)
+        norm_quantile = float(np.quantile(calibration_residuals_normalized, min(q, 1.0)))
+        margin = norm_quantile * abs(predicted_value)
+    elif calibration_residuals is not None and len(calibration_residuals) > 0:
+        # Global conformal prediction: quantile of calibration residuals
         q = min(confidence_level, (1 + 1 / len(calibration_residuals)) * confidence_level)
         margin = float(np.quantile(np.abs(calibration_residuals), min(q, 1.0)))
     elif "mape" in metrics:
@@ -188,13 +199,52 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
     return np.asarray(predictions)
 
 
+def _log_shap_to_dollars(
+    shap_row: np.ndarray,
+    base_value: float,
+) -> np.ndarray:
+    """Convert log-space SHAP values to dollar-space impacts.
+
+    When a model is trained on ``log1p(price)``, the SHAP values represent
+    additive contributions in log-space.  This converts them to approximate
+    dollar contributions by proportionally allocating the dollar difference
+    between ``expm1(base_value)`` and ``expm1(base_value + sum(shap))``.
+
+    Parameters
+    ----------
+    shap_row : np.ndarray
+        SHAP values for one observation (in log-space).
+    base_value : float
+        The explainer's expected_value (mean prediction in log-space).
+
+    Returns
+    -------
+    np.ndarray
+        SHAP values converted to dollar-space.
+    """
+    log_pred = base_value + float(np.sum(shap_row))
+    dollar_base = float(np.expm1(base_value))
+    dollar_pred = float(np.expm1(log_pred))
+    dollar_diff = dollar_pred - dollar_base
+
+    abs_shap = np.abs(shap_row)
+    log_sum = float(np.sum(abs_shap))
+    if log_sum == 0:
+        return np.zeros_like(shap_row)
+
+    # Allocate dollar difference proportionally to each feature's absolute
+    # log-space contribution, preserving sign.
+    fractions = abs_shap / log_sum
+    signs = np.sign(shap_row)
+    return signs * fractions * abs(dollar_diff)
+
+
 def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str, object]]:
     """Compute per-instance SHAP values for a single property.
 
     Uses ``shap.TreeExplainer`` for tree-based models (XGBoost, LightGBM,
-    RandomForest) to produce exact Shapley values.  Each value represents
-    the feature's contribution (in prediction units, i.e. dollars) to
-    pushing the prediction away from the base value.
+    RandomForest) to produce exact Shapley values.  When the model was
+    trained on ``log1p(target)``, values are converted to dollar-space.
 
     Parameters
     ----------
@@ -207,7 +257,7 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
     -------
     list[dict[str, object]]
         ``[{"feature": str, "shap_value": float}, ...]`` sorted by
-        absolute impact descending.
+        absolute impact descending, in dollar-space.
     """
     from pricepoint.features.housing import CATEGORICAL_COLUMNS
 
@@ -231,6 +281,13 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
     # shap_values shape: (n_samples, n_features) — take first row
     row_values = shap_values[0] if len(shap_values.shape) > 1 else shap_values
     feature_names = list(usable_df.columns)
+
+    # Convert log-space SHAP values to dollar impacts when model used log target
+    if getattr(model, "log_target", False) is True:
+        raw_ev = getattr(explainer, "expected_value", None)
+        if raw_ev is not None:
+            bv = float(raw_ev[0]) if isinstance(raw_ev, np.ndarray) else float(raw_ev)
+            row_values = _log_shap_to_dollars(row_values, bv)
 
     results: list[dict[str, object]] = []
     for name, val in zip(feature_names, row_values, strict=True):
@@ -290,16 +347,26 @@ def compute_shap_values_batch(
         base_value = None
 
     feature_names = list(usable_df.columns)
+    is_log_target = getattr(model, "log_target", False) is True
     all_results: list[list[dict[str, object]]] = []
 
     for row_idx in range(len(usable_df)):
         row_values = shap_matrix[row_idx]
+
+        # Convert log-space SHAP values to dollar impacts
+        if is_log_target and base_value is not None:
+            row_values = _log_shap_to_dollars(row_values, base_value)
+
         results: list[dict[str, object]] = [
             {"feature": name, "shap_value": float(val)}
             for name, val in zip(feature_names, row_values, strict=True)
         ]
         results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
         all_results.append(results)
+
+    # Convert base_value to dollar-space for storage
+    if is_log_target and base_value is not None:
+        base_value = float(np.expm1(base_value))
 
     return all_results, base_value
 
@@ -402,6 +469,7 @@ def score_all_properties(db: Session) -> int:
 
     # Retrieve calibration residuals for conformal prediction intervals
     cal_residuals = getattr(model, "calibration_residuals_", None)
+    cal_residuals_normalized = getattr(model, "calibration_residuals_normalized_", None)
 
     # Batch SHAP computation (best-effort, non-blocking)
     try:
@@ -418,7 +486,10 @@ def score_all_properties(db: Session) -> int:
     for prop_id, pred_value in zip(scored_ids, predictions, strict=True):
         pred_float = float(pred_value)
         ci_low, ci_high = compute_confidence_interval(
-            pred_float, metrics, calibration_residuals=cal_residuals
+            pred_float,
+            metrics,
+            calibration_residuals=cal_residuals,
+            calibration_residuals_normalized=cal_residuals_normalized,
         )
 
         existing = (

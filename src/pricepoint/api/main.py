@@ -27,6 +27,7 @@ from pricepoint.api.routes import (
     property,
     risks,
     saved,
+    saved_pois,
     schools,
     upload,
     utilities,
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(greenspace.router, prefix="/api")
     app.include_router(utilities.router, prefix="/api")
     app.include_router(saved.router, prefix="/api")
+    app.include_router(saved_pois.router, prefix="/api")
     app.include_router(upload.router, prefix="/api")
     app.include_router(data_request.router, prefix="/api")
     app.include_router(neighborhood.router, prefix="/api")

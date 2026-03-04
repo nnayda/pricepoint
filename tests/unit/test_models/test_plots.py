@@ -15,8 +15,10 @@ from pricepoint.models.plots import (
     _plot_feature_importance,
     _plot_learning_curves,
     _plot_partial_dependence,
+    _plot_price_tier_errors,
     _plot_residuals_distribution,
     _plot_residuals_vs_predicted,
+    _plot_scale_location,
     _plot_shap_force,
     _plot_shap_summary,
     generate_evaluation_plots,
@@ -136,6 +138,36 @@ class TestPlotHelpers:
             )
         assert path is None
 
+    def test_scale_location(self, eval_data, tmp_path: Path) -> None:
+        _, y_true, y_pred, _, _ = eval_data
+        path = _plot_scale_location(
+            y_true=y_true, y_pred=y_pred, output_dir=tmp_path, filename="sl.png"
+        )
+        assert path is not None
+        assert path.stat().st_size > 0
+
+    def test_price_tier_errors(self, eval_data, tmp_path: Path) -> None:
+        _, y_true, y_pred, _, _ = eval_data
+        path = _plot_price_tier_errors(
+            y_true=y_true,
+            y_pred=y_pred,
+            price_tier_metrics=None,
+            output_dir=tmp_path,
+            filename="pte.png",
+        )
+        assert path is not None
+        assert path.stat().st_size > 0
+
+    def test_price_tier_errors_too_few_samples(self, tmp_path: Path) -> None:
+        path = _plot_price_tier_errors(
+            y_true=np.array([100.0, 200.0]),
+            y_pred=np.array([110.0, 190.0]),
+            price_tier_metrics=None,
+            output_dir=tmp_path,
+            filename="pte.png",
+        )
+        assert path is None
+
 
 class TestGenerateEvaluationPlots:
     """Test the main entry point."""
@@ -160,8 +192,9 @@ class TestGenerateEvaluationPlots:
             output_dir=tmp_path,
         )
         # Without shap: feature_importance, actual_vs_predicted, residuals_vs_predicted,
-        # residuals_distribution, cv_fold_comparison, partial_dependence, learning_curves = 7
-        assert len(paths) >= 7
+        # residuals_distribution, cv_fold_comparison, partial_dependence, learning_curves,
+        # interval_calibration, scale_location, price_tier_errors = 10
+        assert len(paths) >= 9
         for p in paths:
             assert p.exists()
             assert p.stat().st_size > 0

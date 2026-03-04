@@ -92,3 +92,35 @@ class TestEvaluateModel:
         model, df = trained_model_and_data
         metrics = evaluate_model(model=model, test_features=df, segment_col=None)
         assert "segment_metrics" not in metrics
+
+    def test_heteroskedasticity_metrics(self, trained_model_and_data) -> None:
+        """Spearman rho and p-value should be computed."""
+        model, df = trained_model_and_data
+        metrics = evaluate_model(model=model, test_features=df, segment_col=None)
+        assert "heteroskedasticity_spearman_rho" in metrics
+        assert "heteroskedasticity_spearman_pval" in metrics
+        rho = metrics["heteroskedasticity_spearman_rho"]
+        pval = metrics["heteroskedasticity_spearman_pval"]
+        assert isinstance(rho, float)
+        assert isinstance(pval, float)
+        assert -1.0 <= rho <= 1.0
+        assert 0.0 <= pval <= 1.0
+
+    def test_price_tier_metrics(self, trained_model_and_data) -> None:
+        """Price-tier segmented metrics should be computed with quartiles."""
+        model, df = trained_model_and_data
+        metrics = evaluate_model(model=model, test_features=df, segment_col=None)
+        assert "price_tier_metrics" in metrics
+        ptm = metrics["price_tier_metrics"]
+        assert isinstance(ptm, dict)
+        # Should have up to 4 tiers
+        assert len(ptm) >= 1
+        for _tier_label, tier_m in ptm.items():
+            assert "mae" in tier_m
+            assert "mape" in tier_m
+            assert "rmse" in tier_m
+            assert "median_ae" in tier_m
+            assert "n" in tier_m
+        # Flattened scalar keys should exist
+        first_tier = next(iter(ptm))
+        assert f"tier_{first_tier}_mae" in metrics

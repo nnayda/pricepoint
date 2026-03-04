@@ -181,6 +181,15 @@ def train_model(
         cal_residuals = y_test.values - y_pred_test
     model.calibration_residuals_ = np.sort(np.abs(cal_residuals))  # type: ignore[attr-defined]
 
+    # Normalized calibration residuals for price-adaptive conformal intervals
+    cal_predicted = np.expm1(y_pred_test) if log_transform_target else y_pred_test
+    nonzero_mask = np.abs(cal_predicted) > 0
+    if nonzero_mask.any():
+        normalized = np.abs(cal_residuals[nonzero_mask]) / np.abs(cal_predicted[nonzero_mask])
+        model.calibration_residuals_normalized_ = np.sort(normalized)  # type: ignore[attr-defined]
+    else:
+        model.calibration_residuals_normalized_ = np.array([], dtype=np.float64)  # type: ignore[attr-defined]
+
     try:
         best_iter = model.best_iteration
     except AttributeError:

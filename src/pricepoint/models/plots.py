@@ -26,6 +26,7 @@ def generate_evaluation_plots(
     cv_metrics: dict[str, Any] | None = None,
     x_test: pd.DataFrame | None = None,
     segment_metrics: dict[str, dict[str, float]] | None = None,
+    price_tier_metrics: dict[str, dict[str, float]] | None = None,
     output_dir: Path,
 ) -> list[Path]:
     """Generate all evaluation plots and save to *output_dir*.
@@ -67,6 +68,16 @@ def generate_evaluation_plots(
             "segment_error.png",
             _plot_segment_error,
             {"segment_metrics": segment_metrics},
+        ),
+        (
+            "scale_location.png",
+            _plot_scale_location,
+            preds,
+        ),
+        (
+            "price_tier_errors.png",
+            _plot_price_tier_errors,
+            {"y_true": y_true, "y_pred": y_pred, "price_tier_metrics": price_tier_metrics},
         ),
     ]
 
@@ -573,6 +584,117 @@ def _plot_segment_error(
     ax.set_xlabel("MAE ($)")
     ax.set_title("Top 10 Worst-Performing Census Tracts by MAE")
     ax.invert_yaxis()
+    fig.tight_layout()
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_scale_location(
+    *,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    output_dir: Path,
+    filename: str,
+) -> Path | None:
+    """Scale-location plot: sqrt(|residuals|) vs predicted with binned-mean trend."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    residuals = y_true - y_pred
+    sqrt_abs_resid = np.sqrt(np.abs(residuals))
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.scatter(y_pred, sqrt_abs_resid, alpha=0.4, s=10, color="#FF9800")
+
+    # Binned-mean trend line
+    n_bins = min(20, max(5, len(y_pred) // 20))
+    bin_edges = np.linspace(y_pred.min(), y_pred.max(), n_bins + 1)
+    bin_centers = []
+    bin_means = []
+    for i in range(n_bins):
+        if i == n_bins - 1:
+            mask = (y_pred >= bin_edges[i]) & (y_pred <= bin_edges[i + 1])
+        else:
+            mask = (y_pred >= bin_edges[i]) & (y_pred < bin_edges[i + 1])
+        if mask.sum() > 0:
+            bin_centers.append(float((bin_edges[i] + bin_edges[i + 1]) / 2))
+            bin_means.append(float(sqrt_abs_resid[mask].mean()))
+
+    if bin_centers:
+        ax.plot(bin_centers, bin_means, "r-o", linewidth=2, markersize=5, label="Binned mean")
+        ax.legend()
+
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("√|Residual|")
+    ax.set_title("Scale-Location Plot")
+    fig.tight_layout()
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_price_tier_errors(
+    *,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    price_tier_metrics: dict[str, dict[str, float]] | None,
+    output_dir: Path,
+    filename: str,
+) -> Path | None:
+    """Box plot of absolute percentage errors by price quartile."""
+    if len(y_true) < 4:
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    # Compute absolute percentage errors
+    mask = y_true != 0
+    ape = np.full_like(y_true, np.nan)
+    ape[mask] = np.abs((y_true[mask] - y_pred[mask]) / y_true[mask]) * 100
+
+    quartile_edges = np.percentile(y_true, [0, 25, 50, 75, 100])
+    tier_labels = ["Q1\n(Bottom 25%)", "Q2\n(25-50%)", "Q3\n(50-75%)", "Q4\n(Top 25%)"]
+    tier_indices = np.digitize(y_true, quartile_edges[1:-1], right=True)
+
+    data: list[np.ndarray] = []
+    labels: list[str] = []
+    medians: list[float] = []
+    for tier_idx, label in enumerate(tier_labels):
+        tier_mask = (tier_indices == tier_idx) & ~np.isnan(ape)
+        if tier_mask.sum() > 0:
+            tier_ape = ape[tier_mask]
+            data.append(tier_ape)
+            labels.append(label)
+            medians.append(float(np.median(tier_ape)))
+
+    if not data:
+        return None
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bp = ax.boxplot(data, tick_labels=labels, patch_artist=True, showfliers=False)
+
+    colors = ["#4CAF50", "#2196F3", "#FF9800", "#E91E63"]
+    for patch, color in zip(bp["boxes"], colors[: len(data)], strict=False):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.7)
+
+    # Label medians
+    for i, med in enumerate(medians):
+        ax.text(i + 1, med, f"  {med:.1f}%", va="center", fontsize=10, fontweight="bold")
+
+    ax.set_ylabel("Absolute Percentage Error (%)")
+    ax.set_title("Prediction Error by Price Quartile")
+    ax.grid(True, alpha=0.3, axis="y")
     fig.tight_layout()
 
     path = output_dir / filename

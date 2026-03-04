@@ -1558,6 +1558,26 @@ class SavedProperty(Base):
     )
 
 
+class SavedPoi(Base):
+    """A POI (brand or name) saved by a user for proximity tracking."""
+
+    __tablename__ = "saved_pois"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    match_type = Column(String, nullable=False)  # "brand" or "name"
+    match_value = Column(String, nullable=False)  # exact value to match
+    display_name = Column(String, nullable=False)  # UI label
+    category = Column(String, nullable=True)  # informational, from Overture
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "match_type", "match_value", name="uq_saved_poi_user_match"),
+    )
+
+
 class DataRequest(Base):
     """User request to populate data for a property not yet in the database."""
 

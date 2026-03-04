@@ -449,6 +449,7 @@ class TestLoadPrecomputedShap:
         from pricepoint.api.routes.forecast import _load_precomputed_shap
 
         record = MagicMock()
+        record.base_value = 300000.0  # dollar-space value (>30), no log conversion
         record.shap_values = [
             {"feature": "sqft", "shap_value": 25000.0},
             {"feature": "bedrooms", "shap_value": -5000.0},

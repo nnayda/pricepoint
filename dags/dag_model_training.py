@@ -3,7 +3,7 @@
 Runs after feature engineering completes.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from airflow.sdk import dag, task
 from dag_feature_engineering import FEATURES_READY
@@ -270,14 +270,14 @@ def model_training():
         return run_id
 
     @task()
-    def promote(run_id: str) -> dict:
+    def promote(mlflow_run_id: str) -> dict:
         """Compare new model against champion and promote if better."""
         from pricepoint.config.settings import get_settings
         from pricepoint.models.registry import compare_and_promote
 
         settings = get_settings()
         return compare_and_promote(
-            run_id=run_id,
+            run_id=mlflow_run_id,
             primary_metric=settings.model_primary_metric,
             auto_promote=settings.model_auto_promote,
         )
@@ -306,19 +306,43 @@ def model_training():
         triggered = False
         if promoted:
             try:
-                url = f"{settings.airflow_base_url}/api/v2/dags/batch_scoring/dagRuns"
-                payload = json.dumps({"note": f"Auto-triggered: {reason}"}).encode()
-                req = urllib.request.Request(
-                    url,
-                    data=payload,
+                base = settings.airflow_base_url
+
+                # Airflow 3 uses JWT auth — obtain token first
+                token_url = f"{base}/auth/token"
+                token_payload = json.dumps(
+                    {
+                        "username": settings.airflow_username,
+                        "password": settings.airflow_password,
+                    }
+                ).encode()
+                token_req = urllib.request.Request(
+                    token_url,
+                    data=token_payload,
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                credentials = f"{settings.airflow_username}:{settings.airflow_password}"
-                import base64
+                with urllib.request.urlopen(token_req, timeout=30) as token_resp:  # noqa: S310
+                    token_data = json.loads(token_resp.read().decode())
+                access_token = token_data["access_token"]
 
-                encoded = base64.b64encode(credentials.encode()).decode()
-                req.add_header("Authorization", f"Basic {encoded}")
+                # Trigger the DAG run
+                url = f"{base}/api/v2/dags/batch_scoring/dagRuns"
+                payload = json.dumps(
+                    {
+                        "logical_date": datetime.now(UTC).isoformat(),
+                        "conf": {"trigger_reason": f"Auto-triggered: {reason}"},
+                    }
+                ).encode()
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {access_token}",
+                    },
+                    method="POST",
+                )
                 with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
                     log.info("Triggered batch_scoring DAG (%s)", resp.status)
                     triggered = True

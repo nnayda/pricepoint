@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
 from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
@@ -139,6 +140,50 @@ def evaluate_model(
             sorted_segs = sorted(seg_metrics.items(), key=lambda x: x[1]["mae"], reverse=True)
             top5 = sorted_segs[:5]
             logger.info("Worst 5 segments by MAE: %s", [(s, m["mae"]) for s, m in top5])
+
+    # Heteroskedasticity diagnostic: Spearman rank correlation between |residuals| and predictions
+    abs_residuals = np.abs(y_true_arr - y_pred_arr)
+    if len(abs_residuals) >= 3:
+        rho, pval = spearmanr(abs_residuals, y_pred_arr)
+        metrics["heteroskedasticity_spearman_rho"] = float(rho)
+        metrics["heteroskedasticity_spearman_pval"] = float(pval)
+        logger.info(
+            "Heteroskedasticity diagnostic: Spearman rho=%.4f (p=%.4g)",
+            rho,
+            pval,
+        )
+
+    # Price-tier segmented metrics (quartile-based)
+    if len(y_true_arr) >= 4:
+        quartile_edges = np.percentile(y_true_arr, [0, 25, 50, 75, 100])
+        tier_labels = ["Q1_bottom_25", "Q2_25_50", "Q3_50_75", "Q4_top_25"]
+        tier_indices = np.digitize(y_true_arr, quartile_edges[1:-1], right=True)
+
+        price_tier_metrics: dict[str, dict[str, float]] = {}
+        for tier_idx, tier_label in enumerate(tier_labels):
+            mask = tier_indices == tier_idx
+            if mask.sum() < 2:
+                continue
+            tier_true = y_true_arr[mask]
+            tier_pred = y_pred_arr[mask]
+            tier_mae = float(mean_absolute_error(tier_true, tier_pred))
+            tier_mape = _mean_absolute_percentage_error(tier_true, tier_pred)
+            tier_rmse = float(np.sqrt(mean_squared_error(tier_true, tier_pred)))
+            tier_median_ae = float(median_absolute_error(tier_true, tier_pred))
+            price_tier_metrics[tier_label] = {
+                "mae": tier_mae,
+                "mape": tier_mape,
+                "rmse": tier_rmse,
+                "median_ae": tier_median_ae,
+                "n": int(mask.sum()),
+            }
+
+        if price_tier_metrics:
+            metrics["price_tier_metrics"] = price_tier_metrics
+            # Flatten for MLflow scalar logging
+            for tier_label, tier_m in price_tier_metrics.items():
+                for metric_name, metric_val in tier_m.items():
+                    metrics[f"tier_{tier_label}_{metric_name}"] = metric_val
 
     # Attach arrays for downstream plot generation (filtered out by registry scalar check)
     metrics["_y_true"] = y_true_arr

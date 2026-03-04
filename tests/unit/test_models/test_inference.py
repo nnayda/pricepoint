@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 
 class TestLoadProductionModel:
@@ -254,6 +255,49 @@ class TestComputeConfidenceInterval:
         assert low == 180000.0
         assert high == 220000.0
 
+    def test_normalized_conformal_preferred(self) -> None:
+        """Normalized residuals should be preferred over global residuals."""
+        from pricepoint.models.inference import compute_confidence_interval
+
+        # Both global and normalized available — normalized should win
+        global_res = np.array([10000.0, 20000.0, 30000.0, 40000.0, 50000.0])
+        normalized_res = np.array([0.05, 0.08, 0.10, 0.12, 0.15])
+
+        low, high = compute_confidence_interval(
+            400000.0,
+            {"mape": 10.0},
+            calibration_residuals=global_res,
+            calibration_residuals_normalized=normalized_res,
+        )
+
+        # Margin should be based on normalized quantile * predicted value
+        q = min(0.90, (1 + 1 / 5) * 0.90)
+        expected_norm_q = float(np.quantile(normalized_res, min(q, 1.0)))
+        expected_margin = expected_norm_q * 400000.0
+        assert low == pytest.approx(400000.0 - expected_margin)
+        assert high == pytest.approx(400000.0 + expected_margin)
+
+    def test_normalized_scales_with_price(self) -> None:
+        """Normalized conformal intervals should scale with property value."""
+        from pricepoint.models.inference import compute_confidence_interval
+
+        normalized_res = np.array([0.05, 0.08, 0.10, 0.12, 0.15])
+
+        low_cheap, high_cheap = compute_confidence_interval(
+            150000.0, {}, calibration_residuals_normalized=normalized_res
+        )
+        low_exp, high_exp = compute_confidence_interval(
+            900000.0, {}, calibration_residuals_normalized=normalized_res
+        )
+
+        width_cheap = high_cheap - low_cheap
+        width_exp = high_exp - low_exp
+
+        # Expensive property should have wider interval (proportional)
+        assert width_exp > width_cheap
+        # The ratio of widths should equal the ratio of prices
+        assert width_exp / width_cheap == pytest.approx(900000.0 / 150000.0)
+
 
 class TestScoreAllProperties:
     """Tests for score_all_properties."""
@@ -307,6 +351,8 @@ class TestScoreAllProperties:
 
         model = MagicMock()
         model.predict.return_value = np.array([250000.0, 350000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
         mock_metrics.return_value = {"mape": 8.0}
 
@@ -356,6 +402,8 @@ class TestScoreAllProperties:
 
         model = MagicMock()
         model.predict.return_value = np.array([300000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="7", run_id="run-xyz")
         mock_metrics.return_value = {"mape": 10.0}
 
@@ -422,6 +470,8 @@ class TestScoreAllProperties:
 
         model = MagicMock()
         model.predict.return_value = np.array([200000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="2", run_id="run-fail")
         mock_metrics.side_effect = Exception("MLflow unreachable")
 
@@ -697,6 +747,8 @@ class TestScoreAllPropertiesShap:
 
         model = MagicMock()
         model.predict.return_value = np.array([250000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
         mock_metrics.return_value = {"mape": 8.0}
 
@@ -734,6 +786,8 @@ class TestScoreAllPropertiesShap:
 
         model = MagicMock()
         model.predict.return_value = np.array([250000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
         mock_metrics.return_value = {"mape": 8.0}
 
@@ -772,6 +826,8 @@ class TestScoreAllPropertiesShap:
 
         model = MagicMock()
         model.predict.return_value = np.array([250000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
         mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-abc")
         mock_metrics.return_value = {"mape": 8.0}
 
