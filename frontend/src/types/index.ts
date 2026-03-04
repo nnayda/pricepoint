@@ -235,6 +235,51 @@ export interface PoisSearchResponse {
   query: string;
 }
 
+// Saved POI types
+export interface PoiAutocompleteItem {
+  match_type: "brand" | "name";
+  match_value: string;
+  display_name: string;
+  category: string | null;
+  count: number;
+}
+
+export interface PoiAutocompleteResponse {
+  results: PoiAutocompleteItem[];
+  query: string;
+}
+
+export interface SavedPoiResponse {
+  id: number;
+  match_type: "brand" | "name";
+  match_value: string;
+  display_name: string;
+  category: string | null;
+  created_at: string;
+}
+
+export interface SavedPoiMatch {
+  id: string;
+  name: string;
+  address: string | null;
+  lat: number;
+  lon: number;
+  distance_miles: number;
+  drive_minutes: number;
+}
+
+export interface SavedPoiNearbyGroup {
+  saved_poi_id: number;
+  display_name: string;
+  category: string | null;
+  match_type: string;
+  matches: SavedPoiMatch[];
+}
+
+export interface SavedPoiNearbyResponse {
+  groups: SavedPoiNearbyGroup[];
+}
+
 // Greenspace types
 export interface GreenspaceFeature {
   id: string;

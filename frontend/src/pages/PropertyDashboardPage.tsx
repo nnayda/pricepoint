@@ -10,9 +10,10 @@ import {
   useNeighborhoodValuationHistory,
 } from "../hooks/useNeighborhoodValuation";
 import { usePropertyLookup } from "../hooks/usePropertyLookup";
+import { useSavedPoisNearby } from "../hooks/useSavedPois";
 import { buildEmptyDashboardData } from "../data/emptyDashboardData";
 import { mockDashboardData } from "../data/mockDashboardData";
-import type { PriceHistoryPoint } from "../types";
+import type { DashboardPoi, PriceHistoryPoint } from "../types";
 import { mapDemographicsResponse } from "../utils/mapDemographicsResponse";
 import { mapPropertyResponse } from "../utils/mapPropertyResponse";
 
@@ -30,6 +31,7 @@ function PropertyDashboardPage() {
   const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
   const { data: neighborhoodProps } = useNeighborhoodProperties(lat, lon);
 
+  const { groups: savedPoiGroups } = useSavedPoisNearby(lat, lon);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const dashboardData = useMemo(() => {
@@ -87,8 +89,37 @@ function PropertyDashboardPage() {
         })),
       };
     }
+    // Merge saved POI nearby matches into the pois list
+    if (savedPoiGroups.length > 0) {
+      const savedPois: DashboardPoi[] = savedPoiGroups.flatMap((group) =>
+        group.matches.map((m) => ({
+          id: m.id,
+          name: m.name,
+          category: group.display_name,
+          subcategory: group.category ?? "saved",
+          lat: m.lat,
+          lon: m.lon,
+          distance_miles: m.distance_miles,
+          drive_minutes: m.drive_minutes,
+          icon: "star",
+        })),
+      );
+      result = { ...result, pois: [...result.pois, ...savedPois] };
+    }
     return result;
-  }, [data, notFound, decodedAddress, lat, lon, demoApi, neighborhoodVal, neighborhoodHistory, neighborhoodProps, shapData]);
+  }, [
+    data,
+    notFound,
+    decodedAddress,
+    lat,
+    lon,
+    demoApi,
+    neighborhoodVal,
+    neighborhoodHistory,
+    neighborhoodProps,
+    shapData,
+    savedPoiGroups,
+  ]);
 
   if (loading) {
     return (

@@ -39,25 +39,22 @@ def send_ntfy_notification(
 
     Returns ``True`` on success, ``False`` on failure.
     """
-    import json
     import urllib.request
 
     url = f"{server_url.rstrip('/')}/{topic}"
-    payload = {
-        "topic": topic,
-        "title": title,
-        "message": message,
-        "priority": priority,
+    headers = {
+        "Title": title,
+        "Priority": priority,
     }
     if tags:
-        payload["tags"] = tags
+        headers["Tags"] = ",".join(tags)
 
     try:
-        data = json.dumps(payload).encode()
+        data = message.encode()
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310

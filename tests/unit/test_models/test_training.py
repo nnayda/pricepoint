@@ -130,6 +130,17 @@ class TestTrainModel:
         # Should be sorted (ascending)
         assert np.all(np.diff(model.calibration_residuals_) >= 0)
 
+    def test_calibration_residuals_normalized_stored(self, synthetic_df: pd.DataFrame) -> None:
+        model, _ = train_model(features=synthetic_df)
+        assert hasattr(model, "calibration_residuals_normalized_")
+        arr = model.calibration_residuals_normalized_
+        assert isinstance(arr, np.ndarray)
+        assert len(arr) > 0
+        # Should be sorted (ascending)
+        assert np.all(np.diff(arr) >= 0)
+        # Normalized residuals should be ratios (typically small positive values)
+        assert np.all(arr >= 0)
+
     def test_early_stopping_active(self, synthetic_df: pd.DataFrame) -> None:
         """Early stopping should stop before max n_estimators."""
         model, _ = train_model(features=synthetic_df, params={"n_estimators": 1000})

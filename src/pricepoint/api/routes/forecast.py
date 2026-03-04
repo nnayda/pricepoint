@@ -320,11 +320,47 @@ def _shap_list_to_attributions(
     return results
 
 
+def _convert_log_shap_to_dollars(
+    shap_list: list[dict[str, object]],
+    base_value: float,
+) -> list[dict[str, object]]:
+    """Convert log-space SHAP values to dollar-space.
+
+    When SHAP values were computed on a model trained with log1p(target),
+    the raw values are in log-space.  This converts them to approximate
+    dollar impacts using proportional allocation.
+    """
+    import numpy as np
+
+    values = np.array([float(s["shap_value"]) for s in shap_list])
+    log_pred = base_value + float(np.sum(values))
+    dollar_base = float(np.expm1(base_value))
+    dollar_pred = float(np.expm1(log_pred))
+    dollar_diff = dollar_pred - dollar_base
+
+    abs_values = np.abs(values)
+    total = float(np.sum(abs_values))
+    if total == 0:
+        return shap_list
+
+    fractions = abs_values / total
+    signs = np.sign(values)
+    dollar_values = signs * fractions * abs(dollar_diff)
+
+    return [
+        {"feature": s["feature"], "shap_value": float(dv)}
+        for s, dv in zip(shap_list, dollar_values, strict=True)
+    ]
+
+
 def _load_precomputed_shap(
     property_id: int,
     db: Session,
 ) -> list[FeatureAttribution] | None:
     """Load precomputed SHAP values from the database.
+
+    Detects log-space SHAP values (base_value < 30, indicating log1p-scale)
+    and converts them to dollar-space before returning.
 
     Returns ``None`` if no precomputed values exist for this property.
     """
@@ -340,6 +376,12 @@ def _load_precomputed_shap(
         return None
 
     shap_list: list[dict[str, object]] = record.shap_values  # type: ignore[assignment]
+
+    # Detect log-space values: base_value in log1p-space is typically 10-16
+    # for homes in the $20K-$10M range, while dollar-space would be > 1000.
+    if record.base_value is not None and record.base_value < 30:
+        shap_list = _convert_log_shap_to_dollars(shap_list, record.base_value)
+
     return _shap_list_to_attributions(shap_list)
 
 

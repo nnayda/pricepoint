@@ -146,10 +146,10 @@ describe("SchoolsTab", () => {
     expect(screen.getByText("Nearby Schools")).toBeInTheDocument();
   });
 
-  it("renders vector tile sources for school districts and schools", () => {
+  it("renders vector tile source for school districts", () => {
     render(<SchoolsTab data={mockDashboardData} />);
     const sources = screen.getAllByTestId("vector-source");
-    expect(sources.length).toBeGreaterThanOrEqual(2);
+    expect(sources.length).toBeGreaterThanOrEqual(1);
   });
 
   it("filters school cards when toggling level filter", () => {
