@@ -1,0 +1,111 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-postgres-init
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: postgres-init
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -e
+              until pg_isready -h {{ include "pricepoint.fullname" . }}-postgres -p 5432 -U {{ .Values.postgresql.auth.username }}; do
+                echo "Waiting for postgres..."
+                sleep 2
+              done
+
+              # Create pricepoint database (if not exists) and enable PostGIS
+              psql "postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "pricepoint.fullname" . }}-postgres:5432/{{ .Values.postgresql.auth.database }}" -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+              {{- if .Values.airflow.enabled }}
+              # Create airflow database (if not exists)
+              psql "postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "pricepoint.fullname" . }}-postgres:5432/postgres" -c "SELECT 1 FROM pg_database WHERE datname = 'airflow'" | grep -q 1 || \
+                psql "postgresql://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "pricepoint.fullname" . }}-postgres:5432/postgres" -c "CREATE DATABASE airflow;"
+              {{- end }}
+
+              echo "Database initialization complete."
+{{- end }}
+---
+{{- if .Values.minio.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-minio-init
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-init
+          image: minio/mc:latest
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              until mc alias set myminio http://{{ include "pricepoint.fullname" . }}-minio:9000 {{ .Values.minio.auth.rootUser }} {{ .Values.minio.auth.rootPassword }}; do
+                echo "Waiting for MinIO..."
+                sleep 2
+              done
+
+              {{- range (split "," .Values.minio.defaultBuckets) }}
+              mc mb --ignore-existing myminio/{{ . | trim }}
+              {{- end }}
+
+              echo "MinIO initialization complete."
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-api-migrate
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: api-migrate
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret

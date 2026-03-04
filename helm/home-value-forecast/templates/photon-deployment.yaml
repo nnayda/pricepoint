@@ -1,0 +1,65 @@
+{{- if .Values.photon.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-photon
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: photon
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: photon
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: photon
+    spec:
+      securityContext:
+        fsGroup: 9011
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: photon
+          image: "{{ .Values.photon.image.repository }}:{{ .Values.photon.image.tag }}"
+          imagePullPolicy: {{ .Values.photon.image.pullPolicy }}
+          env:
+            - name: REGION
+              value: {{ .Values.photon.region | quote }}
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xmx{{ .Values.photon.javaHeap }}"
+          ports:
+            - containerPort: 2322
+              name: http
+          startupProbe:
+            httpGet:
+              path: /status
+              port: 2322
+            periodSeconds: 30
+            failureThreshold: 240
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 2322
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 2322
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: photon-data
+              mountPath: /photon/data
+          resources:
+            {{- toYaml .Values.photon.resources | nindent 12 }}
+      volumes:
+        - name: photon-data
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-photon-data
+{{- end }}

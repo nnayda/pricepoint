@@ -4,11 +4,21 @@ api:
   replicaCount: 3
   image:
     tag: stable
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
 
 frontend:
   replicaCount: 2
   image:
     tag: stable
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
 
 mlflow:
   replicaCount: 1
@@ -16,6 +26,8 @@ mlflow:
     tag: stable
 
 ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: pricepoint.example.com
       paths:
@@ -34,13 +46,21 @@ ingress:
         - path: /
           service: frontend
           port: 80
+  tls:
+    - secretName: pricepoint-tls
+      hosts:
+        - pricepoint.example.com
 
-# Disable bundled infra in production — use external services
+# Disable all bundled infra in production — use external services
 postgresql:
   enabled: false
 
 externalDatabase:
   url: "postgresql://pricepoint:CHANGEME@prod-postgres.example.com:5432/pricepoint"
+  airflowUrl: "postgresql://airflow:CHANGEME@prod-postgres.example.com:5432/airflow"
+
+pgbouncer:
+  enabled: false
 
 minio:
   enabled: false
@@ -51,5 +71,36 @@ externalS3:
   secretKey: "CHANGEME"
   bucket: "pricepoint-data"
 
+valkey:
+  enabled: false
+
+externalValkey:
+  url: "redis://prod-valkey.example.com:6379/0"
+
+osrm:
+  enabled: false
+
+externalOsrm:
+  baseUrl: "http://osrm.example.com"
+
+photon:
+  enabled: false
+
+externalGeocode:
+  provider: photon
+  url: "http://photon.example.com/api"
+
 airflow:
   enabled: false
+
+externalAirflow:
+  baseUrl: "http://airflow.example.com"
+
+podDisruptionBudget:
+  enabled: true
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+  prometheusRules:
+    enabled: true

@@ -1,0 +1,157 @@
+{{- if .Values.osrm.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-osrm
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: osrm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: osrm
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: osrm
+    spec:
+      initContainers:
+        - name: download-and-process
+          image: {{ .Values.osrm.image.backend }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              DATA_DIR=/data
+              PBF_FILE="$DATA_DIR/region.osm.pbf"
+
+              if [ -f "$DATA_DIR/car/region.osrm.cell_metrics" ] && [ -f "$DATA_DIR/foot/region.osrm.cell_metrics" ]; then
+                echo "Data already prepared, skipping."
+                exit 0
+              fi
+
+              echo "Downloading OSM data..."
+              apt-get update && apt-get install -y wget
+              wget -O "$PBF_FILE" "{{ .Values.osrm.extractUrl }}"
+              echo "Download complete."
+
+              for PROFILE in car foot; do
+                WORK_DIR="$DATA_DIR/$PROFILE"
+                mkdir -p "$WORK_DIR"
+
+                if [ -f "$WORK_DIR/region.osrm.cell_metrics" ]; then
+                  echo "$PROFILE already prepared, skipping."
+                  continue
+                fi
+
+                cp "$PBF_FILE" "$WORK_DIR/region.osm.pbf"
+                echo "Extracting $PROFILE..."
+                osrm-extract -p /opt/$PROFILE.lua "$WORK_DIR/region.osm.pbf"
+                echo "Partitioning $PROFILE..."
+                osrm-partition "$WORK_DIR/region.osrm"
+                echo "Customizing $PROFILE..."
+                osrm-customize "$WORK_DIR/region.osrm"
+                rm -f "$WORK_DIR/region.osm.pbf"
+              done
+
+              rm -f "$PBF_FILE"
+              echo "Done."
+          volumeMounts:
+            - name: osrm-data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.osrm.resources.init | nindent 12 }}
+      containers:
+        - name: nginx
+          image: {{ .Values.osrm.image.nginx }}
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.osrm.resources.nginx | nindent 12 }}
+        - name: osrm-car
+          image: {{ .Values.osrm.image.backend }}
+          args:
+            - osrm-routed
+            - --algorithm=MLD
+            - --max-table-size=10000
+            - --port=5000
+            - /data/car/region.osrm
+          ports:
+            - containerPort: 5000
+              name: car
+          readinessProbe:
+            httpGet:
+              path: /nearest/v1/driving/-78.6382,35.7796
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /nearest/v1/driving/-78.6382,35.7796
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: osrm-data
+              mountPath: /data
+              readOnly: true
+          resources:
+            {{- toYaml .Values.osrm.resources.car | nindent 12 }}
+        - name: osrm-foot
+          image: {{ .Values.osrm.image.backend }}
+          args:
+            - osrm-routed
+            - --algorithm=MLD
+            - --max-table-size=10000
+            - --port=5001
+            - /data/foot/region.osrm
+          ports:
+            - containerPort: 5001
+              name: foot
+          readinessProbe:
+            httpGet:
+              path: /nearest/v1/walking/-78.6382,35.7796
+              port: 5001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /nearest/v1/walking/-78.6382,35.7796
+              port: 5001
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: osrm-data
+              mountPath: /data
+              readOnly: true
+          resources:
+            {{- toYaml .Values.osrm.resources.foot | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "pricepoint.fullname" . }}-osrm-nginx
+        - name: osrm-data
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-osrm-data
+{{- end }}

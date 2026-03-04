@@ -36,6 +36,18 @@ spec:
           volumeMounts:
             - name: miniodata
               mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.minio.resources | nindent 12 }}
   volumeClaimTemplates:
@@ -43,6 +55,9 @@ spec:
         name: miniodata
       spec:
         accessModes: ["ReadWriteOnce"]
+        {{- if .Values.minio.storage.storageClass }}
+        storageClassName: {{ .Values.minio.storage.storageClass | quote }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.minio.storage.size }}

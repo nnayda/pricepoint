@@ -17,6 +17,11 @@ api:
     limits:
       cpu: 500m
       memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
 
 # -- Frontend service ----------------------------------------------------------
 frontend:
@@ -35,6 +40,11 @@ frontend:
     limits:
       cpu: 200m
       memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
 
 # -- MLflow service ------------------------------------------------------------
 mlflow:
@@ -77,6 +87,7 @@ martin:
 ingress:
   enabled: true
   className: nginx
+  annotations: {}
   hosts:
     - host: pricepoint.local
       paths:
@@ -98,6 +109,10 @@ ingress:
         - path: /
           service: frontend
           port: 80
+  tls: []
+  #  - secretName: pricepoint-tls
+  #    hosts:
+  #      - pricepoint.example.com
 
 # -- PostgreSQL (optional, bundled) --------------------------------------------
 postgresql:
@@ -111,6 +126,7 @@ postgresql:
     database: pricepoint
   storage:
     size: 10Gi
+    storageClass: ""
   resources:
     requests:
       cpu: 250m
@@ -122,6 +138,25 @@ postgresql:
 # External database (used when postgresql.enabled=false)
 externalDatabase:
   url: ""
+  airflowUrl: ""
+
+# -- PgBouncer (optional, connection pooler) -----------------------------------
+pgbouncer:
+  enabled: true
+  image:
+    repository: edoburu/pgbouncer
+    tag: latest
+    pullPolicy: IfNotPresent
+  poolMode: transaction
+  maxClientConn: 100
+  defaultPoolSize: 20
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 # -- MinIO (optional, bundled) -------------------------------------------------
 minio:
@@ -135,6 +170,7 @@ minio:
   defaultBuckets: "pricepoint-data,mlflow-artifacts"
   storage:
     size: 20Gi
+    storageClass: ""
   resources:
     requests:
       cpu: 250m
@@ -150,13 +186,123 @@ externalS3:
   secretKey: ""
   bucket: ""
 
+# -- Valkey (optional, bundled Redis-compatible cache) -------------------------
+valkey:
+  enabled: true
+  image:
+    repository: valkey/valkey
+    tag: 8-alpine
+    pullPolicy: IfNotPresent
+  storage:
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# External Valkey/Redis (used when valkey.enabled=false)
+externalValkey:
+  url: ""
+
+# -- OSRM (optional, bundled routing engine) -----------------------------------
+osrm:
+  enabled: false
+  image:
+    backend: osrm/osrm-backend:v5.25.0
+    nginx: nginx:1.29-alpine
+  extractUrl: "https://download.geofabrik.de/north-america/us/north-carolina-latest.osm.pbf"
+  storage:
+    size: 20Gi
+    storageClass: ""
+  resources:
+    nginx:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    car:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: "1"
+        memory: 3Gi
+    foot:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: "1"
+        memory: 3Gi
+    init:
+      requests:
+        cpu: "8"
+        memory: 16Gi
+      limits:
+        cpu: "10"
+        memory: 32Gi
+
+# External OSRM (used when osrm.enabled=false)
+externalOsrm:
+  baseUrl: ""
+
+# -- Photon (optional, bundled geocoding) --------------------------------------
+photon:
+  enabled: false
+  image:
+    repository: rtuszik/photon-docker
+    tag: "2.0.1"
+    pullPolicy: IfNotPresent
+  region: us
+  javaHeap: 3g
+  storage:
+    size: 80Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# External geocoding (used when photon.enabled=false)
+externalGeocode:
+  provider: photon
+  url: ""
+
 # -- Secrets (sensitive values) ------------------------------------------------
 # Override these via --set or a separate values file (never commit real values).
 secrets:
   jwtSecretKey: "changeme"
   fredApiKey: ""
+  censusApiKey: ""
   oauthGoogleClientSecret: ""
   mlflowBackendStoreUri: ""
+  airflowWebserverSecretKey: ""
+  airflowJwtSecret: ""
+  airflowPassword: "airflow"
+
+# -- Application config -------------------------------------------------------
+config:
+  devMode: "false"
+  logLevel: "INFO"
+  apiHost: "0.0.0.0"
+  apiPort: "8000"
+  apiCorsOrigins: '["*"]'
+  geocodeRateLimitSeconds: "1.0"
+  osrmRateLimitSeconds: "0.1"
+  ollamaBaseUrl: ""
+  ollamaModel: ""
+  ntfyEnabled: "false"
+  ntfyServerUrl: ""
+  ntfyTopic: ""
 
 # -- Airflow (optional, bundled) -----------------------------------------------
 airflow:
@@ -168,10 +314,72 @@ airflow:
     service:
       type: ClusterIP
       port: 8080
-  resources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: "1"
-      memory: 1Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  scheduler:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+  dagSync:
+    enabled: false
+    repo: ""
+    branch: "main"
+    subPath: "dags"
+    image:
+      repository: registry.k8s.io/git-sync/git-sync
+      tag: v4.4.0
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+  redfin:
+    storage:
+      size: 5Gi
+      storageClass: ""
+
+# External Airflow (used when airflow.enabled=false)
+externalAirflow:
+  baseUrl: ""
+
+# -- Backup CronJob -----------------------------------------------------------
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  storage:
+    size: 10Gi
+    storageClass: ""
+
+# -- Maintenance CronJob ------------------------------------------------------
+maintenance:
+  enabled: true
+  schedule: "0 4 * * 0"
+
+# -- Pod Disruption Budget -----------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+
+# -- Network Policy ------------------------------------------------------------
+networkPolicy:
+  enabled: false
+
+# -- Monitoring ----------------------------------------------------------------
+monitoring:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    namespace: ""
+  prometheusRules:
+    enabled: false
+    namespace: ""

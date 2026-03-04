@@ -1,0 +1,53 @@
+PricePoint has been deployed!
+
+{{- if .Values.ingress.enabled }}
+
+Access the application:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- end }}
+
+Enabled services:
+  - API ({{ .Values.api.replicaCount }} replica(s))
+  - Frontend ({{ .Values.frontend.replicaCount }} replica(s))
+  - MLflow
+{{- if .Values.martin.enabled }}
+  - Martin tile server
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  - PostgreSQL (bundled)
+{{- end }}
+{{- if .Values.pgbouncer.enabled }}
+  - PgBouncer
+{{- end }}
+{{- if .Values.minio.enabled }}
+  - MinIO (bundled)
+{{- end }}
+{{- if .Values.valkey.enabled }}
+  - Valkey cache (bundled)
+{{- end }}
+{{- if .Values.osrm.enabled }}
+  - OSRM routing engine (bundled)
+{{- end }}
+{{- if .Values.photon.enabled }}
+  - Photon geocoder (bundled)
+{{- end }}
+{{- if .Values.airflow.enabled }}
+  - Airflow (webserver + scheduler)
+{{- end }}
+{{- if .Values.backup.enabled }}
+  - Database backup ({{ .Values.backup.schedule }})
+{{- end }}
+{{- if .Values.maintenance.enabled }}
+  - Database maintenance ({{ .Values.maintenance.schedule }})
+{{- end }}
+
+{{- if not .Values.postgresql.enabled }}
+
+NOTE: Using external database. Ensure DATABASE_URL is correctly configured.
+{{- end }}
+{{- if not .Values.minio.enabled }}
+
+NOTE: Using external S3. Ensure externalS3 settings are configured.
+{{- end }}

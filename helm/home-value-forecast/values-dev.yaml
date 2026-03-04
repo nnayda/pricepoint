@@ -15,6 +15,10 @@ mlflow:
   image:
     tag: dev
 
+config:
+  devMode: "true"
+  logLevel: "DEBUG"
+
 ingress:
   hosts:
     - host: pricepoint-dev.local
@@ -28,6 +32,9 @@ ingress:
         - path: /ready
           service: api
           port: 8000
+        - path: /tiles
+          service: martin
+          port: 3000
         - path: /mlflow
           service: mlflow
           port: 5000
@@ -45,5 +52,15 @@ minio:
   storage:
     size: 10Gi
 
+valkey:
+  enabled: true
+
 airflow:
   enabled: true
+
+# Dev uses external OSRM/Photon
+osrm:
+  enabled: false
+
+photon:
+  enabled: false

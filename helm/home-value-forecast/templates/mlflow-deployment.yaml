@@ -29,11 +29,23 @@ spec:
                 name: {{ include "pricepoint.fullname" . }}-config
             - secretRef:
                 name: {{ include "pricepoint.fullname" . }}-secret
-          livenessProbe:
+          command: ["mlflow"]
+          args:
+            - "server"
+            - "--host=0.0.0.0"
+            - "--port={{ .Values.mlflow.service.port }}"
+            - "--default-artifact-root=s3://mlflow-artifacts"
+          readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: {{ .Values.mlflow.service.port }}
             initialDelaySeconds: 10
-            periodSeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.mlflow.service.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 30
           resources:
             {{- toYaml .Values.mlflow.resources | nindent 12 }}

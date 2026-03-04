@@ -1,3 +1,4 @@
+{{- if .Values.pgbouncer.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,7 +20,8 @@ spec:
     spec:
       containers:
         - name: pgbouncer
-          image: edoburu/pgbouncer:latest
+          image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
+          imagePullPolicy: {{ .Values.pgbouncer.image.pullPolicy }}
           ports:
             - containerPort: 6432
               protocol: TCP
@@ -30,11 +32,11 @@ spec:
                   name: {{ include "pricepoint.fullname" . }}-secret
                   key: DATABASE_URL
             - name: POOL_MODE
-              value: "transaction"
+              value: {{ .Values.pgbouncer.poolMode | quote }}
             - name: MAX_CLIENT_CONN
-              value: "100"
+              value: {{ .Values.pgbouncer.maxClientConn | quote }}
             - name: DEFAULT_POOL_SIZE
-              value: "20"
+              value: {{ .Values.pgbouncer.defaultPoolSize | quote }}
           livenessProbe:
             tcpSocket:
               port: 6432
@@ -45,6 +47,8 @@ spec:
               port: 6432
             initialDelaySeconds: 3
             periodSeconds: 5
+          resources:
+            {{- toYaml .Values.pgbouncer.resources | nindent 12 }}
 ---
 apiVersion: v1
 kind: Service
@@ -63,3 +67,4 @@ spec:
   selector:
     {{- include "pricepoint.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: pgbouncer
+{{- end }}

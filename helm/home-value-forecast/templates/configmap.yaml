@@ -5,7 +5,45 @@ metadata:
   labels:
     {{- include "pricepoint.labels" . | nindent 4 }}
 data:
+  # App config
+  DEV_MODE: {{ .Values.config.devMode | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  API_HOST: {{ .Values.config.apiHost | quote }}
+  API_PORT: {{ .Values.config.apiPort | quote }}
+  API_CORS_ORIGINS: {{ .Values.config.apiCorsOrigins | quote }}
+  # S3/MinIO
   S3_ENDPOINT_URL: {{ include "pricepoint.s3Endpoint" . | quote }}
   S3_BUCKET: {{ if .Values.minio.enabled }}pricepoint-data{{ else }}{{ .Values.externalS3.bucket }}{{ end }}
+  # MLflow
   MLFLOW_TRACKING_URI: "http://{{ include "pricepoint.fullname" . }}-mlflow:{{ .Values.mlflow.service.port }}"
+  # Geocoding
+  GEOCODE_PROVIDER: {{ include "pricepoint.geocodeProvider" . | quote }}
+  GEOCODE_URL: {{ include "pricepoint.geocodeUrl" . | quote }}
+  GEOCODE_RATE_LIMIT_SECONDS: {{ .Values.config.geocodeRateLimitSeconds | quote }}
+  # OSRM
+  OSRM_BASE_URL: {{ include "pricepoint.osrmBaseUrl" . | quote }}
+  OSRM_RATE_LIMIT_SECONDS: {{ .Values.config.osrmRateLimitSeconds | quote }}
+  # Valkey
+  {{- if or .Values.valkey.enabled .Values.externalValkey.url }}
+  VALKEY_URL: {{ include "pricepoint.valkeyUrl" . | quote }}
+  {{- end }}
+  # Ollama (optional)
+  {{- if .Values.config.ollamaBaseUrl }}
+  OLLAMA_BASE_URL: {{ .Values.config.ollamaBaseUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.ollamaModel }}
+  OLLAMA_MODEL: {{ .Values.config.ollamaModel | quote }}
+  {{- end }}
+  # Ntfy (optional)
+  {{- if eq .Values.config.ntfyEnabled "true" }}
+  NTFY_ENABLED: "true"
+  NTFY_SERVER_URL: {{ .Values.config.ntfyServerUrl | quote }}
+  NTFY_TOPIC: {{ .Values.config.ntfyTopic | quote }}
+  {{- end }}
+  # Airflow
+  AIRFLOW_BASE_URL: {{ include "pricepoint.airflowBaseUrl" . | quote }}
+  {{- if .Values.airflow.enabled }}
+  AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
   AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
+  AIRFLOW__LOGGING__LOGGING_LEVEL: {{ .Values.config.logLevel | quote }}
+  {{- end }}

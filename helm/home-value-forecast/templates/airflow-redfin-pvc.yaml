@@ -1,0 +1,18 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-redfin
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.airflow.redfin.storage.storageClass }}
+  storageClassName: {{ .Values.airflow.redfin.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.airflow.redfin.storage.size }}
+{{- end }}

@@ -1,0 +1,19 @@
+{{- if .Values.photon.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-photon
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: photon
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2322
+      targetPort: 2322
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "pricepoint.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: photon
+{{- end }}

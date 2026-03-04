@@ -1,0 +1,18 @@
+{{- if .Values.photon.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-photon-data
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: photon
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.photon.storage.storageClass }}
+  storageClassName: {{ .Values.photon.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.photon.storage.size }}
+{{- end }}

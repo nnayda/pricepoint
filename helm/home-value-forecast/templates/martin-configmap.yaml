@@ -1,0 +1,19 @@
+{{- if .Values.martin.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-martin-config
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: martin
+data:
+  config.yaml: |
+    listen_addresses: '0.0.0.0:3000'
+    postgres:
+      connection_string: ${DATABASE_URL}
+      auto_publish:
+        from_schemas: true
+        tables:
+          source:
+            srid: 4326
+{{- end }}

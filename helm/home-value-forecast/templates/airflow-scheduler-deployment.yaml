@@ -1,0 +1,77 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-scheduler
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: airflow-scheduler
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: scheduler
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          args: ["scheduler"]
+          env:
+            - name: AIRFLOW__API_SERVER__API_URL
+              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}"
+            - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
+              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}/execution/v1"
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
+          volumeMounts:
+            - name: airflow-logs
+              mountPath: /opt/airflow/logs
+            - name: airflow-dags
+              mountPath: /opt/airflow/dags
+            - name: redfin-data
+              mountPath: /opt/airflow/redfin-data
+          resources:
+            {{- toYaml .Values.airflow.scheduler.resources | nindent 12 }}
+        {{- if .Values.airflow.dagSync.enabled }}
+        - name: git-sync
+          image: "{{ .Values.airflow.dagSync.image.repository }}:{{ .Values.airflow.dagSync.image.tag }}"
+          env:
+            - name: GITSYNC_REPO
+              value: {{ .Values.airflow.dagSync.repo | quote }}
+            - name: GITSYNC_REF
+              value: {{ .Values.airflow.dagSync.branch | quote }}
+            - name: GITSYNC_ROOT
+              value: /git
+            - name: GITSYNC_LINK
+              value: /opt/airflow/dags
+            - name: GITSYNC_SUBPATH
+              value: {{ .Values.airflow.dagSync.subPath | quote }}
+            - name: GITSYNC_PERIOD
+              value: "60s"
+          volumeMounts:
+            - name: airflow-dags
+              mountPath: /opt/airflow/dags
+          resources:
+            {{- toYaml .Values.airflow.dagSync.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        - name: airflow-logs
+          emptyDir: {}
+        - name: airflow-dags
+          emptyDir: {}
+        - name: redfin-data
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-airflow-redfin
+{{- end }}

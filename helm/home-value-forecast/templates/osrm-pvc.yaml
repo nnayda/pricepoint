@@ -1,0 +1,18 @@
+{{- if .Values.osrm.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-osrm-data
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: osrm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.osrm.storage.storageClass }}
+  storageClassName: {{ .Values.osrm.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.osrm.storage.size }}
+{{- end }}

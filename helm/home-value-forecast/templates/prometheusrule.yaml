@@ -1,0 +1,51 @@
+{{- if .Values.monitoring.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "pricepoint.fullname" . }}
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+  {{- if .Values.monitoring.prometheusRules.namespace }}
+  namespace: {{ .Values.monitoring.prometheusRules.namespace }}
+  {{- end }}
+spec:
+  groups:
+    - name: pricepoint.rules
+      rules:
+        - alert: PricepointAPIDown
+          expr: up{job="{{ include "pricepoint.fullname" . }}-api"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PricePoint API is down"
+            description: "PricePoint API has been down for more than 5 minutes."
+        - alert: PricepointHighErrorRate
+          expr: |
+            rate(http_requests_total{job="{{ include "pricepoint.fullname" . }}-api",status=~"5.."}[5m])
+            / rate(http_requests_total{job="{{ include "pricepoint.fullname" . }}-api"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate on PricePoint API"
+            description: "Error rate is above 5% for the last 5 minutes."
+        - alert: PricepointPostgresDown
+          expr: up{job="{{ include "pricepoint.fullname" . }}-postgres"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL is down"
+            description: "PostgreSQL has been unreachable for more than 3 minutes."
+        {{- if .Values.osrm.enabled }}
+        - alert: PricepointOSRMDown
+          expr: up{job="{{ include "pricepoint.fullname" . }}-osrm"} == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "OSRM routing engine is down"
+            description: "OSRM has been unreachable for more than 5 minutes."
+        {{- end }}
+{{- end }}

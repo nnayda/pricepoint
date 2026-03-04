@@ -5,9 +5,23 @@ metadata:
   name: {{ include "pricepoint.fullname" . }}
   labels:
     {{- include "pricepoint.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+      hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- end }}
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
@@ -15,6 +29,8 @@ spec:
       http:
         paths:
           {{- range .paths }}
+          {{- if eq .service "martin" }}
+          {{- if $.Values.martin.enabled }}
           - path: {{ .path }}
             pathType: Prefix
             backend:
@@ -22,6 +38,26 @@ spec:
                 name: {{ include "pricepoint.fullname" $ }}-{{ .service }}
                 port:
                   number: {{ .port }}
+          {{- end }}
+          {{- else if eq .service "airflow" }}
+          {{- if $.Values.airflow.enabled }}
+          - path: {{ .path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pricepoint.fullname" $ }}-{{ .service }}
+                port:
+                  number: {{ .port }}
+          {{- end }}
+          {{- else }}
+          - path: {{ .path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pricepoint.fullname" $ }}-{{ .service }}
+                port:
+                  number: {{ .port }}
+          {{- end }}
           {{- end }}
     {{- end }}
 {{- end }}

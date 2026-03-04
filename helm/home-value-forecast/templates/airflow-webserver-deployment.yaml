@@ -1,0 +1,75 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-webserver
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-webserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: airflow-webserver
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: airflow-webserver
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      initContainers:
+        - name: db-migrate
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          command: ["bash", "-c"]
+          args:
+            - |
+              airflow db migrate
+              airflow users create \
+                --username admin \
+                --password "$AIRFLOW_PASSWORD" \
+                --firstname Admin \
+                --lastname User \
+                --role Admin \
+                --email admin@pricepoint.local || true
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
+      containers:
+        - name: webserver
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          args: ["webserver"]
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
+          livenessProbe:
+            httpGet:
+              path: /api/v2/monitor/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/v2/monitor/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: airflow-logs
+              mountPath: /opt/airflow/logs
+          resources:
+            {{- toYaml .Values.airflow.webserver.resources | nindent 12 }}
+      volumes:
+        - name: airflow-logs
+          emptyDir: {}
+{{- end }}

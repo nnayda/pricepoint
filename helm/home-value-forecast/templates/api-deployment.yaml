@@ -16,7 +16,26 @@ spec:
       labels:
         {{- include "pricepoint.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: api
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16
+          command: ["sh", "-c"]
+          args:
+            - |
+              until pg_isready -h {{ if .Values.postgresql.enabled }}{{ include "pricepoint.fullname" . }}-postgres{{ else }}$(echo $DATABASE_URL | sed -E 's|.*@([^:]+):.*|\1|'){{ end }} -p 5432; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pricepoint.fullname" . }}-secret
+                  key: DATABASE_URL
       containers:
         - name: api
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"

@@ -1,0 +1,19 @@
+{{- if .Values.osrm.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-osrm
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: osrm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "pricepoint.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: osrm
+{{- end }}
