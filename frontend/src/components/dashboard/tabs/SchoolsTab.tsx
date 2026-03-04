@@ -512,28 +512,6 @@ function SchoolsTab({ data }: SchoolsTabProps) {
                   }}
                 />
               </Source>
-
-              {/* School points via vector tiles */}
-              <Source
-                id="schools-tiles"
-                type="vector"
-                tiles={[`${window.location.origin}/tiles/schools/{z}/{x}/{y}`]}
-                minzoom={0}
-                maxzoom={14}
-              >
-                <Layer
-                  id="schools-circles"
-                  type="circle"
-                  source-layer="schools"
-                  paint={{
-                    "circle-radius": 5,
-                    "circle-color": "#6366F1",
-                    "circle-opacity": 0.3,
-                    "circle-stroke-width": 1,
-                    "circle-stroke-color": "#6366F1",
-                  }}
-                />
-              </Source>
             </DashboardMap>
           </div>
         </DashboardCard>
