@@ -6,6 +6,7 @@ PostGIS using a staging + upsert swap pattern.
 """
 
 import logging
+import os
 from datetime import UTC, datetime
 
 import duckdb
@@ -274,6 +275,11 @@ def fetch_places() -> None:
         country,
     )
 
+    # Temporarily clear AWS credentials from the environment so DuckDB
+    # doesn't send MinIO credentials to the public Overture S3 bucket.
+    _aws_env_keys = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+    saved_env = {k: os.environ.pop(k) for k in _aws_env_keys if k in os.environ}
+
     con = duckdb.connect()
     try:
         con.execute("INSTALL spatial; LOAD spatial;")
@@ -302,6 +308,8 @@ def fetch_places() -> None:
         )
     finally:
         con.close()
+        # Restore AWS credentials for other tasks (e.g. MinIO/MLflow).
+        os.environ.update(saved_env)
 
 
 def verify_places() -> None:
