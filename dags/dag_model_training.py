@@ -183,8 +183,12 @@ def model_training():
         if y_pred is not None:
             result["_y_pred"] = y_pred.tolist()
         if x_test is not None:
-            # Replace NaN with None for JSON serialization (XCom)
-            result["_x_test_values"] = x_test.fillna(0.0).values.tolist()
+            # Convert categoricals to their codes before fillna (avoids
+            # "Cannot setitem on a Categorical with a new category" error)
+            x_serializable = x_test.copy()
+            for col in x_serializable.select_dtypes(include=["category"]).columns:
+                x_serializable[col] = x_serializable[col].cat.codes
+            result["_x_test_values"] = x_serializable.fillna(0.0).values.tolist()
             result["_x_test_columns"] = list(x_test.columns)
 
         return result
@@ -278,14 +282,93 @@ def model_training():
             auto_promote=settings.model_auto_promote,
         )
 
+    @task()
+    def notify_and_trigger(comparison: dict) -> dict:
+        """Send ntfy notification and trigger batch scoring if promoted."""
+        import json
+        import logging
+        import urllib.request
+
+        from common.task_helpers import send_ntfy_notification
+
+        from pricepoint.config.settings import get_settings
+
+        log = logging.getLogger(__name__)
+        settings = get_settings()
+
+        promoted = comparison.get("promoted", False)
+        reason = comparison.get("reason", "")
+        metric = comparison.get("metric", "")
+        new_value = comparison.get("new_value")
+        old_value = comparison.get("old_value")
+
+        # --- Trigger batch scoring if a new champion was promoted --------
+        triggered = False
+        if promoted:
+            try:
+                url = f"{settings.airflow_base_url}/api/v2/dags/batch_scoring/dagRuns"
+                payload = json.dumps({"note": f"Auto-triggered: {reason}"}).encode()
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                credentials = f"{settings.airflow_username}:{settings.airflow_password}"
+                import base64
+
+                encoded = base64.b64encode(credentials.encode()).decode()
+                req.add_header("Authorization", f"Basic {encoded}")
+                with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+                    log.info("Triggered batch_scoring DAG (%s)", resp.status)
+                    triggered = True
+            except Exception:
+                log.exception("Failed to trigger batch_scoring DAG")
+
+        # --- Send ntfy notification -------------------------------------
+        if settings.ntfy_enabled and settings.ntfy_topic:
+            status_emoji = "white_check_mark" if promoted else "information_source"
+            title = "New champion promoted" if promoted else "Model training complete"
+            lines = [reason]
+            if metric and new_value is not None:
+                line = f"{metric}: {new_value:.4f}"
+                if old_value is not None:
+                    line += f" (prev: {old_value:.4f})"
+                lines.append(line)
+            if promoted and triggered:
+                lines.append("Batch scoring triggered.")
+
+            send_ntfy_notification(
+                topic=settings.ntfy_topic,
+                title=title,
+                message="\n".join(lines),
+                server_url=settings.ntfy_server_url,
+                priority="high" if promoted else "default",
+                tags=[status_emoji, "robot"],
+            )
+
+        return {
+            "promoted": promoted,
+            "triggered": triggered,
+            "reason": reason,
+        }
+
     tune_step = tune()
     train_step = train(tune_step)
     validate_step = validate(train_step, tune_step)
     evaluate_step = evaluate(train_step)
     register_step = register_model(validate_step, evaluate_step, train_step, tune_step)
     promote_step = promote(register_step)
+    notify_step = notify_and_trigger(promote_step)
 
-    tune_step >> train_step >> [validate_step, evaluate_step] >> register_step >> promote_step
+    (
+        tune_step
+        >> train_step
+        >> [validate_step, evaluate_step]
+        >> register_step
+        >> promote_step
+        >> notify_step
+    )
 
 
 model_training()

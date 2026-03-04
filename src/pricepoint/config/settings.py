@@ -206,6 +206,11 @@ class Settings(BaseSettings):
     model_auto_promote: bool = True
     model_primary_metric: str = "mae"  # "mae", "rmse", "mape", "r2"
 
+    # Notifications (ntfy)
+    ntfy_enabled: bool = False
+    ntfy_server_url: str = "https://ntfy.sh"
+    ntfy_topic: str = ""
+
     # Valkey (Redis-compatible cache)
     valkey_url: str | None = None
 
