@@ -74,7 +74,7 @@ describe("ThemeContext", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 
-  it("toggleTheme cycles dark → light → system → dark", async () => {
+  it("toggleTheme switches between light and dark based on resolved theme", async () => {
     localStorage.setItem("pricepoint-theme", "dark");
     const user = userEvent.setup();
     renderWithProvider();
@@ -82,12 +82,23 @@ describe("ThemeContext", () => {
 
     await user.click(screen.getByTestId("toggle"));
     expect(screen.getByTestId("theme").textContent).toBe("light");
-
-    await user.click(screen.getByTestId("toggle"));
-    expect(screen.getByTestId("theme").textContent).toBe("system");
+    expect(screen.getByTestId("resolved").textContent).toBe("light");
 
     await user.click(screen.getByTestId("toggle"));
     expect(screen.getByTestId("theme").textContent).toBe("dark");
+    expect(screen.getByTestId("resolved").textContent).toBe("dark");
+  });
+
+  it("toggleTheme from system (dark) goes directly to light", async () => {
+    // system resolves to dark (matchMedia mock), so toggle should go to light
+    const user = userEvent.setup();
+    renderWithProvider();
+    expect(screen.getByTestId("theme").textContent).toBe("system");
+    expect(screen.getByTestId("resolved").textContent).toBe("dark");
+
+    await user.click(screen.getByTestId("toggle"));
+    expect(screen.getByTestId("theme").textContent).toBe("light");
+    expect(screen.getByTestId("resolved").textContent).toBe("light");
   });
 
   it("setTheme allows setting any valid preference", async () => {

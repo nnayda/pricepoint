@@ -67,14 +67,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      // Cycle: dark → light → system → dark
-      const next: ThemePreference =
-        prev === "dark" ? "light" : prev === "light" ? "system" : "dark";
-      localStorage.setItem(STORAGE_KEY, next);
-      return next;
-    });
-  }, []);
+    // Toggle based on resolved (visible) theme so the switch always produces a visible change
+    const next: ThemePreference = resolveTheme(theme) === "dark" ? "light" : "dark";
+    setThemeState(next);
+    localStorage.setItem(STORAGE_KEY, next);
+  }, [theme]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({ theme, resolvedTheme, setTheme, toggleTheme }),
