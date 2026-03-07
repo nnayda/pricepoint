@@ -56,8 +56,9 @@ const INFRA_TYPE_OPTIONS: { value: InfrastructureType; label: string }[] = [
 const ALL_TYPES = new Set<InfrastructureType>(INFRA_TYPE_OPTIONS.map((o) => o.value));
 
 // SVG icons for point infrastructure types (cell towers & power plants) on vector tiles
-const CELL_TOWER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%2360A5FA" stroke="white" stroke-width="0.8"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="M12 14v8"/></svg>`;
-const POWER_PLANT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23EF4444" stroke="white" stroke-width="0.8"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
+// Rounded-rectangle background gives them the same "square badge" look as DashboardMap markers
+const CELL_TOWER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="6" fill="%2360A5FA"/><g transform="translate(4,4)" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.4"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="M12 14v8"/></g></svg>`;
+const POWER_PLANT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="2" y="2" width="28" height="28" rx="6" fill="%23EF4444"/><g transform="translate(4,4)" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></g></svg>`;
 
 const INFRA_ICON_MAP: Record<string, { svg: string; name: string }> = {
   cell_tower: { svg: CELL_TOWER_ICON_SVG, name: "cell-tower-icon" },
@@ -75,7 +76,7 @@ function InfraIconLoader() {
     function loadIcons() {
       for (const { svg, name } of Object.values(INFRA_ICON_MAP)) {
         if (gl.hasImage(name)) continue;
-        const img = new Image(28, 28);
+        const img = new Image(32, 32);
         img.onload = () => {
           if (!gl.hasImage(name)) {
             gl.addImage(name, img, { sdf: false });

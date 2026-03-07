@@ -276,32 +276,13 @@ function ValuationTab({ data }: ValuationTabProps) {
           <PriceHistoryChart data={price_history} showNeighborhood={true} />
         </DashboardCard>
 
-        <DashboardCard className="relative overflow-hidden">
+        <DashboardCard className="relative overflow-hidden" expandable title="Value Drivers (SHAP)">
           {notFound && <NoDataOverlay message="Value drivers not available." />}
           {!notFound && !hasEstimate && <NoDataOverlay message="Value drivers not available." />}
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Value Drivers (SHAP)
             </h3>
-            <button
-              type="button"
-              className="rounded-[var(--radius-db-xs)] p-1 text-[var(--color-db-text-muted)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-secondary)]"
-              aria-label="Expand SHAP chart"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
-                />
-              </svg>
-            </button>
           </div>
           <ShapWaterfall features={shap_features} />
         </DashboardCard>

@@ -139,7 +139,27 @@ function useZoom(dataLength: number) {
 
   const resetZoom = useCallback(() => setWindow(null), []);
 
-  return { zoomLeft, zoomRight, window, onMouseDown, onMouseMove, onMouseUp, resetZoom };
+  const panLeft = useCallback(() => {
+    setWindow((prev) => {
+      if (!prev) return null;
+      const span = prev[1] - prev[0];
+      const shift = Math.max(1, Math.round(span * 0.25));
+      const newStart = Math.max(0, prev[0] - shift);
+      return [newStart, newStart + span];
+    });
+  }, []);
+
+  const panRight = useCallback(() => {
+    setWindow((prev) => {
+      if (!prev) return null;
+      const span = prev[1] - prev[0];
+      const shift = Math.max(1, Math.round(span * 0.25));
+      const newEnd = Math.min(dataLength, prev[1] + shift);
+      return [newEnd - span, newEnd];
+    });
+  }, [dataLength]);
+
+  return { zoomLeft, zoomRight, window, onMouseDown, onMouseMove, onMouseUp, resetZoom, panLeft, panRight };
 }
 
 interface PriceHistoryChartProps {
@@ -241,26 +261,50 @@ function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHist
           </div>
         )}
         {zoom.window && (
-          <button
-            type="button"
-            onClick={zoom.resetZoom}
-            className="ml-auto flex items-center gap-1 rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-2 py-0.5 text-[11px] text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={zoom.panLeft}
+              disabled={zoom.window[0] === 0}
+              className="flex items-center justify-center rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-1.5 py-0.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)] disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Pan left"
             >
-              <path d="M1 1v5h5" />
-              <path d="M3.51 10a6 6 0 1 0 .34-5.37L1 6" />
-            </svg>
-            Reset zoom
-          </button>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 3L5 8l5 5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={zoom.panRight}
+              disabled={zoom.window[1] >= allData.length}
+              className="flex items-center justify-center rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-1.5 py-0.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)] disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="Pan right"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 3l5 5-5 5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={zoom.resetZoom}
+              className="flex items-center gap-1 rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-2 py-0.5 text-[11px] text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M1 1v5h5" />
+                <path d="M3.51 10a6 6 0 1 0 .34-5.37L1 6" />
+              </svg>
+              Reset zoom
+            </button>
+          </div>
         )}
         {!zoom.window && (
           <span className="ml-auto text-[10px] text-[var(--color-db-text-muted)]">
