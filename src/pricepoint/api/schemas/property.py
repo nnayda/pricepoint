@@ -40,6 +40,7 @@ class PropertyDetails(BaseModel):
     days_on_market: int | None = None
     listed_date: str | None = None
     hoa_monthly: float | None = None
+    redfin_url: str | None = None
 
 
 class ValuationData(BaseModel):

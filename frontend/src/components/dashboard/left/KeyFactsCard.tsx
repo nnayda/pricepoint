@@ -237,25 +237,29 @@ function KeyFactsCard({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            aria-label="Open in external source"
-            className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {property.redfin_url && (
+            <a
+              href={property.redfin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View on Redfin"
+              className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-              />
-            </svg>
-          </button>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </a>
+          )}
         </div>
       </div>
     </DashboardCard>

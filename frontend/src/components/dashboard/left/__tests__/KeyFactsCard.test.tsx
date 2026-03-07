@@ -218,3 +218,37 @@ describe("KeyFactsCard share button", () => {
     Object.assign(navigator, { share: undefined });
   });
 });
+
+describe("KeyFactsCard Redfin link", () => {
+  it("renders View on Redfin link when redfin_url is set", () => {
+    const withUrl = { ...property, redfin_url: "https://www.redfin.com/NC/Cary/123/home/456" };
+    render(
+      <KeyFactsCard
+        property={withUrl}
+        valuation={valuation}
+        listingId={42}
+        isSaved={false}
+        isSaveLoading={false}
+        onSaveToggle={() => {}}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "View on Redfin" });
+    expect(link).toHaveAttribute("href", "https://www.redfin.com/NC/Cary/123/home/456");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("does not render Redfin link when redfin_url is absent", () => {
+    render(
+      <KeyFactsCard
+        property={property}
+        valuation={valuation}
+        listingId={42}
+        isSaved={false}
+        isSaveLoading={false}
+        onSaveToggle={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "View on Redfin" })).not.toBeInTheDocument();
+  });
+});

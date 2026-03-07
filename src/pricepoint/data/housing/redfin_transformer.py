@@ -1364,6 +1364,7 @@ def transform_listing(
     # Photos and source
     prop.property_photos = staging.photo_s3_paths
     prop.source_file = staging.source_file
+    prop.redfin_url = staging.redfin_url
 
     # Change detection
     prop.staging_hash = new_hash

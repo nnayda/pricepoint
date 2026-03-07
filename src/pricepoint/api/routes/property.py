@@ -251,6 +251,7 @@ def _build_response_from_db(
             ),
             listed_date=(prop.contract_date.strftime("%Y-%m-%d") if prop.contract_date else None),
             hoa_monthly=(prop.association_fee / 12) if prop.association_fee else None,
+            redfin_url=prop.redfin_url,
         ),
         valuation=ValuationData(
             listed_price=prop.listing_price,

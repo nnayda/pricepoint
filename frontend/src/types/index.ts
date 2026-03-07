@@ -62,6 +62,7 @@ export interface PropertyDetails {
   days_on_market?: number;
   listed_date?: string;
   hoa_monthly?: number;
+  redfin_url?: string;
 }
 
 export interface ValuationData {
@@ -449,6 +450,7 @@ export interface DashboardProperty {
   mls_number: string;
   listed_date: string;
   sold_date?: string;
+  redfin_url?: string;
 }
 
 export interface DashboardValuation {

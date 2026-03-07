@@ -570,6 +570,48 @@ def _parse_schools(soup: BeautifulSoup) -> list[dict[str, str | None]]:
     return result
 
 
+def _parse_source_url(soup: BeautifulSoup) -> str | None:
+    """Extract the original Redfin listing URL from the HTML.
+
+    Tries three sources in order:
+    1. <link rel="canonical"> href
+    2. <meta property="og:url"> content
+    3. SingleFile comment (saved from url=... or url: ...)
+    """
+    # 1. Canonical link
+    canonical = soup.find("link", rel="canonical")
+    if canonical and canonical.get("href"):
+        href = canonical["href"]
+        if isinstance(href, str) and href.startswith("http"):
+            return href
+
+    # 2. Open Graph URL
+    og_url = soup.find("meta", property="og:url")
+    if og_url and og_url.get("content"):
+        content = og_url["content"]
+        if isinstance(content, str) and content.startswith("http"):
+            return content
+
+    # 3. SingleFile comment at top of file
+    for element in soup.children:
+        if hasattr(element, "strip") or not hasattr(element, "output_ready"):
+            # Check Comment nodes
+            from bs4 import Comment
+
+            if isinstance(element, Comment):
+                text = str(element)
+                # "saved from url=(0123)https://..." format
+                m = re.search(r"saved from url=\(\d+\)(https?://\S+)", text)
+                if m:
+                    return m.group(1)
+                # "url: https://..." format (SingleFile)
+                m = re.search(r"url:\s*(https?://\S+)", text)
+                if m:
+                    return m.group(1)
+
+    return None
+
+
 def _parse_climate_risks(soup: BeautifulSoup) -> dict[str, str | None]:
     """Parse climate risk factors (flood and fire)."""
     result: dict[str, str | None] = {
@@ -696,6 +738,7 @@ def _parse_html_file(file_path: str, source_filename: str) -> dict:
     data["property_details"] = _parse_property_details(soup)
     data["schools"] = _parse_schools(soup)
     data.update(_parse_climate_risks(soup))
+    data["redfin_url"] = _parse_source_url(soup)
 
     # Photos
     photo_paths, photo_failures = _extract_photos(soup, slug)

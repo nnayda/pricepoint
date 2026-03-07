@@ -549,6 +549,9 @@ class StagingRedfinListing(Base):
     property_details = Column(JSON, nullable=True)
     schools = Column(JSON, nullable=True)
 
+    # Source URL
+    redfin_url = Column(String, nullable=True)
+
     # Climate risk
     climate_flood_factor = Column(String, nullable=True)
     climate_fire_factor = Column(String, nullable=True)
@@ -702,6 +705,7 @@ class RedfinListing(Base):
     # Photos and source
     property_photos = Column(JSON, nullable=True)
     source_file = Column(String, nullable=True)
+    redfin_url = Column(String, nullable=True)
 
     # Change detection
     staging_hash = Column(String(64), nullable=True)

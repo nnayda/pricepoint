@@ -29,6 +29,7 @@ from pricepoint.data.housing.redfin_listings import (
     _parse_redfin_estimate,
     _parse_sale_history,
     _parse_schools,
+    _parse_source_url,
     _parse_tax_history,
     _slugify_address,
     _upsert_listing,
@@ -1180,3 +1181,54 @@ class TestParseHtmlFile:
         assert data["year_built"] == 1998
         assert data["listing_agent"] == "John Smith"
         assert data["redfin_estimate"] == "$510,000"
+
+
+# ---------------------------------------------------------------------------
+# _parse_source_url tests
+# ---------------------------------------------------------------------------
+
+
+class TestParseSourceUrl:
+    """Tests for _parse_source_url."""
+
+    def test_canonical_link(self):
+        html = '<html><head><link rel="canonical" href="https://www.redfin.com/NC/Apex/100/home/123"></head><body></body></html>'
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) == "https://www.redfin.com/NC/Apex/100/home/123"
+
+    def test_og_url_fallback(self):
+        html = '<html><head><meta property="og:url" content="https://www.redfin.com/NC/Cary/200/home/456"></head><body></body></html>'
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) == "https://www.redfin.com/NC/Cary/200/home/456"
+
+    def test_canonical_preferred_over_og(self):
+        html = (
+            "<html><head>"
+            '<link rel="canonical" href="https://www.redfin.com/canonical">'
+            '<meta property="og:url" content="https://www.redfin.com/og">'
+            "</head><body></body></html>"
+        )
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) == "https://www.redfin.com/canonical"
+
+    def test_singlefile_comment_saved_from(self):
+        url = "https://www.redfin.com/NC/Apex/100/home/789"
+        html = f"<!-- saved from url=(0070){url} --><html><head></head><body></body></html>"
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) == url
+
+    def test_singlefile_comment_url_colon(self):
+        url = "https://www.redfin.com/NC/Cary/300/home/101"
+        comment = f"<!-- Page saved with SingleFile url: {url} -->"
+        html = f"{comment}<html><head></head><body></body></html>"
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) == url
+
+    def test_no_url_returns_none(self):
+        html = "<html><head><title>No URL</title></head><body></body></html>"
+        soup = BeautifulSoup(html, "lxml")
+        assert _parse_source_url(soup) is None
+
+    def test_sold_fixture_has_url(self, sold_soup):
+        url = _parse_source_url(sold_soup)
+        assert url == "https://www.redfin.com/NC/Apex/100-Fern-Berry-Ct-27502/home/123456"

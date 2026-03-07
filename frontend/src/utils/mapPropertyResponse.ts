@@ -71,6 +71,7 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
     mls_number: mockDashboardData.property.mls_number,
     listed_date: p.listed_date ?? mockDashboardData.property.listed_date,
     sold_date: v.last_sold_date ?? undefined,
+    redfin_url: p.redfin_url,
   };
 
   const displayPrice = v.listed_price ?? v.last_sold_price ?? 0;
