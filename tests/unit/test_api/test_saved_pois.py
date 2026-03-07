@@ -1,6 +1,7 @@
 """Tests for saved-POI endpoints (autocomplete, CRUD, nearby)."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -111,17 +112,8 @@ def _make_saved_poi(
 
 class TestAutocomplete:
     def test_returns_brand_results(self, client, mock_db):
-        # Mock brand query returning rows
-        brand_row = MagicMock()
-        brand_row.value = "Costco"
-        brand_row.cnt = 47
-        brand_row.category = "store"
-
-        # First execute = brand query, second = name query
-        mock_db.execute.side_effect = [
-            MagicMock(all=MagicMock(return_value=[brand_row])),
-            MagicMock(all=MagicMock(return_value=[])),
-        ]
+        brand_row = SimpleNamespace(match_type="brand", value="Costco", category="store", count=47)
+        mock_db.execute.return_value = MagicMock(all=MagicMock(return_value=[brand_row]))
 
         resp = client.get("/api/pois/autocomplete", params={"q": "cost"})
         assert resp.status_code == 200
@@ -136,22 +128,19 @@ class TestAutocomplete:
         resp = client.get("/api/pois/autocomplete", params={"q": "c"})
         assert resp.status_code == 422
 
-    def test_returns_name_fallback(self, client, mock_db):
-        name_row = MagicMock()
-        name_row.value = "Joe's Pizza"
-        name_row.cnt = 3
-        name_row.category = "restaurant"
-
-        mock_db.execute.side_effect = [
-            MagicMock(all=MagicMock(return_value=[])),  # no brands
-            MagicMock(all=MagicMock(return_value=[name_row])),  # name fallback
-        ]
+    def test_returns_name_results(self, client, mock_db):
+        name_row = SimpleNamespace(
+            match_type="name", value="Joe's Pizza", category="restaurant", count=3
+        )
+        mock_db.execute.return_value = MagicMock(all=MagicMock(return_value=[name_row]))
 
         resp = client.get("/api/pois/autocomplete", params={"q": "joe"})
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["results"]) == 1
         assert data["results"][0]["match_type"] == "name"
+        assert data["results"][0]["match_value"] == "Joe's Pizza"
+        assert data["results"][0]["count"] == 3
 
 
 # --- CRUD tests ---

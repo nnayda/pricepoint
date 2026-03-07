@@ -39,7 +39,16 @@ def overture_places_collection():
 
         verify_places()
 
-    fetch_places() >> verify_places()
+    @task()
+    def refresh_place_names():
+        """Rebuild the place_names autocomplete lookup table."""
+        from pricepoint.data.geospatial.place_names import (
+            refresh_place_names as _refresh,
+        )
+
+        _refresh()
+
+    fetch_places() >> verify_places() >> refresh_place_names()
 
 
 overture_places_collection()

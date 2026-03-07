@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_Centroid, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import String, cast, func, literal, or_, select, union_all
+from sqlalchemy import String, case, cast, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.auth import get_current_user
@@ -28,6 +28,7 @@ from pricepoint.api.schemas.pois import (
 from pricepoint.db.models import (
     Hospital,
     Place,
+    PlaceName,
     SavedPoi,
     User,
 )
@@ -279,63 +280,32 @@ def autocomplete_pois(
     """Autocomplete POI brands/names for saving."""
     pattern = f"%{q.strip()}%"
 
-    # Search brands first (grouped with count)
-    brand_stmt = (
+    stmt = (
         select(
-            Place.brand_name.label("value"),
-            func.count().label("cnt"),
-            func.min(Place.category).label("category"),
+            PlaceName.match_type,
+            PlaceName.value,
+            PlaceName.category,
+            PlaceName.count,
         )
-        .where(Place.brand_name.isnot(None), Place.brand_name.ilike(pattern))
-        .group_by(Place.brand_name)
-        .order_by(func.count().desc())
+        .where(PlaceName.value.ilike(pattern))
+        .order_by(
+            case((PlaceName.match_type == "brand", 0), else_=1),
+            PlaceName.count.desc(),
+        )
         .limit(limit)
     )
-    brand_rows = db.execute(brand_stmt).all()
-    brand_values = {r.value for r in brand_rows}
+    rows = db.execute(stmt).all()
 
-    results: list[PoiAutocompleteItem] = [
+    results = [
         PoiAutocompleteItem(
-            match_type="brand",
+            match_type=r.match_type,
             match_value=r.value,
             display_name=r.value,
             category=r.category,
-            count=r.cnt,
+            count=r.count,
         )
-        for r in brand_rows
+        for r in rows
     ]
-
-    # Fill remaining slots with name matches (excluding brands already found)
-    remaining = limit - len(results)
-    if remaining > 0:
-        name_filters = [
-            Place.name.isnot(None),
-            Place.name.ilike(pattern),
-        ]
-        if brand_values:
-            name_filters.append(~Place.name.in_(brand_values))
-        name_stmt = (
-            select(
-                Place.name.label("value"),
-                func.count().label("cnt"),
-                func.min(Place.category).label("category"),
-            )
-            .where(*name_filters)
-            .group_by(Place.name)
-            .order_by(func.count().desc())
-            .limit(remaining)
-        )
-        name_rows = db.execute(name_stmt).all()
-        results.extend(
-            PoiAutocompleteItem(
-                match_type="name",
-                match_value=r.value,
-                display_name=r.value,
-                category=r.category,
-                count=r.cnt,
-            )
-            for r in name_rows
-        )
 
     return PoiAutocompleteResponse(results=results, query=q)
 

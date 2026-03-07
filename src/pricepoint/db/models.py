@@ -1305,6 +1305,29 @@ class Place(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class PlaceName(Base):
+    """Precomputed unique brand/name values from places for fast autocomplete."""
+
+    __tablename__ = "place_names"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_type = Column(String, nullable=False)  # "brand" or "name"
+    value = Column(String, nullable=False)
+    category = Column(String, nullable=True)  # representative category (MIN)
+    count = Column(Integer, nullable=False)
+    refreshed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("match_type", "value", name="uq_place_name_type_value"),
+        Index(
+            "ix_place_names_value_trgm",
+            "value",
+            postgresql_using="gin",
+            postgresql_ops={"value": "gin_trgm_ops"},
+        ),
+    )
+
+
 class LlmQualityScore(Base):
     """LLM-generated property quality score from listing description analysis.
 
