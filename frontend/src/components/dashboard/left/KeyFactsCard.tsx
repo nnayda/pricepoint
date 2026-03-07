@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import type { DashboardProperty, DashboardValuation } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import StatusBadge from "../ui/StatusBadge";
@@ -47,6 +48,30 @@ function KeyFactsCard({
   isSaveLoading = false,
   onSaveToggle,
 }: KeyFactsCardProps) {
+  const [shareTooltip, setShareTooltip] = useState<string | null>(null);
+
+  const handleShare = useCallback(async () => {
+    const url = window.location.href;
+    const title = `${property.address} — ${property.city}, ${property.state} ${property.zip_code}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        // User cancelled or share failed silently
+      }
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareTooltip("Link copied!");
+    } catch {
+      setShareTooltip("Failed to copy");
+    }
+    setTimeout(() => setShareTooltip(null), 2000);
+  }, [property.address, property.city, property.state, property.zip_code]);
+
   const isSold = property.listing_status === "Sold";
   const badgeDays =
     isSold && property.sold_date ? daysSince(property.sold_date) : property.days_on_market;
@@ -185,25 +210,33 @@ function KeyFactsCard({
             </svg>
             {isSaveLoading ? "Saving..." : isSaved ? "Saved" : "Save"}
           </button>
-          <button
-            type="button"
-            aria-label="Share property"
-            className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Share property"
+              onClick={() => void handleShare()}
+              className="flex items-center justify-center rounded-[var(--radius-db-sm)] border border-[var(--color-db-border)] bg-[var(--color-db-surface-alt)] px-3 py-2.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-hover)]"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-              />
-            </svg>
-          </button>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+            </button>
+            {shareTooltip && (
+              <span className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--color-db-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-db-text-primary)] shadow-lg ring-1 ring-[var(--color-db-border)]">
+                {shareTooltip}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             aria-label="Open in external source"

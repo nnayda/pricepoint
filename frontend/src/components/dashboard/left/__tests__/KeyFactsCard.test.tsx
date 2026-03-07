@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import KeyFactsCard from "../KeyFactsCard";
 import type { DashboardProperty, DashboardValuation } from "../../../../types";
 
@@ -161,5 +161,60 @@ describe("KeyFactsCard save button", () => {
     const btn = screen.getByRole("button", { name: "Save listing" });
     const svg = btn.querySelector("svg");
     expect(svg?.getAttribute("fill")).toBe("none");
+  });
+});
+
+describe("KeyFactsCard share button", () => {
+  it("copies URL to clipboard when navigator.share is unavailable", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText }, share: undefined });
+
+    render(
+      <KeyFactsCard
+        property={property}
+        valuation={valuation}
+        listingId={42}
+        isSaved={false}
+        isSaveLoading={false}
+        onSaveToggle={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Share property" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(window.location.href);
+    });
+    expect(screen.getByText("Link copied!")).toBeInTheDocument();
+  });
+
+  it("uses navigator.share when available", async () => {
+    const shareFn = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { share: shareFn });
+
+    render(
+      <KeyFactsCard
+        property={property}
+        valuation={valuation}
+        listingId={42}
+        isSaved={false}
+        isSaveLoading={false}
+        onSaveToggle={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Share property" }));
+
+    await waitFor(() => {
+      expect(shareFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: window.location.href,
+          title: "123 Main St — Cary, NC 27513",
+        }),
+      );
+    });
+
+    // Clean up
+    Object.assign(navigator, { share: undefined });
   });
 });
