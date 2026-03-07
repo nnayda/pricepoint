@@ -58,7 +58,8 @@ class Settings(BaseSettings):
     geocode_timeout: float = 5.0
     geocode_rate_limit_seconds: float = 1.0  # 0 = no limit (self-hosted)
 
-    # OSRM routing
+    # OSRM routing — self-hosted setup uses nginx proxy to route "driving"
+    # and "walking" profiles to separate OSRM backend instances.
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_rate_limit_seconds: float = 1.0
 

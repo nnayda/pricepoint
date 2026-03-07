@@ -183,7 +183,7 @@ class TestGetOsrmRoute:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = get_osrm_route(35.79, -78.78, 35.80, -78.79, profile="car")
+        result = get_osrm_route(35.79, -78.78, 35.80, -78.79, profile="driving")
         assert result is not None
         assert result["duration_minutes"] == pytest.approx(5.0)
         assert result["distance_miles"] == pytest.approx(3.1, abs=0.1)
@@ -199,7 +199,7 @@ class TestGetOsrmRoute:
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = get_osrm_route(35.79, -78.78, 35.80, -78.79, profile="foot")
+        result = get_osrm_route(35.79, -78.78, 35.80, -78.79, profile="walking")
         assert result is not None
         assert result["duration_minutes"] == pytest.approx(20.0)
 
@@ -275,7 +275,7 @@ class TestGetTravelTimesBatch:
         mock_get.return_value = mock_resp
 
         destinations = [(35.80, -78.79), (35.81, -78.80)]
-        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="driving")
 
         assert len(results) == 2
         assert results[0]["duration_minutes"] == pytest.approx(5.0)
@@ -289,7 +289,7 @@ class TestGetTravelTimesBatch:
         mock_get.side_effect = Exception("OSRM error")
 
         destinations = [(35.80, -78.79)]
-        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="driving")
 
         assert len(results) == 1
         assert results[0]["duration_minutes"] is None
@@ -297,7 +297,7 @@ class TestGetTravelTimesBatch:
 
     def test_batch_empty_destinations(self):
         """Empty destinations list returns empty list."""
-        results = get_travel_times_batch(35.79, -78.78, [], profile="car")
+        results = get_travel_times_batch(35.79, -78.78, [], profile="driving")
         assert results == []
 
     @patch("pricepoint.data.housing.school_enrichment.time.sleep")
@@ -310,7 +310,7 @@ class TestGetTravelTimesBatch:
         mock_get.return_value = mock_resp
 
         destinations = [(35.80, -78.79)]
-        results = get_travel_times_batch(35.79, -78.78, destinations, profile="car")
+        results = get_travel_times_batch(35.79, -78.78, destinations, profile="driving")
 
         assert len(results) == 1
         assert results[0]["duration_minutes"] is None

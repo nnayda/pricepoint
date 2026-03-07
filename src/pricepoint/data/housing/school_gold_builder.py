@@ -504,7 +504,7 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
             # OSRM calls: car + foot in parallel (independent HTTP requests)
             with ThreadPoolExecutor(max_workers=2) as pool:
                 car_future = pool.submit(
-                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="car"
+                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="driving"
                 )
                 foot_future = pool.submit(
                     get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="walking"

@@ -149,7 +149,7 @@ def get_osrm_route(
     origin_lon: float,
     dest_lat: float,
     dest_lon: float,
-    profile: str = "car",
+    profile: str = "driving",
 ) -> dict[str, Any] | None:
     """Call OSRM route API for a single origin-destination pair.
 
@@ -198,7 +198,7 @@ def get_travel_times(
     """
     result: dict[str, int | None] = {"drive_minutes": None, "walk_minutes": None}
 
-    car = get_osrm_route(origin_lat, origin_lon, dest_lat, dest_lon, profile="car")
+    car = get_osrm_route(origin_lat, origin_lon, dest_lat, dest_lon, profile="driving")
     if car:
         result["drive_minutes"] = int(round(car["duration_minutes"]))
 
@@ -290,7 +290,7 @@ def get_travel_times_batch(
     origin_lat: float,
     origin_lon: float,
     destinations: list[tuple[float, float]],
-    profile: str = "car",
+    profile: str = "driving",
 ) -> list[dict[str, float | None]]:
     """1-to-N travel times/distances via OSRM Table API.
 
@@ -301,7 +301,8 @@ def get_travel_times_batch(
         origin_lat: Origin latitude.
         origin_lon: Origin longitude.
         destinations: List of (lat, lon) tuples for each destination.
-        profile: OSRM routing profile ("car" or "foot").
+        profile: OSRM routing profile ("driving" or "walking"). The self-hosted
+            setup uses an nginx proxy to route each profile to its own OSRM backend.
 
     Returns:
         List of {"duration_minutes": float | None, "distance_miles": float | None}
