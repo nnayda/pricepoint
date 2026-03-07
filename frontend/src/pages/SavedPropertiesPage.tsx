@@ -5,14 +5,14 @@ import DashboardNav from "../components/dashboard/DashboardNav";
 import type { SavedPropertyResponse } from "../services/saved";
 
 function statusColor(status: string | null): { bg: string; text: string } {
-  if (!status) return { bg: "rgba(107,114,128,0.15)", text: "#6b7280" };
+  if (!status) return { bg: "rgba(107,114,128,0.85)", text: "#ffffff" };
   const s = status.toLowerCase();
-  if (s.includes("sold")) return { bg: "rgba(239,68,68,0.12)", text: "#dc2626" };
+  if (s.includes("sold")) return { bg: "rgba(185,28,28,0.85)", text: "#ffffff" };
   if (s.includes("active") || s.includes("for sale"))
-    return { bg: "rgba(34,197,94,0.12)", text: "#16a34a" };
+    return { bg: "rgba(21,128,61,0.85)", text: "#ffffff" };
   if (s.includes("pending") || s.includes("contingent"))
-    return { bg: "rgba(234,179,8,0.12)", text: "#ca8a04" };
-  return { bg: "rgba(107,114,128,0.15)", text: "#6b7280" };
+    return { bg: "rgba(161,98,7,0.85)", text: "#ffffff" };
+  return { bg: "rgba(107,114,128,0.85)", text: "#ffffff" };
 }
 
 function formatPrice(price: number | null): string {
