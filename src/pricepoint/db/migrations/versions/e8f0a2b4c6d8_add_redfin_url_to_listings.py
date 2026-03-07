@@ -1,7 +1,7 @@
 """add redfin_url to listings
 
-Revision ID: a4b6c8d0e2f4
-Revises: z3a5b7c9d1e3
+Revision ID: e8f0a2b4c6d8
+Revises: d7e9f1a3b5c7
 Create Date: 2026-03-07
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers
-revision = "a4b6c8d0e2f4"
-down_revision = "z3a5b7c9d1e3"
+revision = "e8f0a2b4c6d8"
+down_revision = "d7e9f1a3b5c7"
 branch_labels = None
 depends_on = None
 
