@@ -91,7 +91,17 @@ function useXAxisConfig(data: PriceHistoryPoint[]) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ChartMouseEvent = { activeTooltipIndex?: number | null | any };
+type ChartMouseEvent = { activeTooltipIndex?: number | string | null | any };
+
+/** Parse recharts activeTooltipIndex which may be a number or numeric string. */
+function parseTooltipIndex(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
 
 /** Hook to manage drag-to-zoom on a categorical (index-based) recharts axis. */
 function useZoom(dataLength: number) {
@@ -102,7 +112,7 @@ function useZoom(dataLength: number) {
 
   const onMouseDown = useCallback(
     (e: ChartMouseEvent) => {
-      const idx = typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null;
+      const idx = parseTooltipIndex(e.activeTooltipIndex);
       if (idx != null) {
         setZoomLeft(idx);
         setZoomRight(null);
@@ -113,7 +123,7 @@ function useZoom(dataLength: number) {
 
   const onMouseMove = useCallback(
     (e: ChartMouseEvent) => {
-      const idx = typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null;
+      const idx = parseTooltipIndex(e.activeTooltipIndex);
       if (zoomLeft != null && idx != null) {
         setZoomRight(idx);
       }
