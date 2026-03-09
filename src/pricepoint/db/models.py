@@ -556,6 +556,7 @@ class StagingRedfinListing(Base):
     # Photos and source
     photo_s3_paths = Column(JSON, nullable=True)
     source_file = Column(String, nullable=True)
+    redfin_url = Column(String, nullable=True)
 
     # Metadata
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -702,6 +703,7 @@ class RedfinListing(Base):
     # Photos and source
     property_photos = Column(JSON, nullable=True)
     source_file = Column(String, nullable=True)
+    redfin_url = Column(String, nullable=True)
 
     # Change detection
     staging_hash = Column(String(64), nullable=True)
