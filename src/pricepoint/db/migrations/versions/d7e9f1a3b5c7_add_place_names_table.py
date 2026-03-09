@@ -40,28 +40,9 @@ def upgrade() -> None:
         postgresql_ops={"value": "gin_trgm_ops"},
     )
 
-    # Populate with brands
-    op.execute(
-        """
-        INSERT INTO place_names (match_type, value, category, count, refreshed_at)
-        SELECT 'brand', brand_name, MIN(category), COUNT(*), NOW()
-        FROM places
-        WHERE brand_name IS NOT NULL
-        GROUP BY brand_name
-        """
-    )
-
-    # Populate with names (excluding values already inserted as brands)
-    op.execute(
-        """
-        INSERT INTO place_names (match_type, value, category, count, refreshed_at)
-        SELECT 'name', name, MIN(category), COUNT(*), NOW()
-        FROM places
-        WHERE name IS NOT NULL
-          AND name NOT IN (SELECT value FROM place_names WHERE match_type = 'brand')
-        GROUP BY name
-        """
-    )
+    # Data is populated by the overture_places_collection DAG via
+    # refresh_place_names(), not during migration — the places table
+    # is too large (22 GB+) for an inline migration INSERT.
 
 
 def downgrade() -> None:

@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 def refresh_place_names() -> None:
     """Rebuild place_names from the current places table."""
     with SessionLocal() as session:
-        session.execute(text("DELETE FROM place_names"))
+        session.execute(text("SET LOCAL work_mem = '256MB'"))
+        session.execute(text("TRUNCATE place_names RESTART IDENTITY"))
 
         brand_result = session.execute(
             text(
@@ -35,11 +36,12 @@ def refresh_place_names() -> None:
             text(
                 """
                 INSERT INTO place_names (match_type, value, category, count, refreshed_at)
-                SELECT 'name', name, MIN(category), COUNT(*), NOW()
-                FROM places
-                WHERE name IS NOT NULL
-                  AND name NOT IN (SELECT value FROM place_names WHERE match_type = 'brand')
-                GROUP BY name
+                SELECT 'name', p.name, MIN(p.category), COUNT(*), NOW()
+                FROM places p
+                LEFT JOIN place_names pn ON pn.value = p.name AND pn.match_type = 'brand'
+                WHERE p.name IS NOT NULL
+                  AND pn.value IS NULL
+                GROUP BY p.name
                 """
             )
         )
