@@ -514,35 +514,38 @@ function DashboardPreview() {
                   />
                 </svg>
                 <span className="text-xs text-[var(--color-db-text-muted)]">
-                  pricepoint.app/dashboard
+                  pricepoint.app/property/5501-sealstone-dr
                 </span>
               </div>
             </div>
 
             {/* Dashboard content mockup */}
-            <div className="relative overflow-hidden rounded-b-[var(--radius-db-md)] bg-[var(--color-db-bg)] p-6">
+            <div className="relative overflow-hidden rounded-b-[var(--radius-db-md)] bg-[var(--color-db-bg)] p-4 sm:p-6">
+              {/* Section nav tabs */}
+              <div className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-1">
+                {["Summary", "Crime Analysis", "Schools", "POIs", "Comparable"].map((tab, i) => (
+                  <div
+                    key={tab}
+                    className={`whitespace-nowrap rounded-[var(--radius-db-xs)] px-3 py-1.5 text-[10px] font-medium ${i === 0 ? "bg-[var(--color-db-surface)] text-[var(--color-db-text-primary)] shadow-sm" : "text-[var(--color-db-text-muted)]"}`}
+                  >
+                    {tab}
+                  </div>
+                ))}
+              </div>
+
               <div className="flex gap-5">
-                {/* Left panel mockup */}
-                <div className="hidden w-[220px] shrink-0 flex-col gap-3 md:flex">
-                  {/* Photo placeholder */}
-                  <div className="aspect-[4/3] rounded-[var(--radius-db-sm)] bg-gradient-to-br from-[var(--color-db-surface-alt)] to-[var(--color-db-surface)]">
-                    <div className="flex h-full items-center justify-center text-[var(--color-db-text-muted)]">
-                      <svg
-                        className="h-8 w-8 opacity-40"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                        />
+                {/* Left panel — property card */}
+                <div className="hidden w-[200px] shrink-0 flex-col gap-3 md:flex">
+                  {/* Property photo mockup */}
+                  <div className="aspect-[4/3] overflow-hidden rounded-[var(--radius-db-sm)] bg-gradient-to-br from-[#2a4a3a] via-[#1e3a2e] to-[#1a2e26]">
+                    <div className="flex h-full flex-col items-center justify-center">
+                      <svg className="h-10 w-10 text-[#4ade80] opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
                       </svg>
+                      <span className="mt-1 text-[9px] text-[#4ade80] opacity-40">Property Photo</span>
                     </div>
                   </div>
-                  {/* Price */}
+                  {/* Price & status */}
                   <div className="rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-3">
                     <div className="mb-1 flex items-center gap-2">
                       <span className="rounded-full bg-[var(--color-db-green-muted)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-db-green)]">
@@ -550,49 +553,76 @@ function DashboardPreview() {
                       </span>
                     </div>
                     <p className="font-db-mono text-lg font-bold text-[var(--color-db-text-primary)]">
-                      $485,000
+                      $449,900
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-[var(--color-db-text-secondary)]">
+                      5501 Sealstone Dr
                     </p>
                     <p className="text-xs text-[var(--color-db-text-tertiary)]">
-                      3 bed &middot; 2 bath &middot; 2,150 sqft
+                      4 bed &middot; 3 bath &middot; 2,580 sqft
                     </p>
                   </div>
-                  {/* Stat rows */}
+                  {/* Detail rows */}
                   <div className="space-y-1.5">
-                    {["Built 2018", "0.42 acres", "2-Car Garage"].map((s) => (
+                    {["Built 2014", "0.38 acres", "HOA $45/mo", "2-Car Garage"].map((s) => (
                       <div
                         key={s}
-                        className="flex items-center gap-2 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-2"
+                        className="flex items-center gap-2 rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-3 py-1.5"
                       >
-                        <div className="h-2 w-2 rounded-full bg-[var(--color-db-text-muted)]" />
-                        <span className="text-xs text-[var(--color-db-text-secondary)]">{s}</span>
+                        <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-db-text-muted)]" />
+                        <span className="text-[10px] text-[var(--color-db-text-secondary)]">{s}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Right panel mockup */}
+                {/* Right panel — dashboard widgets */}
                 <div className="flex-1 space-y-4">
-                  {/* Estimate Range Bar mockup */}
+                  {/* Model Valuation Estimate with line chart */}
                   <div className="relative rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4">
-                    <div className="mb-3 flex items-center justify-between">
+                    <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold text-[var(--color-db-text-primary)]">
                         Model Valuation Estimate
                       </span>
                       <span className="rounded-full bg-[var(--color-db-green-muted)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-db-green)]">
-                        Value
+                        Confidence: High
                       </span>
                     </div>
-                    {/* Range bar */}
-                    <div className="mb-2 flex items-center justify-between text-xs text-[var(--color-db-text-tertiary)]">
-                      <span className="font-db-mono">$410K</span>
-                      <span className="font-db-mono text-sm font-bold text-[var(--color-db-accent)]">
-                        $462K
+                    <div className="mb-3 flex items-baseline gap-3">
+                      <span className="font-db-mono text-2xl font-bold text-[var(--color-db-accent)]">
+                        $461,383
                       </span>
-                      <span className="font-db-mono">$520K</span>
+                      <span className="text-[10px] text-[var(--color-db-green)]">
+                        +2.6% vs list price
+                      </span>
                     </div>
-                    <div className="relative h-3 overflow-hidden rounded-full bg-[var(--color-db-surface-alt)]">
-                      <div className="absolute inset-y-0 left-[15%] right-[20%] rounded-full bg-gradient-to-r from-[var(--color-db-accent)] to-[var(--color-db-cyan)] opacity-40" />
-                      <div className="absolute top-1/2 left-[45%] h-4 w-1 -translate-y-1/2 rounded-full bg-[var(--color-db-accent)]" />
+                    {/* Sparkline / trend chart mockup */}
+                    <div className="h-16">
+                      <svg viewBox="0 0 300 60" className="h-full w-full" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--color-db-accent)" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="var(--color-db-accent)" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d="M0,50 L30,48 L60,45 L90,42 L120,38 L150,35 L180,28 L210,22 L240,18 L270,12 L300,8"
+                          fill="none"
+                          stroke="var(--color-db-accent)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M0,50 L30,48 L60,45 L90,42 L120,38 L150,35 L180,28 L210,22 L240,18 L270,12 L300,8 L300,60 L0,60 Z"
+                          fill="url(#chartGrad)"
+                        />
+                        {/* Data point at end */}
+                        <circle cx="300" cy="8" r="3" fill="var(--color-db-accent)" />
+                      </svg>
+                    </div>
+                    <div className="mt-1 flex justify-between text-[9px] text-[var(--color-db-text-muted)]">
+                      <span>Jan 2024</span>
+                      <span>Mar 2026</span>
                     </div>
 
                     {/* Annotation callout */}
@@ -604,20 +634,20 @@ function DashboardPreview() {
                     </div>
                   </div>
 
-                  {/* Two column charts */}
+                  {/* Two column: Value Drivers + Neighborhood Prices */}
                   <div className="grid gap-4 md:grid-cols-2">
                     {/* SHAP waterfall mockup */}
                     <div className="relative rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4">
                       <span className="mb-3 block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
-                        Value Drivers (SHAP)
+                        Value Drivers
                       </span>
                       <div className="space-y-2">
                         {[
-                          { label: "Square Footage", w: "75%", pos: true },
-                          { label: "School Rating", w: "55%", pos: true },
-                          { label: "Year Built", w: "40%", pos: true },
-                          { label: "Crime Rate", w: "30%", pos: false },
-                          { label: "Lot Size", w: "20%", pos: true },
+                          { label: "Square Footage", w: "78%", pos: true },
+                          { label: "School Rating", w: "58%", pos: true },
+                          { label: "Year Built", w: "42%", pos: true },
+                          { label: "Crime Rate", w: "32%", pos: false },
+                          { label: "Lot Size", w: "22%", pos: true },
                         ].map((bar) => (
                           <div key={bar.label} className="flex items-center gap-2">
                             <span className="w-20 text-[10px] text-[var(--color-db-text-tertiary)]">
@@ -647,135 +677,143 @@ function DashboardPreview() {
                       </div>
                     </div>
 
-                    {/* Risk scores mockup */}
+                    {/* Neighborhood Prices bar chart mockup */}
                     <div className="relative rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4">
                       <span className="mb-3 block text-[10px] font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
-                        Risk Assessment
+                        Neighborhood Prices
                       </span>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-end gap-1.5" style={{ height: "80px" }}>
                         {[
-                          { label: "Flood", score: "Low", color: "var(--color-db-green)" },
-                          { label: "Fire", score: "Low", color: "var(--color-db-green)" },
-                          { label: "Crime", score: "Med", color: "var(--color-db-yellow)" },
-                          { label: "Utility", score: "Low", color: "var(--color-db-green)" },
-                          { label: "Quake", score: "Very Low", color: "var(--color-db-green)" },
-                          { label: "Air", score: "Fair", color: "var(--color-db-yellow)" },
-                        ].map((r) => (
+                          { h: "45%", active: false },
+                          { h: "55%", active: false },
+                          { h: "60%", active: false },
+                          { h: "50%", active: false },
+                          { h: "72%", active: true },
+                          { h: "65%", active: false },
+                          { h: "85%", active: false },
+                          { h: "78%", active: false },
+                          { h: "90%", active: false },
+                          { h: "68%", active: false },
+                        ].map((bar, i) => (
                           <div
-                            key={r.label}
-                            className="flex items-center justify-between rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-2.5 py-2"
-                          >
-                            <span className="text-[10px] text-[var(--color-db-text-tertiary)]">
-                              {r.label}
-                            </span>
-                            <span className="text-[10px] font-semibold" style={{ color: r.color }}>
-                              {r.score}
-                            </span>
+                            key={i}
+                            className="flex-1 rounded-t-sm"
+                            style={{
+                              height: bar.h,
+                              backgroundColor: bar.active
+                                ? "var(--color-db-accent)"
+                                : "var(--color-db-red)",
+                              opacity: bar.active ? 1 : 0.5,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="mt-2 flex justify-between text-[9px] text-[var(--color-db-text-muted)]">
+                        <span>$300K</span>
+                        <span>$500K</span>
+                        <span>$700K</span>
+                      </div>
+                      {/* Annotation */}
+                      <div className="absolute -left-2 -top-2 hidden items-center gap-2 rounded-full border border-[var(--color-db-red)] bg-[var(--color-db-bg)] px-3 py-1.5 md:flex">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-db-red)]" />
+                        <span className="text-[10px] font-medium text-[var(--color-db-red)]">
+                          Local price distribution
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Two column: Mortgage Calculator + Map */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Mortgage calc mockup */}
+                    <div className="relative rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4">
+                      <span className="mb-3 block text-xs font-semibold text-[var(--color-db-text-primary)]">
+                        Mortgage Calculator
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-1 flex-col gap-2">
+                          {["Home Price", "Down Payment", "Interest Rate"].map((label) => (
+                            <div key={label}>
+                              <span className="text-[10px] text-[var(--color-db-text-tertiary)]">
+                                {label}
+                              </span>
+                              <div className="mt-1 h-1.5 rounded-full bg-[var(--color-db-surface-alt)]">
+                                <div className="h-full w-3/5 rounded-full bg-[var(--color-db-accent)] opacity-40" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Donut */}
+                        <div className="hidden shrink-0 items-center justify-center sm:flex">
+                          <div className="relative h-20 w-20">
+                            <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-surface-alt)" strokeWidth="4" />
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-accent)" strokeWidth="4" strokeDasharray="40 88" strokeLinecap="round" />
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-cyan)" strokeWidth="4" strokeDasharray="20 88" strokeDashoffset="-40" strokeLinecap="round" />
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-yellow)" strokeWidth="4" strokeDasharray="12 88" strokeDashoffset="-60" strokeLinecap="round" />
+                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-green)" strokeWidth="4" strokeDasharray="8 88" strokeDashoffset="-72" strokeLinecap="round" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <span className="text-[8px] text-[var(--color-db-text-tertiary)]">Monthly</span>
+                              <span className="font-db-mono text-xs font-bold text-[var(--color-db-text-primary)]">$2,847</span>
+                            </div>
                           </div>
+                        </div>
+                      </div>
+                      {/* Annotation */}
+                      <div className="absolute -right-2 -bottom-2 hidden items-center gap-2 rounded-full border border-[var(--color-db-green)] bg-[var(--color-db-bg)] px-3 py-1.5 md:flex">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-db-green)]" />
+                        <span className="text-[10px] font-medium text-[var(--color-db-green)]">
+                          Real-time mortgage modeling
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Map mockup */}
+                    <div className="relative overflow-hidden rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)]">
+                      <div className="h-full min-h-[140px] bg-[#1a1f2e]">
+                        {/* Map grid lines */}
+                        <svg className="h-full w-full opacity-20" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice">
+                          {/* Road grid */}
+                          <line x1="0" y1="35" x2="200" y2="35" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          <line x1="0" y1="70" x2="200" y2="70" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          <line x1="0" y1="105" x2="200" y2="105" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          <line x1="50" y1="0" x2="50" y2="140" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          <line x1="100" y1="0" x2="100" y2="140" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          <line x1="150" y1="0" x2="150" y2="140" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                          {/* Diagonal roads */}
+                          <line x1="20" y1="0" x2="180" y2="140" stroke="var(--color-db-text-muted)" strokeWidth="0.3" />
+                          <line x1="80" y1="0" x2="200" y2="100" stroke="var(--color-db-text-muted)" strokeWidth="0.3" />
+                        </svg>
+                        {/* Property pin */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                          <div className="relative">
+                            <div className="h-6 w-6 rounded-full border-2 border-[var(--color-db-accent)] bg-[var(--color-db-accent)] shadow-[0_0_12px_rgba(96,165,250,0.5)]" style={{ opacity: 0.3 }} />
+                            <div className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-db-accent)]" />
+                          </div>
+                        </div>
+                        {/* Crime heatmap hint */}
+                        <div className="absolute top-4 right-8 h-12 w-16 rounded-full bg-[var(--color-db-red)] opacity-10 blur-lg" />
+                        <div className="absolute bottom-6 left-12 h-10 w-14 rounded-full bg-[var(--color-db-yellow)] opacity-10 blur-lg" />
+                      </div>
+                      {/* Map tab bar */}
+                      <div className="absolute bottom-0 left-0 right-0 flex gap-1 bg-[var(--color-db-bg)] bg-opacity-80 px-2 py-1.5 backdrop-blur-sm">
+                        {["Crime", "POIs", "Schools"].map((t, i) => (
+                          <span
+                            key={t}
+                            className={`rounded-[var(--radius-db-xs)] px-2 py-0.5 text-[9px] font-medium ${i === 0 ? "bg-[var(--color-db-accent)] bg-opacity-20 text-[var(--color-db-accent)]" : "text-[var(--color-db-text-muted)]"}`}
+                          >
+                            {t}
+                          </span>
                         ))}
                       </div>
                       {/* Annotation */}
                       <div className="absolute -left-2 -top-2 hidden items-center gap-2 rounded-full border border-[var(--color-db-yellow)] bg-[var(--color-db-bg)] px-3 py-1.5 md:flex">
                         <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-db-yellow)]" />
                         <span className="text-[10px] font-medium text-[var(--color-db-yellow)]">
-                          Six risk categories
+                          Interactive map layers
                         </span>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Mortgage calc mockup */}
-                  <div className="relative rounded-[var(--radius-db-sm)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4">
-                    <span className="mb-3 block text-xs font-semibold text-[var(--color-db-text-primary)]">
-                      Mortgage Calculator
-                    </span>
-                    <div className="flex items-center gap-6">
-                      <div className="flex flex-1 flex-col gap-2">
-                        {["Home Price", "Down Payment", "Interest Rate"].map((label) => (
-                          <div key={label}>
-                            <span className="text-[10px] text-[var(--color-db-text-tertiary)]">
-                              {label}
-                            </span>
-                            <div className="mt-1 h-1.5 rounded-full bg-[var(--color-db-surface-alt)]">
-                              <div className="h-full w-3/5 rounded-full bg-[var(--color-db-accent)] opacity-40" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Donut placeholder */}
-                      <div className="hidden shrink-0 items-center justify-center sm:flex">
-                        <div className="relative h-24 w-24">
-                          <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="14"
-                              fill="none"
-                              stroke="var(--color-db-surface-alt)"
-                              strokeWidth="4"
-                            />
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="14"
-                              fill="none"
-                              stroke="var(--color-db-accent)"
-                              strokeWidth="4"
-                              strokeDasharray="40 88"
-                              strokeLinecap="round"
-                            />
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="14"
-                              fill="none"
-                              stroke="var(--color-db-cyan)"
-                              strokeWidth="4"
-                              strokeDasharray="20 88"
-                              strokeDashoffset="-40"
-                              strokeLinecap="round"
-                            />
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="14"
-                              fill="none"
-                              stroke="var(--color-db-yellow)"
-                              strokeWidth="4"
-                              strokeDasharray="12 88"
-                              strokeDashoffset="-60"
-                              strokeLinecap="round"
-                            />
-                            <circle
-                              cx="18"
-                              cy="18"
-                              r="14"
-                              fill="none"
-                              stroke="var(--color-db-green)"
-                              strokeWidth="4"
-                              strokeDasharray="8 88"
-                              strokeDashoffset="-72"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-[9px] text-[var(--color-db-text-tertiary)]">
-                              Monthly
-                            </span>
-                            <span className="font-db-mono text-sm font-bold text-[var(--color-db-text-primary)]">
-                              $2,847
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Annotation */}
-                    <div className="absolute -right-2 -bottom-2 hidden items-center gap-2 rounded-full border border-[var(--color-db-green)] bg-[var(--color-db-bg)] px-3 py-1.5 md:flex">
-                      <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-db-green)]" />
-                      <span className="text-[10px] font-medium text-[var(--color-db-green)]">
-                        Real-time mortgage modeling
-                      </span>
                     </div>
                   </div>
                 </div>

@@ -138,8 +138,9 @@ describe("LandingPage", () => {
     renderLandingPage();
     expect(screen.getByText("AI-predicted value")).toBeInTheDocument();
     expect(screen.getByText("What drives the estimate")).toBeInTheDocument();
-    expect(screen.getByText("Six risk categories")).toBeInTheDocument();
+    expect(screen.getByText("Local price distribution")).toBeInTheDocument();
     expect(screen.getByText("Real-time mortgage modeling")).toBeInTheDocument();
+    expect(screen.getByText("Interactive map layers")).toBeInTheDocument();
   });
 
   // -- Data Sources --
@@ -189,7 +190,7 @@ describe("LandingPage", () => {
   it("renders the footer with copyright", () => {
     renderLandingPage();
     const year = new Date().getFullYear().toString();
-    expect(screen.getByText(new RegExp(year))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`©.*${year}`))).toBeInTheDocument();
   });
 
   it("renders footer links", () => {
