@@ -439,9 +439,25 @@ function RisksTab({ data }: RisksTabProps) {
         const [lon, lat] = feature.geometry.coordinates;
         const name = (feature.properties?.name as string) || "";
         const infraType = (feature.properties?.infra_type as string) || "";
-        const match = risksData.features.find(
+        // Primary: match by name + infrastructure_type
+        let match = risksData.features.find(
           (f) => f.name === name && f.infrastructure_type === infraType,
         );
+        // Fallback: proximity match for features with NULL names (e.g. cell towers)
+        if (!match) {
+          const THRESHOLD = 0.01; // ~0.7 mi
+          let bestDist = THRESHOLD;
+          for (const f of risksData.features) {
+            if (f.infrastructure_type !== infraType) continue;
+            const dx = f.lon - lon;
+            const dy = f.lat - lat;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < bestDist) {
+              bestDist = dist;
+              match = f;
+            }
+          }
+        }
         if (match) {
           // Select the feature — DashboardMap's PanToSelected will open the
           // React marker popup which uses renderPopup for full card details.
