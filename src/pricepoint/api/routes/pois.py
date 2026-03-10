@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_X, ST_Y, ST_Centroid, ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import String, case, cast, func, literal, or_, select, union_all
+from sqlalchemy import String, case, cast, func, literal, or_, select, text, union_all
 from sqlalchemy.orm import Session
 
 from pricepoint.api.auth import get_current_user
@@ -161,7 +161,7 @@ def _query_places(
             Place.geom.isnot(None),
             _st_dwithin_geography(Place.geom, property_point, radius_meters),
         )
-        .order_by(literal("distance_miles"))
+        .order_by(text("distance_miles"))
     )
     rows = db.execute(stmt).all()
 
@@ -343,7 +343,7 @@ async def search_pois(
             _st_dwithin_geography(Place.geom, property_point, radius_meters),
             (Place.name.ilike(search_pattern) | Place.category.ilike(search_pattern)),
         )
-        .order_by(literal("distance_miles"))
+        .order_by(text("distance_miles"))
         .limit(limit)
     )
 
@@ -467,7 +467,7 @@ def get_saved_pois_nearby(
             _st_dwithin_geography(Place.geom, property_point, radius_meters),
             or_(*or_conditions),
         )
-        .order_by(literal("distance_miles"))
+        .order_by(text("distance_miles"))
     )
     rows = db.execute(stmt).all()
 
