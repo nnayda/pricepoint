@@ -8,6 +8,7 @@ import type {
   NeighborhoodPropertiesResponse,
   NeighborhoodValuationHistory,
   NuisanceSourcesResponse,
+  PoisResponse,
   PoisSearchResponse,
   PropertyResponse,
   RisksApiResponse,
@@ -74,6 +75,17 @@ export async function getNeighborhoodValuationHistory(
     "/api/neighborhood/valuation/history",
     { params: { lat, lon } },
   );
+  return data;
+}
+
+export async function getPois(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 2,
+): Promise<PoisResponse> {
+  const { data } = await client.get<PoisResponse>("/api/pois", {
+    params: { lat, lon, radius_miles: radiusMiles },
+  });
   return data;
 }
 

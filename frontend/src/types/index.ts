@@ -228,6 +228,8 @@ export interface PointOfInterest {
   lon: number;
   distance_miles: number;
   drive_minutes: number;
+  subcategory?: string;
+  address?: string;
 }
 
 export interface PoisResponse {

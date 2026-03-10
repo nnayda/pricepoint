@@ -25,26 +25,56 @@ def _make_poi_row(
     lat=35.79,
     lon=-78.78,
     distance_miles=0.5,
+    subcategory=None,
+    address=None,
 ):
     """Create a mock DB row for POI query results."""
     return _FakeRow(
         poi_id=poi_id,
         poi_name=poi_name,
         category=category,
+        subcategory=subcategory,
+        address=address,
         lat=lat,
         lon=lon,
         distance_miles=distance_miles,
     )
 
 
-def _make_pois_app(rows=None):
+def _make_place_row(
+    poi_id="100",
+    poi_name="Test Place",
+    raw_category="restaurant",
+    address="123 Main St",
+    lat=35.79,
+    lon=-78.78,
+    distance_miles=0.5,
+):
+    """Create a mock DB row for Place query results."""
+    return _FakeRow(
+        poi_id=poi_id,
+        poi_name=poi_name,
+        raw_category=raw_category,
+        address=address,
+        lat=lat,
+        lon=lon,
+        distance_miles=distance_miles,
+    )
+
+
+def _make_pois_app(rows=None, place_rows=None):
     """Create a test app with mocked DB returning the given POI rows."""
     app = create_app()
     mock_session = MagicMock()
 
     if rows is None:
         rows = [
-            _make_poi_row(poi_id="1", poi_name="Central Park", category="park", distance_miles=0.3),
+            _make_poi_row(
+                poi_id="1",
+                poi_name="Central Park",
+                category="park",
+                distance_miles=0.3,
+            ),
             _make_poi_row(
                 poi_id="2",
                 poi_name="Farmers Market",
@@ -64,7 +94,7 @@ def _make_pois_app(rows=None):
             _make_poi_row(
                 poi_id="4",
                 poi_name="WakeMed Hospital",
-                category="medical",
+                category="Healthcare",
                 distance_miles=1.5,
                 lat=35.793,
                 lon=-78.783,
@@ -79,10 +109,15 @@ def _make_pois_app(rows=None):
             ),
         ]
 
-    mock_result = MagicMock()
-    mock_result.all.return_value = rows
+    if place_rows is None:
+        place_rows = []
 
-    mock_session.execute.return_value = mock_result
+    # First execute call = hospital CTE, second = Place query
+    hospital_result = MagicMock()
+    hospital_result.all.return_value = rows
+    place_result = MagicMock()
+    place_result.all.return_value = place_rows
+    mock_session.execute.side_effect = [hospital_result, place_result]
 
     def _override_get_db():
         yield mock_session
@@ -300,8 +335,10 @@ class TestPoisWithData:
     def test_poi_id_includes_category_prefix(self, pois_client):
         """POI IDs should be prefixed with uppercase category."""
         resp = pois_client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
-        poi = resp.json()["pois"][0]
-        assert poi["id"].startswith("PARK-")
+        # First poi is "Central Park" with category "park"
+        park_pois = [p for p in resp.json()["pois"] if p["category"] == "park"]
+        assert len(park_pois) > 0
+        assert park_pois[0]["id"].startswith("PARK-")
 
     def test_multiple_categories_present(self, pois_client):
         """POIs should span multiple categories."""
@@ -390,8 +427,8 @@ class TestPoisValkeyCaching:
         client = TestClient(app)
         resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
         assert resp.status_code == 200
-        # DB was queried
-        assert mock_session.execute.call_count == 1
+        # DB was queried (hospital CTE + Place query = 2 calls)
+        assert mock_session.execute.call_count == 2
         # Cache was written
         mock_valkey.set.assert_called_once()
         app.dependency_overrides.clear()
@@ -422,3 +459,142 @@ class TestPoisHelperFunctions:
 
         k = _cache_key(35.79, -78.78, 2.0)
         assert k.startswith("pois:")
+
+    def test_cache_key_varies_with_per_category(self):
+        """Different per_category values produce different cache keys."""
+        from pricepoint.api.routes.pois import _cache_key
+
+        k1 = _cache_key(35.79, -78.78, 2.0, 5)
+        k2 = _cache_key(35.79, -78.78, 2.0, 10)
+        assert k1 != k2
+
+
+class TestPoisWithPlaceData:
+    """Tests for Place-based POI results."""
+
+    def test_place_pois_returned(self):
+        """Place rows should appear in the response as OVERTURE- prefixed POIs."""
+        place_rows = [
+            _make_place_row(
+                poi_id="100",
+                poi_name="Publix",
+                raw_category="grocery",
+                address="100 Market St",
+                distance_miles=0.4,
+            ),
+            _make_place_row(
+                poi_id="101",
+                poi_name="Planet Fitness",
+                raw_category="fitness",
+                address="200 Gym Ave",
+                distance_miles=0.6,
+                lat=35.791,
+                lon=-78.781,
+            ),
+        ]
+        app, _ = _make_pois_app(rows=[], place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
+        assert resp.status_code == 200
+        pois = resp.json()["pois"]
+        assert len(pois) == 2
+        assert pois[0]["id"] == "OVERTURE-100"
+        assert pois[0]["category"] == "Grocery"
+        assert pois[0]["subcategory"] == "grocery"
+        assert pois[0]["address"] == "100 Market St"
+        assert pois[1]["id"] == "OVERTURE-101"
+        assert pois[1]["category"] == "Recreation"
+        app.dependency_overrides.clear()
+
+    def test_place_category_mapping(self):
+        """Overture categories should map to dashboard categories."""
+        place_rows = [
+            _make_place_row(poi_id="200", raw_category="restaurant", distance_miles=0.3),
+            _make_place_row(poi_id="201", raw_category="pharmacy", distance_miles=0.5),
+            _make_place_row(poi_id="202", raw_category="retail", distance_miles=0.7),
+            _make_place_row(poi_id="203", raw_category="professional_services", distance_miles=0.9),
+        ]
+        app, _ = _make_pois_app(rows=[], place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
+        pois = resp.json()["pois"]
+        categories = {p["category"] for p in pois}
+        assert "Dining" in categories
+        assert "Healthcare" in categories
+        assert "Shopping" in categories
+        assert "Services" in categories
+        app.dependency_overrides.clear()
+
+    def test_per_category_limit(self):
+        """Should limit results to per_category per dashboard category."""
+        place_rows = [
+            _make_place_row(poi_id=str(i), raw_category="grocery", distance_miles=0.1 * (i + 1))
+            for i in range(10)
+        ]
+        app, _ = _make_pois_app(rows=[], place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get(
+            "/api/pois",
+            params={"lat": 35.79, "lon": -78.78, "per_category": 3},
+        )
+        grocery_pois = [p for p in resp.json()["pois"] if p["category"] == "Grocery"]
+        assert len(grocery_pois) == 3
+        app.dependency_overrides.clear()
+
+    def test_unmapped_category_excluded(self):
+        """Place rows with unmapped categories should be excluded."""
+        place_rows = [
+            _make_place_row(poi_id="300", raw_category="unknown_category", distance_miles=0.3),
+        ]
+        app, _ = _make_pois_app(rows=[], place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
+        assert len(resp.json()["pois"]) == 0
+        app.dependency_overrides.clear()
+
+    def test_hospital_and_place_combined(self):
+        """Hospital and Place results should be combined and sorted by distance."""
+        hospital_rows = [
+            _make_poi_row(
+                poi_id="1",
+                poi_name="Hospital A",
+                category="Healthcare",
+                distance_miles=1.0,
+            ),
+        ]
+        place_rows = [
+            _make_place_row(
+                poi_id="100",
+                poi_name="Grocery Store",
+                raw_category="grocery",
+                distance_miles=0.5,
+            ),
+        ]
+        app, _ = _make_pois_app(rows=hospital_rows, place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
+        pois = resp.json()["pois"]
+        assert len(pois) == 2
+        # Grocery at 0.5mi should come before Hospital at 1.0mi
+        assert pois[0]["category"] == "Grocery"
+        assert pois[1]["category"] == "Healthcare"
+        app.dependency_overrides.clear()
+
+    def test_subcategory_and_address_in_response(self):
+        """Place POIs should include subcategory and address fields."""
+        place_rows = [
+            _make_place_row(
+                poi_id="400",
+                poi_name="Starbucks",
+                raw_category="cafe",
+                address="456 Coffee Ln",
+                distance_miles=0.2,
+            ),
+        ]
+        app, _ = _make_pois_app(rows=[], place_rows=place_rows)
+        client = TestClient(app)
+        resp = client.get("/api/pois", params={"lat": 35.79, "lon": -78.78})
+        poi = resp.json()["pois"][0]
+        assert poi["subcategory"] == "cafe"
+        assert poi["address"] == "456 Coffee Ln"
+        app.dependency_overrides.clear()

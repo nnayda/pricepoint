@@ -63,12 +63,48 @@ def _distance_miles(geom_col, point):  # noqa: ANN001, ANN201
 
 # Table config: (model_class, name_column_attr, category, geom_needs_centroid)
 _POI_TABLES: list[tuple] = [
-    (Hospital, "name", "medical", False),
+    (Hospital, "name", "Healthcare", False),
 ]
+
+# Map Overture Place categories to dashboard categories
+_OVERTURE_CATEGORY_MAP: dict[str, str] = {
+    "grocery": "Grocery",
+    "supermarket": "Grocery",
+    "health_and_medical": "Healthcare",
+    "pharmacy": "Healthcare",
+    "active_life": "Recreation",
+    "fitness": "Recreation",
+    "parks": "Recreation",
+    "eat_and_drink": "Dining",
+    "restaurant": "Dining",
+    "cafe": "Dining",
+    "retail": "Shopping",
+    "shopping": "Shopping",
+    "professional_services": "Services",
+    "financial": "Services",
+    "automotive": "Services",
+}
+
+_DASHBOARD_CATEGORIES = {"Grocery", "Healthcare", "Recreation", "Dining", "Shopping", "Services"}
+
+
+def _map_overture_category(raw_category: str | None) -> str | None:
+    """Map an Overture Place category string to a dashboard category."""
+    if not raw_category:
+        return None
+    lower = raw_category.lower()
+    # Try exact match first
+    if lower in _OVERTURE_CATEGORY_MAP:
+        return _OVERTURE_CATEGORY_MAP[lower]
+    # Try prefix match (e.g. "eat_and_drink/restaurant" matches "eat_and_drink")
+    for key, dashboard_cat in _OVERTURE_CATEGORY_MAP.items():
+        if lower.startswith(key) or key in lower:
+            return dashboard_cat
+    return None
 
 
 def _build_poi_query(property_point, radius_meters: float):  # noqa: ANN001, ANN201
-    """Build a UNION ALL query across all 3 POI tables."""
+    """Build a UNION ALL query across hospital POI tables."""
     queries = []
     for model, name_attr, category, needs_centroid in _POI_TABLES:
         geom_col = model.geom
@@ -79,6 +115,8 @@ def _build_poi_query(property_point, radius_meters: float):  # noqa: ANN001, ANN
             cast(model.id, String).label("poi_id"),
             getattr(model, name_attr).label("poi_name"),
             literal(category).label("category"),
+            literal(None).label("subcategory"),
+            literal(None).label("address"),
             ST_Y(point_geom).label("lat"),
             ST_X(point_geom).label("lon"),
             _distance_miles(point_geom, property_point).label("distance_miles"),
@@ -95,11 +133,67 @@ def _build_poi_query(property_point, radius_meters: float):  # noqa: ANN001, ANN
     return union_all(*queries).cte("all_pois")
 
 
-def _cache_key(lat: float, lon: float, radius_miles: float) -> str:
+def _cache_key(lat: float, lon: float, radius_miles: float, per_category: int = 5) -> str:
     """Build a deterministic cache key for the POI query."""
-    raw = f"pois:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}"
+    raw = f"pois:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}:{per_category}"
     digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
     return f"pois:{digest}"
+
+
+def _query_places(
+    db: Session,
+    property_point,  # noqa: ANN001
+    radius_meters: float,
+    per_category: int,
+) -> list[PointOfInterest]:
+    """Query the Place table for commercial POIs, mapped to dashboard categories."""
+    stmt = (
+        select(
+            cast(Place.id, String).label("poi_id"),
+            Place.name.label("poi_name"),
+            Place.category.label("raw_category"),
+            Place.address.label("address"),
+            ST_Y(Place.geom).label("lat"),
+            ST_X(Place.geom).label("lon"),
+            _distance_miles(Place.geom, property_point).label("distance_miles"),
+        )
+        .where(
+            Place.geom.isnot(None),
+            _st_dwithin_geography(Place.geom, property_point, radius_meters),
+        )
+        .order_by(literal("distance_miles"))
+    )
+    rows = db.execute(stmt).all()
+
+    # Bucket by dashboard category, keep top N per category
+    buckets: dict[str, list[PointOfInterest]] = {cat: [] for cat in _DASHBOARD_CATEGORIES}
+    for row in rows:
+        dashboard_cat = _map_overture_category(row.raw_category)
+        if dashboard_cat is None:
+            continue
+        bucket = buckets[dashboard_cat]
+        if len(bucket) >= per_category:
+            continue
+        dist = round(row.distance_miles, 2) if row.distance_miles is not None else 0.0
+        bucket.append(
+            PointOfInterest(
+                id=f"OVERTURE-{row.poi_id}",
+                name=row.poi_name or "Unknown",
+                category=dashboard_cat,
+                subcategory=row.raw_category,
+                address=row.address,
+                lat=round(row.lat, 6) if row.lat is not None else 0.0,
+                lon=round(row.lon, 6) if row.lon is not None else 0.0,
+                distance_miles=dist,
+                drive_minutes=max(1, round(dist * 3)),
+            )
+        )
+
+    result: list[PointOfInterest] = []
+    for pois_list in buckets.values():
+        result.extend(pois_list)
+    result.sort(key=lambda p: p.distance_miles)
+    return result
 
 
 @router.get("/pois", response_model=PoisResponse)
@@ -107,12 +201,13 @@ async def get_pois(
     lat: Annotated[float, Query(ge=-90, le=90)],
     lon: Annotated[float, Query(ge=-180, le=180)],
     radius_miles: Annotated[float, Query(gt=0, le=10)] = 2.0,
+    per_category: Annotated[int, Query(ge=1, le=20)] = 5,
     db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
     valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
 ) -> PoisResponse:
     """Return points of interest near the given location."""
     # Check cache
-    c_key = _cache_key(lat, lon, radius_miles)
+    c_key = _cache_key(lat, lon, radius_miles, per_category)
     if valkey is not None:
         try:
             cached = await valkey.get(c_key)
@@ -125,6 +220,7 @@ async def get_pois(
     radius_meters = radius_miles * METERS_PER_MILE
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
+    # Hospital-based POIs
     cte = _build_poi_query(property_point, radius_meters)
 
     rows = db.execute(
@@ -132,6 +228,8 @@ async def get_pois(
             cte.c.poi_id,
             cte.c.poi_name,
             cte.c.category,
+            cte.c.subcategory,
+            cte.c.address,
             cte.c.lat,
             cte.c.lon,
             cte.c.distance_miles,
@@ -156,12 +254,23 @@ async def get_pois(
                 id=f"{category.upper()}-{row.poi_id}",
                 name=row.poi_name or "Unknown",
                 category=category,
+                subcategory=row.subcategory,
+                address=row.address,
                 lat=round(row.lat, 6) if row.lat is not None else 0.0,
                 lon=round(row.lon, 6) if row.lon is not None else 0.0,
                 distance_miles=dist,
                 drive_minutes=drive_min,
             )
         )
+
+    # Place-based (Overture) POIs
+    place_pois = _query_places(db, property_point, radius_meters, per_category)
+    for p in place_pois:
+        if nearest_dist is None or p.distance_miles < nearest_dist:
+            nearest_dist = p.distance_miles
+        categories.add(p.category)
+    pois.extend(place_pois)
+    pois.sort(key=lambda p: p.distance_miles)
 
     metrics = PoisMetrics(
         total_count=len(pois),

@@ -15,6 +15,8 @@ class PointOfInterest(BaseModel):
     lon: float
     distance_miles: float
     drive_minutes: int
+    subcategory: str | None = None
+    address: str | None = None
 
 
 class PoisMetrics(BaseModel):
