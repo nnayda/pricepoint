@@ -167,7 +167,7 @@ async def search_comparables(
     stmt = select(RedfinListing.id).where(
         RedfinListing.id != subject.id,
         RedfinListing.location.isnot(None),
-        RedfinListing.listing_status == "Sold",
+        RedfinListing.listing_status == "SOLD",
         RedfinListing.sold_date.isnot(None),
         RedfinListing.sold_date >= cutoff,
         ST_DWithin(

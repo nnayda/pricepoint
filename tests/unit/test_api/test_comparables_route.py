@@ -24,7 +24,7 @@ def _mock_listing(
     sqft: int = 2000,
     lot_size: float = 0.25,
     year_built: int = 2005,
-    listing_status: str = "Sold",
+    listing_status: str = "SOLD",
     sold_price: float = 400_000,
     sold_date: None = None,
     listing_price: float = 410_000,
