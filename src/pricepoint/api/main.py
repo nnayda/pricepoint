@@ -14,6 +14,7 @@ from pricepoint.api.rate_limit import setup_rate_limiting
 from pricepoint.api.routes import (
     auth,
     cache,
+    comparables,
     crime,
     data_request,
     demographics,
@@ -104,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(neighborhood.router, prefix="/api")
     app.include_router(nuisances.router, prefix="/api")
     app.include_router(risks.router, prefix="/api")
+    app.include_router(comparables.router, prefix="/api")
     app.include_router(cache.router, prefix="/api")
 
     Instrumentator().instrument(app).expose(app)

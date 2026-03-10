@@ -795,6 +795,73 @@ export interface DataRequestResponse {
   created_at: string;
 }
 
+// ── Comparables Types ──
+
+export interface CompFeatureGroup {
+  category: string;
+  features: Record<string, number | string | boolean | null>;
+}
+
+export interface CompNuisance {
+  name: string;
+  source_type: string;
+  severity: string;
+  distance_miles: number;
+  detail: string;
+}
+
+export interface CompRisk {
+  name: string;
+  infrastructure_type: string;
+  severity: string;
+  distance_miles: number;
+  detail: string;
+}
+
+export interface CompPropertyDetail {
+  listing_id: number;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  lat: number;
+  lon: number;
+  sold_price: number | null;
+  sold_date: string | null;
+  listing_price: number | null;
+  beds: number;
+  baths: number;
+  sqft: number | null;
+  lot_size: number | null;
+  year_built: number | null;
+  garage_spaces: number;
+  price_per_sqft: number | null;
+  photos: string[];
+  description_score: number | null;
+  photo_score: number | null;
+  feature_groups: CompFeatureGroup[];
+  nuisances: CompNuisance[];
+  risks: CompRisk[];
+  similarity_distance: number | null;
+}
+
+export interface ComparablesResponse {
+  subject: CompPropertyDetail;
+  comparables: CompPropertyDetail[];
+  total_candidates: number;
+}
+
+export interface ComparablesSearchCriteria {
+  time_period_months: 3 | 6 | 9 | 12;
+  distance_miles: 0.5 | 1 | 2 | 5;
+  same_schools: boolean;
+  sqft_pct: number;
+  lot_pct: number;
+  same_beds: boolean;
+  same_baths: boolean;
+  year_built_diff: number;
+}
+
 export interface DashboardData {
   listing_id?: number | null;
   property: DashboardProperty;

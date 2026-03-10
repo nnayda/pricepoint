@@ -78,6 +78,11 @@ function DashboardLayout({ data, banner }: DashboardLayoutProps) {
         type="button"
         className="fixed right-6 bottom-6 z-50 flex h-14 items-center gap-2 rounded-full bg-[var(--color-db-accent)] px-5 shadow-lg transition-transform hover:scale-105 hover:bg-[var(--color-db-accent-hover)]"
         aria-label="Compare properties"
+        onClick={() =>
+          navigate(
+            `/compare/${encodeURIComponent(property.address)}?lat=${property.lat}&lon=${property.lon}`,
+          )
+        }
       >
         <svg
           className="h-5 w-5 text-white"
