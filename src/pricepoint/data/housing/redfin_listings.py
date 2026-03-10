@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import tempfile
+from datetime import date
 from typing import Any
 
 import boto3
@@ -31,7 +32,35 @@ logger = logging.getLogger(__name__)
 
 # Regex for extracting address from filename (both formats)
 # Handles fullwidth ｜ (U+FF5C) and fullwidth ： (U+FF1A) used by SingleFile
-_FILENAME_RE = re.compile(r"^(.+?)\s*[｜|]\s*(?:MLS#\s*\S+\s*[｜|]\s*)?Redfin\s*\(.*\)\.html$")
+_FILENAME_RE = re.compile(r"^(.+?)\s*[｜|]\s*(?:MLS#\s*\S+\s*[｜|]\s*)?Redfin\s*\(([^)]*)\)\.html$")
+
+
+def _parse_extraction_date(raw: str | None) -> date | None:
+    """Parse extraction date from filename parenthetical, e.g. ``1_26_2026 9：22：10 AM``.
+
+    Only the ``M_D_YYYY`` portion is used; the optional time suffix is ignored.
+    Returns ``None`` on any parse failure.
+    """
+    if not raw:
+        return None
+    # Take only the date part (before the first space, if any)
+    date_part = raw.strip().split()[0]
+    parts = date_part.split("_")
+    if len(parts) != 3:
+        return None
+    try:
+        month, day, year = int(parts[0]), int(parts[1]), int(parts[2])
+        return date(year, month, day)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _parse_filename_date(filename: str) -> date | None:
+    """Extract the extraction date from a Redfin HTML filename."""
+    m = _FILENAME_RE.match(filename)
+    if not m:
+        return None
+    return _parse_extraction_date(m.group(2))
 
 
 # ---------------------------------------------------------------------------
@@ -745,22 +774,38 @@ def _parse_html_file(file_path: str, source_filename: str) -> dict:
     data["photo_s3_paths"] = photo_paths
 
     data["source_file"] = source_filename
+    data["extracted_at"] = _parse_filename_date(source_filename)
 
     return data, photo_failures
 
 
-def _upsert_listing(session, data: dict) -> None:
-    """Insert or update a listing record keyed on address."""
+def _upsert_listing(session, data: dict) -> bool:
+    """Insert or update a listing record keyed on address.
+
+    Returns True if the record was inserted/updated, False if skipped
+    because the incoming data is older than what already exists.
+    """
     address = data.get("address")
     if not address:
         logger.warning("Skipping record with no address from %s", data.get("source_file"))
-        return
+        return False
 
     existing = (
         session.query(StagingRedfinListing).filter(StagingRedfinListing.address == address).first()
     )
 
     if existing:
+        new_date = data.get("extracted_at")
+        existing_date = existing.extracted_at
+        # Skip update when incoming data is strictly older than what's in the DB
+        if existing_date is not None and new_date is not None and new_date < existing_date:
+            logger.info(
+                "Skipping older extraction for %s (incoming %s < existing %s)",
+                address,
+                new_date,
+                existing_date,
+            )
+            return False
         for key, value in data.items():
             if key != "id" and hasattr(existing, key):
                 setattr(existing, key, value)
@@ -770,6 +815,8 @@ def _upsert_listing(session, data: dict) -> None:
         record = StagingRedfinListing(**filtered)
         session.add(record)
         logger.info("Inserted new listing for %s", address)
+
+    return True
 
 
 def _archive_to_s3(file_path: str, source_filename: str) -> bool:
@@ -860,19 +907,24 @@ def process_listings(
 
     if not files:
         logger.warning("No HTML files found to process")
-        return {"processed": 0, "errors": 0}
+        return {"processed": 0, "skipped": 0, "errors": 0}
 
     logger.info("Found %d HTML files to process", len(files))
     processed = 0
+    skipped = 0
     errors = 0
 
     for path, filename, is_temp in files:
         session = SessionLocal()
         try:
             data, photo_failures = _parse_html_file(path, filename)
-            _upsert_listing(session, data)
+            upserted = _upsert_listing(session, data)
             session.commit()
-            processed += 1
+
+            if upserted:
+                processed += 1
+            else:
+                skipped += 1
 
             # Archive to S3 (skip if reprocessing from S3)
             if not reprocess_s3_prefix:
@@ -896,5 +948,7 @@ def process_listings(
             if is_temp and os.path.exists(path):
                 os.remove(path)
 
-    logger.info("Processing complete: %d processed, %d errors", processed, errors)
-    return {"processed": processed, "errors": errors}
+    logger.info(
+        "Processing complete: %d processed, %d skipped, %d errors", processed, skipped, errors
+    )
+    return {"processed": processed, "skipped": skipped, "errors": errors}

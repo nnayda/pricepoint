@@ -560,6 +560,7 @@ class StagingRedfinListing(Base):
 
     # Metadata
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    extracted_at = Column(Date, nullable=True)
 
 
 class RedfinListing(Base):

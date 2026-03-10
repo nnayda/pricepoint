@@ -1,6 +1,7 @@
 """Tests for Redfin listing HTML collector."""
 
 import os
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,8 @@ from pricepoint.data.housing.redfin_listings import (
     _parse_agent_info,
     _parse_climate_risks,
     _parse_description,
+    _parse_extraction_date,
+    _parse_filename_date,
     _parse_float,
     _parse_html_file,
     _parse_int,
@@ -725,6 +728,51 @@ class TestExtractPhotos:
 
 
 # ---------------------------------------------------------------------------
+# D0. Extraction date parsing tests
+# ---------------------------------------------------------------------------
+
+
+class TestParseExtractionDate:
+    def test_date_only(self):
+        assert _parse_extraction_date("1_26_2026") == date(2026, 1, 26)
+
+    def test_date_with_time(self):
+        assert _parse_extraction_date("1_26_2026 9：22：10 AM") == date(2026, 1, 26)
+
+    def test_none_input(self):
+        assert _parse_extraction_date(None) is None
+
+    def test_empty_string(self):
+        assert _parse_extraction_date("") is None
+
+    def test_garbage(self):
+        assert _parse_extraction_date("not_a_date") is None
+
+    def test_invalid_date(self):
+        assert _parse_extraction_date("13_32_2026") is None
+
+    def test_two_parts(self):
+        assert _parse_extraction_date("1_26") is None
+
+
+class TestParseFilenameDate:
+    def test_standard_format(self):
+        fn = "100 Fern Berry Ct, Apex, NC 27502 ｜ Redfin (1_26_2026).html"
+        assert _parse_filename_date(fn) == date(2026, 1, 26)
+
+    def test_mls_format(self):
+        fn = "1010 Castalia Dr, Cary, NC 27513 ｜ MLS# 10144851 ｜ Redfin (2_9_2026).html"
+        assert _parse_filename_date(fn) == date(2026, 2, 9)
+
+    def test_date_with_time(self):
+        fn = "123 Main St ｜ Redfin (3_15_2026 10：30：00 AM).html"
+        assert _parse_filename_date(fn) == date(2026, 3, 15)
+
+    def test_invalid_filename(self):
+        assert _parse_filename_date("random_file.html") is None
+
+
+# ---------------------------------------------------------------------------
 # D. Upsert logic tests
 # ---------------------------------------------------------------------------
 
@@ -738,14 +786,17 @@ class TestUpsertListing:
             "address": "100 Fern Berry Ct, Apex, NC 27502",
             "listing_price": "$725,574",
             "beds": 4,
+            "extracted_at": date(2026, 1, 26),
         }
-        _upsert_listing(session, data)
+        result = _upsert_listing(session, data)
 
+        assert result is True
         session.add.assert_called_once()
 
     def test_update_existing_record(self):
         existing = MagicMock()
         existing.address = "100 Fern Berry Ct, Apex, NC 27502"
+        existing.extracted_at = date(2026, 1, 26)
         session = MagicMock()
         session.query.return_value.filter.return_value.first.return_value = existing
 
@@ -753,17 +804,86 @@ class TestUpsertListing:
             "address": "100 Fern Berry Ct, Apex, NC 27502",
             "listing_price": "$730,000",
             "beds": 4,
+            "extracted_at": date(2026, 2, 9),
         }
-        _upsert_listing(session, data)
+        result = _upsert_listing(session, data)
 
+        assert result is True
         session.add.assert_not_called()
 
     def test_skip_no_address(self):
         session = MagicMock()
         data = {"listing_price": "$500,000"}
-        _upsert_listing(session, data)
+        result = _upsert_listing(session, data)
+        assert result is False
         session.query.assert_not_called()
         session.add.assert_not_called()
+
+    def test_skip_older_extraction(self):
+        existing = MagicMock()
+        existing.address = "100 Fern Berry Ct, Apex, NC 27502"
+        existing.extracted_at = date(2026, 2, 9)
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.return_value = existing
+
+        data = {
+            "address": "100 Fern Berry Ct, Apex, NC 27502",
+            "listing_price": "$700,000",
+            "extracted_at": date(2026, 1, 26),
+        }
+        result = _upsert_listing(session, data)
+
+        assert result is False
+        # No setattr should have been called on existing for data keys
+        existing.assert_not_called()
+
+    def test_update_when_existing_has_null_date(self):
+        existing = MagicMock()
+        existing.address = "100 Fern Berry Ct, Apex, NC 27502"
+        existing.extracted_at = None
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.return_value = existing
+
+        data = {
+            "address": "100 Fern Berry Ct, Apex, NC 27502",
+            "listing_price": "$730,000",
+            "extracted_at": date(2026, 2, 9),
+        }
+        result = _upsert_listing(session, data)
+
+        assert result is True
+
+    def test_update_when_new_has_null_date(self):
+        existing = MagicMock()
+        existing.address = "100 Fern Berry Ct, Apex, NC 27502"
+        existing.extracted_at = date(2026, 2, 9)
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.return_value = existing
+
+        data = {
+            "address": "100 Fern Berry Ct, Apex, NC 27502",
+            "listing_price": "$730,000",
+            "extracted_at": None,
+        }
+        result = _upsert_listing(session, data)
+
+        assert result is True
+
+    def test_update_same_date(self):
+        existing = MagicMock()
+        existing.address = "100 Fern Berry Ct, Apex, NC 27502"
+        existing.extracted_at = date(2026, 2, 9)
+        session = MagicMock()
+        session.query.return_value.filter.return_value.first.return_value = existing
+
+        data = {
+            "address": "100 Fern Berry Ct, Apex, NC 27502",
+            "listing_price": "$730,000",
+            "extracted_at": date(2026, 2, 9),
+        }
+        result = _upsert_listing(session, data)
+
+        assert result is True
 
 
 # ---------------------------------------------------------------------------
@@ -866,6 +986,7 @@ class TestProcessListings:
         result = process_listings(directory="/nonexistent/dir")
 
         assert result["processed"] == 0
+        assert result["skipped"] == 0
         assert result["errors"] == 0
 
     @patch("pricepoint.data.housing.redfin_listings._archive_to_s3")
@@ -948,6 +1069,38 @@ class TestProcessListings:
 
         assert result["processed"] == 1
         assert result["errors"] == 0
+
+    @patch("pricepoint.data.housing.redfin_listings._archive_to_s3")
+    @patch("pricepoint.data.housing.redfin_listings._upsert_listing", return_value=False)
+    @patch("pricepoint.data.housing.redfin_listings._extract_photos")
+    @patch("pricepoint.data.housing.redfin_listings.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_listings.get_settings")
+    def test_archive_called_even_when_skipped(
+        self,
+        mock_settings,
+        mock_session_cls,
+        mock_extract_photos,
+        mock_upsert,
+        mock_archive,
+    ):
+        """Older extractions should still be archived even though DB update is skipped."""
+        mock_settings.return_value = MagicMock(
+            s3_endpoint_url="http://localhost:9000",
+            s3_access_key="key",
+            s3_secret_key="secret",
+            s3_bucket="bucket",
+            redfin_s3_photos_prefix="redfin/photos",
+        )
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        mock_extract_photos.return_value = ([], 0)
+
+        result = process_listings(file_path=SOLD_FIXTURE)
+
+        assert result["processed"] == 0
+        assert result["skipped"] == 1
+        assert result["errors"] == 0
+        mock_archive.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -1156,6 +1309,7 @@ class TestParseHtmlFile:
         assert data["climate_flood_factor"] == "Major"
         assert data["climate_fire_factor"] == "Minimal"
         assert data["description"] is not None
+        assert data["extracted_at"] == date(2026, 1, 26)
 
     @patch("pricepoint.data.housing.redfin_listings._extract_photos")
     @patch("pricepoint.data.housing.redfin_listings.get_settings")
@@ -1181,6 +1335,7 @@ class TestParseHtmlFile:
         assert data["year_built"] == 1998
         assert data["listing_agent"] == "John Smith"
         assert data["redfin_estimate"] == "$510,000"
+        assert data["extracted_at"] == date(2026, 2, 9)
 
 
 # ---------------------------------------------------------------------------
