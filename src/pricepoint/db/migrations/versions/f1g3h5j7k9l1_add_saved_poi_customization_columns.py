@@ -3,8 +3,8 @@
 Adds user_category, marker_color, and marker_image_url nullable columns
 to saved_pois for visual customization in the POI tab and settings page.
 
-Revision ID: a4b6c8d0e2f4
-Revises: z3a5b7c9d1e3
+Revision ID: f1g3h5j7k9l1
+Revises: e8f0a2b4c6d8
 Create Date: 2026-03-10
 
 """
@@ -12,8 +12,8 @@ Create Date: 2026-03-10
 import sqlalchemy as sa
 from alembic import op
 
-revision = "a4b6c8d0e2f4"
-down_revision = "z3a5b7c9d1e3"
+revision = "f1g3h5j7k9l1"
+down_revision = "e8f0a2b4c6d8"
 branch_labels = None
 depends_on = None
 
