@@ -1,7 +1,7 @@
 """add saved_poi alternate_names
 
-Revision ID: a4b6c8d0e2f4
-Revises: z3a5b7c9d1e3
+Revision ID: r2s4t6u8v0w2
+Revises: q1r3s5t7u9v1
 Create Date: 2026-03-10 12:00:00.000000+00:00
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a4b6c8d0e2f4"
-down_revision: str | None = "z3a5b7c9d1e3"
+revision: str = "r2s4t6u8v0w2"
+down_revision: str | None = "q1r3s5t7u9v1"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
