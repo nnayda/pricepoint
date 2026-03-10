@@ -80,6 +80,7 @@ function RangeSlider({
   min,
   max,
   suffix,
+  noLimitAtMax,
 }: {
   label: string;
   value: number;
@@ -87,15 +88,14 @@ function RangeSlider({
   min: number;
   max: number;
   suffix: string;
+  noLimitAtMax?: boolean;
 }) {
+  const displayText = noLimitAtMax && value === max ? "No limit" : `${value}${suffix}`;
   return (
     <div>
       <div className="flex items-center justify-between">
         <span className="text-xs text-[var(--color-db-text-secondary)]">{label}</span>
-        <span className="text-xs font-semibold text-[var(--color-db-text)]">
-          {value}
-          {suffix}
-        </span>
+        <span className="text-xs font-semibold text-[var(--color-db-text)]">{displayText}</span>
       </div>
       <input
         type="range"
@@ -167,6 +167,7 @@ function CompSidebar({ criteria, onChange, onSearch, loading, totalCandidates }:
         min={0}
         max={40}
         suffix="%"
+        noLimitAtMax
       />
 
       <RangeSlider
@@ -176,6 +177,7 @@ function CompSidebar({ criteria, onChange, onSearch, loading, totalCandidates }:
         min={0}
         max={40}
         suffix="%"
+        noLimitAtMax
       />
 
       <RangeSlider
@@ -185,6 +187,7 @@ function CompSidebar({ criteria, onChange, onSearch, loading, totalCandidates }:
         min={0}
         max={20}
         suffix=" yrs"
+        noLimitAtMax
       />
 
       <button

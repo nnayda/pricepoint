@@ -20,11 +20,11 @@ export async function getComparables(
       time_period_months: criteria.time_period_months,
       distance_miles: criteria.distance_miles,
       same_schools: criteria.same_schools,
-      sqft_pct: criteria.sqft_pct,
-      lot_pct: criteria.lot_pct,
+      sqft_pct: criteria.sqft_pct >= 40 ? 0 : criteria.sqft_pct,
+      lot_pct: criteria.lot_pct >= 40 ? 0 : criteria.lot_pct,
       same_beds: criteria.same_beds,
       same_baths: criteria.same_baths,
-      year_built_diff: criteria.year_built_diff,
+      year_built_diff: criteria.year_built_diff >= 20 ? 0 : criteria.year_built_diff,
     },
   });
   return data;

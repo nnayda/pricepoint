@@ -100,6 +100,26 @@ describe("CompSidebar", () => {
     expect(screen.getByText("Same bathrooms")).toBeInTheDocument();
   });
 
+  it("displays 'No limit' when slider is at max", () => {
+    const maxCriteria: ComparablesSearchCriteria = {
+      ...DEFAULT_CRITERIA,
+      sqft_pct: 40,
+      lot_pct: 40,
+      year_built_diff: 20,
+    };
+    render(
+      <CompSidebar
+        criteria={maxCriteria}
+        onChange={vi.fn()}
+        onSearch={vi.fn()}
+        loading={false}
+        totalCandidates={null}
+      />,
+    );
+    const noLimitElements = screen.getAllByText("No limit");
+    expect(noLimitElements).toHaveLength(3);
+  });
+
   it("renders range sliders", () => {
     render(
       <CompSidebar

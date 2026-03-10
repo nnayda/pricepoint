@@ -39,9 +39,9 @@ def place_names_refresh():
         """Verify that place_names table has rows."""
         from sqlalchemy import text
 
-        from pricepoint.db.engine import Session
+        from pricepoint.db.engine import SessionLocal
 
-        with Session() as session:
+        with SessionLocal() as session:
             count = session.execute(text("SELECT count(*) FROM place_names")).scalar()
             logger.info("place_names table has %d rows", count)
             if not count:

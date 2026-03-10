@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography
 from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import cast, func, select
+from sqlalchemy import cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
@@ -194,20 +194,25 @@ async def search_comparables(
     if subject.sqft and sqft_pct > 0:
         lo = int(subject.sqft * (1 - sqft_pct / 100))
         hi = int(subject.sqft * (1 + sqft_pct / 100))
-        stmt = stmt.where(RedfinListing.sqft.between(lo, hi))
+        stmt = stmt.where(or_(RedfinListing.sqft.between(lo, hi), RedfinListing.sqft.is_(None)))
 
     # Lot size range
     if subject.lot_size and lot_pct > 0:
         lo_lot = subject.lot_size * (1 - lot_pct / 100)
         hi_lot = subject.lot_size * (1 + lot_pct / 100)
-        stmt = stmt.where(RedfinListing.lot_size.between(lo_lot, hi_lot))
+        stmt = stmt.where(
+            or_(RedfinListing.lot_size.between(lo_lot, hi_lot), RedfinListing.lot_size.is_(None))
+        )
 
     # Year built range
     if subject.year_built and year_built_diff > 0:
         stmt = stmt.where(
-            RedfinListing.year_built.between(
-                subject.year_built - year_built_diff,
-                subject.year_built + year_built_diff,
+            or_(
+                RedfinListing.year_built.between(
+                    subject.year_built - year_built_diff,
+                    subject.year_built + year_built_diff,
+                ),
+                RedfinListing.year_built.is_(None),
             )
         )
 

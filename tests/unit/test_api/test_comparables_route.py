@@ -128,6 +128,110 @@ class TestComparablesEndpoint:
         assert len(resp.comparables) == 1
         assert resp.comparables[0].similarity_distance == 1.234
 
+    def test_null_fields_not_excluded_by_range_filters(self, client):
+        """Candidates with NULL sqft/lot_size/year_built should not be excluded."""
+        from pricepoint.api.dependencies import get_db
+
+        subject = _mock_listing(id_=1, sqft=2000, lot_size=0.25, year_built=2005)
+        candidate = _mock_listing(
+            id_=2,
+            street_address="200 Oak Ave",
+            sqft=None,
+            lot_size=None,
+            year_built=None,
+        )
+
+        mock_db = MagicMock()
+
+        # First call: subject lookup (scalar_one_or_none)
+        # Second call: geo lookup (scalar_one_or_none)
+        # Third call: candidate IDs (all)
+        # Then various calls for building CompProperty
+        call_count = {"n": 0}
+
+        def mock_execute(stmt):
+            call_count["n"] += 1
+            result = MagicMock()
+            n = call_count["n"]
+
+            if n == 1:
+                # Subject lookup
+                result.scalar_one_or_none.return_value = subject
+            elif n == 2:
+                # Geo lookup for school district
+                result.scalar_one_or_none.return_value = None
+            elif n == 3:
+                # Candidate IDs query — return candidate
+                row = MagicMock()
+                row.__getitem__ = lambda self, i: candidate.id
+                result.all.return_value = [row]
+            elif n == 4:
+                # ST_Y/ST_X for subject coords
+                coord = MagicMock()
+                coord.lat = 35.7
+                coord.lon = -78.8
+                result.one.return_value = coord
+            elif n == 5:
+                # LLM quality score for subject
+                result.scalar_one_or_none.return_value = None
+            elif n == 6:
+                # LLM photo score for subject
+                result.scalar_one_or_none.return_value = None
+            elif n == 7:
+                # Comp listings fetch
+                result.scalars.return_value.all.return_value = [candidate]
+            elif n == 8:
+                # ST_Y/ST_X for candidate coords
+                coord = MagicMock()
+                coord.lat = 35.71
+                coord.lon = -78.81
+                result.one.return_value = coord
+            elif n == 9:
+                # LLM quality score for candidate
+                result.scalar_one_or_none.return_value = None
+            elif n == 10:
+                # LLM photo score for candidate
+                result.scalar_one_or_none.return_value = None
+            else:
+                result.all.return_value = []
+                result.scalar_one_or_none.return_value = None
+                result.scalars.return_value.all.return_value = []
+
+            return result
+
+        mock_db.execute = mock_execute
+
+        with (
+            patch("pricepoint.api.routes.comparables.assemble_features", return_value=None),
+            patch(
+                "pricepoint.api.routes.comparables.query_nuisance_sources", return_value=[]
+            ),
+            patch("pricepoint.api.routes.comparables.query_risk_features", return_value=[]),
+        ):
+            app.dependency_overrides[get_db] = lambda: mock_db
+            try:
+                resp = client.get(
+                    "/api/comparables/search",
+                    params={
+                        "lat": 35.7,
+                        "lon": -78.8,
+                        "address": "100 Main St",
+                        "sqft_pct": 10,
+                        "lot_pct": 10,
+                        "year_built_diff": 10,
+                        "same_schools": False,
+                        "same_beds": False,
+                        "same_baths": False,
+                    },
+                )
+                assert resp.status_code == 200
+                data = resp.json()
+                # The NULL-field candidate should be included, not filtered out
+                assert data["total_candidates"] == 1
+                assert len(data["comparables"]) == 1
+            finally:
+                app.dependency_overrides.clear()
+
     def test_empty_comparables_response(self):
         """Should handle zero comparables."""
         from pricepoint.api.schemas.comparables import ComparablesResponse, CompProperty
