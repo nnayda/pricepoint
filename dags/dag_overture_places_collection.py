@@ -7,7 +7,7 @@ GeoParquet dataset on S3 and loads them into PostGIS.
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +32,14 @@ def overture_places_collection():
 
         fetch_places()
 
-    @task()
+    @task(outlets=[Asset("overture_places")])
     def verify_places():
         """Verify that place records were loaded."""
         from pricepoint.data.geospatial.overture_places import verify_places
 
         verify_places()
 
-    @task()
-    def refresh_place_names():
-        """Rebuild the place_names autocomplete lookup table."""
-        from pricepoint.data.geospatial.place_names import (
-            refresh_place_names as _refresh,
-        )
-
-        _refresh()
-
-    fetch_places() >> verify_places() >> refresh_place_names()
+    fetch_places() >> verify_places()
 
 
 overture_places_collection()
