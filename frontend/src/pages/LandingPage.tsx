@@ -189,143 +189,145 @@ function LandingNav() {
         <PricePointLogo variant="compact" />
       </a>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
         {isAuthenticated ? (
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((prev) => !prev)}
-              aria-expanded={menuOpen}
-              aria-haspopup="true"
-              className="flex items-center gap-2 rounded-full px-1 py-1 transition-colors hover:bg-white/10"
-              data-testid="landing-user-menu-button"
+          <>
+            <Link
+              to="/upload"
+              className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-white/10 hover:text-[var(--color-db-text-secondary)]"
+              aria-label="Upload"
+              data-testid="landing-upload-link"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-db-accent)] text-xs font-semibold text-white">
-                {initials}
-              </div>
-              <span className="hidden max-w-[120px] truncate text-sm text-[var(--color-db-text-secondary)] sm:inline">
-                {user?.display_name || user?.email}
-              </span>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`hidden h-4 w-4 text-[var(--color-db-text-secondary)] transition-transform sm:block ${menuOpen ? "rotate-180" : ""}`}
-                viewBox="0 0 20 20"
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                />
+              </svg>
+            </Link>
+            <Link
+              to="/saved"
+              className="rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-white/10 hover:text-[var(--color-db-text-secondary)]"
+              aria-label="Saved properties"
+              data-testid="landing-saved-link"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
                 fill="currentColor"
                 aria-hidden="true"
               >
                 <path
                   fillRule="evenodd"
-                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z"
                   clipRule="evenodd"
                 />
               </svg>
-            </button>
-            {menuOpen && (
-              <div
-                className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg"
-                style={{
-                  backgroundColor: "var(--color-db-surface)",
-                  border: "1px solid var(--color-db-border)",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                }}
-                role="menu"
-                data-testid="landing-user-dropdown"
+            </Link>
+            <div className="relative ml-1" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-expanded={menuOpen}
+                aria-haspopup="true"
+                className="flex items-center gap-2 rounded-full px-1 py-1 transition-colors hover:bg-white/10"
+                data-testid="landing-user-menu-button"
               >
-                <div className="border-b border-[var(--color-db-border-subtle)] px-3 py-2">
-                  <p className="truncate text-sm font-medium text-[var(--color-db-text-primary)]">
-                    {user?.display_name || "User"}
-                  </p>
-                  <p className="truncate text-xs text-[var(--color-db-text-secondary)]">
-                    {user?.email}
-                  </p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-db-accent)] text-xs font-semibold text-white">
+                  {initials}
                 </div>
-                <Link
-                  to="/settings"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+                <span className="hidden max-w-[120px] truncate text-sm text-[var(--color-db-text-secondary)] sm:inline">
+                  {user?.display_name || user?.email}
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`hidden h-4 w-4 text-[var(--color-db-text-secondary)] transition-transform sm:block ${menuOpen ? "rotate-180" : ""}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Settings
-                </Link>
-                <Link
-                  to="/upload"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
+                  <path
+                    fillRule="evenodd"
+                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-lg"
+                  style={{
+                    backgroundColor: "var(--color-db-surface)",
+                    border: "1px solid var(--color-db-border)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                  }}
+                  role="menu"
+                  data-testid="landing-user-dropdown"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
+                  <div className="border-b border-[var(--color-db-border-subtle)] px-3 py-2">
+                    <p className="truncate text-sm font-medium text-[var(--color-db-text-primary)]">
+                      {user?.display_name || "User"}
+                    </p>
+                    <p className="truncate text-xs text-[var(--color-db-text-secondary)]">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <Link
+                    to="/settings"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Upload
-                </Link>
-                <Link
-                  to="/saved"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Settings
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M5 2a2 2 0 00-2 2v14l7-3.5L17 18V4a2 2 0 00-2-2H5z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Saved
-                </Link>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)]"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             <Link
