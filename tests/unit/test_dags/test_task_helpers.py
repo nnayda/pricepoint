@@ -92,15 +92,10 @@ class TestSendNtfyNotification:
         assert result is True
         assert captured_req["url"] == "https://ntfy.example.com/test-topic"
         assert captured_req["method"] == "POST"
-
-        import json
-
-        payload = json.loads(captured_req["data"])
-        assert payload["topic"] == "test-topic"
-        assert payload["title"] == "Test Title"
-        assert payload["message"] == "Test body"
-        assert payload["priority"] == "high"
-        assert payload["tags"] == ["tada"]
+        assert captured_req["data"] == b"Test body"
+        assert captured_req["headers"]["Title"] == "Test Title"
+        assert captured_req["headers"]["Priority"] == "high"
+        assert captured_req["headers"]["Tags"] == "tada"
 
     def test_strips_trailing_slash(self, monkeypatch):
         """Should strip trailing slash from server_url."""
@@ -141,8 +136,7 @@ class TestSendNtfyNotification:
         assert "Failed to send ntfy notification" in caplog.text
 
     def test_no_tags(self):
-        """Should omit tags key when tags is None."""
-        import json
+        """Should omit Tags header when tags is None."""
         from unittest.mock import MagicMock, patch
 
         fake_resp = MagicMock()
@@ -153,11 +147,10 @@ class TestSendNtfyNotification:
         captured = {}
 
         def fake_urlopen(req, timeout=None):
-            captured["data"] = req.data
+            captured["headers"] = dict(req.headers)
             return fake_resp
 
         with patch("urllib.request.urlopen", fake_urlopen):
             send_ntfy_notification(topic="t", title="T", message="M")
 
-        payload = json.loads(captured["data"])
-        assert "tags" not in payload
+        assert "Tags" not in captured["headers"]
