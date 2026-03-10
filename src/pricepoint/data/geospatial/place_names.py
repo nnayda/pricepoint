@@ -128,13 +128,13 @@ def _atomic_swap() -> None:
             text("""
                 DROP TABLE IF EXISTS place_names_old;
                 ALTER TABLE place_names RENAME TO place_names_old;
+                DROP TABLE place_names_old;
                 ALTER TABLE place_names_staging RENAME TO place_names;
                 ALTER TABLE place_names
                     RENAME CONSTRAINT uq_place_names_staging_type_value
                     TO uq_place_name_type_value;
                 ALTER INDEX ix_place_names_staging_value_trgm
                     RENAME TO ix_place_names_value_trgm;
-                DROP TABLE IF EXISTS place_names_old;
             """)
         )
         session.commit()
