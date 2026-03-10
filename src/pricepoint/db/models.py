@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -1600,6 +1600,7 @@ class SavedPoi(Base):
     user_category = Column(String, nullable=True)  # user-defined grouping
     marker_color = Column(String(7), nullable=True)  # hex color like #FF5733
     marker_image_url = Column(String, nullable=True)  # optional logo URL
+    alternate_names = Column(ARRAY(String), nullable=True, server_default=text("'{}'"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

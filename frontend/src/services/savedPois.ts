@@ -37,6 +37,7 @@ export async function createSavedPoi(
     user_category?: string | null;
     marker_color?: string | null;
     marker_image_url?: string | null;
+    alternate_names?: string[] | null;
   },
 ): Promise<SavedPoiResponse> {
   const { data } = await client.post<SavedPoiResponse>("/api/saved-pois", body, {
@@ -52,6 +53,7 @@ export async function updateSavedPoi(
     user_category?: string | null;
     marker_color?: string | null;
     marker_image_url?: string | null;
+    alternate_names?: string[] | null;
   },
 ): Promise<SavedPoiResponse> {
   const { data } = await client.patch<SavedPoiResponse>(`/api/saved-pois/${id}`, body, {

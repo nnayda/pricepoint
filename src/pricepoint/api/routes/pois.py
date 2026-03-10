@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import math
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -419,6 +420,28 @@ def autocomplete_pois(
     return PoiAutocompleteResponse(results=results, query=q)
 
 
+DEDUP_RADIUS_METERS = 100
+
+
+def _deduplicate_matches(matches: list[SavedPoiMatch], ref_lat: float) -> list[SavedPoiMatch]:
+    """Keep only the nearest match from each spatial cluster."""
+    if len(matches) <= 1:
+        return matches
+    cos_lat = math.cos(math.radians(ref_lat))
+    kept: list[SavedPoiMatch] = []
+    for m in matches:
+        is_dup = False
+        for k in kept:
+            dlat = abs(m.lat - k.lat) * 111_000
+            dlon = abs(m.lon - k.lon) * 111_000 * cos_lat
+            if (dlat * dlat + dlon * dlon) < DEDUP_RADIUS_METERS**2:
+                is_dup = True
+                break
+        if not is_dup:
+            kept.append(m)
+    return kept
+
+
 @router.get("/pois/saved-nearby", response_model=SavedPoiNearbyResponse)
 def get_saved_pois_nearby(
     lat: Annotated[float, Query(ge=-90, le=90)],
@@ -433,23 +456,23 @@ def get_saved_pois_nearby(
     if not saved:
         return SavedPoiNearbyResponse(groups=[])
 
-    brand_pois = {s.match_value: s for s in saved if s.match_type == "brand"}
-    name_pois = {s.match_value: s for s in saved if s.match_type == "name"}
+    # Build expanded lookup maps that include alternate names
+    brand_lookup: dict[str, SavedPoi] = {}
+    name_lookup: dict[str, SavedPoi] = {}
+    for s in saved:
+        all_values = [s.match_value] + (s.alternate_names or [])
+        lookup = brand_lookup if s.match_type == "brand" else name_lookup
+        for v in all_values:
+            lookup[v] = s
 
     radius_meters = radius_miles * METERS_PER_MILE
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    conditions = []
-    if brand_pois:
-        conditions.append(Place.brand_name.in_(brand_pois.keys()))
-    if name_pois:
-        conditions.append(Place.name.in_(name_pois.keys()))
-
     or_conditions = []
-    if brand_pois:
-        or_conditions.append(Place.brand_name.in_(list(brand_pois.keys())))
-    if name_pois:
-        or_conditions.append(Place.name.in_(list(name_pois.keys())))
+    if brand_lookup:
+        or_conditions.append(Place.brand_name.in_(list(brand_lookup.keys())))
+    if name_lookup:
+        or_conditions.append(Place.name.in_(list(name_lookup.keys())))
 
     stmt = (
         select(
@@ -475,10 +498,10 @@ def get_saved_pois_nearby(
     groups_map: dict[int, list[SavedPoiMatch]] = {s.id: [] for s in saved}
     for row in rows:
         matched_poi: SavedPoi | None = None
-        if row.brand_name and row.brand_name in brand_pois:
-            matched_poi = brand_pois[row.brand_name]
-        elif row.poi_name and row.poi_name in name_pois:
-            matched_poi = name_pois[row.poi_name]
+        if row.brand_name and row.brand_name in brand_lookup:
+            matched_poi = brand_lookup[row.brand_name]
+        elif row.poi_name and row.poi_name in name_lookup:
+            matched_poi = name_lookup[row.poi_name]
         if matched_poi is None:
             continue
         dist = round(row.distance_miles, 2) if row.distance_miles else 0.0
@@ -493,6 +516,10 @@ def get_saved_pois_nearby(
                 drive_minutes=max(1, round(dist * 3)),
             )
         )
+
+    # Deduplicate nearby matches within each group
+    for poi_id in groups_map:
+        groups_map[poi_id] = _deduplicate_matches(groups_map[poi_id], lat)
 
     groups = [
         SavedPoiNearbyGroup(

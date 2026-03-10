@@ -1,11 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Source, Layer, Popup } from "react-map-gl/maplibre";
-import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
+import { Link } from "react-router-dom";
 import type { DashboardData, DashboardPoi } from "../../../types";
 import DashboardCard from "../DashboardCard";
 import DashboardMap, { type MapMarker } from "../maps/DashboardMap";
-import { POI_ICONS, ShoppingCartIcon, MapPinIcon, CarIcon } from "../ui/Icons";
-import { CATEGORY_COLORS, COLOR_INDIGO } from "../../../utils/chartTokens";
+import { MapPinIcon, CarIcon } from "../ui/Icons";
+import { COLOR_INDIGO } from "../../../utils/chartTokens";
 
 const SAVED_DEFAULT_COLOR = "#F59E0B";
 
@@ -106,9 +105,8 @@ function SavedPlaceCard({
 function PoisTab({ data }: PoisTabProps) {
   const { pois, property } = data;
 
-  // Separate saved vs regular POIs
+  // All POIs are saved POIs now
   const savedPois = useMemo(() => pois.filter((p) => p.isSaved), [pois]);
-  const regularPois = useMemo(() => pois.filter((p) => !p.isSaved), [pois]);
 
   // Group saved by user_category (default "Saved")
   const savedGroups = useMemo(() => {
@@ -121,27 +119,8 @@ function PoisTab({ data }: PoisTabProps) {
     return groups;
   }, [savedPois]);
 
-  // Group regular POIs by category
-  const categories = useMemo(
-    () => [...new Set(regularPois.map((p) => p.category))],
-    [regularPois],
-  );
-  const grouped = useMemo(
-    () =>
-      categories.reduce(
-        (acc, cat) => {
-          acc[cat] = regularPois.filter((p) => p.category === cat);
-          return acc;
-        },
-        {} as Record<string, DashboardPoi[]>,
-      ),
-    [categories, regularPois],
-  );
-
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(categories));
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [vtPopup, setVtPopup] = useState<{ lat: number; lon: number; name: string } | null>(null);
 
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -155,18 +134,6 @@ function PoisTab({ data }: PoisTabProps) {
     }
   }, [selectedId]);
 
-  const toggleCat = (cat: string) => {
-    setExpandedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) {
-        next.delete(cat);
-      } else {
-        next.add(cat);
-      }
-      return next;
-    });
-  };
-
   // Build map markers — saved places as distinct markers
   const savedMarkers = useMemo(
     (): MapMarker[] =>
@@ -179,18 +146,6 @@ function PoisTab({ data }: PoisTabProps) {
         imageUrl: p.marker_image_url,
       })),
     [savedPois],
-  );
-
-  const regularMarkers = useMemo(
-    (): MapMarker[] =>
-      regularPois.map((p) => ({
-        id: p.id,
-        lat: p.lat,
-        lon: p.lon,
-        label: `${p.name} (${p.distance_miles} mi)`,
-        color: CATEGORY_COLORS[p.category] || COLOR_INDIGO,
-      })),
-    [regularPois],
   );
 
   // Lookup map for popup rendering
@@ -220,19 +175,8 @@ function PoisTab({ data }: PoisTabProps) {
     [poiById],
   );
 
-  // Handle vector tile layer clicks for places-circles
-  const handleLayerClick = useCallback((e: MapLayerMouseEvent) => {
-    const feature = e.features?.[0];
-    if (!feature || feature.layer.id !== "places-circles") return;
-    if (feature.geometry.type !== "Point") return;
-    const [lon, lat] = feature.geometry.coordinates;
-    const name = (feature.properties?.name as string) || "Unknown Place";
-    setVtPopup({ lat, lon, name });
-  }, []);
-
   const handleMarkerSelect = useCallback((id: string) => {
     setSelectedId(id);
-    setVtPopup(null);
   }, []);
 
   const handleMarkerDeselect = useCallback(() => {
@@ -241,10 +185,9 @@ function PoisTab({ data }: PoisTabProps) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-      {/* Left column — saved cards + accordion */}
+      {/* Left column — saved cards */}
       <div className="flex flex-col gap-4">
-        {/* Saved Places Cards */}
-        {savedPois.length > 0 && (
+        {savedPois.length > 0 ? (
           <DashboardCard>
             <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
               Saved Places
@@ -280,91 +223,23 @@ function PoisTab({ data }: PoisTabProps) {
               ))}
             </div>
           </DashboardCard>
-        )}
-
-        {/* General POI Accordion */}
-        {categories.map((cat) => {
-          const IconComponent = POI_ICONS[cat] || ShoppingCartIcon;
-          return (
-            <DashboardCard key={cat} padding={false}>
-              <button
-                type="button"
-                onClick={() => toggleCat(cat)}
-                className="flex w-full items-center justify-between px-5 py-3.5 text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor: `${CATEGORY_COLORS[cat]}20`,
-                      color: CATEGORY_COLORS[cat],
-                    }}
-                  >
-                    <IconComponent size={14} />
-                  </span>
-                  <span className="text-sm font-semibold text-[var(--color-db-text-primary)]">
-                    {cat}
-                  </span>
-                  <span className="text-xs text-[var(--color-db-text-muted)]">
-                    ({grouped[cat].length})
-                  </span>
-                </div>
-                <svg
-                  className={`h-4 w-4 text-[var(--color-db-text-tertiary)] transition-transform ${expandedCats.has(cat) ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+        ) : (
+          <DashboardCard>
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-sm text-[var(--color-db-text-secondary)]">No saved places yet</p>
+              <p className="text-xs text-[var(--color-db-text-muted)]">
+                Add places you care about in{" "}
+                <Link
+                  to="/settings"
+                  className="text-[var(--color-db-accent)] underline hover:opacity-80"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedCats.has(cat) && (
-                <div className="border-t border-[var(--color-db-border-subtle)] px-5 py-3">
-                  <div className="space-y-2">
-                    {grouped[cat].map((poi) => {
-                      const PoiIcon = POI_ICONS[poi.category] || ShoppingCartIcon;
-                      const isSelected = selectedId === poi.id;
-                      return (
-                        <div
-                          key={poi.id}
-                          className="flex cursor-pointer items-center justify-between rounded-[var(--radius-db-xs)] px-3 py-2 transition-colors"
-                          style={{
-                            backgroundColor: isSelected
-                              ? "var(--color-db-accent-muted)"
-                              : "var(--color-db-surface-hover)",
-                            outline: isSelected ? "1px solid var(--color-db-accent)" : "none",
-                          }}
-                          onMouseEnter={() => setHoveredId(poi.id)}
-                          onMouseLeave={() => setHoveredId(null)}
-                          onClick={() => setSelectedId(isSelected ? null : poi.id)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[var(--color-db-text-muted)]">
-                              <PoiIcon size={14} />
-                            </span>
-                            <div>
-                              <span className="text-sm text-[var(--color-db-text-primary)]">
-                                {poi.name}
-                              </span>
-                              <span className="ml-2 text-[11px] text-[var(--color-db-text-muted)]">
-                                {poi.subcategory}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex gap-3 text-[11px] text-[var(--color-db-text-tertiary)]">
-                            <span>{poi.distance_miles} mi</span>
-                            <span>{poi.drive_minutes} min</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </DashboardCard>
-          );
-        })}
+                  Settings
+                </Link>{" "}
+                to see them on the map.
+              </p>
+            </div>
+          </DashboardCard>
+        )}
       </div>
 
       {/* Right column — map (sticky, fills viewport) */}
@@ -386,83 +261,15 @@ function PoisTab({ data }: PoisTabProps) {
                   isProperty: true,
                 },
                 ...savedMarkers,
-                ...regularMarkers,
               ]}
               height="100%"
               minHeight="400px"
               highlightedId={hoveredId}
               selectedId={selectedId}
-              interactiveLayerIds={["places-circles"]}
-              onLayerClick={handleLayerClick}
               onMarkerSelect={handleMarkerSelect}
               onMarkerDeselect={handleMarkerDeselect}
               renderPopup={renderPopup}
-            >
-              {/* Vector tile layers for places and hospitals */}
-              <Source
-                id="places-tiles"
-                type="vector"
-                tiles={[`${window.location.origin}/tiles/places/{z}/{x}/{y}`]}
-                minzoom={0}
-                maxzoom={14}
-              >
-                <Layer
-                  id="places-circles"
-                  type="circle"
-                  source-layer="places"
-                  paint={{
-                    "circle-radius": 4,
-                    "circle-color": COLOR_INDIGO,
-                    "circle-opacity": 0.3,
-                    "circle-stroke-width": 1,
-                    "circle-stroke-color": COLOR_INDIGO,
-                    "circle-stroke-opacity": 0.5,
-                  }}
-                />
-              </Source>
-              <Source
-                id="hospitals-tiles"
-                type="vector"
-                tiles={[`${window.location.origin}/tiles/hospitals/{z}/{x}/{y}`]}
-                minzoom={0}
-                maxzoom={14}
-              >
-                <Layer
-                  id="hospitals-circles"
-                  type="circle"
-                  source-layer="hospitals"
-                  paint={{
-                    "circle-radius": 6,
-                    "circle-color": "#EF4444",
-                    "circle-opacity": 0.6,
-                    "circle-stroke-width": 2,
-                    "circle-stroke-color": "#ffffff",
-                  }}
-                />
-              </Source>
-
-              {/* Vector tile popup */}
-              {vtPopup && (
-                <Popup
-                  longitude={vtPopup.lon}
-                  latitude={vtPopup.lat}
-                  anchor="bottom"
-                  onClose={() => setVtPopup(null)}
-                  closeOnClick={false}
-                  maxWidth="240px"
-                >
-                  <span
-                    style={{
-                      fontFamily: "var(--font-db-sans)",
-                      fontSize: 12,
-                      color: "var(--color-db-text-primary)",
-                    }}
-                  >
-                    {vtPopup.name}
-                  </span>
-                </Popup>
-              )}
-            </DashboardMap>
+            />
           </div>
         </DashboardCard>
       </div>

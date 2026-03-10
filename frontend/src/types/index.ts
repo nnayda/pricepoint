@@ -265,6 +265,7 @@ export interface SavedPoiResponse {
   user_category: string | null;
   marker_color: string | null;
   marker_image_url: string | null;
+  alternate_names?: string[] | null;
   created_at: string;
 }
 

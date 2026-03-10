@@ -34,6 +34,7 @@ def _to_response(r: SavedPoi) -> SavedPoiResponse:
         user_category=r.user_category,
         marker_color=r.marker_color,
         marker_image_url=r.marker_image_url,
+        alternate_names=r.alternate_names or [],
         created_at=r.created_at,
     )
 
@@ -104,6 +105,7 @@ def create_saved_poi(
         user_category=body.user_category,
         marker_color=body.marker_color,
         marker_image_url=body.marker_image_url,
+        alternate_names=body.alternate_names or [],
     )
     db.add(saved)
     db.commit()

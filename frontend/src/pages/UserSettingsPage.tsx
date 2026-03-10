@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import DashboardNav from "../components/dashboard/DashboardNav";
 import SavedPlacesSection from "../components/settings/SavedPlacesSection";
 import { useSavedPois } from "../hooks/useSavedPois";
+import { usePoiRadius } from "../hooks/usePoiRadius";
 import axios from "axios";
 
 type SettingsTab = "account" | "saved-places";
@@ -21,6 +22,7 @@ function UserSettingsPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { pois: savedPois, add: addPoi, update: updatePoi, remove: removePoi } = useSavedPois();
+  const { radiusMiles, setRadiusMiles } = usePoiRadius();
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -254,6 +256,8 @@ function UserSettingsPage() {
                 onAdd={addPoi}
                 onRemove={removePoi}
                 onUpdate={updatePoi}
+                radiusMiles={radiusMiles}
+                onRadiusChange={setRadiusMiles}
               />
             )}
           </div>

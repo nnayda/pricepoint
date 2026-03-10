@@ -72,6 +72,7 @@ class SavedPoiCreate(BaseModel):
     user_category: str | None = None
     marker_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     marker_image_url: str | None = None
+    alternate_names: list[str] | None = None
 
 
 class SavedPoiUpdate(BaseModel):
@@ -80,6 +81,7 @@ class SavedPoiUpdate(BaseModel):
     user_category: str | None = None
     marker_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     marker_image_url: str | None = None
+    alternate_names: list[str] | None = None
 
 
 class SavedPoiResponse(BaseModel):
@@ -93,6 +95,7 @@ class SavedPoiResponse(BaseModel):
     user_category: str | None = None
     marker_color: str | None = None
     marker_image_url: str | None = None
+    alternate_names: list[str] | None = None
     created_at: datetime
 
 

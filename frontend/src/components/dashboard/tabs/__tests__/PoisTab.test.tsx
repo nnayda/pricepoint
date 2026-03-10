@@ -1,18 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import PoisTab from "../PoisTab";
 import { mockDashboardData } from "../../../../data/mockDashboardData";
 import type { DashboardData, DashboardPoi } from "../../../../types";
-
-vi.mock("react-map-gl/maplibre", () => ({
-  Source: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="vector-source">{children}</div>
-  ),
-  Layer: ({ id }: { id?: string }) => <div data-testid="vector-layer" data-layer-id={id} />,
-  Popup: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="map-popup">{children}</div>
-  ),
-}));
 
 vi.mock("../../maps/DashboardMap", () => ({
   default: ({
@@ -44,43 +35,31 @@ const savedPoi: DashboardPoi = {
   address: "123 Main St",
 };
 
-const regularPoi: DashboardPoi = {
-  id: "MEDICAL-1",
-  name: "Rex Hospital",
-  category: "medical",
-  subcategory: "hospital",
-  lat: 35.81,
-  lon: -78.71,
-  distance_miles: 1.2,
-  drive_minutes: 4,
-  icon: "hospital",
-};
-
 function makeData(pois: DashboardPoi[]): DashboardData {
   return { ...mockDashboardData, pois };
 }
 
+function renderWithRouter(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 describe("PoisTab", () => {
   it("renders saved place cards when saved POIs exist", () => {
-    render(<PoisTab data={makeData([savedPoi, regularPoi])} />);
+    renderWithRouter(<PoisTab data={makeData([savedPoi])} />);
     expect(screen.getByText("Saved Places")).toBeInTheDocument();
     expect(screen.getByText("Costco")).toBeInTheDocument();
     expect(screen.getByText("123 Main St")).toBeInTheDocument();
   });
 
-  it("renders regular POI accordion", () => {
-    render(<PoisTab data={makeData([regularPoi])} />);
-    expect(screen.getByText("medical")).toBeInTheDocument();
-    expect(screen.getByText("Rex Hospital")).toBeInTheDocument();
-  });
-
-  it("does not render saved places section when no saved POIs", () => {
-    render(<PoisTab data={makeData([regularPoi])} />);
+  it("shows empty state when no saved POIs", () => {
+    renderWithRouter(<PoisTab data={makeData([])} />);
     expect(screen.queryByText("Saved Places")).not.toBeInTheDocument();
+    expect(screen.getByText("No saved places yet")).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toHaveAttribute("href", "/settings");
   });
 
   it("clicking a saved card toggles selection", () => {
-    render(<PoisTab data={makeData([savedPoi])} />);
+    renderWithRouter(<PoisTab data={makeData([savedPoi])} />);
     const card = screen.getByText("Costco").closest("[class*=cursor-pointer]")!;
     fireEvent.click(card);
     // Check it has accent muted background (selected)
@@ -91,26 +70,22 @@ describe("PoisTab", () => {
   });
 
   it("renders map with correct marker count", () => {
-    render(<PoisTab data={makeData([savedPoi, regularPoi])} />);
+    renderWithRouter(<PoisTab data={makeData([savedPoi])} />);
     const map = screen.getByTestId("dashboard-map");
-    // 1 property + 1 saved + 1 regular = 3
-    expect(map.getAttribute("data-marker-count")).toBe("3");
-  });
-
-  it("accordion collapse/expand works", () => {
-    render(<PoisTab data={makeData([regularPoi])} />);
-    // Category header button
-    const catButton = screen.getByText("medical").closest("button")!;
-    expect(screen.getByText("Rex Hospital")).toBeInTheDocument();
-    fireEvent.click(catButton);
-    expect(screen.queryByText("Rex Hospital")).not.toBeInTheDocument();
-    fireEvent.click(catButton);
-    expect(screen.getByText("Rex Hospital")).toBeInTheDocument();
+    // 1 property + 1 saved = 2
+    expect(map.getAttribute("data-marker-count")).toBe("2");
   });
 
   it("saved POI card shows distance and drive time", () => {
-    render(<PoisTab data={makeData([savedPoi])} />);
+    renderWithRouter(<PoisTab data={makeData([savedPoi])} />);
     expect(screen.getByText("2.5 mi")).toBeInTheDocument();
     expect(screen.getByText("7 min")).toBeInTheDocument();
+  });
+
+  it("renders map with only property marker when no POIs", () => {
+    renderWithRouter(<PoisTab data={makeData([])} />);
+    const map = screen.getByTestId("dashboard-map");
+    // 1 property only
+    expect(map.getAttribute("data-marker-count")).toBe("1");
   });
 });

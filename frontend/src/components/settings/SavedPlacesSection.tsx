@@ -30,8 +30,11 @@ interface Props {
       user_category?: string | null;
       marker_color?: string | null;
       marker_image_url?: string | null;
+      alternate_names?: string[] | null;
     },
   ) => Promise<void>;
+  radiusMiles: number;
+  onRadiusChange: (n: number) => void;
 }
 
 function ColorPicker({
@@ -96,7 +99,95 @@ function ColorPicker({
   );
 }
 
-export default function SavedPlacesSection({ pois, onAdd, onRemove, onUpdate }: Props) {
+function AlternateNamesEditor({
+  names,
+  onAdd,
+  onRemove,
+}: {
+  names: string[];
+  onAdd: (name: string) => void;
+  onRemove: (name: string) => void;
+}) {
+  const [input, setInput] = useState("");
+
+  function handleAdd() {
+    const trimmed = input.trim();
+    if (trimmed && !names.includes(trimmed)) {
+      onAdd(trimmed);
+      setInput("");
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px]" style={{ color: "var(--color-db-text-tertiary)" }}>
+        Alternate Names:
+      </label>
+      {names.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {names.map((name) => (
+            <span
+              key={name}
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+              style={{
+                backgroundColor: "var(--color-db-accent-muted, rgba(99,102,241,0.1))",
+                color: "var(--color-db-text-primary)",
+              }}
+            >
+              {name}
+              <button
+                type="button"
+                onClick={() => onRemove(name)}
+                className="ml-0.5 text-[10px] opacity-60 hover:opacity-100"
+                aria-label={`Remove alternate name ${name}`}
+              >
+                x
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+          placeholder="Add name variant..."
+          className="w-32 rounded px-1.5 py-0.5 text-xs outline-none"
+          style={{
+            backgroundColor: "var(--th-bg-surface, #fff)",
+            color: "var(--color-db-text-primary)",
+            border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={!input.trim()}
+          className="rounded px-1.5 py-0.5 text-[11px] transition-colors hover:bg-black/5 disabled:opacity-40"
+          style={{ color: "var(--color-db-accent)" }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SavedPlacesSection({
+  pois,
+  onAdd,
+  onRemove,
+  onUpdate,
+  radiusMiles,
+  onRadiusChange,
+}: Props) {
   const [query, setQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,6 +249,33 @@ export default function SavedPlacesSection({ pois, onAdd, onRemove, onUpdate }: 
         Search for brands or places you care about. They'll appear in the POIs tab when viewing any
         property.
       </p>
+
+      {/* Search Radius */}
+      <div className="flex flex-col gap-1">
+        <label
+          htmlFor="poi-radius-slider"
+          className="text-sm font-medium"
+          style={{ color: "var(--color-db-text-secondary)" }}
+        >
+          Search Radius: {radiusMiles} {radiusMiles === 1 ? "mile" : "miles"}
+        </label>
+        <input
+          id="poi-radius-slider"
+          type="range"
+          min={1}
+          max={50}
+          value={radiusMiles}
+          onChange={(e) => onRadiusChange(Number(e.target.value))}
+          className="w-full accent-[var(--color-db-accent)]"
+        />
+        <div
+          className="flex justify-between text-[10px]"
+          style={{ color: "var(--color-db-text-muted)" }}
+        >
+          <span>1 mi</span>
+          <span>50 mi</span>
+        </div>
+      </div>
 
       {/* Autocomplete input */}
       <div className="relative" ref={dropdownRef}>
@@ -279,94 +397,111 @@ export default function SavedPlacesSection({ pois, onAdd, onRemove, onUpdate }: 
 
               {/* Customization row */}
               {onUpdate && (
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Category input */}
-                  <div className="flex items-center gap-1">
-                    <label
-                      className="text-[11px]"
-                      style={{ color: "var(--color-db-text-tertiary)" }}
-                    >
-                      Group:
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue={poi.user_category ?? ""}
-                      list={`cat-list-${poi.id}`}
-                      placeholder="Default"
-                      onBlur={(e) => {
-                        const val = e.target.value.trim() || null;
-                        if (val !== poi.user_category) {
-                          onUpdate(poi.id, { user_category: val });
-                        }
-                      }}
-                      className="w-24 rounded px-1.5 py-0.5 text-xs outline-none"
-                      style={{
-                        backgroundColor: "var(--th-bg-surface, #fff)",
-                        color: "var(--color-db-text-primary)",
-                        border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
-                      }}
-                    />
-                    <datalist id={`cat-list-${poi.id}`}>
-                      {existingCategories.map((c) => (
-                        <option key={c} value={c!} />
-                      ))}
-                    </datalist>
-                  </div>
-
-                  {/* Image URL */}
-                  <div className="flex items-center gap-1">
-                    {editingImageId === poi.id ? (
-                      <>
-                        <input
-                          type="text"
-                          value={imageUrlInput}
-                          onChange={(e) => setImageUrlInput(e.target.value)}
-                          placeholder="https://logo.url/img.png"
-                          onBlur={() => {
-                            const val = imageUrlInput.trim() || null;
-                            onUpdate(poi.id, { marker_image_url: val });
-                            setEditingImageId(null);
-                            setImageUrlInput("");
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              (e.target as HTMLInputElement).blur();
-                            }
-                          }}
-                          autoFocus
-                          className="w-40 rounded px-1.5 py-0.5 text-xs outline-none"
-                          style={{
-                            backgroundColor: "var(--th-bg-surface, #fff)",
-                            color: "var(--color-db-text-primary)",
-                            border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
-                          }}
-                        />
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingImageId(poi.id);
-                          setImageUrlInput(poi.marker_image_url ?? "");
-                        }}
-                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors hover:bg-black/5"
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Category input */}
+                    <div className="flex items-center gap-1">
+                      <label
+                        className="text-[11px]"
                         style={{ color: "var(--color-db-text-tertiary)" }}
                       >
-                        {poi.marker_image_url ? (
-                          <>
-                            <img
-                              src={poi.marker_image_url}
-                              alt=""
-                              className="h-4 w-4 rounded-full object-cover"
-                            />
-                            <span>Logo</span>
-                          </>
-                        ) : (
-                          <span>+ Logo</span>
-                        )}
-                      </button>
-                    )}
+                        Group:
+                      </label>
+                      <input
+                        type="text"
+                        defaultValue={poi.user_category ?? ""}
+                        list={`cat-list-${poi.id}`}
+                        placeholder="Default"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim() || null;
+                          if (val !== poi.user_category) {
+                            onUpdate(poi.id, { user_category: val });
+                          }
+                        }}
+                        className="w-24 rounded px-1.5 py-0.5 text-xs outline-none"
+                        style={{
+                          backgroundColor: "var(--th-bg-surface, #fff)",
+                          color: "var(--color-db-text-primary)",
+                          border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
+                        }}
+                      />
+                      <datalist id={`cat-list-${poi.id}`}>
+                        {existingCategories.map((c) => (
+                          <option key={c} value={c!} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    {/* Image URL */}
+                    <div className="flex items-center gap-1">
+                      {editingImageId === poi.id ? (
+                        <>
+                          <input
+                            type="text"
+                            value={imageUrlInput}
+                            onChange={(e) => setImageUrlInput(e.target.value)}
+                            placeholder="https://logo.url/img.png"
+                            onBlur={() => {
+                              const val = imageUrlInput.trim() || null;
+                              onUpdate(poi.id, { marker_image_url: val });
+                              setEditingImageId(null);
+                              setImageUrlInput("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            autoFocus
+                            className="w-40 rounded px-1.5 py-0.5 text-xs outline-none"
+                            style={{
+                              backgroundColor: "var(--th-bg-surface, #fff)",
+                              color: "var(--color-db-text-primary)",
+                              border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingImageId(poi.id);
+                            setImageUrlInput(poi.marker_image_url ?? "");
+                          }}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors hover:bg-black/5"
+                          style={{ color: "var(--color-db-text-tertiary)" }}
+                        >
+                          {poi.marker_image_url ? (
+                            <>
+                              <img
+                                src={poi.marker_image_url}
+                                alt=""
+                                className="h-4 w-4 rounded-full object-cover"
+                              />
+                              <span>Logo</span>
+                            </>
+                          ) : (
+                            <span>+ Logo</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Alternate names */}
+                  <AlternateNamesEditor
+                    names={poi.alternate_names ?? []}
+                    onAdd={(name) =>
+                      onUpdate(poi.id, {
+                        alternate_names: [...(poi.alternate_names || []), name],
+                      })
+                    }
+                    onRemove={(name) =>
+                      onUpdate(poi.id, {
+                        alternate_names: (poi.alternate_names || []).filter((n) => n !== name),
+                      })
+                    }
+                  />
                 </div>
               )}
             </li>

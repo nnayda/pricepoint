@@ -63,6 +63,7 @@ export function useSavedPois() {
         user_category?: string | null;
         marker_color?: string | null;
         marker_image_url?: string | null;
+        alternate_names?: string[] | null;
       },
     ) => {
       const token = getToken();
@@ -83,7 +84,11 @@ export function useSavedPois() {
   return { pois, add, update, remove, isLoading, reload: load };
 }
 
-export function useSavedPoisNearby(lat: number | null, lon: number | null) {
+export function useSavedPoisNearby(
+  lat: number | null,
+  lon: number | null,
+  radiusMiles: number = 10,
+) {
   const [groups, setGroups] = useState<SavedPoiNearbyGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -94,7 +99,7 @@ export function useSavedPoisNearby(lat: number | null, lon: number | null) {
 
     let cancelled = false;
     setIsLoading(true);
-    getSavedPoisNearby(token, lat, lon)
+    getSavedPoisNearby(token, lat, lon, radiusMiles)
       .then((res) => {
         if (!cancelled) setGroups(res.groups);
       })
@@ -108,7 +113,7 @@ export function useSavedPoisNearby(lat: number | null, lon: number | null) {
     return () => {
       cancelled = true;
     };
-  }, [lat, lon]);
+  }, [lat, lon, radiusMiles]);
 
   return { groups, isLoading };
 }
