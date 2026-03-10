@@ -12,111 +12,338 @@ interface PoisTabProps {
   data: DashboardData;
 }
 
-/* ── Saved Place Card ── */
-function SavedPlaceCard({
+/* ── Chevron icon for collapsible sections ── */
+function ChevronIcon({ open, size = 14 }: { open: boolean; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        transition: "transform 150ms ease",
+        transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        flexShrink: 0,
+      }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+/* ── Location row (expanded detail for a single location) ── */
+function LocationRow({
   poi,
   isSelected,
   onHover,
   onLeave,
   onClick,
-  cardRef,
+  rowRef,
 }: {
   poi: DashboardPoi;
   isSelected: boolean;
   onHover: () => void;
   onLeave: () => void;
   onClick: () => void;
-  cardRef?: React.Ref<HTMLDivElement>;
+  rowRef?: React.Ref<HTMLDivElement>;
 }) {
-  const color = poi.marker_color || SAVED_DEFAULT_COLOR;
   return (
     <div
-      ref={cardRef}
-      className="flex cursor-pointer gap-3 rounded-[var(--radius-db-sm)] border p-3 transition-colors"
+      ref={rowRef}
+      className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-db-sm)] border px-3 py-2 transition-colors"
       style={{
         backgroundColor: isSelected
           ? "var(--color-db-accent-muted)"
-          : "var(--color-db-surface-alt)",
+          : "var(--color-db-surface)",
         borderColor: isSelected ? "var(--color-db-accent)" : "var(--color-db-border-subtle)",
       }}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
       onClick={onClick}
     >
-      {/* Color swatch or image */}
-      <div className="flex shrink-0 items-center justify-center">
-        {poi.marker_image_url ? (
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              border: `3px solid ${color}`,
-              overflow: "hidden",
-              background: "#fff",
-            }}
-          >
-            <img
-              src={poi.marker_image_url}
-              alt={poi.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: `${color}20`,
-              border: `2px solid ${color}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill={color}>
-              <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z" />
-            </svg>
-          </div>
+      <div className="min-w-0 flex-1">
+        {poi.address && (
+          <p className="truncate text-[12px] text-[var(--color-db-text-secondary)]">
+            {poi.address}
+          </p>
+        )}
+        {!poi.address && (
+          <p className="truncate text-[12px] text-[var(--color-db-text-secondary)]">{poi.name}</p>
         )}
       </div>
-
-      <div className="min-w-0 flex-1">
-        <h4 className="text-sm font-semibold leading-snug text-[var(--color-db-text-primary)]">
-          {poi.name}
-        </h4>
-        {poi.address && (
-          <p className="truncate text-[11px] text-[var(--color-db-text-muted)]">{poi.address}</p>
-        )}
-        <div className="mt-1 flex flex-wrap gap-3 text-[12px] text-[var(--color-db-text-tertiary)]">
-          <span className="inline-flex items-center gap-1">
-            <MapPinIcon size={12} /> {poi.distance_miles} mi
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <CarIcon size={12} /> {poi.drive_minutes} min
-          </span>
-        </div>
+      <div className="flex shrink-0 gap-3 text-[11px] text-[var(--color-db-text-tertiary)]">
+        <span className="inline-flex items-center gap-1">
+          <MapPinIcon size={11} /> {poi.distance_miles} mi
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <CarIcon size={11} /> {poi.drive_minutes} min
+        </span>
       </div>
     </div>
   );
 }
 
+/* ── Saved place group: logo + name + nearest, expands to all locations ── */
+interface SavedPlaceGroup {
+  name: string;
+  color: string;
+  imageUrl?: string;
+  locations: DashboardPoi[];
+  nearest: DashboardPoi;
+}
+
+function SavedPlaceGroupCard({
+  group,
+  selectedId,
+  onHover,
+  onLeave,
+  onSelect,
+  cardRefs,
+}: {
+  group: SavedPlaceGroup;
+  selectedId: string | null;
+  onHover: (id: string) => void;
+  onLeave: () => void;
+  onSelect: (id: string) => void;
+  cardRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasMultiple = group.locations.length > 1;
+
+  return (
+    <div>
+      {/* Header row: logo + name + nearest distance/time */}
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-[var(--radius-db-sm)] border p-3 text-left transition-colors"
+        style={{
+          backgroundColor: open ? "var(--color-db-surface)" : "var(--color-db-surface-alt)",
+          borderColor: "var(--color-db-border-subtle)",
+        }}
+        onClick={() => {
+          if (hasMultiple) {
+            setOpen((prev) => !prev);
+          } else {
+            // Single location — toggle map selection
+            const id = group.nearest.id;
+            onSelect(id);
+          }
+        }}
+        onMouseEnter={() => onHover(group.nearest.id)}
+        onMouseLeave={onLeave}
+      >
+        {/* Logo or color swatch */}
+        <div className="flex shrink-0 items-center justify-center">
+          {group.imageUrl ? (
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                border: `3px solid ${group.color}`,
+                overflow: "hidden",
+                background: "#fff",
+              }}
+            >
+              <img
+                src={group.imageUrl}
+                alt={group.name}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: `${group.color}20`,
+                border: `2px solid ${group.color}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={group.color}>
+                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h4 className="text-sm font-semibold leading-snug text-[var(--color-db-text-primary)]">
+            {group.name}
+          </h4>
+          <div className="mt-0.5 flex flex-wrap gap-3 text-[12px] text-[var(--color-db-text-tertiary)]">
+            <span className="inline-flex items-center gap-1">
+              <MapPinIcon size={12} /> {group.nearest.distance_miles} mi
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CarIcon size={12} /> {group.nearest.drive_minutes} min
+            </span>
+            {hasMultiple && (
+              <span className="text-[var(--color-db-text-muted)]">
+                {group.locations.length} locations
+              </span>
+            )}
+          </div>
+        </div>
+
+        {hasMultiple && (
+          <div className="text-[var(--color-db-text-muted)]">
+            <ChevronIcon open={open} />
+          </div>
+        )}
+      </button>
+
+      {/* Expanded locations */}
+      {open && hasMultiple && (
+        <div className="mt-1 flex flex-col gap-1 pl-11">
+          {group.locations.map((poi) => (
+            <LocationRow
+              key={poi.id}
+              poi={poi}
+              isSelected={selectedId === poi.id}
+              onHover={() => onHover(poi.id)}
+              onLeave={onLeave}
+              onClick={() => onSelect(poi.id)}
+              rowRef={(el) => {
+                if (el) cardRefs.current.set(poi.id, el);
+                else cardRefs.current.delete(poi.id);
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Collapsible category section ── */
+function CategorySection({
+  name,
+  groups,
+  defaultOpen,
+  selectedId,
+  onHover,
+  onLeave,
+  onSelect,
+  cardRefs,
+}: {
+  name: string;
+  groups: SavedPlaceGroup[];
+  defaultOpen: boolean;
+  selectedId: string | null;
+  onHover: (id: string) => void;
+  onLeave: () => void;
+  onSelect: (id: string) => void;
+  cardRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  const totalLocations = groups.reduce((n, g) => n + g.locations.length, 0);
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-center gap-1.5 py-1 text-left"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <ChevronIcon open={open} size={12} />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-db-text-muted)]">
+          {name}
+        </span>
+        <span className="text-[10px] text-[var(--color-db-text-muted)]">
+          ({groups.length} {groups.length === 1 ? "place" : "places"}, {totalLocations}{" "}
+          {totalLocations === 1 ? "location" : "locations"})
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-1 flex flex-col gap-2">
+          {groups.map((group) => (
+            <SavedPlaceGroupCard
+              key={group.name}
+              group={group}
+              selectedId={selectedId}
+
+              onHover={onHover}
+              onLeave={onLeave}
+              onSelect={onSelect}
+              cardRefs={cardRefs}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main PoisTab ── */
 function PoisTab({ data }: PoisTabProps) {
   const { pois, property } = data;
 
-  // All POIs are saved POIs now
   const savedPois = useMemo(() => pois.filter((p) => p.isSaved), [pois]);
 
-  // Group saved by user_category (default "Saved")
-  const savedGroups = useMemo(() => {
-    const groups: Record<string, DashboardPoi[]> = {};
+  // Build hierarchical structure: category → saved place → locations
+  const { categories, allGroups } = useMemo(() => {
+    // Group by saved_place_name first
+    const placeMap = new Map<
+      string,
+      { pois: DashboardPoi[]; color: string; imageUrl?: string; category: string }
+    >();
     for (const p of savedPois) {
-      const key = p.category || "Saved";
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(p);
+      const placeName = p.saved_place_name || p.name;
+      const existing = placeMap.get(placeName);
+      if (existing) {
+        existing.pois.push(p);
+      } else {
+        placeMap.set(placeName, {
+          pois: [p],
+          color: p.marker_color || SAVED_DEFAULT_COLOR,
+          imageUrl: p.marker_image_url,
+          category: p.category || "Saved",
+        });
+      }
     }
-    return groups;
+
+    // Build SavedPlaceGroup objects
+    const groupsList: (SavedPlaceGroup & { category: string })[] = [];
+    for (const [name, info] of placeMap) {
+      const sorted = [...info.pois].sort((a, b) => a.distance_miles - b.distance_miles);
+      groupsList.push({
+        name,
+        color: info.color,
+        imageUrl: info.imageUrl,
+        locations: sorted,
+        nearest: sorted[0],
+        category: info.category,
+      });
+    }
+
+    // Group by category
+    const catMap = new Map<string, SavedPlaceGroup[]>();
+    for (const g of groupsList) {
+      const arr = catMap.get(g.category);
+      if (arr) arr.push(g);
+      else catMap.set(g.category, [g]);
+    }
+
+    // Sort groups within each category by nearest distance
+    for (const arr of catMap.values()) {
+      arr.sort((a, b) => a.nearest.distance_miles - b.nearest.distance_miles);
+    }
+
+    return {
+      categories: catMap,
+      allGroups: groupsList,
+    };
   }, [savedPois]);
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -124,7 +351,7 @@ function PoisTab({ data }: PoisTabProps) {
 
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Scroll selected saved card into view
+  // Scroll selected card into view
   useEffect(() => {
     if (selectedId) {
       const el = cardRefs.current.get(selectedId);
@@ -134,7 +361,14 @@ function PoisTab({ data }: PoisTabProps) {
     }
   }, [selectedId]);
 
-  // Build map markers — saved places as distinct markers
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedId((prev) => (prev === id ? null : id));
+    },
+    [],
+  );
+
+  // Build map markers
   const savedMarkers = useMemo(
     (): MapMarker[] =>
       savedPois.map((p) => ({
@@ -183,6 +417,8 @@ function PoisTab({ data }: PoisTabProps) {
     setSelectedId(null);
   }, []);
 
+  const hasSingleCategory = categories.size <= 1;
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
       {/* Left column — saved cards */}
@@ -192,36 +428,44 @@ function PoisTab({ data }: PoisTabProps) {
             <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
               Saved Places
             </h3>
-            <div className="flex flex-col gap-3">
-              {Object.entries(savedGroups).map(([groupName, groupPois]) => (
-                <div key={groupName}>
-                  {Object.keys(savedGroups).length > 1 && (
-                    <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[var(--color-db-text-muted)]">
-                      {groupName}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    {groupPois.map((poi) => {
-                      const isSelected = selectedId === poi.id;
-                      return (
-                        <SavedPlaceCard
-                          key={poi.id}
-                          poi={poi}
-                          isSelected={isSelected}
-                          onHover={() => setHoveredId(poi.id)}
-                          onLeave={() => setHoveredId(null)}
-                          onClick={() => setSelectedId(isSelected ? null : poi.id)}
-                          cardRef={(el) => {
-                            if (el) cardRefs.current.set(poi.id, el);
-                            else cardRefs.current.delete(poi.id);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+
+            {hasSingleCategory ? (
+              /* No category headers needed — just list place groups */
+              <div className="flex flex-col gap-2">
+                {(allGroups as SavedPlaceGroup[])
+                  .sort((a, b) => a.nearest.distance_miles - b.nearest.distance_miles)
+                  .map((group) => (
+                    <SavedPlaceGroupCard
+                      key={group.name}
+                      group={group}
+                      selectedId={selectedId}
+        
+                      onHover={setHoveredId}
+                      onLeave={() => setHoveredId(null)}
+                      onSelect={handleSelect}
+                      cardRefs={cardRefs}
+                    />
+                  ))}
+              </div>
+            ) : (
+              /* Multiple categories — collapsible sections */
+              <div className="flex flex-col gap-3">
+                {[...categories.entries()].map(([catName, groups]) => (
+                  <CategorySection
+                    key={catName}
+                    name={catName}
+                    groups={groups}
+                    defaultOpen={true}
+                    selectedId={selectedId}
+      
+                    onHover={setHoveredId}
+                    onLeave={() => setHoveredId(null)}
+                    onSelect={handleSelect}
+                    cardRefs={cardRefs}
+                  />
+                ))}
+              </div>
+            )}
           </DashboardCard>
         ) : (
           <DashboardCard>

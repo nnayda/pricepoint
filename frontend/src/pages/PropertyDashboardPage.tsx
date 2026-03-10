@@ -108,6 +108,7 @@ function PropertyDashboardPage() {
           marker_color: group.marker_color ?? undefined,
           marker_image_url: group.marker_image_url ?? undefined,
           address: m.address ?? undefined,
+          saved_place_name: group.display_name,
         })),
       );
       result = { ...result, pois: savedPois };

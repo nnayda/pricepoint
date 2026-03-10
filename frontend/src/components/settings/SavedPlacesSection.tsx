@@ -109,13 +109,29 @@ function AlternateNamesEditor({
   onRemove: (name: string) => void;
 }) {
   const [input, setInput] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const { results, isLoading } = usePoiAutocomplete(input);
 
-  function handleAdd() {
-    const trimmed = input.trim();
-    if (trimmed && !names.includes(trimmed)) {
-      onAdd(trimmed);
-      setInput("");
+  // Filter out names already added
+  const filteredResults = results.filter((r) => !names.includes(r.match_value));
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
     }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function handleSelect(item: PoiAutocompleteItem) {
+    if (!names.includes(item.match_value)) {
+      onAdd(item.match_value);
+    }
+    setInput("");
+    setShowDropdown(false);
   }
 
   return (
@@ -147,34 +163,78 @@ function AlternateNamesEditor({
           ))}
         </div>
       )}
-      <div className="flex gap-1">
+      <div className="relative" ref={wrapperRef}>
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAdd();
-            }
+          onChange={(e) => {
+            setInput(e.target.value);
+            setShowDropdown(true);
           }}
-          placeholder="Add name variant..."
-          className="w-32 rounded px-1.5 py-0.5 text-xs outline-none"
+          onFocus={() => input.length >= 2 && setShowDropdown(true)}
+          placeholder="Search for a name variant..."
+          className="w-48 rounded px-1.5 py-0.5 text-xs outline-none"
           style={{
             backgroundColor: "var(--th-bg-surface, #fff)",
             color: "var(--color-db-text-primary)",
             border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
           }}
         />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={!input.trim()}
-          className="rounded px-1.5 py-0.5 text-[11px] transition-colors hover:bg-black/5 disabled:opacity-40"
-          style={{ color: "var(--color-db-accent)" }}
-        >
-          Add
-        </button>
+        {showDropdown && input.length >= 2 && (
+          <div
+            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-40 overflow-y-auto rounded-lg py-1"
+            style={{
+              backgroundColor: "var(--th-bg-surface, #fff)",
+              border: "1px solid var(--color-db-border, rgba(0,0,0,0.1))",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              minWidth: "220px",
+            }}
+          >
+            {isLoading && (
+              <div
+                className="px-2 py-1.5 text-xs"
+                style={{ color: "var(--color-db-text-secondary)" }}
+              >
+                Searching...
+              </div>
+            )}
+            {!isLoading && filteredResults.length === 0 && (
+              <div
+                className="px-2 py-1.5 text-xs"
+                style={{ color: "var(--color-db-text-secondary)" }}
+              >
+                No results found
+              </div>
+            )}
+            {filteredResults.map((item) => (
+              <button
+                key={`${item.match_type}-${item.match_value}`}
+                type="button"
+                onClick={() => handleSelect(item)}
+                className="flex w-full items-center justify-between px-2 py-1.5 text-left text-xs transition-colors hover:bg-black/5"
+                style={{ color: "var(--color-db-text-primary)" }}
+              >
+                <span>
+                  {item.display_name}
+                  {item.category && (
+                    <span
+                      className="ml-1.5 text-[10px]"
+                      style={{ color: "var(--color-db-text-secondary)" }}
+                    >
+                      {item.category}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className="ml-2 text-[10px]"
+                  style={{ color: "var(--color-db-text-secondary)" }}
+                >
+                  {item.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

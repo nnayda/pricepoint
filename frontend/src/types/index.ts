@@ -685,6 +685,7 @@ export interface DashboardPoi {
   marker_color?: string;
   marker_image_url?: string;
   address?: string;
+  saved_place_name?: string;
 }
 
 export interface NegativePoi {
