@@ -71,9 +71,7 @@ class TestComparablesEndpoint:
             mock_get_db.return_value = iter([mock_db])
 
             app.dependency_overrides[
-                __import__(
-                    "pricepoint.api.dependencies", fromlist=["get_db"]
-                ).get_db
+                __import__("pricepoint.api.dependencies", fromlist=["get_db"]).get_db
             ] = lambda: mock_db
 
             resp = client.get(
@@ -87,8 +85,8 @@ class TestComparablesEndpoint:
     def test_schema_validation(self):
         """ComparablesResponse schema should accept valid data."""
         from pricepoint.api.schemas.comparables import (
-            CompProperty,
             ComparablesResponse,
+            CompProperty,
             FeatureGroup,
         )
 
@@ -132,7 +130,7 @@ class TestComparablesEndpoint:
 
     def test_empty_comparables_response(self):
         """Should handle zero comparables."""
-        from pricepoint.api.schemas.comparables import CompProperty, ComparablesResponse
+        from pricepoint.api.schemas.comparables import ComparablesResponse, CompProperty
 
         subject = CompProperty(
             listing_id=1,
@@ -145,9 +143,7 @@ class TestComparablesEndpoint:
             beds=3,
             baths=2.0,
         )
-        resp = ComparablesResponse(
-            subject=subject, comparables=[], total_candidates=0
-        )
+        resp = ComparablesResponse(subject=subject, comparables=[], total_candidates=0)
         data = resp.model_dump()
         assert data["total_candidates"] == 0
         assert data["comparables"] == []

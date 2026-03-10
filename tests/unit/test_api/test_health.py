@@ -49,6 +49,49 @@ def test_metrics_endpoint(client):
     assert "# TYPE" in body
 
 
+def test_stats_endpoint(app):
+    """GET /api/stats should return listing count."""
+    from fastapi.testclient import TestClient
+
+    from pricepoint.api.dependencies import get_db
+
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalar.return_value = 42
+
+    def _mock_db():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = _mock_db
+
+    # Clear the stats cache so the endpoint queries the DB
+    import pricepoint.api.routes.health as health_mod
+
+    health_mod._stats_cache["ts"] = 0.0
+
+    test_client = TestClient(app)
+    response = test_client.get("/api/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data == {"listing_count": 42}
+
+
+def test_stats_endpoint_uses_cache(app):
+    """GET /api/stats should use cached count within TTL."""
+    import time
+
+    from fastapi.testclient import TestClient
+
+    import pricepoint.api.routes.health as health_mod
+
+    health_mod._stats_cache["count"] = 99
+    health_mod._stats_cache["ts"] = time.monotonic()
+
+    test_client = TestClient(app)
+    response = test_client.get("/api/stats")
+    assert response.status_code == 200
+    assert response.json() == {"listing_count": 99}
+
+
 def test_forecast_endpoint_stub(client):
     """POST /api/forecast should return a stub response."""
     response = client.post(

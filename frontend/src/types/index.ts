@@ -17,6 +17,10 @@ export interface HealthResponse {
   status: string;
 }
 
+export interface StatsResponse {
+  listing_count: number;
+}
+
 export interface GeocodeResult {
   display_name: string;
   lat: number;

@@ -4,6 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { axe } from "vitest-axe";
 import LandingPage from "../LandingPage";
 
+vi.mock("../../services/api", () => ({
+  getStats: vi.fn().mockResolvedValue({ listing_count: 3800 }),
+}));
+
 vi.mock("../../contexts/AuthContext", () => ({
   useAuth: () => ({
     user: null,
@@ -90,10 +94,11 @@ describe("LandingPage", () => {
     expect(screen.getByPlaceholderText("Search any address...")).toBeInTheDocument();
   });
 
-  it("renders the social proof line", () => {
+  it("renders the social proof line with dynamic listing count", async () => {
     renderLandingPage();
     expect(screen.getByText(/48 states/i)).toBeInTheDocument();
-    expect(screen.getByText(/2M\+ listings indexed/i)).toBeInTheDocument();
+    const el = await screen.findByText(/3\.8K\+ listings indexed/i);
+    expect(el).toBeInTheDocument();
   });
 
   it("search bar wrapper has elevated z-index to keep dropdown above surrounding text", () => {
@@ -123,7 +128,7 @@ describe("LandingPage", () => {
   it("renders all four feature cards", () => {
     renderLandingPage();
     expect(screen.getByText("AI Valuation Model")).toBeInTheDocument();
-    expect(screen.getByText("Crime & Safety")).toBeInTheDocument();
+    expect(screen.getByText("Risks & Nuisances")).toBeInTheDocument();
     expect(screen.getByText("Schools & Demographics")).toBeInTheDocument();
     expect(screen.getByText("Neighborhood Quality")).toBeInTheDocument();
   });
@@ -138,9 +143,9 @@ describe("LandingPage", () => {
     renderLandingPage();
     expect(screen.getByText("AI-predicted value")).toBeInTheDocument();
     expect(screen.getByText("What drives the estimate")).toBeInTheDocument();
-    expect(screen.getByText("Local price distribution")).toBeInTheDocument();
+    expect(screen.getByText("Nearby property prices")).toBeInTheDocument();
     expect(screen.getByText("Real-time mortgage modeling")).toBeInTheDocument();
-    expect(screen.getByText("Interactive map layers")).toBeInTheDocument();
+    expect(screen.getByText("Price trend vs neighborhood")).toBeInTheDocument();
   });
 
   // -- Data Sources --

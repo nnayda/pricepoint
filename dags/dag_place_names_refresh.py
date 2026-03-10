@@ -37,13 +37,12 @@ def place_names_refresh():
     @task()
     def verify_refresh():
         """Verify that place_names table has rows."""
-        from pricepoint.db.engine import Session
         from sqlalchemy import text
 
+        from pricepoint.db.engine import Session
+
         with Session() as session:
-            count = session.execute(
-                text("SELECT count(*) FROM place_names")
-            ).scalar()
+            count = session.execute(text("SELECT count(*) FROM place_names")).scalar()
             logger.info("place_names table has %d rows", count)
             if not count:
                 raise RuntimeError("place_names table is empty after refresh")
