@@ -12,6 +12,7 @@ from pricepoint.api.dependencies import get_db
 from pricepoint.api.schemas.pois import (
     SavedPoiCreate,
     SavedPoiResponse,
+    SavedPoiUpdate,
 )
 from pricepoint.db.models import Place, SavedPoi, User
 
@@ -21,6 +22,20 @@ router = APIRouter(tags=["saved-pois"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 AuthUser = Annotated[User, Depends(get_current_user)]
+
+
+def _to_response(r: SavedPoi) -> SavedPoiResponse:
+    return SavedPoiResponse(
+        id=r.id,
+        match_type=r.match_type,
+        match_value=r.match_value,
+        display_name=r.display_name,
+        category=r.category,
+        user_category=r.user_category,
+        marker_color=r.marker_color,
+        marker_image_url=r.marker_image_url,
+        created_at=r.created_at,
+    )
 
 
 @router.get("/saved-pois", response_model=list[SavedPoiResponse])
@@ -36,17 +51,7 @@ def list_saved_pois(
         .scalars()
         .all()
     )
-    return [
-        SavedPoiResponse(
-            id=r.id,
-            match_type=r.match_type,
-            match_value=r.match_value,
-            display_name=r.display_name,
-            category=r.category,
-            created_at=r.created_at,
-        )
-        for r in rows
-    ]
+    return [_to_response(r) for r in rows]
 
 
 @router.post(
@@ -96,19 +101,48 @@ def create_saved_poi(
         match_value=body.match_value,
         display_name=body.display_name,
         category=body.category,
+        user_category=body.user_category,
+        marker_color=body.marker_color,
+        marker_image_url=body.marker_image_url,
     )
     db.add(saved)
     db.commit()
     db.refresh(saved)
 
-    return SavedPoiResponse(
-        id=saved.id,
-        match_type=saved.match_type,
-        match_value=saved.match_value,
-        display_name=saved.display_name,
-        category=saved.category,
-        created_at=saved.created_at,
-    )
+    return _to_response(saved)
+
+
+@router.patch(
+    "/saved-pois/{saved_poi_id}",
+    response_model=SavedPoiResponse,
+)
+def update_saved_poi(
+    saved_poi_id: int,
+    body: SavedPoiUpdate,
+    db: DbSession,
+    user: AuthUser,
+) -> SavedPoiResponse:
+    """Partially update a saved POI. Must be the owner."""
+    saved = db.execute(select(SavedPoi).where(SavedPoi.id == saved_poi_id)).scalar_one_or_none()
+
+    if saved is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Saved POI not found",
+        )
+    if saved.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorised to update this saved POI",
+        )
+
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(saved, field, value)
+
+    db.commit()
+    db.refresh(saved)
+    return _to_response(saved)
 
 
 @router.delete("/saved-pois/{saved_poi_id}", status_code=status.HTTP_204_NO_CONTENT)

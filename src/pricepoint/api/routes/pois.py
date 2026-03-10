@@ -392,6 +392,9 @@ def get_saved_pois_nearby(
             category=s.category,
             match_type=s.match_type,
             matches=groups_map[s.id],
+            user_category=s.user_category,
+            marker_color=s.marker_color,
+            marker_image_url=s.marker_image_url,
         )
         for s in saved
         if groups_map[s.id]

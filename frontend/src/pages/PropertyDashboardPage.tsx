@@ -95,13 +95,17 @@ function PropertyDashboardPage() {
         group.matches.map((m) => ({
           id: m.id,
           name: m.name,
-          category: group.display_name,
+          category: group.user_category ?? group.display_name,
           subcategory: group.category ?? "saved",
           lat: m.lat,
           lon: m.lon,
           distance_miles: m.distance_miles,
           drive_minutes: m.drive_minutes,
           icon: "star",
+          isSaved: true,
+          marker_color: group.marker_color ?? undefined,
+          marker_image_url: group.marker_image_url ?? undefined,
+          address: m.address ?? undefined,
         })),
       );
       result = { ...result, pois: [...result.pois, ...savedPois] };

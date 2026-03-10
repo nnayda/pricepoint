@@ -1596,6 +1596,9 @@ class SavedPoi(Base):
     match_value = Column(String, nullable=False)  # exact value to match
     display_name = Column(String, nullable=False)  # UI label
     category = Column(String, nullable=True)  # informational, from Overture
+    user_category = Column(String, nullable=True)  # user-defined grouping
+    marker_color = Column(String(7), nullable=True)  # hex color like #FF5733
+    marker_image_url = Column(String, nullable=True)  # optional logo URL
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

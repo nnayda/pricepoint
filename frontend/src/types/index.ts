@@ -256,6 +256,9 @@ export interface SavedPoiResponse {
   match_value: string;
   display_name: string;
   category: string | null;
+  user_category: string | null;
+  marker_color: string | null;
+  marker_image_url: string | null;
   created_at: string;
 }
 
@@ -275,6 +278,9 @@ export interface SavedPoiNearbyGroup {
   category: string | null;
   match_type: string;
   matches: SavedPoiMatch[];
+  user_category: string | null;
+  marker_color: string | null;
+  marker_image_url: string | null;
 }
 
 export interface SavedPoiNearbyResponse {
@@ -668,6 +674,10 @@ export interface DashboardPoi {
   distance_miles: number;
   drive_minutes: number;
   icon: string;
+  isSaved?: boolean;
+  marker_color?: string;
+  marker_image_url?: string;
+  address?: string;
 }
 
 export interface NegativePoi {

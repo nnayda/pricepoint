@@ -67,6 +67,17 @@ class SavedPoiCreate(BaseModel):
     match_value: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     category: str | None = None
+    user_category: str | None = None
+    marker_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    marker_image_url: str | None = None
+
+
+class SavedPoiUpdate(BaseModel):
+    """Request body to partially update a saved POI."""
+
+    user_category: str | None = None
+    marker_color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    marker_image_url: str | None = None
 
 
 class SavedPoiResponse(BaseModel):
@@ -77,6 +88,9 @@ class SavedPoiResponse(BaseModel):
     match_value: str
     display_name: str
     category: str | None = None
+    user_category: str | None = None
+    marker_color: str | None = None
+    marker_image_url: str | None = None
     created_at: datetime
 
 
@@ -100,6 +114,9 @@ class SavedPoiNearbyGroup(BaseModel):
     category: str | None = None
     match_type: str
     matches: list[SavedPoiMatch]
+    user_category: str | None = None
+    marker_color: str | None = None
+    marker_image_url: str | None = None
 
 
 class SavedPoiNearbyResponse(BaseModel):

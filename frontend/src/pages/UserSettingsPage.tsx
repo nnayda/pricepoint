@@ -20,7 +20,7 @@ function UserSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { pois: savedPois, add: addPoi, remove: removePoi } = useSavedPois();
+  const { pois: savedPois, add: addPoi, update: updatePoi, remove: removePoi } = useSavedPois();
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -249,7 +249,12 @@ function UserSettingsPage() {
             )}
 
             {activeTab === "saved-places" && (
-              <SavedPlacesSection pois={savedPois} onAdd={addPoi} onRemove={removePoi} />
+              <SavedPlacesSection
+                pois={savedPois}
+                onAdd={addPoi}
+                onRemove={removePoi}
+                onUpdate={updatePoi}
+              />
             )}
           </div>
         </div>

@@ -34,9 +34,27 @@ export async function createSavedPoi(
     match_value: string;
     display_name: string;
     category?: string | null;
+    user_category?: string | null;
+    marker_color?: string | null;
+    marker_image_url?: string | null;
   },
 ): Promise<SavedPoiResponse> {
   const { data } = await client.post<SavedPoiResponse>("/api/saved-pois", body, {
+    headers: authHeaders(token),
+  });
+  return data;
+}
+
+export async function updateSavedPoi(
+  token: string,
+  id: number,
+  body: {
+    user_category?: string | null;
+    marker_color?: string | null;
+    marker_image_url?: string | null;
+  },
+): Promise<SavedPoiResponse> {
+  const { data } = await client.patch<SavedPoiResponse>(`/api/saved-pois/${id}`, body, {
     headers: authHeaders(token),
   });
   return data;

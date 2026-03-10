@@ -95,6 +95,9 @@ def _make_saved_poi(
     match_value: str = "Costco",
     display_name: str = "Costco",
     category: str | None = "store",
+    user_category: str | None = None,
+    marker_color: str | None = None,
+    marker_image_url: str | None = None,
 ) -> MagicMock:
     sp = MagicMock(spec=SavedPoi)
     sp.id = id
@@ -103,6 +106,9 @@ def _make_saved_poi(
     sp.match_value = match_value
     sp.display_name = display_name
     sp.category = category
+    sp.user_category = user_category
+    sp.marker_color = marker_color
+    sp.marker_image_url = marker_image_url
     sp.created_at = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
     return sp
 
@@ -148,7 +154,7 @@ class TestAutocomplete:
 
 class TestSavedPoiCrud:
     def test_list_saved_pois(self, client, mock_db):
-        saved = _make_saved_poi()
+        saved = _make_saved_poi(user_category="Groceries", marker_color="#FF5733")
         mock_db.execute.return_value.scalars.return_value.all.return_value = [saved]
 
         resp = client.get("/api/saved-pois")
@@ -157,6 +163,9 @@ class TestSavedPoiCrud:
         assert len(data) == 1
         assert data[0]["display_name"] == "Costco"
         assert data[0]["match_type"] == "brand"
+        assert data[0]["user_category"] == "Groceries"
+        assert data[0]["marker_color"] == "#FF5733"
+        assert data[0]["marker_image_url"] is None
 
     def test_create_saved_poi(self, client, mock_db):
         # First execute: check existence (returns a Place id)
@@ -249,6 +258,96 @@ class TestSavedPoiCrud:
                 "display_name": "Costco",
             },
         )
+        assert resp.status_code == 401
+
+    def test_create_with_customization(self, client, mock_db):
+        mock_db.execute.side_effect = [
+            MagicMock(scalar_one_or_none=MagicMock(return_value=42)),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=None)),
+        ]
+
+        def _refresh(obj):
+            obj.id = 1
+            obj.created_at = datetime(2025, 6, 1, tzinfo=UTC)
+
+        mock_db.refresh = MagicMock(side_effect=_refresh)
+
+        resp = client.post(
+            "/api/saved-pois",
+            json={
+                "match_type": "brand",
+                "match_value": "Costco",
+                "display_name": "Costco",
+                "category": "store",
+                "user_category": "Groceries",
+                "marker_color": "#FF5733",
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["user_category"] == "Groceries"
+        assert data["marker_color"] == "#FF5733"
+
+    def test_create_invalid_hex_color(self, client, mock_db):
+        resp = client.post(
+            "/api/saved-pois",
+            json={
+                "match_type": "brand",
+                "match_value": "Costco",
+                "display_name": "Costco",
+                "marker_color": "red",
+            },
+        )
+        assert resp.status_code == 422
+
+
+# --- PATCH tests ---
+
+
+class TestSavedPoiPatch:
+    def test_patch_color(self, client, mock_db):
+        saved = _make_saved_poi(user_id=1)
+        mock_db.execute.return_value.scalar_one_or_none.return_value = saved
+
+        def _refresh(obj):
+            obj.marker_color = "#10B981"
+
+        mock_db.refresh = MagicMock(side_effect=_refresh)
+
+        resp = client.patch("/api/saved-pois/1", json={"marker_color": "#10B981"})
+        assert resp.status_code == 200
+        assert resp.json()["marker_color"] == "#10B981"
+
+    def test_patch_category(self, client, mock_db):
+        saved = _make_saved_poi(user_id=1)
+        mock_db.execute.return_value.scalar_one_or_none.return_value = saved
+
+        def _refresh(obj):
+            obj.user_category = "Groceries"
+
+        mock_db.refresh = MagicMock(side_effect=_refresh)
+
+        resp = client.patch("/api/saved-pois/1", json={"user_category": "Groceries"})
+        assert resp.status_code == 200
+        assert resp.json()["user_category"] == "Groceries"
+
+    def test_patch_not_found(self, client, mock_db):
+        mock_db.execute.return_value.scalar_one_or_none.return_value = None
+        resp = client.patch("/api/saved-pois/999", json={"marker_color": "#FF0000"})
+        assert resp.status_code == 404
+
+    def test_patch_forbidden(self, client, mock_db):
+        saved = _make_saved_poi(user_id=2)
+        mock_db.execute.return_value.scalar_one_or_none.return_value = saved
+        resp = client.patch("/api/saved-pois/1", json={"marker_color": "#FF0000"})
+        assert resp.status_code == 403
+
+    def test_patch_invalid_color(self, client, mock_db):
+        resp = client.patch("/api/saved-pois/1", json={"marker_color": "notahex"})
+        assert resp.status_code == 422
+
+    def test_unauthenticated_patch(self, unauth_client):
+        resp = unauth_client.patch("/api/saved-pois/1", json={"marker_color": "#FF0000"})
         assert resp.status_code == 401
 
 

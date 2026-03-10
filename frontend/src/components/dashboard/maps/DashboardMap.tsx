@@ -25,6 +25,8 @@ export interface MapMarker {
   infrastructureType?: string;
   /** Persistent label shown next to the marker on the map */
   priceLabel?: string;
+  /** Optional logo/image URL — renders a circular image marker with colored border */
+  imageUrl?: string;
 }
 
 export type MapStyle = "street" | "satellite" | "dark" | "light";
@@ -95,6 +97,31 @@ const INFRA_SVG_PATHS: Record<string, string> = {
 
 function MarkerIcon({ marker, highlighted }: { marker: MapMarker; highlighted: boolean }) {
   const color = marker.color || COLOR_INDIGO;
+
+  if (marker.imageUrl) {
+    const size = highlighted ? 32 : 26;
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          border: `3px solid ${color}`,
+          boxShadow: highlighted ? `0 0 12px ${color}` : `0 0 6px ${color}80`,
+          overflow: "hidden",
+          transition: "all 0.15s ease",
+          cursor: "pointer",
+          background: "#fff",
+        }}
+      >
+        <img
+          src={marker.imageUrl}
+          alt={marker.label}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
 
   if (marker.isProperty) {
     const size = highlighted ? 32 : 28;

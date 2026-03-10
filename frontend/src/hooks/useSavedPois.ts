@@ -6,6 +6,7 @@ import {
   deleteSavedPoi,
   getSavedPois,
   getSavedPoisNearby,
+  updateSavedPoi,
 } from "../services/savedPois";
 import { useDebounce } from "./useDebounce";
 
@@ -43,11 +44,31 @@ export function useSavedPois() {
       match_value: string;
       display_name: string;
       category?: string | null;
+      user_category?: string | null;
+      marker_color?: string | null;
+      marker_image_url?: string | null;
     }) => {
       const token = getToken();
       if (!token) return;
       const created = await createSavedPoi(token, item);
       setPois((prev) => [created, ...prev]);
+    },
+    [],
+  );
+
+  const update = useCallback(
+    async (
+      id: number,
+      body: {
+        user_category?: string | null;
+        marker_color?: string | null;
+        marker_image_url?: string | null;
+      },
+    ) => {
+      const token = getToken();
+      if (!token) return;
+      const updated = await updateSavedPoi(token, id, body);
+      setPois((prev) => prev.map((p) => (p.id === id ? updated : p)));
     },
     [],
   );
@@ -59,7 +80,7 @@ export function useSavedPois() {
     setPois((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  return { pois, add, remove, isLoading, reload: load };
+  return { pois, add, update, remove, isLoading, reload: load };
 }
 
 export function useSavedPoisNearby(lat: number | null, lon: number | null) {
