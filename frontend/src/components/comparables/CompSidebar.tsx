@@ -115,95 +115,104 @@ function CompSidebar({ criteria, onChange, onSearch, loading, totalCandidates }:
   }
 
   return (
-    <aside className="scrollbar-none flex w-full shrink-0 flex-col gap-4 rounded-[var(--radius-db-lg)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4 shadow-[var(--shadow-db-card)] lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:w-[280px] lg:overflow-y-auto">
-      <h2 className="text-sm font-bold text-[var(--color-db-text)]">Search Criteria</h2>
+    <aside className="scrollbar-none flex h-[250px] w-full flex-col rounded-[var(--radius-db-lg)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] p-4 shadow-[var(--shadow-db-card)]">
+      <h2 className="mb-2 text-sm font-bold text-[var(--color-db-text)]">Search Criteria</h2>
 
-      <RadioGroup
-        label="Time Period"
-        options={[
-          { value: 3, label: "3 mo" },
-          { value: 6, label: "6 mo" },
-          { value: 9, label: "9 mo" },
-          { value: 12, label: "12 mo" },
-        ]}
-        value={criteria.time_period_months}
-        onChange={(v) => update({ time_period_months: v as 3 | 6 | 9 | 12 })}
-      />
+      {/* Wrap controls in a grid so they flow horizontally */}
+      <div className="grid flex-1 grid-cols-3 gap-x-5 gap-y-2">
+        {/* Col 1: radio groups */}
+        <div className="flex flex-col gap-2">
+          <RadioGroup
+            label="Time Period"
+            options={[
+              { value: 3, label: "3 mo" },
+              { value: 6, label: "6 mo" },
+              { value: 9, label: "9 mo" },
+              { value: 12, label: "12 mo" },
+            ]}
+            value={criteria.time_period_months}
+            onChange={(v) => update({ time_period_months: v as 3 | 6 | 9 | 12 })}
+          />
+          <RadioGroup
+            label="Distance"
+            options={[
+              { value: 0.5, label: "0.5 mi" },
+              { value: 1, label: "1 mi" },
+              { value: 2, label: "2 mi" },
+              { value: 5, label: "5 mi" },
+            ]}
+            value={criteria.distance_miles}
+            onChange={(v) => update({ distance_miles: v as 0.5 | 1 | 2 | 5 })}
+          />
+        </div>
 
-      <RadioGroup
-        label="Distance"
-        options={[
-          { value: 0.5, label: "0.5 mi" },
-          { value: 1, label: "1 mi" },
-          { value: 2, label: "2 mi" },
-          { value: 5, label: "5 mi" },
-        ]}
-        value={criteria.distance_miles}
-        onChange={(v) => update({ distance_miles: v as 0.5 | 1 | 2 | 5 })}
-      />
+        {/* Col 2: toggles */}
+        <div className="flex flex-col gap-1">
+          <Toggle
+            label="Same school district"
+            checked={criteria.same_schools}
+            onChange={(v) => update({ same_schools: v })}
+          />
+          <Toggle
+            label="Same bedrooms"
+            checked={criteria.same_beds}
+            onChange={(v) => update({ same_beds: v })}
+          />
+          <Toggle
+            label="Same bathrooms"
+            checked={criteria.same_baths}
+            onChange={(v) => update({ same_baths: v })}
+          />
+        </div>
 
-      <div className="space-y-1">
-        <Toggle
-          label="Same school district"
-          checked={criteria.same_schools}
-          onChange={(v) => update({ same_schools: v })}
-        />
-        <Toggle
-          label="Same bedrooms"
-          checked={criteria.same_beds}
-          onChange={(v) => update({ same_beds: v })}
-        />
-        <Toggle
-          label="Same bathrooms"
-          checked={criteria.same_baths}
-          onChange={(v) => update({ same_baths: v })}
-        />
+        {/* Col 3: sliders */}
+        <div className="flex flex-col gap-2">
+          <RangeSlider
+            label="Sqft tolerance"
+            value={criteria.sqft_pct}
+            onChange={(v) => update({ sqft_pct: v })}
+            min={0}
+            max={40}
+            suffix="%"
+            noLimitAtMax
+          />
+          <RangeSlider
+            label="Lot size tolerance"
+            value={criteria.lot_pct}
+            onChange={(v) => update({ lot_pct: v })}
+            min={0}
+            max={40}
+            suffix="%"
+            noLimitAtMax
+          />
+          <RangeSlider
+            label="Year built range"
+            value={criteria.year_built_diff}
+            onChange={(v) => update({ year_built_diff: v })}
+            min={0}
+            max={20}
+            suffix=" yrs"
+            noLimitAtMax
+          />
+        </div>
       </div>
 
-      <RangeSlider
-        label="Sqft tolerance"
-        value={criteria.sqft_pct}
-        onChange={(v) => update({ sqft_pct: v })}
-        min={0}
-        max={40}
-        suffix="%"
-        noLimitAtMax
-      />
-
-      <RangeSlider
-        label="Lot size tolerance"
-        value={criteria.lot_pct}
-        onChange={(v) => update({ lot_pct: v })}
-        min={0}
-        max={40}
-        suffix="%"
-        noLimitAtMax
-      />
-
-      <RangeSlider
-        label="Year built range"
-        value={criteria.year_built_diff}
-        onChange={(v) => update({ year_built_diff: v })}
-        min={0}
-        max={20}
-        suffix=" yrs"
-        noLimitAtMax
-      />
-
-      <button
-        type="button"
-        onClick={onSearch}
-        disabled={loading}
-        className="w-full rounded-lg bg-[var(--color-db-accent)] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-db-accent-hover)] disabled:opacity-50"
-      >
-        {loading ? "Searching..." : "Search"}
-      </button>
-
-      {totalCandidates !== null && (
-        <p className="text-center text-xs text-[var(--color-db-text-secondary)]">
-          {totalCandidates} candidate{totalCandidates !== 1 ? "s" : ""} found
-        </p>
-      )}
+      {/* Footer: search button + candidate count */}
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onSearch}
+          disabled={loading}
+          className="rounded-lg bg-[var(--color-db-accent)] px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-db-accent-hover)] disabled:opacity-50"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+        {totalCandidates !== null && (
+          <p className="text-xs text-[var(--color-db-text-secondary)]">
+            {totalCandidates} candidate{totalCandidates !== 1 ? "s" : ""} found
+          </p>
+        )}
+      </div>
     </aside>
   );
 }

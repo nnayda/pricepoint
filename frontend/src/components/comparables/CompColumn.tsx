@@ -5,11 +5,24 @@ interface CompColumnProps {
   property: CompPropertyDetail;
   isSubject?: boolean;
   subjectProperty?: CompPropertyDetail;
+  /** Union of all feature keys per category, for row alignment */
+  allKeysByCategory?: Record<string, string[]>;
+  /** Which categories are expanded (synced across columns) */
+  expandedCategories?: Set<string>;
+  /** Toggle a category's expanded state */
+  onToggleCategory?: (category: string) => void;
 }
 
 function formatPrice(val: number | null): string {
   if (val === null) return "—";
   return `$${val.toLocaleString()}`;
+}
+
+function formatPriceDiff(compPrice: number | null, subjectListingPrice: number | null): string | null {
+  if (compPrice === null || subjectListingPrice === null) return null;
+  const diff = compPrice - subjectListingPrice;
+  const sign = diff >= 0 ? "+" : "";
+  return `${sign}$${Math.abs(diff).toLocaleString()}`;
 }
 
 function ScoreBadge({ label, score }: { label: string; score: number | null }) {
@@ -39,13 +52,30 @@ function SeverityDot({ severity }: { severity: string }) {
   return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${color}`} />;
 }
 
-function CompColumn({ property: prop, isSubject, subjectProperty }: CompColumnProps) {
+function CompColumn({
+  property: prop,
+  isSubject,
+  subjectProperty,
+  allKeysByCategory,
+  expandedCategories,
+  onToggleCategory,
+}: CompColumnProps) {
   const subjectGroups: Record<string, CompFeatureGroup> = {};
   if (subjectProperty) {
     for (const g of subjectProperty.feature_groups) {
       subjectGroups[g.category] = g;
     }
   }
+
+  // Price diff between this comp's sold price and the subject's listing price
+  const priceDiffLabel =
+    !isSubject && subjectProperty
+      ? formatPriceDiff(prop.sold_price, subjectProperty.listing_price)
+      : null;
+
+  // For subject show listing price; for comps show sold price
+  const displayPrice = isSubject ? prop.listing_price : prop.sold_price;
+  const priceLabel = isSubject ? "List" : "Sold";
 
   return (
     <div
@@ -77,6 +107,17 @@ function CompColumn({ property: prop, isSubject, subjectProperty }: CompColumnPr
               Sim: {prop.similarity_distance.toFixed(2)}
             </span>
           )}
+          {priceDiffLabel && (
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                priceDiffLabel.startsWith("+")
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                  : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+              }`}
+            >
+              {priceDiffLabel}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-sm font-semibold text-[var(--color-db-text)] leading-tight">
           {prop.address}
@@ -86,56 +127,56 @@ function CompColumn({ property: prop, isSubject, subjectProperty }: CompColumnPr
         </p>
       </div>
 
-      {/* Key Facts */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-b border-[var(--color-db-border-subtle)] px-3 py-2 text-xs">
-        <div>
-          <span className="text-[var(--color-db-text-secondary)]">Sold </span>
+      {/* Key Facts — fixed rows so columns align */}
+      <div className="grid grid-cols-2 gap-x-4 border-b border-[var(--color-db-border-subtle)] px-3 py-2 text-xs">
+        <div className="py-0.5">
+          <span className="text-[var(--color-db-text-secondary)]">{priceLabel} </span>
           <span className="font-semibold text-[var(--color-db-text)]">
-            {formatPrice(prop.sold_price)}
+            {formatPrice(displayPrice)}
           </span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">$/sqft </span>
           <span className="font-semibold text-[var(--color-db-text)]">
             {prop.price_per_sqft ? `$${prop.price_per_sqft.toFixed(0)}` : "—"}
           </span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Beds </span>
           <span className="font-semibold text-[var(--color-db-text)]">{prop.beds}</span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Baths </span>
           <span className="font-semibold text-[var(--color-db-text)]">{prop.baths}</span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Sqft </span>
           <span className="font-semibold text-[var(--color-db-text)]">
             {prop.sqft?.toLocaleString() ?? "—"}
           </span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Lot </span>
           <span className="font-semibold text-[var(--color-db-text)]">
             {prop.lot_size ? `${prop.lot_size.toFixed(2)} ac` : "—"}
           </span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Year </span>
           <span className="font-semibold text-[var(--color-db-text)]">
             {prop.year_built ?? "—"}
           </span>
         </div>
-        <div>
+        <div className="py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Garage </span>
           <span className="font-semibold text-[var(--color-db-text)]">{prop.garage_spaces}</span>
         </div>
-        {prop.sold_date && (
-          <div className="col-span-2">
-            <span className="text-[var(--color-db-text-secondary)]">Sold </span>
-            <span className="font-semibold text-[var(--color-db-text)]">{prop.sold_date}</span>
-          </div>
-        )}
+        <div className="col-span-2 py-0.5">
+          <span className="text-[var(--color-db-text-secondary)]">Sold </span>
+          <span className="font-semibold text-[var(--color-db-text)]">
+            {prop.sold_date ?? "—"}
+          </span>
+        </div>
       </div>
 
       {/* Scores */}
@@ -187,6 +228,9 @@ function CompColumn({ property: prop, isSubject, subjectProperty }: CompColumnPr
             key={group.category}
             group={group}
             subjectGroup={isSubject ? undefined : subjectGroups[group.category]}
+            allKeys={allKeysByCategory?.[group.category]}
+            expanded={expandedCategories?.has(group.category) ?? true}
+            onToggle={() => onToggleCategory?.(group.category)}
           />
         ))}
       </div>

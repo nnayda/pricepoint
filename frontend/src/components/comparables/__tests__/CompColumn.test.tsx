@@ -57,10 +57,15 @@ describe("CompColumn", () => {
     expect(screen.getByText("100 Main St")).toBeInTheDocument();
   });
 
-  it("renders key facts", () => {
+  it("renders sold price for comparables", () => {
     render(<CompColumn property={MOCK_PROPERTY} />);
     expect(screen.getByText("$400,000")).toBeInTheDocument();
     expect(screen.getByText("$200")).toBeInTheDocument();
+  });
+
+  it("renders listing price for subject", () => {
+    render(<CompColumn property={MOCK_PROPERTY} isSubject />);
+    expect(screen.getByText("$410,000")).toBeInTheDocument();
   });
 
   it("shows SUBJECT badge when isSubject", () => {
@@ -72,6 +77,13 @@ describe("CompColumn", () => {
     const comp = { ...MOCK_PROPERTY, similarity_distance: 2.34 };
     render(<CompColumn property={comp} />);
     expect(screen.getByText("Sim: 2.34")).toBeInTheDocument();
+  });
+
+  it("shows price difference label next to sim score", () => {
+    const subject = { ...MOCK_PROPERTY, listing_price: 400000 };
+    const comp = { ...MOCK_PROPERTY, sold_price: 420000, similarity_distance: 1.5 };
+    render(<CompColumn property={comp} subjectProperty={subject} />);
+    expect(screen.getByText("+$20,000")).toBeInTheDocument();
   });
 
   it("renders score badges", () => {

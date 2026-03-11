@@ -1,9 +1,12 @@
-import { useState } from "react";
 import type { CompFeatureGroup } from "../../types";
 
 interface CompFeatureSectionProps {
   group: CompFeatureGroup;
   subjectGroup?: CompFeatureGroup;
+  /** All feature keys across every column for this category, to keep rows aligned */
+  allKeys?: string[];
+  expanded?: boolean;
+  onToggle?: () => void;
 }
 
 function formatValue(val: number | string | boolean | null): string {
@@ -48,14 +51,21 @@ function diffClass(
   return pctDiff > 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30";
 }
 
-function CompFeatureSection({ group, subjectGroup }: CompFeatureSectionProps) {
-  const [expanded, setExpanded] = useState(false);
+function CompFeatureSection({
+  group,
+  subjectGroup,
+  allKeys,
+  expanded = true,
+  onToggle,
+}: CompFeatureSectionProps) {
+  // Use allKeys (union of keys across columns) to keep rows aligned; fall back to own keys
+  const keys = allKeys ?? Object.keys(group.features);
 
   return (
     <div className="border-t border-[var(--color-db-border-subtle)]">
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
         className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-[var(--color-db-text-secondary)] hover:bg-[var(--color-db-surface-alt)]"
       >
         <span>{group.category}</span>
@@ -71,7 +81,8 @@ function CompFeatureSection({ group, subjectGroup }: CompFeatureSectionProps) {
       </button>
       {expanded && (
         <div className="px-3 pb-2">
-          {Object.entries(group.features).map(([key, val]) => {
+          {keys.map((key) => {
+            const val = group.features[key] ?? null;
             const subjectVal = subjectGroup?.features[key] ?? null;
             const highlight = subjectGroup ? diffClass(key, val, subjectVal) : "";
             return (

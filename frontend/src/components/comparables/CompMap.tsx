@@ -29,12 +29,12 @@ function CompMap({ subject, comparables }: CompMapProps) {
   ];
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius-db-lg)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]">
+    <div className="h-full overflow-hidden rounded-[var(--radius-db-lg)] border border-[var(--color-db-border-subtle)] bg-[var(--color-db-surface)] shadow-[var(--shadow-db-card)]">
       <DashboardMap
         center={[subject.lat, subject.lon]}
         zoom={13}
         markers={markers}
-        height="250px"
+        height="100%"
         minHeight="200px"
       />
     </div>
