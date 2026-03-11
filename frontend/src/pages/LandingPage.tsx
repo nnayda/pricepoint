@@ -538,14 +538,16 @@ function DashboardPreview() {
             <div className="relative overflow-hidden rounded-b-[var(--radius-db-md)] bg-[var(--color-db-bg)] p-4 sm:p-6">
               {/* Section nav tabs */}
               <div className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] p-1">
-                {["Valuation", "Risks", "Demographics", "Schools", "POIs", "Nuisances"].map((tab, i) => (
-                  <div
-                    key={tab}
-                    className={`whitespace-nowrap rounded-[var(--radius-db-xs)] px-3 py-1.5 text-[10px] font-medium ${i === 0 ? "bg-[var(--color-db-surface)] text-[var(--color-db-text-primary)] shadow-sm" : "text-[var(--color-db-text-muted)]"}`}
-                  >
-                    {tab}
-                  </div>
-                ))}
+                {["Valuation", "Risks", "Demographics", "Schools", "POIs", "Nuisances"].map(
+                  (tab, i) => (
+                    <div
+                      key={tab}
+                      className={`whitespace-nowrap rounded-[var(--radius-db-xs)] px-3 py-1.5 text-[10px] font-medium ${i === 0 ? "bg-[var(--color-db-surface)] text-[var(--color-db-text-primary)] shadow-sm" : "text-[var(--color-db-text-muted)]"}`}
+                    >
+                      {tab}
+                    </div>
+                  ),
+                )}
               </div>
 
               <div className="flex gap-5">
@@ -554,10 +556,22 @@ function DashboardPreview() {
                   {/* Property photo mockup */}
                   <div className="aspect-[4/3] overflow-hidden rounded-[var(--radius-db-sm)] bg-gradient-to-br from-[#2a4a3a] via-[#1e3a2e] to-[#1a2e26]">
                     <div className="flex h-full flex-col items-center justify-center">
-                      <svg className="h-10 w-10 text-[#4ade80] opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                      <svg
+                        className="h-10 w-10 text-[#4ade80] opacity-30"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+                        />
                       </svg>
-                      <span className="mt-1 text-[9px] text-[#4ade80] opacity-40">Property Photo</span>
+                      <span className="mt-1 text-[9px] text-[#4ade80] opacity-40">
+                        Property Photo
+                      </span>
                     </div>
                   </div>
                   {/* Price & status */}
@@ -592,8 +606,12 @@ function DashboardPreview() {
                         key={s.label}
                         className="rounded-[var(--radius-db-xs)] bg-[var(--color-db-surface-alt)] px-2.5 py-1.5 text-center"
                       >
-                        <span className="block text-[9px] text-[var(--color-db-text-muted)]">{s.label}</span>
-                        <span className="text-[11px] font-semibold text-[var(--color-db-text-primary)]">{s.value}</span>
+                        <span className="block text-[9px] text-[var(--color-db-text-muted)]">
+                          {s.label}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[var(--color-db-text-primary)]">
+                          {s.value}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -635,15 +653,24 @@ function DashboardPreview() {
                         />
                       </div>
                       {/* Assessment tick */}
-                      <div className="absolute top-0 flex h-2.5 flex-col items-center" style={{ left: "25%" }}>
+                      <div
+                        className="absolute top-0 flex h-2.5 flex-col items-center"
+                        style={{ left: "25%" }}
+                      >
                         <div className="h-full w-0.5 bg-[var(--color-db-text-muted)]" />
                       </div>
                       {/* Listed tick */}
-                      <div className="absolute top-0 flex h-2.5 flex-col items-center" style={{ left: "55%" }}>
+                      <div
+                        className="absolute top-0 flex h-2.5 flex-col items-center"
+                        style={{ left: "55%" }}
+                      >
                         <div className="h-full w-0.5 bg-[var(--color-db-yellow)]" />
                       </div>
                       {/* Estimate tick */}
-                      <div className="absolute top-0 flex h-2.5 flex-col items-center" style={{ left: "62%" }}>
+                      <div
+                        className="absolute top-0 flex h-2.5 flex-col items-center"
+                        style={{ left: "62%" }}
+                      >
                         <div className="h-full w-0.5 bg-[var(--color-db-accent)]" />
                       </div>
                     </div>
@@ -712,11 +739,43 @@ function DashboardPreview() {
                       </span>
                       {/* Mini dark map with colored dots */}
                       <div className="relative h-[80px] overflow-hidden rounded-[var(--radius-db-xs)] bg-[#1a1f2e]">
-                        <svg className="absolute inset-0 h-full w-full opacity-15" viewBox="0 0 200 80" preserveAspectRatio="xMidYMid slice">
-                          <line x1="0" y1="20" x2="200" y2="20" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
-                          <line x1="0" y1="50" x2="200" y2="50" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
-                          <line x1="60" y1="0" x2="60" y2="80" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
-                          <line x1="130" y1="0" x2="130" y2="80" stroke="var(--color-db-text-muted)" strokeWidth="0.5" />
+                        <svg
+                          className="absolute inset-0 h-full w-full opacity-15"
+                          viewBox="0 0 200 80"
+                          preserveAspectRatio="xMidYMid slice"
+                        >
+                          <line
+                            x1="0"
+                            y1="20"
+                            x2="200"
+                            y2="20"
+                            stroke="var(--color-db-text-muted)"
+                            strokeWidth="0.5"
+                          />
+                          <line
+                            x1="0"
+                            y1="50"
+                            x2="200"
+                            y2="50"
+                            stroke="var(--color-db-text-muted)"
+                            strokeWidth="0.5"
+                          />
+                          <line
+                            x1="60"
+                            y1="0"
+                            x2="60"
+                            y2="80"
+                            stroke="var(--color-db-text-muted)"
+                            strokeWidth="0.5"
+                          />
+                          <line
+                            x1="130"
+                            y1="0"
+                            x2="130"
+                            y2="80"
+                            stroke="var(--color-db-text-muted)"
+                            strokeWidth="0.5"
+                          />
                         </svg>
                         {/* Subject property */}
                         <div className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--color-db-accent)] shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
@@ -734,13 +793,16 @@ function DashboardPreview() {
                       {/* Legend */}
                       <div className="mt-2 flex justify-center gap-3 text-[9px] text-[var(--color-db-text-muted)]">
                         <span className="flex items-center gap-1">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-db-green)]" /> For Sale
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-db-green)]" />{" "}
+                          For Sale
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-db-text-muted)]" /> Sold
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-db-text-muted)]" />{" "}
+                          Sold
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-purple-400" /> Estimated
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-purple-400" />{" "}
+                          Estimated
                         </span>
                       </div>
                       {/* Annotation */}
@@ -777,15 +839,65 @@ function DashboardPreview() {
                         <div className="hidden shrink-0 items-center justify-center sm:flex">
                           <div className="relative h-20 w-20">
                             <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-surface-alt)" strokeWidth="4" />
-                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-accent)" strokeWidth="4" strokeDasharray="40 88" strokeLinecap="round" />
-                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-cyan)" strokeWidth="4" strokeDasharray="20 88" strokeDashoffset="-40" strokeLinecap="round" />
-                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-yellow)" strokeWidth="4" strokeDasharray="12 88" strokeDashoffset="-60" strokeLinecap="round" />
-                              <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-db-green)" strokeWidth="4" strokeDasharray="8 88" strokeDashoffset="-72" strokeLinecap="round" />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="14"
+                                fill="none"
+                                stroke="var(--color-db-surface-alt)"
+                                strokeWidth="4"
+                              />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="14"
+                                fill="none"
+                                stroke="var(--color-db-accent)"
+                                strokeWidth="4"
+                                strokeDasharray="40 88"
+                                strokeLinecap="round"
+                              />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="14"
+                                fill="none"
+                                stroke="var(--color-db-cyan)"
+                                strokeWidth="4"
+                                strokeDasharray="20 88"
+                                strokeDashoffset="-40"
+                                strokeLinecap="round"
+                              />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="14"
+                                fill="none"
+                                stroke="var(--color-db-yellow)"
+                                strokeWidth="4"
+                                strokeDasharray="12 88"
+                                strokeDashoffset="-60"
+                                strokeLinecap="round"
+                              />
+                              <circle
+                                cx="18"
+                                cy="18"
+                                r="14"
+                                fill="none"
+                                stroke="var(--color-db-green)"
+                                strokeWidth="4"
+                                strokeDasharray="8 88"
+                                strokeDashoffset="-72"
+                                strokeLinecap="round"
+                              />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <span className="text-[8px] text-[var(--color-db-text-tertiary)]">Monthly</span>
-                              <span className="font-db-mono text-xs font-bold text-[var(--color-db-text-primary)]">$2,847</span>
+                              <span className="text-[8px] text-[var(--color-db-text-tertiary)]">
+                                Monthly
+                              </span>
+                              <span className="font-db-mono text-xs font-bold text-[var(--color-db-text-primary)]">
+                                $2,847
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -805,11 +917,23 @@ function DashboardPreview() {
                         Price History
                       </span>
                       <div className="h-[90px]">
-                        <svg viewBox="0 0 300 80" className="h-full w-full" preserveAspectRatio="none">
+                        <svg
+                          viewBox="0 0 300 80"
+                          className="h-full w-full"
+                          preserveAspectRatio="none"
+                        >
                           <defs>
                             <linearGradient id="priceHistGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--color-db-accent)" stopOpacity="0.25" />
-                              <stop offset="100%" stopColor="var(--color-db-accent)" stopOpacity="0" />
+                              <stop
+                                offset="0%"
+                                stopColor="var(--color-db-accent)"
+                                stopOpacity="0.25"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="var(--color-db-accent)"
+                                stopOpacity="0"
+                              />
                             </linearGradient>
                           </defs>
                           {/* Area fill */}
@@ -840,10 +964,12 @@ function DashboardPreview() {
                       {/* Legend */}
                       <div className="mt-2 flex justify-center gap-4 text-[9px] text-[var(--color-db-text-muted)]">
                         <span className="flex items-center gap-1">
-                          <span className="inline-block h-0.5 w-3 rounded bg-[var(--color-db-accent)]" /> Property
+                          <span className="inline-block h-0.5 w-3 rounded bg-[var(--color-db-accent)]" />{" "}
+                          Property
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="inline-block h-0.5 w-3 rounded border-t border-dashed border-[var(--color-db-text-muted)]" /> Neighborhood
+                          <span className="inline-block h-0.5 w-3 rounded border-t border-dashed border-[var(--color-db-text-muted)]" />{" "}
+                          Neighborhood
                         </span>
                       </div>
                       {/* Annotation */}

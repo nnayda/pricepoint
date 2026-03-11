@@ -642,7 +642,11 @@ export interface DemographicsApiContextData {
   median_age_trend: MedianAgeTrendPoint[];
   race_detailed?: Record<
     string,
-    { race_category: string; total: number; subgroups: { label: string; value: number; percentage: number }[] }
+    {
+      race_category: string;
+      total: number;
+      subgroups: { label: string; value: number; percentage: number }[];
+    }
   >;
 }
 

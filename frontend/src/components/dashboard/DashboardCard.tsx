@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 const CardExpandedContext = createContext(false);
 
 /** Returns true when this card is rendered in fullscreen expanded mode. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCardExpanded(): boolean {
   return useContext(CardExpandedContext);
 }
@@ -36,7 +37,16 @@ function DashboardCard({
           className="absolute right-2 top-2 z-10 rounded p-1 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-secondary)]"
           aria-label="Expand"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="9 1 13 1 13 5" />
             <polyline points="5 13 1 13 1 9" />
             <line x1="13" y1="1" x2="8" y2="6" />
@@ -81,7 +91,16 @@ function DashboardCard({
                   className="ml-auto rounded p-1.5 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-secondary)]"
                   aria-label="Close"
                 >
-                  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <line x1="4" y1="4" x2="12" y2="12" />
                     <line x1="12" y1="4" x2="4" y2="12" />
                   </svg>

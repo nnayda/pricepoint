@@ -14,10 +14,8 @@ const variantClasses: Record<BadgeVariant, string> = {
     "bg-[var(--color-db-green-muted)] text-[var(--color-db-green)] border-[var(--color-db-green)]",
   warning:
     "bg-[var(--color-db-yellow-muted)] text-[var(--color-db-yellow)] border-[var(--color-db-yellow)]",
-  danger:
-    "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)] border-[var(--color-db-red)]",
-  info:
-    "bg-[var(--color-db-cyan-muted)] text-[var(--color-db-cyan)] border-[var(--color-db-cyan)]",
+  danger: "bg-[var(--color-db-red-muted)] text-[var(--color-db-red)] border-[var(--color-db-red)]",
+  info: "bg-[var(--color-db-cyan-muted)] text-[var(--color-db-cyan)] border-[var(--color-db-cyan)]",
   neutral:
     "bg-[var(--th-bg-surface-alt,var(--color-db-surface-alt))] text-[var(--th-text-secondary,var(--color-db-text-secondary))] border-[var(--th-border,var(--color-db-border))]",
   accent:

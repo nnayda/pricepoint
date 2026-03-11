@@ -143,7 +143,12 @@ describe("getChoroplethStyle", () => {
 
   it("accepts dataRange and produces valid style", () => {
     const range: DataRange = { min: 100, max: 50000 };
-    const style = getChoroplethStyle(makeFeature({ population: 25000 }), "population", undefined, range);
+    const style = getChoroplethStyle(
+      makeFeature({ population: 25000 }),
+      "population",
+      undefined,
+      range,
+    );
     expect(style).toHaveProperty("fillColor");
     expect(typeof style.fillColor).toBe("string");
   });

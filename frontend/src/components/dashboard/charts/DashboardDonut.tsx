@@ -42,16 +42,19 @@ function DashboardDonut({ data, centerLabel, centerValue, size = 200 }: Dashboar
             contentStyle={TOOLTIP_CONTENT_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formatter={((value: number, name: string) => [`$${Math.round(value).toLocaleString()}`, name]) as any}
+            formatter={
+              ((value: number, name: string) => [
+                `$${Math.round(value).toLocaleString()}`,
+                name,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ]) as any
+            }
           />
         </PieChart>
       </ResponsiveContainer>
       {centerLabel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="font-db-mono text-lg font-bold text-[var(--color-db-text-primary)]"
-          >
+          <span className="font-db-mono text-lg font-bold text-[var(--color-db-text-primary)]">
             {centerValue}
           </span>
           <span className="text-[10px] text-[var(--color-db-text-muted)]">{centerLabel}</span>

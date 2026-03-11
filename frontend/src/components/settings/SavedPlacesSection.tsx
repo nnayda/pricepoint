@@ -436,10 +436,7 @@ export default function SavedPlacesSection({
                     {poi.display_name}
                   </span>
                   {poi.category && (
-                    <span
-                      className="text-xs"
-                      style={{ color: "var(--color-db-text-secondary)" }}
-                    >
+                    <span className="text-xs" style={{ color: "var(--color-db-text-secondary)" }}>
                       {poi.category}
                     </span>
                   )}

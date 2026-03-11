@@ -110,7 +110,6 @@ export function computeDataRange(
   return { min, max };
 }
 
-
 /**
  * Return a Leaflet-compatible style object for a choropleth feature.
  */
@@ -223,7 +222,7 @@ export function getTooltipText(
     case "race": {
       if (raceFilter && raceFilter !== "all") {
         const pctKey = RACE_PCT_KEY[raceFilter];
-        const pct = pctKey ? (props[pctKey] as number) ?? 0 : 0;
+        const pct = pctKey ? ((props[pctKey] as number) ?? 0) : 0;
         const label = RACE_FILTER_LABEL[raceFilter] ?? raceFilter;
         return `${prefix}${label}: ${pct}%`;
       }
@@ -247,10 +246,7 @@ export interface LegendConfig {
  * Population / Age / Race: indigo ramp with varying opacity
  * Income / Ownership: red → yellow → green
  */
-export function getLegendConfig(
-  subTab: DemographicSubTab,
-  raceFilter?: string,
-): LegendConfig {
+export function getLegendConfig(subTab: DemographicSubTab, raceFilter?: string): LegendConfig {
   switch (subTab) {
     case "population":
       return {
@@ -269,11 +265,7 @@ export function getLegendConfig(
       return {
         type: "sequential",
         title: "Median Income",
-        colors: [
-          "rgba(248,113,113,0.3)",
-          "rgba(251,191,36,0.3)",
-          "rgba(52,211,153,0.5)",
-        ],
+        colors: ["rgba(248,113,113,0.3)", "rgba(251,191,36,0.3)", "rgba(52,211,153,0.5)"],
         labels: ["$0", "$100k+"],
       };
     case "age":
@@ -293,11 +285,7 @@ export function getLegendConfig(
       return {
         type: "sequential",
         title: "Ownership Rate",
-        colors: [
-          "rgba(248,113,113,0.3)",
-          "rgba(251,191,36,0.3)",
-          "rgba(52,211,153,0.5)",
-        ],
+        colors: ["rgba(248,113,113,0.3)", "rgba(251,191,36,0.3)", "rgba(52,211,153,0.5)"],
         labels: ["0%", "100%"],
       };
     case "race": {
@@ -307,13 +295,7 @@ export function getLegendConfig(
         return {
           type: "sequential",
           title: `% ${label}`,
-          colors: [
-            `${hex}0d`,
-            `${hex}40`,
-            `${hex}66`,
-            `${hex}8c`,
-            `${hex}b3`,
-          ],
+          colors: [`${hex}0d`, `${hex}40`, `${hex}66`, `${hex}8c`, `${hex}b3`],
           labels: ["0%", "100%"],
         };
       }

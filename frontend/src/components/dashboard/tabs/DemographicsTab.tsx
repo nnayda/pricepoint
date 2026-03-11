@@ -112,8 +112,7 @@ function RegionPopup({
 
   if (subTab === "income" || subTab === "population") {
     const inc = props.median_income as number | undefined;
-    if (inc != null)
-      rows.push({ label: "Median Income", value: `$${inc.toLocaleString()}` });
+    if (inc != null) rows.push({ label: "Median Income", value: `$${inc.toLocaleString()}` });
   }
   if (subTab === "age" || subTab === "population") {
     const age = props.median_age as number | undefined;
@@ -204,10 +203,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
     }
   }, [subTab]);
 
-  const legendConfig = useMemo(
-    () => getLegendConfig(subTab, raceFilter),
-    [subTab, raceFilter],
-  );
+  const legendConfig = useMemo(() => getLegendConfig(subTab, raceFilter), [subTab, raceFilter]);
 
   // Pick the right tile source based on context
   const tileSourceMap: Record<DemographicContext, string> = {
@@ -240,18 +236,15 @@ function DemographicsTab({ data }: DemographicsTabProps) {
     setClickedFeature(null);
   }, [context, subTab, raceFilter]);
 
-  const handleRegionClick = useCallback(
-    (e: MapLayerMouseEvent) => {
-      const feature = e.features?.[0];
-      if (!feature) return;
-      setClickedFeature({
-        lng: e.lngLat.lng,
-        lat: e.lngLat.lat,
-        props: feature.properties as Record<string, unknown>,
-      });
-    },
-    [],
-  );
+  const handleRegionClick = useCallback((e: MapLayerMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    setClickedFeature({
+      lng: e.lngLat.lng,
+      lat: e.lngLat.lat,
+      props: feature.properties as Record<string, unknown>,
+    });
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 lg:h-[calc(100vh-64px-36px-24px-46px-40px)] lg:overflow-hidden">
@@ -403,15 +396,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     source-layer={labelSource}
                     layout={{
                       "text-field": ["get", "name"],
-                      "text-size": [
-                        "interpolate",
-                        ["linear"],
-                        ["zoom"],
-                        8,
-                        10,
-                        14,
-                        13,
-                      ],
+                      "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 14, 13],
                       "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
                       "text-anchor": "center",
                       "text-max-width": 8,
@@ -549,9 +534,7 @@ function PopulationFunnel({ demographics }: PopulationFunnelProps) {
         >
           Population by Geography
         </h3>
-        <div
-          className={`flex flex-col justify-evenly ${expanded ? "flex-1 gap-4" : "gap-2.5"}`}
-        >
+        <div className={`flex flex-col justify-evenly ${expanded ? "flex-1 gap-4" : "gap-2.5"}`}>
           {funnelData.map((level) => (
             <div key={level.name} className="flex items-center gap-3">
               <span
@@ -659,13 +642,7 @@ function RaceSnapshot({ d }: SubTabProps) {
   );
 }
 
-function RaceSubgroupBreakdown({
-  d,
-  raceFilter,
-}: {
-  d: SubTabProps["d"];
-  raceFilter: string;
-}) {
+function RaceSubgroupBreakdown({ d, raceFilter }: { d: SubTabProps["d"]; raceFilter: string }) {
   const breakdown = d.race_detailed?.[raceFilter];
 
   if (!breakdown) {
@@ -682,9 +659,7 @@ function RaceSubgroupBreakdown({
   if (subgroups.length === 0) {
     return (
       <DashboardCard>
-        <p className="text-xs text-[var(--color-db-text-tertiary)]">
-          No sub-group data available
-        </p>
+        <p className="text-xs text-[var(--color-db-text-tertiary)]">No sub-group data available</p>
       </DashboardCard>
     );
   }
@@ -726,13 +701,8 @@ function RaceSubgroupBreakdown({
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
           {subgroups.map((sg) => (
             <div key={sg.label} className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: sg.color }}
-              />
-              <span className="text-xs text-[var(--color-db-text-secondary)]">
-                {sg.label}
-              </span>
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: sg.color }} />
+              <span className="text-xs text-[var(--color-db-text-secondary)]">{sg.label}</span>
               <span className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]">
                 {sg.percentage}%
               </span>
@@ -851,7 +821,11 @@ function RaceComparison({ demographics }: RaceComparisonProps) {
               <Legend
                 iconType="circle"
                 iconSize={expanded ? 10 : 8}
-                wrapperStyle={expanded ? LEGEND_EXPANDED : { fontSize: 10, color: "var(--color-db-text-tertiary)" }}
+                wrapperStyle={
+                  expanded
+                    ? LEGEND_EXPANDED
+                    : { fontSize: 10, color: "var(--color-db-text-tertiary)" }
+                }
               />
             </RadarChart>
           </ResponsiveContainer>
@@ -874,10 +848,7 @@ function AgeSnapshot({ d }: SubTabProps) {
         </h3>
         <div className={expanded ? "min-h-0 flex-1" : ""}>
           <ResponsiveContainer width="100%" height={expanded ? "100%" : 170}>
-            <BarChart
-              data={d.age_distribution}
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
-            >
+            <BarChart data={d.age_distribution} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <XAxis
                 dataKey="range"
                 tick={tickStyle}
@@ -899,19 +870,39 @@ function AgeSnapshot({ d }: SubTabProps) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((v: number, name: string) => [`${v}%`, name]) as any}
               />
-              <Bar dataKey="male" name="Male" fill={COLOR_BLUE} radius={[2, 2, 0, 0]} barSize={expanded ? 28 : 16} />
-              <Bar dataKey="female" name="Female" fill={COLOR_PINK} radius={[2, 2, 0, 0]} barSize={expanded ? 28 : 16} />
+              <Bar
+                dataKey="male"
+                name="Male"
+                fill={COLOR_BLUE}
+                radius={[2, 2, 0, 0]}
+                barSize={expanded ? 28 : 16}
+              />
+              <Bar
+                dataKey="female"
+                name="Female"
+                fill={COLOR_PINK}
+                radius={[2, 2, 0, 0]}
+                barSize={expanded ? 28 : 16}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="mt-1 flex justify-center gap-4">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLOR_BLUE }} />
-            <span className={`text-[var(--color-db-text-tertiary)] ${expanded ? "text-sm" : "text-xs"}`}>Male</span>
+            <span
+              className={`text-[var(--color-db-text-tertiary)] ${expanded ? "text-sm" : "text-xs"}`}
+            >
+              Male
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: COLOR_PINK }} />
-            <span className={`text-[var(--color-db-text-tertiary)] ${expanded ? "text-sm" : "text-xs"}`}>Female</span>
+            <span
+              className={`text-[var(--color-db-text-tertiary)] ${expanded ? "text-sm" : "text-xs"}`}
+            >
+              Female
+            </span>
           </div>
         </div>
       </div>
@@ -1020,7 +1011,10 @@ function PopulationTrend({ d }: SubTabProps) {
         </h3>
         <div className={expanded ? "min-h-0 flex-1" : ""}>
           <ResponsiveContainer width="100%" height={expanded ? "100%" : 180}>
-            <AreaChart data={d.population_trend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <AreaChart
+              data={d.population_trend}
+              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+            >
               <defs>
                 <linearGradient id="popGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLOR_INDIGO} stopOpacity={0.3} />
@@ -1101,11 +1095,51 @@ function RaceTrend({ d }: SubTabProps) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((v: number, name: string) => [`${v.toFixed(1)}%`, name]) as any}
               />
-              <Area type="monotone" dataKey="white" name="White" stackId="1" stroke={RACE_COLORS.white} fill={RACE_COLORS.white} fillOpacity={0.6} />
-              <Area type="monotone" dataKey="black" name="Black" stackId="1" stroke={RACE_COLORS.black} fill={RACE_COLORS.black} fillOpacity={0.6} />
-              <Area type="monotone" dataKey="hispanic" name="Hispanic" stackId="1" stroke={RACE_COLORS.hispanic} fill={RACE_COLORS.hispanic} fillOpacity={0.6} />
-              <Area type="monotone" dataKey="asian" name="Asian" stackId="1" stroke={RACE_COLORS.asian} fill={RACE_COLORS.asian} fillOpacity={0.6} />
-              <Area type="monotone" dataKey="other" name="Other" stackId="1" stroke={RACE_COLORS.other} fill={RACE_COLORS.other} fillOpacity={0.6} />
+              <Area
+                type="monotone"
+                dataKey="white"
+                name="White"
+                stackId="1"
+                stroke={RACE_COLORS.white}
+                fill={RACE_COLORS.white}
+                fillOpacity={0.6}
+              />
+              <Area
+                type="monotone"
+                dataKey="black"
+                name="Black"
+                stackId="1"
+                stroke={RACE_COLORS.black}
+                fill={RACE_COLORS.black}
+                fillOpacity={0.6}
+              />
+              <Area
+                type="monotone"
+                dataKey="hispanic"
+                name="Hispanic"
+                stackId="1"
+                stroke={RACE_COLORS.hispanic}
+                fill={RACE_COLORS.hispanic}
+                fillOpacity={0.6}
+              />
+              <Area
+                type="monotone"
+                dataKey="asian"
+                name="Asian"
+                stackId="1"
+                stroke={RACE_COLORS.asian}
+                fill={RACE_COLORS.asian}
+                fillOpacity={0.6}
+              />
+              <Area
+                type="monotone"
+                dataKey="other"
+                name="Other"
+                stackId="1"
+                stroke={RACE_COLORS.other}
+                fill={RACE_COLORS.other}
+                fillOpacity={0.6}
+              />
               <Legend
                 iconType="circle"
                 iconSize={expanded ? 10 : 8}
@@ -1164,13 +1198,62 @@ function AgeTrend({ d }: SubTabProps) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((v: number, name: string) => [`${v}%`, name]) as any}
               />
-              <Line type="monotone" dataKey="under18" name="Under 18" stroke={AGE_COLORS.under18} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age18_22" name="18–22" stroke={AGE_COLORS.age18_22} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age23_29" name="23–29" stroke={AGE_COLORS.age23_29} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age30_39" name="30–39" stroke={AGE_COLORS.age30_39} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age40_49" name="40–49" stroke={AGE_COLORS.age40_49} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age50_64" name="50–64" stroke={AGE_COLORS.age50_64} strokeWidth={sw} dot={{ r: dotR }} />
-              <Line type="monotone" dataKey="age65plus" name="65+" stroke={AGE_COLORS.age65plus} strokeWidth={sw} dot={{ r: dotR }} />
+              <Line
+                type="monotone"
+                dataKey="under18"
+                name="Under 18"
+                stroke={AGE_COLORS.under18}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age18_22"
+                name="18–22"
+                stroke={AGE_COLORS.age18_22}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age23_29"
+                name="23–29"
+                stroke={AGE_COLORS.age23_29}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age30_39"
+                name="30–39"
+                stroke={AGE_COLORS.age30_39}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age40_49"
+                name="40–49"
+                stroke={AGE_COLORS.age40_49}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age50_64"
+                name="50–64"
+                stroke={AGE_COLORS.age50_64}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
+              <Line
+                type="monotone"
+                dataKey="age65plus"
+                name="65+"
+                stroke={AGE_COLORS.age65plus}
+                strokeWidth={sw}
+                dot={{ r: dotR }}
+              />
               <Legend
                 iconType="circle"
                 iconSize={expanded ? 10 : 8}
@@ -1197,7 +1280,10 @@ function MedianAgeTrend({ d }: SubTabProps) {
         </h3>
         <div className={expanded ? "min-h-0 flex-1" : ""}>
           <ResponsiveContainer width="100%" height={expanded ? "100%" : 180}>
-            <AreaChart data={d.median_age_trend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <AreaChart
+              data={d.median_age_trend}
+              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+            >
               <defs>
                 <linearGradient id="medianAgeGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLOR_BLUE} stopOpacity={0.3} />
@@ -1205,7 +1291,12 @@ function MedianAgeTrend({ d }: SubTabProps) {
                 </linearGradient>
               </defs>
               <XAxis dataKey="year" tick={tickStyle} axisLine={AXIS_LINE_STYLE} tickLine={false} />
-              <YAxis tick={tickStyle} axisLine={false} tickLine={false} width={expanded ? 50 : 35} />
+              <YAxis
+                tick={tickStyle}
+                axisLine={false}
+                tickLine={false}
+                width={expanded ? 50 : 35}
+              />
               <Tooltip
                 contentStyle={expanded ? TOOLTIP_EXPANDED : TOOLTIP_CONTENT_STYLE}
                 itemStyle={TOOLTIP_ITEM_STYLE}

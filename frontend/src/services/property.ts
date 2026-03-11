@@ -145,12 +145,8 @@ export async function getNeighborhoodProperties(
   return data;
 }
 
-export async function getFeatureAttributions(
-  propertyId: number,
-): Promise<FeatureAttribution[]> {
-  const { data } = await client.get<FeatureAttribution[]>(
-    `/api/forecast/importance/${propertyId}`,
-  );
+export async function getFeatureAttributions(propertyId: number): Promise<FeatureAttribution[]> {
+  const { data } = await client.get<FeatureAttribution[]>(`/api/forecast/importance/${propertyId}`);
   return data;
 }
 

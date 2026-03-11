@@ -51,12 +51,7 @@ describe("CompFeatureSection", () => {
       category: "Test",
       features: { feature_a: 10 },
     };
-    render(
-      <CompFeatureSection
-        group={sparseGroup}
-        allKeys={["feature_a", "feature_b"]}
-      />,
-    );
+    render(<CompFeatureSection group={sparseGroup} allKeys={["feature_a", "feature_b"]} />);
     expect(screen.getByText("feature a")).toBeInTheDocument();
     expect(screen.getByText("feature b")).toBeInTheDocument();
     // feature_b missing → shows dash

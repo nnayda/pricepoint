@@ -200,11 +200,7 @@ function schoolId(s: DashboardSchool) {
 
 function SchoolsTab({ data }: SchoolsTabProps) {
   const { property } = data;
-  const {
-    schools: apiSchools,
-    loading,
-    error,
-  } = useSchoolsNearby(property.lat, property.lon);
+  const { schools: apiSchools, loading, error } = useSchoolsNearby(property.lat, property.lon);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<Bbox | null>(null);

@@ -8,7 +8,11 @@ interface SearchBarProps {
   variant?: "default" | "landing";
 }
 
-function SearchBar({ onSelect, placeholder = "Search for an address...", variant = "default" }: SearchBarProps) {
+function SearchBar({
+  onSelect,
+  placeholder = "Search for an address...",
+  variant = "default",
+}: SearchBarProps) {
   const isDark = variant === "landing";
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -142,7 +146,10 @@ function SearchBar({ onSelect, placeholder = "Search for an address...", variant
       </div>
 
       {notFound && (
-        <p role="alert" className={`mt-2 text-sm ${isDark ? "text-[var(--color-db-red)]" : "text-status-rented"}`}>
+        <p
+          role="alert"
+          className={`mt-2 text-sm ${isDark ? "text-[var(--color-db-red)]" : "text-status-rented"}`}
+        >
           Address not found. Try a different search.
         </p>
       )}

@@ -6,22 +6,13 @@ function NotFoundPage() {
       className="font-db-sans flex min-h-screen flex-col items-center justify-center px-4"
       style={{ backgroundColor: "var(--th-bg-base)" }}
     >
-      <h1
-        className="mb-2 text-6xl font-bold"
-        style={{ color: "var(--color-db-accent)" }}
-      >
+      <h1 className="mb-2 text-6xl font-bold" style={{ color: "var(--color-db-accent)" }}>
         404
       </h1>
-      <h2
-        className="mb-4 text-2xl font-semibold"
-        style={{ color: "var(--color-db-text-primary)" }}
-      >
+      <h2 className="mb-4 text-2xl font-semibold" style={{ color: "var(--color-db-text-primary)" }}>
         Page Not Found
       </h2>
-      <p
-        className="mb-8 max-w-md text-center"
-        style={{ color: "var(--color-db-text-secondary)" }}
-      >
+      <p className="mb-8 max-w-md text-center" style={{ color: "var(--color-db-text-secondary)" }}>
         The page you are looking for does not exist or has been moved.
       </p>
       <Link

@@ -95,12 +95,12 @@ describe("index.css design system", () => {
     it('defines [data-theme="light"] tokens', () => {
       expect(css).toContain('[data-theme="light"]');
       // Light theme should have different bg-base
-      expect(css).toContain("--th-bg-base: #F5F6FA");
+      expect(css).toContain("--th-bg-base: #f5f6fa");
     });
 
     it('defines [data-theme="dark"] tokens', () => {
       expect(css).toContain('[data-theme="dark"]');
-      expect(css).toContain("--th-bg-base: #0F1117");
+      expect(css).toContain("--th-bg-base: #0f1117");
     });
   });
 

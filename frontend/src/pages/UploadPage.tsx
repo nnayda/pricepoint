@@ -116,10 +116,7 @@ function UploadPage() {
               {result.dag_triggered ? (
                 <p className="mt-2 font-medium">Processing pipeline started automatically.</p>
               ) : (
-                <p
-                  className="mt-2 font-medium"
-                  style={{ color: "var(--color-db-text-secondary)" }}
-                >
+                <p className="mt-2 font-medium" style={{ color: "var(--color-db-text-secondary)" }}>
                   Files saved. Automatic processing could not be started — listings will be
                   processed on the next scheduled run.
                 </p>

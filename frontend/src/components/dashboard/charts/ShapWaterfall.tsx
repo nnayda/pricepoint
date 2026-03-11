@@ -34,11 +34,7 @@ function ShapWaterfall({ features }: ShapWaterfallProps) {
 
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <BarChart
-        data={top10}
-        layout="vertical"
-        margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-      >
+      <BarChart data={top10} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
         <XAxis
           type="number"
           tick={AXIS_TICK_MONO}
@@ -62,8 +58,11 @@ function ShapWaterfall({ features }: ShapWaterfallProps) {
           labelStyle={TOOLTIP_LABEL_STYLE}
           cursor={CURSOR_BAR}
           formatter={
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ((value: number) => [`${value >= 0 ? "+" : ""}$${value.toLocaleString()}`, "Impact"]) as any
+            ((value: number) => [
+              `${value >= 0 ? "+" : ""}$${value.toLocaleString()}`,
+              "Impact",
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ]) as any
           }
         />
         <ReferenceLine x={0} stroke={COLOR_GRID_LINE} />

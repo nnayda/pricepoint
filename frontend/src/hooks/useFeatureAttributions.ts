@@ -7,9 +7,7 @@ interface UseFeatureAttributionsResult {
   loading: boolean;
 }
 
-export function useFeatureAttributions(
-  propertyId: number | null,
-): UseFeatureAttributionsResult {
+export function useFeatureAttributions(propertyId: number | null): UseFeatureAttributionsResult {
   const [data, setData] = useState<FeatureAttribution[] | null>(null);
   const [loading, setLoading] = useState(false);
 

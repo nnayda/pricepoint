@@ -18,7 +18,10 @@ function formatPrice(val: number | null): string {
   return `$${val.toLocaleString()}`;
 }
 
-function formatPriceDiff(compPrice: number | null, subjectListingPrice: number | null): string | null {
+function formatPriceDiff(
+  compPrice: number | null,
+  subjectListingPrice: number | null,
+): string | null {
   if (compPrice === null || subjectListingPrice === null) return null;
   const diff = compPrice - subjectListingPrice;
   const sign = diff >= 0 ? "+" : "";
@@ -173,9 +176,7 @@ function CompColumn({
         </div>
         <div className="col-span-2 py-0.5">
           <span className="text-[var(--color-db-text-secondary)]">Sold </span>
-          <span className="font-semibold text-[var(--color-db-text)]">
-            {prop.sold_date ?? "—"}
-          </span>
+          <span className="font-semibold text-[var(--color-db-text)]">{prop.sold_date ?? "—"}</span>
         </div>
       </div>
 

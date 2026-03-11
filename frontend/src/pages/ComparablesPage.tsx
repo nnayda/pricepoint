@@ -56,18 +56,20 @@ function ComparablesPage() {
     return new Set(allCategories);
   }, [expandedCategories, allCategories]);
 
-  const toggleCategory = useCallback((category: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev ?? allCategories);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCategories]);
+  const toggleCategory = useCallback(
+    (category: string) => {
+      setExpandedCategories((prev) => {
+        const next = new Set(prev ?? allCategories);
+        if (next.has(category)) {
+          next.delete(category);
+        } else {
+          next.add(category);
+        }
+        return next;
+      });
+    },
+    [allCategories],
+  );
 
   // --- Compute union of feature keys per category for row alignment ---
   const allKeysByCategory = useMemo(() => {

@@ -19,10 +19,11 @@ function DashboardLayout({ data, banner }: DashboardLayoutProps) {
   const { property } = data;
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { isSaved, isLoading: isSaveLoading, toggle } = useSavedProperty(
-    data.listing_id,
-    isAuthenticated,
-  );
+  const {
+    isSaved,
+    isLoading: isSaveLoading,
+    toggle,
+  } = useSavedProperty(data.listing_id, isAuthenticated);
 
   function handleSaveToggle() {
     if (!isAuthenticated) {
@@ -33,9 +34,7 @@ function DashboardLayout({ data, banner }: DashboardLayoutProps) {
   }
 
   return (
-    <div
-      className="min-h-screen bg-[var(--th-bg-base)] font-db-sans"
-    >
+    <div className="min-h-screen bg-[var(--th-bg-base)] font-db-sans">
       <DashboardNav />
       <DashboardBreadcrumb
         city={`${property.city}, ${property.state}`}

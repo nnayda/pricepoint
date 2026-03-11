@@ -35,11 +35,7 @@ describe("SectionHeading", () => {
   });
 
   it("renders action node alongside heading", () => {
-    render(
-      <SectionHeading action={<button>Edit</button>}>
-        With Action
-      </SectionHeading>,
-    );
+    render(<SectionHeading action={<button>Edit</button>}>With Action</SectionHeading>);
     expect(screen.getByRole("heading")).toHaveTextContent("With Action");
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });

@@ -23,7 +23,20 @@ import {
   COLOR_AMBER,
 } from "../../../utils/chartTokens";
 
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /** Format a "YYYY-MM" date key for display. */
 function formatDateShort(d: string): string {
@@ -110,16 +123,13 @@ function useZoom(dataLength: number) {
   // Visible window: [start, end) indices into the full data array
   const [window, setWindow] = useState<[number, number] | null>(null);
 
-  const onMouseDown = useCallback(
-    (e: ChartMouseEvent) => {
-      const idx = parseTooltipIndex(e.activeTooltipIndex);
-      if (idx != null) {
-        setZoomLeft(idx);
-        setZoomRight(null);
-      }
-    },
-    [],
-  );
+  const onMouseDown = useCallback((e: ChartMouseEvent) => {
+    const idx = parseTooltipIndex(e.activeTooltipIndex);
+    if (idx != null) {
+      setZoomLeft(idx);
+      setZoomRight(null);
+    }
+  }, []);
 
   const onMouseMove = useCallback(
     (e: ChartMouseEvent) => {
@@ -169,7 +179,17 @@ function useZoom(dataLength: number) {
     });
   }, [dataLength]);
 
-  return { zoomLeft, zoomRight, window, onMouseDown, onMouseMove, onMouseUp, resetZoom, panLeft, panRight };
+  return {
+    zoomLeft,
+    zoomRight,
+    window,
+    onMouseDown,
+    onMouseMove,
+    onMouseUp,
+    resetZoom,
+    panLeft,
+    panRight,
+  };
 }
 
 interface PriceHistoryChartProps {
@@ -279,7 +299,16 @@ function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHist
               className="flex items-center justify-center rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-1.5 py-0.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)] disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Pan left"
             >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M10 3L5 8l5 5" />
               </svg>
             </button>
@@ -290,7 +319,16 @@ function PriceHistoryChart({ data: rawData, showNeighborhood = true }: PriceHist
               className="flex items-center justify-center rounded-[var(--radius-db-xs)] border border-[var(--color-db-border)] px-1.5 py-0.5 text-[var(--color-db-text-secondary)] transition-colors hover:bg-[var(--color-db-surface-alt)] hover:text-[var(--color-db-text-primary)] disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Pan right"
             >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M6 3l5 5-5 5" />
               </svg>
             </button>

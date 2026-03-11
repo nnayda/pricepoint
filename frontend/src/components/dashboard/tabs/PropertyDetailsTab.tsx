@@ -24,9 +24,7 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
                   className="flex items-center justify-between border-b border-[var(--color-db-border-subtle)] py-2.5 last:border-b-0"
                 >
                   <span className="text-xs text-[var(--color-db-text-tertiary)]">{item.key}</span>
-                  <span
-                    className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]"
-                  >
+                  <span className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]">
                     {item.value}
                   </span>
                 </div>
@@ -87,17 +85,13 @@ function PropertyDetailsTab({ data }: PropertyDetailsTabProps) {
                       key={f.feature_name}
                       className="border-b border-[var(--color-db-border-subtle)] last:border-b-0"
                     >
-                      <td
-                        className="font-db-mono py-2 pr-4 font-medium text-[var(--color-db-text-primary)]"
-                      >
+                      <td className="font-db-mono py-2 pr-4 font-medium text-[var(--color-db-text-primary)]">
                         {f.feature_name}
                       </td>
                       <td className="py-2 pr-4 text-[var(--color-db-text-secondary)]">
                         {f.raw_value}
                       </td>
-                      <td
-                        className="font-db-mono py-2 pr-4 text-[var(--color-db-text-secondary)]"
-                      >
+                      <td className="font-db-mono py-2 pr-4 text-[var(--color-db-text-secondary)]">
                         {f.engineered_value}
                       </td>
                       <td className="py-2 text-[var(--color-db-text-muted)]">{f.source}</td>

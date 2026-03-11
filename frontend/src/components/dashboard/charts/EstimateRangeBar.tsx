@@ -92,7 +92,10 @@ function nudgeLabels(
 
   // Forward clamp: ensure nothing goes below 0
   for (let i = 0; i < items.length; i++) {
-    const minCenter = i === 0 ? items[i].width / 2 : items[i - 1].nudgedPx + items[i - 1].width / 2 + MIN_GAP + items[i].width / 2;
+    const minCenter =
+      i === 0
+        ? items[i].width / 2
+        : items[i - 1].nudgedPx + items[i - 1].width / 2 + MIN_GAP + items[i].width / 2;
     if (items[i].nudgedPx < minCenter) {
       items[i].nudgedPx = minCenter;
     }
@@ -131,8 +134,7 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
 
   const pct = (v: number) => ((v - min) / range) * 100;
 
-  const delta =
-    hasEstimate ? ((predicted_value - listed_price) / listed_price) * 100 : 0;
+  const delta = hasEstimate ? ((predicted_value - listed_price) / listed_price) * 100 : 0;
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}%` : `${delta.toFixed(1)}%`;
 
   const tickMarks: TickMark[] = [
@@ -295,7 +297,9 @@ function EstimateRangeBar({ valuation }: EstimateRangeBarProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Model Estimate card (left) + Range bar (right) */}
-      <div className={`grid items-center gap-4 ${hasEstimate ? "grid-cols-[auto_1fr]" : "grid-cols-1"}`}>
+      <div
+        className={`grid items-center gap-4 ${hasEstimate ? "grid-cols-[auto_1fr]" : "grid-cols-1"}`}
+      >
         {/* Predicted Estimate — outline only, shown when model data exists */}
         {hasEstimate && (
           <div

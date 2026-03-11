@@ -44,7 +44,10 @@ export function preloadNuisanceSources(lat: number | null, lon: number | null): 
   fetchAndCache(lat, lon);
 }
 
-export function useNuisanceSources(lat: number | null, lon: number | null): UseNuisanceSourcesResult {
+export function useNuisanceSources(
+  lat: number | null,
+  lon: number | null,
+): UseNuisanceSourcesResult {
   const key = lat != null && lon != null ? cacheKey(lat, lon) : null;
   const cached = key ? dataCache.get(key) : undefined;
 

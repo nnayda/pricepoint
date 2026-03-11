@@ -16,9 +16,7 @@ function DescriptionCard({ property, listingQuality }: DescriptionCardProps) {
       <div className="flex flex-col gap-3">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2
-            className="font-db-sans text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]"
-          >
+          <h2 className="font-db-sans text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
             About this Property
           </h2>
           {listingQuality && (

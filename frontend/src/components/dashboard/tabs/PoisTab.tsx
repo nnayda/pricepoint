@@ -56,9 +56,7 @@ function LocationRow({
       ref={rowRef}
       className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-db-sm)] border px-3 py-2 transition-colors"
       style={{
-        backgroundColor: isSelected
-          ? "var(--color-db-accent-muted)"
-          : "var(--color-db-surface)",
+        backgroundColor: isSelected ? "var(--color-db-accent-muted)" : "var(--color-db-surface)",
         borderColor: isSelected ? "var(--color-db-accent)" : "var(--color-db-border-subtle)",
       }}
       onMouseEnter={onHover}
@@ -272,7 +270,6 @@ function CategorySection({
               key={group.name}
               group={group}
               selectedId={selectedId}
-
               onHover={onHover}
               onLeave={onLeave}
               onSelect={onSelect}
@@ -361,12 +358,9 @@ function PoisTab({ data }: PoisTabProps) {
     }
   }, [selectedId]);
 
-  const handleSelect = useCallback(
-    (id: string) => {
-      setSelectedId((prev) => (prev === id ? null : id));
-    },
-    [],
-  );
+  const handleSelect = useCallback((id: string) => {
+    setSelectedId((prev) => (prev === id ? null : id));
+  }, []);
 
   // Build map markers
   const savedMarkers = useMemo(
@@ -439,7 +433,6 @@ function PoisTab({ data }: PoisTabProps) {
                       key={group.name}
                       group={group}
                       selectedId={selectedId}
-        
                       onHover={setHoveredId}
                       onLeave={() => setHoveredId(null)}
                       onSelect={handleSelect}
@@ -457,7 +450,6 @@ function PoisTab({ data }: PoisTabProps) {
                     groups={groups}
                     defaultOpen={true}
                     selectedId={selectedId}
-      
                     onHover={setHoveredId}
                     onLeave={() => setHoveredId(null)}
                     onSelect={handleSelect}

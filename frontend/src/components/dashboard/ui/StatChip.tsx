@@ -10,15 +10,11 @@ function StatChip({ label, value, delta, compact = false }: StatChipProps) {
     <div
       className={`flex flex-col gap-0.5 rounded-[var(--radius-db-sm)] bg-[var(--color-db-surface-alt)] ${compact ? "px-3 py-2" : "px-4 py-3"}`}
     >
-      <span
-        className="font-db-sans text-[10px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]"
-      >
+      <span className="font-db-sans text-[10px] font-medium uppercase tracking-wider text-[var(--color-db-text-tertiary)]">
         {label}
       </span>
       <div className="flex items-baseline gap-1.5">
-        <span
-          className="font-db-mono text-sm font-semibold text-[var(--color-db-text-primary)]"
-        >
+        <span className="font-db-mono text-sm font-semibold text-[var(--color-db-text-primary)]">
           {value}
         </span>
         {delta !== undefined && (

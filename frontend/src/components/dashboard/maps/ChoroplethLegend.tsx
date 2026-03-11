@@ -18,10 +18,7 @@ export default function ChoroplethLegend({ config }: ChoroplethLegendProps) {
         <div className="flex flex-col gap-1">
           {config.colors.map((color, i) => (
             <div key={config.labels[i]} className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: color }}
-              />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-[10px] text-slate-400">{config.labels[i]}</span>
             </div>
           ))}

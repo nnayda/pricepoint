@@ -99,9 +99,7 @@ describe("mapDemographicsResponse", () => {
         asian: {
           race_category: "asian",
           total: 100,
-          subgroups: [
-            { label: "UnknownGroup", value: 50, percentage: 50 },
-          ],
+          subgroups: [{ label: "UnknownGroup", value: 50, percentage: 50 }],
         },
       },
     };

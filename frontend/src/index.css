@@ -135,47 +135,47 @@
   --font-db-mono: "JetBrains Mono", ui-monospace, monospace;
 
   /* Dashboard Colors — Surface */
-  --color-db-bg: #0F1117;
-  --color-db-surface: #161B27;
-  --color-db-surface-alt: #1C2333;
-  --color-db-surface-hover: #232A3F;
-  --color-db-border: #2E3553;
-  --color-db-border-subtle: #242B42;
+  --color-db-bg: #0f1117;
+  --color-db-surface: #161b27;
+  --color-db-surface-alt: #1c2333;
+  --color-db-surface-hover: #232a3f;
+  --color-db-border: #2e3553;
+  --color-db-border-subtle: #242b42;
 
   /* Dashboard Colors — Text */
-  --color-db-text-primary: #E8ECF4;
-  --color-db-text-secondary: #9BA3BF;
-  --color-db-text-tertiary: #5C6480;
-  --color-db-text-muted: #4A5170;
+  --color-db-text-primary: #e8ecf4;
+  --color-db-text-secondary: #9ba3bf;
+  --color-db-text-tertiary: #5c6480;
+  --color-db-text-muted: #4a5170;
 
   /* Dashboard Colors — Brand / Accent */
-  --color-db-accent: #5B7FFF;
-  --color-db-accent-hover: #7395FF;
-  --color-db-accent-subtle: #1E2D6B;
+  --color-db-accent: #5b7fff;
+  --color-db-accent-hover: #7395ff;
+  --color-db-accent-subtle: #1e2d6b;
   --color-db-accent-muted: rgba(91, 127, 255, 0.15);
-  --color-db-cyan: #22D3EE;
+  --color-db-cyan: #22d3ee;
   --color-db-cyan-muted: rgba(34, 211, 238, 0.15);
-  --color-db-gold: #F5B731;
+  --color-db-gold: #f5b731;
   --color-db-gold-muted: rgba(245, 183, 49, 0.15);
 
   /* Dashboard Colors — Status */
-  --color-db-green: #34D399;
+  --color-db-green: #34d399;
   --color-db-green-muted: rgba(52, 211, 153, 0.15);
-  --color-db-yellow: #FBBF24;
+  --color-db-yellow: #fbbf24;
   --color-db-yellow-muted: rgba(251, 191, 36, 0.15);
-  --color-db-red: #F87171;
+  --color-db-red: #f87171;
   --color-db-red-muted: rgba(248, 113, 113, 0.15);
-  --color-db-orange: #FB923C;
+  --color-db-orange: #fb923c;
   --color-db-orange-muted: rgba(251, 146, 60, 0.15);
 
   /* Dashboard Colors — Chart Palette */
-  --color-db-chart-1: #5B7FFF;
-  --color-db-chart-2: #22D3EE;
-  --color-db-chart-3: #34D399;
-  --color-db-chart-4: #FBBF24;
-  --color-db-chart-5: #F87171;
-  --color-db-chart-6: #A78BFA;
-  --color-db-chart-7: #FB923C;
+  --color-db-chart-1: #5b7fff;
+  --color-db-chart-2: #22d3ee;
+  --color-db-chart-3: #34d399;
+  --color-db-chart-4: #fbbf24;
+  --color-db-chart-5: #f87171;
+  --color-db-chart-6: #a78bfa;
+  --color-db-chart-7: #fb923c;
 
   /* Dashboard Shadows */
   --shadow-db-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -193,79 +193,79 @@
 
 :root,
 [data-theme="dark"] {
-  --th-bg-base: #0F1117;
-  --th-bg-surface: #161B27;
-  --th-bg-surface-alt: #1C2333;
-  --th-bg-surface-hover: #232A3F;
-  --th-border: #2E3553;
-  --th-border-subtle: #242B42;
-  --th-text-primary: #E8ECF4;
-  --th-text-secondary: #9BA3BF;
-  --th-text-tertiary: #5C6480;
-  --th-text-muted: #4A5170;
+  --th-bg-base: #0f1117;
+  --th-bg-surface: #161b27;
+  --th-bg-surface-alt: #1c2333;
+  --th-bg-surface-hover: #232a3f;
+  --th-border: #2e3553;
+  --th-border-subtle: #242b42;
+  --th-text-primary: #e8ecf4;
+  --th-text-secondary: #9ba3bf;
+  --th-text-tertiary: #5c6480;
+  --th-text-muted: #4a5170;
   --th-nav-bg: rgba(22, 27, 39, 0.95);
   --th-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --th-tooltip-bg: #1C2333;
-  --th-tooltip-border: #2E3553;
+  --th-tooltip-bg: #1c2333;
+  --th-tooltip-border: #2e3553;
 }
 
 [data-theme="light"] {
-  --th-bg-base: #F5F6FA;
-  --th-bg-surface: #FFFFFF;
-  --th-bg-surface-alt: #F0F1F5;
-  --th-bg-surface-hover: #E8E9F0;
-  --th-border: #D1D5E0;
-  --th-border-subtle: #E2E4EB;
+  --th-bg-base: #f5f6fa;
+  --th-bg-surface: #ffffff;
+  --th-bg-surface-alt: #f0f1f5;
+  --th-bg-surface-hover: #e8e9f0;
+  --th-border: #d1d5e0;
+  --th-border-subtle: #e2e4eb;
   --th-text-primary: #111827;
-  --th-text-secondary: #4B5563;
-  --th-text-tertiary: #6B7280;
-  --th-text-muted: #9CA3AF;
+  --th-text-secondary: #4b5563;
+  --th-text-tertiary: #6b7280;
+  --th-text-muted: #9ca3af;
   --th-nav-bg: rgba(255, 255, 255, 0.95);
   --th-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --th-tooltip-bg: #FFFFFF;
-  --th-tooltip-border: #D1D5E0;
+  --th-tooltip-bg: #ffffff;
+  --th-tooltip-border: #d1d5e0;
 
   /* Dashboard token overrides for light mode */
-  --color-db-bg: #F5F6FA;
-  --color-db-surface: #FFFFFF;
-  --color-db-surface-alt: #F0F1F5;
-  --color-db-surface-hover: #E8E9F0;
-  --color-db-border: #D1D5E0;
-  --color-db-border-subtle: #E2E4EB;
+  --color-db-bg: #f5f6fa;
+  --color-db-surface: #ffffff;
+  --color-db-surface-alt: #f0f1f5;
+  --color-db-surface-hover: #e8e9f0;
+  --color-db-border: #d1d5e0;
+  --color-db-border-subtle: #e2e4eb;
 
   --color-db-text-primary: #111827;
-  --color-db-text-secondary: #4B5563;
-  --color-db-text-tertiary: #6B7280;
-  --color-db-text-muted: #9CA3AF;
+  --color-db-text-secondary: #4b5563;
+  --color-db-text-tertiary: #6b7280;
+  --color-db-text-muted: #9ca3af;
 
-  --color-db-accent: #4F63D2;
-  --color-db-accent-hover: #4355B8;
-  --color-db-accent-subtle: #EEF0FF;
-  --color-db-accent-muted: rgba(79, 99, 210, 0.10);
-  --color-db-cyan: #0891B2;
-  --color-db-cyan-muted: rgba(8, 145, 178, 0.10);
-  --color-db-gold: #D97706;
-  --color-db-gold-muted: rgba(217, 119, 6, 0.10);
+  --color-db-accent: #4f63d2;
+  --color-db-accent-hover: #4355b8;
+  --color-db-accent-subtle: #eef0ff;
+  --color-db-accent-muted: rgba(79, 99, 210, 0.1);
+  --color-db-cyan: #0891b2;
+  --color-db-cyan-muted: rgba(8, 145, 178, 0.1);
+  --color-db-gold: #d97706;
+  --color-db-gold-muted: rgba(217, 119, 6, 0.1);
 
   --color-db-green: #059669;
-  --color-db-green-muted: rgba(5, 150, 105, 0.10);
-  --color-db-yellow: #D97706;
-  --color-db-yellow-muted: rgba(217, 119, 6, 0.10);
-  --color-db-red: #DC2626;
+  --color-db-green-muted: rgba(5, 150, 105, 0.1);
+  --color-db-yellow: #d97706;
+  --color-db-yellow-muted: rgba(217, 119, 6, 0.1);
+  --color-db-red: #dc2626;
   --color-db-red-muted: rgba(220, 38, 38, 0.08);
-  --color-db-orange: #EA580C;
-  --color-db-orange-muted: rgba(234, 88, 12, 0.10);
+  --color-db-orange: #ea580c;
+  --color-db-orange-muted: rgba(234, 88, 12, 0.1);
 
-  --color-db-chart-1: #4F63D2;
-  --color-db-chart-2: #0891B2;
+  --color-db-chart-1: #4f63d2;
+  --color-db-chart-2: #0891b2;
   --color-db-chart-3: #059669;
-  --color-db-chart-4: #D97706;
-  --color-db-chart-5: #DC2626;
-  --color-db-chart-6: #7C3AED;
-  --color-db-chart-7: #EA580C;
+  --color-db-chart-4: #d97706;
+  --color-db-chart-5: #dc2626;
+  --color-db-chart-6: #7c3aed;
+  --color-db-chart-7: #ea580c;
 
   --shadow-db-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  --shadow-db-glow: 0 0 20px rgba(79, 99, 210, 0.10);
+  --shadow-db-glow: 0 0 20px rgba(79, 99, 210, 0.1);
   --shadow-db-nav: 0 1px 0 rgba(209, 213, 224, 0.6);
 }
 
@@ -285,12 +285,18 @@
     color: var(--th-text-primary, var(--color-text-pri));
     line-height: 1.5;
     margin: 0;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
 
   /* Smooth theme transitions for dashboard elements */
   [data-theme] *:not(img):not(video):not(canvas):not(.maplibregl-map *) {
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   *,
@@ -377,18 +383,18 @@
 /* ── Recharts dark mode tooltip & cursor overrides ── */
 
 .recharts-default-tooltip {
-  background-color: var(--th-tooltip-bg, #1C2333) !important;
-  border: 1px solid var(--th-tooltip-border, #2E3553) !important;
+  background-color: var(--th-tooltip-bg, #1c2333) !important;
+  border: 1px solid var(--th-tooltip-border, #2e3553) !important;
   border-radius: 8px !important;
-  color: var(--th-text-primary, #E8ECF4) !important;
+  color: var(--th-text-primary, #e8ecf4) !important;
 }
 
 .recharts-tooltip-label {
-  color: var(--th-text-secondary, #9BA3BF) !important;
+  color: var(--th-text-secondary, #9ba3bf) !important;
 }
 
 .recharts-tooltip-item {
-  color: var(--th-text-primary, #E8ECF4) !important;
+  color: var(--th-text-primary, #e8ecf4) !important;
 }
 
 /* Scrollbar hiding utility for sidebar */
@@ -404,7 +410,7 @@
 /* Themed thin scrollbar */
 .scrollbar-themed {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-db-border, #2E3553) transparent;
+  scrollbar-color: var(--color-db-border, #2e3553) transparent;
 }
 
 .scrollbar-themed::-webkit-scrollbar {
@@ -416,19 +422,21 @@
 }
 
 .scrollbar-themed::-webkit-scrollbar-thumb {
-  background-color: var(--color-db-border, #2E3553);
+  background-color: var(--color-db-border, #2e3553);
   border-radius: 3px;
 }
 
 .scrollbar-themed::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-db-text-tertiary, #5C6480);
+  background-color: var(--color-db-text-tertiary, #5c6480);
 }
 
 /* ── Focus Ring ── */
 
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--color-db-accent), 0 0 0 4px var(--color-db-accent-subtle, rgba(91, 127, 255, 0.2));
+  box-shadow:
+    0 0 0 2px var(--color-db-accent),
+    0 0 0 4px var(--color-db-accent-subtle, rgba(91, 127, 255, 0.2));
 }
 
 /* ── Landing Page Animations ── */
@@ -440,10 +448,18 @@
   animation: landing-fade-up 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.landing-stagger > *:nth-child(1) { animation-delay: 100ms; }
-.landing-stagger > *:nth-child(2) { animation-delay: 250ms; }
-.landing-stagger > *:nth-child(3) { animation-delay: 400ms; }
-.landing-stagger > *:nth-child(4) { animation-delay: 550ms; }
+.landing-stagger > *:nth-child(1) {
+  animation-delay: 100ms;
+}
+.landing-stagger > *:nth-child(2) {
+  animation-delay: 250ms;
+}
+.landing-stagger > *:nth-child(3) {
+  animation-delay: 400ms;
+}
+.landing-stagger > *:nth-child(4) {
+  animation-delay: 550ms;
+}
 
 @keyframes landing-fade-up {
   to {
@@ -456,8 +472,9 @@
 .landing-reveal {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-              transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-reveal.is-visible {

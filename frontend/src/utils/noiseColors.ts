@@ -32,4 +32,3 @@ export function getNoiseLegendConfig(): LegendConfig {
     labels: NOISE_STOPS.map((s) => s.label),
   };
 }
-

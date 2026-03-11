@@ -67,9 +67,7 @@ function FeatureCard({
       ref={onRef}
       className="flex cursor-pointer gap-4 rounded-[var(--radius-db-sm)] border p-4 transition-colors"
       style={{
-        backgroundColor: active
-          ? "var(--color-db-accent-muted)"
-          : "var(--color-db-surface-alt)",
+        backgroundColor: active ? "var(--color-db-accent-muted)" : "var(--color-db-surface-alt)",
         borderColor: isSelected
           ? "var(--color-db-accent)"
           : isHighlighted
@@ -160,9 +158,7 @@ function GreenspaceTab({ data }: GreenspaceTabProps) {
 
   const typeFilteredFeatures = useMemo(
     () =>
-      activeTypes.size === 2
-        ? allFeatures
-        : allFeatures.filter((f) => activeTypes.has(f.type)),
+      activeTypes.size === 2 ? allFeatures : allFeatures.filter((f) => activeTypes.has(f.type)),
     [allFeatures, activeTypes],
   );
 

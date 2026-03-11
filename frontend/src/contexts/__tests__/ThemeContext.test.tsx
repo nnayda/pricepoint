@@ -9,10 +9,18 @@ function TestConsumer() {
     <div>
       <span data-testid="theme">{theme}</span>
       <span data-testid="resolved">{resolvedTheme}</span>
-      <button data-testid="set-light" onClick={() => setTheme("light")}>Set Light</button>
-      <button data-testid="set-dark" onClick={() => setTheme("dark")}>Set Dark</button>
-      <button data-testid="set-system" onClick={() => setTheme("system")}>Set System</button>
-      <button data-testid="toggle" onClick={toggleTheme}>Toggle</button>
+      <button data-testid="set-light" onClick={() => setTheme("light")}>
+        Set Light
+      </button>
+      <button data-testid="set-dark" onClick={() => setTheme("dark")}>
+        Set Dark
+      </button>
+      <button data-testid="set-system" onClick={() => setTheme("system")}>
+        Set System
+      </button>
+      <button data-testid="toggle" onClick={toggleTheme}>
+        Toggle
+      </button>
     </div>
   );
 }
@@ -116,9 +124,7 @@ describe("ThemeContext", () => {
 
   it("throws when useTheme is called outside ThemeProvider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<TestConsumer />)).toThrow(
-      "useTheme must be used within a ThemeProvider",
-    );
+    expect(() => render(<TestConsumer />)).toThrow("useTheme must be used within a ThemeProvider");
     spy.mockRestore();
   });
 

@@ -17,9 +17,7 @@ function CollapsibleSection({ title, children, defaultOpen = true }: Collapsible
         aria-expanded={open}
         className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-db-surface-hover)]"
       >
-        <span
-          className="font-db-sans text-sm font-semibold text-[var(--color-db-text-primary)]"
-        >
+        <span className="font-db-sans text-sm font-semibold text-[var(--color-db-text-primary)]">
           {title}
         </span>
         <svg
