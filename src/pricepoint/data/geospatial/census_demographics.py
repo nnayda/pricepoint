@@ -20,7 +20,7 @@ from sqlalchemy import delete, func, select, text
 
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
-from pricepoint.db.models import AcsDemographic
+from pricepoint.db.models import AcsDemographic, AcsDetailedRace
 
 logger = logging.getLogger(__name__)
 
@@ -823,5 +823,306 @@ def verify_acs_demographics() -> None:
                     )
                 ).scalar()
                 logger.info("    Vintage %d: %d records", year, count)
+    finally:
+        session.close()
+
+
+# ── Detailed Race Sub-Group (B02015: Asian Alone by Selected Groups) ──
+
+# B02015: Asian Alone by Selected Groups (21 sub-vars, 002-022)
+_DETAILED_ASIAN_VARS = [f"B02015_{i:03d}E" for i in range(2, 23)]
+
+_ASIAN_SUBGROUP_LABELS: dict[str, str] = {
+    "B02015_002E": "Asian Indian",
+    "B02015_003E": "Bangladeshi",
+    "B02015_004E": "Bhutanese",
+    "B02015_005E": "Burmese",
+    "B02015_006E": "Cambodian",
+    "B02015_007E": "Chinese",
+    "B02015_008E": "Filipino",
+    "B02015_009E": "Hmong",
+    "B02015_010E": "Indonesian",
+    "B02015_011E": "Japanese",
+    "B02015_012E": "Korean",
+    "B02015_013E": "Laotian",
+    "B02015_014E": "Malaysian",
+    "B02015_015E": "Nepalese",
+    "B02015_016E": "Pakistani",
+    "B02015_017E": "Sri Lankan",
+    "B02015_018E": "Taiwanese",
+    "B02015_019E": "Thai",
+    "B02015_020E": "Vietnamese",
+    "B02015_021E": "Other Asian (specified)",
+    "B02015_022E": "Other Asian (not specified)",
+}
+
+# Display consolidation: show top 6, rest grouped as "Other Asian"
+_ASIAN_DISPLAY_GROUPS = {
+    "Asian Indian",
+    "Chinese",
+    "Filipino",
+    "Japanese",
+    "Korean",
+    "Vietnamese",
+}
+
+
+def _map_detailed_race_rows(
+    row: dict[str, str],
+    acs_year: int,
+    geo_level: str,
+    geography_level: str,
+) -> list[AcsDetailedRace]:
+    """Map one Census API row to a list of AcsDetailedRace records.
+
+    Consolidates non-display sub-groups into a single "Other Asian" row.
+    """
+    geoid = _extract_geoid(row, geo_level)
+    records: list[AcsDetailedRace] = []
+    other_pop = 0
+
+    for var_code, label in _ASIAN_SUBGROUP_LABELS.items():
+        pop = _safe_int(row.get(var_code))
+        if label in _ASIAN_DISPLAY_GROUPS:
+            records.append(
+                AcsDetailedRace(
+                    geography_level=geography_level,
+                    geoid=geoid,
+                    acs_year=acs_year,
+                    race_category="asian",
+                    subgroup_code=var_code,
+                    subgroup_label=label,
+                    population=pop,
+                )
+            )
+        else:
+            other_pop += pop if pop is not None else 0
+
+    # Add consolidated "Other Asian" row
+    records.append(
+        AcsDetailedRace(
+            geography_level=geography_level,
+            geoid=geoid,
+            acs_year=acs_year,
+            race_category="asian",
+            subgroup_code="B02015_OTHER",
+            subgroup_label="Other Asian",
+            population=other_pop if other_pop > 0 else None,
+        )
+    )
+    return records
+
+
+def _detailed_race_level_exists(session, year: int, geography_level: str) -> bool:  # type: ignore[no-untyped-def]
+    """Return True if detailed race records already exist for this level+year."""
+    count = session.execute(
+        select(func.count())
+        .select_from(AcsDetailedRace)
+        .where(
+            AcsDetailedRace.geography_level == geography_level,
+            AcsDetailedRace.acs_year == year,
+        )
+    ).scalar()
+    return bool(count and count > 0)
+
+
+def _upsert_detailed_race(  # type: ignore[no-untyped-def]
+    session,
+    year: int,
+    geography_level: str,
+    records: list[AcsDetailedRace],
+) -> None:
+    """Delete existing detailed race records for a level+year, then insert new ones."""
+    session.execute(
+        delete(AcsDetailedRace).where(
+            AcsDetailedRace.geography_level == geography_level,
+            AcsDetailedRace.acs_year == year,
+        )
+    )
+    session.commit()
+    batch_size = 5000
+    for i in range(0, len(records), batch_size):
+        session.add_all(records[i : i + batch_size])
+        session.commit()
+
+
+def _fetch_detailed_race_nationwide(
+    year: int,
+    geo_level: str,
+    geography_level: str,
+) -> list[AcsDetailedRace]:
+    """Fetch B02015 data for all US states at the given geography level."""
+    records: list[AcsDetailedRace] = []
+    for state_fips in _US_STATE_FIPS:
+        rows = _fetch_acs_data(year, _DETAILED_ASIAN_VARS, geo_level, state_fips=state_fips)
+        for r in rows:
+            records.extend(_map_detailed_race_rows(r, year, geo_level, geography_level))
+        logger.info(
+            "  State %s: %d rows → %d detailed race records",
+            state_fips,
+            len(rows),
+            len(rows) * 7,
+        )
+    return records
+
+
+def fetch_detailed_race_demographics() -> None:
+    """Fetch B02015 (Asian sub-groups) for the configured vintage at all geo levels."""
+    settings = get_settings()
+    year = settings.census_acs_detailed_race_vintage
+
+    # Geo levels to fetch (same as main demographics, excluding subdivision)
+    levels = [
+        ("us", "us"),
+        ("state", "state"),
+        ("county", "county"),
+        ("county subdivision", "county_subdivision"),
+        ("tract", "tract"),
+        ("block group", "block_group"),
+    ]
+
+    session = SessionLocal()
+    try:
+        for geo_level, geography_level in levels:
+            if _detailed_race_level_exists(session, year, geography_level):
+                logger.info(
+                    "Skipping detailed race %s vintage %d — already loaded",
+                    geography_level,
+                    year,
+                )
+                continue
+
+            logger.info(
+                "Fetching detailed race %s demographics for vintage %d",
+                geography_level,
+                year,
+            )
+
+            if geo_level in ("us", "state"):
+                rows = _fetch_acs_data(year, _DETAILED_ASIAN_VARS, geo_level)
+                records: list[AcsDetailedRace] = []
+                for r in rows:
+                    records.extend(_map_detailed_race_rows(r, year, geo_level, geography_level))
+            else:
+                records = _fetch_detailed_race_nationwide(year, geo_level, geography_level)
+
+            _upsert_detailed_race(session, year, geography_level, records)
+            logger.info(
+                "Loaded %d detailed race records for %s vintage %d",
+                len(records),
+                geography_level,
+                year,
+            )
+
+        logger.info("Detailed race demographics load complete")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def compute_subdivision_detailed_race() -> None:
+    """Compute subdivision detailed race via area-weighted aggregation from block groups."""
+    settings = get_settings()
+    year = settings.census_acs_detailed_race_vintage
+
+    sql = text("""
+        WITH bg_overlaps AS (
+            SELECT
+                s.id AS subdivision_id,
+                ad.geoid AS bg_geoid,
+                ST_Area(ST_Intersection(ST_MakeValid(s.geom), ST_MakeValid(tbg.geom))::geography)
+                    / NULLIF(ST_Area(tbg.geom::geography), 0) AS weight
+            FROM subdivisions s
+            JOIN block_groups tbg
+                ON ST_Intersects(ST_MakeValid(s.geom), ST_MakeValid(tbg.geom))
+            JOIN acs_detailed_race dr
+                ON tbg.geoid = dr.geoid
+                AND dr.geography_level = 'block_group'
+                AND dr.acs_year = :year
+        )
+        SELECT
+            o.subdivision_id,
+            dr.subgroup_code,
+            dr.subgroup_label,
+            dr.race_category,
+            ROUND(SUM(o.weight * dr.population))::int AS population
+        FROM bg_overlaps o
+        JOIN acs_detailed_race dr
+            ON o.bg_geoid = dr.geoid
+            AND dr.geography_level = 'block_group'
+            AND dr.acs_year = :year
+        GROUP BY o.subdivision_id, dr.subgroup_code, dr.subgroup_label, dr.race_category
+    """)
+
+    session = SessionLocal()
+    try:
+        if _detailed_race_level_exists(session, year, "subdivision"):
+            logger.info("Skipping detailed race subdivision vintage %d — already loaded", year)
+            return
+
+        logger.info("Computing subdivision detailed race for vintage %d", year)
+        result = session.execute(sql, {"year": year})
+        rows = result.fetchall()
+        columns = list(result.keys())
+        logger.info("Computed %d subdivision detailed race aggregations", len(rows))
+
+        records: list[AcsDetailedRace] = []
+        for row in rows:
+            row_dict = dict(zip(columns, row, strict=False))
+            records.append(
+                AcsDetailedRace(
+                    geography_level="subdivision",
+                    geoid=f"subdiv_{row_dict['subdivision_id']}",
+                    acs_year=year,
+                    race_category=row_dict["race_category"],
+                    subgroup_code=row_dict["subgroup_code"],
+                    subgroup_label=row_dict["subgroup_label"],
+                    population=row_dict["population"],
+                )
+            )
+
+        _upsert_detailed_race(session, year, "subdivision", records)
+        logger.info("Loaded %d subdivision detailed race records", len(records))
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def verify_detailed_race_load() -> None:
+    """Verify that detailed race records were loaded for all levels."""
+    settings = get_settings()
+    year = settings.census_acs_detailed_race_vintage
+    session = SessionLocal()
+
+    expected_levels = [
+        "us",
+        "state",
+        "county",
+        "county_subdivision",
+        "tract",
+        "block_group",
+        "subdivision",
+    ]
+
+    try:
+        total = session.execute(select(func.count()).select_from(AcsDetailedRace)).scalar()
+        if not total:
+            raise RuntimeError("No records found in acs_detailed_race after load")
+        logger.info("Verified %d total records in acs_detailed_race", total)
+
+        for level in expected_levels:
+            count = session.execute(
+                select(func.count())
+                .select_from(AcsDetailedRace)
+                .where(
+                    AcsDetailedRace.geography_level == level,
+                    AcsDetailedRace.acs_year == year,
+                )
+            ).scalar()
+            logger.info("  Level %s: %d records (vintage %d)", level, count, year)
     finally:
         session.close()

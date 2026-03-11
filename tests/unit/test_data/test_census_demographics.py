@@ -6,6 +6,8 @@ import httpx
 import pytest
 
 from pricepoint.data.geospatial.census_demographics import (
+    _ASIAN_DISPLAY_GROUPS,
+    _ASIAN_SUBGROUP_LABELS,
     _COUNT_FIELDS,
     _MEDIAN_FIELDS,
     _US_STATE_FIPS,
@@ -16,6 +18,7 @@ from pricepoint.data.geospatial.census_demographics import (
     _fetch_nationwide,
     _level_exists,
     _map_demographic_kwargs,
+    _map_detailed_race_rows,
     _map_record,
     _safe_float,
     _safe_int,
@@ -24,7 +27,9 @@ from pricepoint.data.geospatial.census_demographics import (
     fetch_acs_county_sub_demographics,
     fetch_acs_summary_demographics,
     fetch_acs_tract_demographics,
+    fetch_detailed_race_demographics,
     verify_acs_demographics,
+    verify_detailed_race_load,
 )
 
 _PATCH_LEVEL_EXISTS = "pricepoint.data.geospatial.census_demographics._level_exists"
@@ -1106,3 +1111,145 @@ class TestVerifyAcsDemographics:
 
         with pytest.raises(RuntimeError, match="No records found"):
             verify_acs_demographics()
+
+
+# ── Detailed Race Sub-Group Tests ──
+
+
+class TestMapDetailedRaceRows:
+    """Tests for _map_detailed_race_rows."""
+
+    def _make_asian_row(self, **overrides):
+        """Build a Census API row with B02015 vars."""
+        row = {
+            "state": "37",
+            "county": "183",
+            "tract": "052801",
+        }
+        # Set all Asian vars to 0 by default
+        for var_code in _ASIAN_SUBGROUP_LABELS:
+            row[var_code] = "0"
+        row.update(overrides)
+        return row
+
+    def test_returns_seven_records(self):
+        """Should produce 6 display groups + 1 'Other Asian'."""
+        row = self._make_asian_row()
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        assert len(records) == 7  # 6 display groups + Other Asian
+
+    def test_display_groups_present(self):
+        """All 6 display groups should be in the output."""
+        row = self._make_asian_row(**{"B02015_002E": "100", "B02015_007E": "200"})
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        labels = {r.subgroup_label for r in records}
+        for group in _ASIAN_DISPLAY_GROUPS:
+            assert group in labels
+
+    def test_consolidation_into_other_asian(self):
+        """Non-display groups should be consolidated into 'Other Asian'."""
+        row = self._make_asian_row(
+            **{
+                "B02015_003E": "50",  # Bangladeshi → Other
+                "B02015_005E": "30",  # Burmese → Other
+                "B02015_009E": "20",  # Hmong → Other
+            }
+        )
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        other = next(r for r in records if r.subgroup_label == "Other Asian")
+        assert other.population == 100  # 50 + 30 + 20
+
+    def test_geoid_extraction(self):
+        """Records should have the correct geoid."""
+        row = self._make_asian_row()
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        assert all(r.geoid == "37183052801" for r in records)
+
+    def test_race_category_is_asian(self):
+        """All records should have race_category='asian'."""
+        row = self._make_asian_row()
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        assert all(r.race_category == "asian" for r in records)
+
+    def test_sentinel_values_become_none(self):
+        """Census sentinel values should map to None."""
+        row = self._make_asian_row(**{"B02015_002E": "-666666666"})
+        records = _map_detailed_race_rows(row, 2024, "tract", "tract")
+        indian = next(r for r in records if r.subgroup_label == "Asian Indian")
+        assert indian.population is None
+
+
+class TestFetchDetailedRaceDemographics:
+    """Tests for fetch_detailed_race_demographics."""
+
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch("pricepoint.data.geospatial.census_demographics._fetch_acs_data")
+    @patch(
+        "pricepoint.data.geospatial.census_demographics._detailed_race_level_exists",
+        return_value=False,
+    )
+    @patch(_PATCH_STATE_FIPS, ["37"])
+    def test_fetches_all_levels(self, mock_exists, mock_fetch, mock_settings, mock_session_cls):
+        mock_settings.return_value = _make_settings(census_acs_detailed_race_vintage=2024)
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        # Return a row with Asian data
+        mock_fetch.return_value = [
+            {
+                "state": "37",
+                "county": "183",
+                "tract": "052801",
+                "us": "1",
+                **{code: "10" for code in _ASIAN_SUBGROUP_LABELS},
+            }
+        ]
+
+        fetch_detailed_race_demographics()
+
+        # Should have called _fetch_acs_data for us, state, county, cousub, tract, block_group
+        assert mock_fetch.call_count >= 6  # us + state + 4 * nationwide calls
+
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    @patch(
+        "pricepoint.data.geospatial.census_demographics._detailed_race_level_exists",
+        return_value=True,
+    )
+    def test_skips_existing(self, mock_exists, mock_settings, mock_session_cls):
+        mock_settings.return_value = _make_settings(census_acs_detailed_race_vintage=2024)
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        fetch_detailed_race_demographics()
+        # Should not call add_all since all levels already exist
+        session.add_all.assert_not_called()
+
+
+class TestVerifyDetailedRaceLoad:
+    """Tests for verify_detailed_race_load."""
+
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_success(self, mock_settings, mock_session_cls):
+        mock_settings.return_value = _make_settings(census_acs_detailed_race_vintage=2024)
+        session = _mock_session()
+        session.execute.return_value.scalar.return_value = 100
+        mock_session_cls.return_value = session
+
+        verify_detailed_race_load()  # should not raise
+        session.close.assert_called_once()
+
+    @patch("pricepoint.data.geospatial.census_demographics.SessionLocal")
+    @patch("pricepoint.data.geospatial.census_demographics.get_settings")
+    def test_empty_raises(self, mock_settings, mock_session_cls):
+        mock_settings.return_value = _make_settings(census_acs_detailed_race_vintage=2024)
+        session = _mock_session()
+        result_mock = MagicMock()
+        result_mock.scalar.return_value = 0
+        session.execute.return_value = result_mock
+        mock_session_cls.return_value = session
+
+        with pytest.raises(RuntimeError, match="No records found"):
+            verify_detailed_race_load()

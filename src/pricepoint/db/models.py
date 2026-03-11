@@ -1482,6 +1482,38 @@ class AcsDemographic(Base):
     )
 
 
+class AcsDetailedRace(Base):
+    """Detailed race sub-group data from Census ACS tables (e.g. B02015 Asian).
+
+    Stores one row per sub-group per geography, latest vintage only.
+    Designed to support future race categories (Hispanic, Pacific Islander).
+    """
+
+    __tablename__ = "acs_detailed_race"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    geography_level = Column(String(25), nullable=False)
+    geoid = Column(String(15), nullable=False)
+    acs_year = Column(Integer, nullable=False)
+    race_category = Column(String(20), nullable=False)  # e.g. "asian"
+    subgroup_code = Column(String(15), nullable=False)  # e.g. "B02015_002E"
+    subgroup_label = Column(String(60), nullable=False)  # e.g. "Asian Indian"
+    population = Column(Integer, nullable=True)
+    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "geography_level",
+            "geoid",
+            "acs_year",
+            "subgroup_code",
+            name="uq_acs_detail_race_geo_year_code",
+        ),
+        Index("ix_acs_detail_race_lookup", "geography_level", "geoid", "acs_year"),
+        Index("ix_acs_detail_race_category", "race_category"),
+    )
+
+
 class GreenspaceRegionMetric(Base):
     """Precomputed greenspace metrics at TIGER geographic levels.
 

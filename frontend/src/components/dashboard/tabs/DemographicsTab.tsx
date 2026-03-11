@@ -298,6 +298,9 @@ function DemographicsTab({ data }: DemographicsTabProps) {
           {/* Snapshot card */}
           {subTab === "population" && <PopulationSnapshot d={d} />}
           {subTab === "race" && <RaceSnapshot d={d} />}
+          {subTab === "race" && raceFilter !== "all" && (
+            <RaceSubgroupBreakdown d={d} raceFilter={raceFilter} />
+          )}
           {subTab === "age" && <AgeSnapshot d={d} />}
           {subTab === "income" && <IncomeSnapshot d={d} />}
           {subTab === "ownership" && <OwnershipSnapshot d={d} />}
@@ -650,6 +653,91 @@ function RaceSnapshot({ d }: SubTabProps) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    </DashboardCard>
+  );
+}
+
+function RaceSubgroupBreakdown({
+  d,
+  raceFilter,
+}: {
+  d: SubTabProps["d"];
+  raceFilter: string;
+}) {
+  const breakdown = d.race_detailed?.[raceFilter];
+
+  if (!breakdown) {
+    return (
+      <DashboardCard>
+        <p className="text-xs text-[var(--color-db-text-tertiary)]">
+          Detailed breakdown not available for this category
+        </p>
+      </DashboardCard>
+    );
+  }
+
+  const subgroups = breakdown.subgroups.filter((sg) => (sg.value ?? 0) > 0);
+  if (subgroups.length === 0) {
+    return (
+      <DashboardCard>
+        <p className="text-xs text-[var(--color-db-text-tertiary)]">
+          No sub-group data available
+        </p>
+      </DashboardCard>
+    );
+  }
+
+  return (
+    <DashboardCard>
+      <h3 className="mb-3 text-sm font-semibold text-[var(--color-db-text-primary)]">
+        {raceFilter.charAt(0).toUpperCase() + raceFilter.slice(1)} Sub-Groups
+      </h3>
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-40 shrink-0">
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie
+                data={subgroups}
+                dataKey="value"
+                nameKey="label"
+                cx="50%"
+                cy="50%"
+                innerRadius="50%"
+                outerRadius="90%"
+                paddingAngle={2}
+                strokeWidth={0}
+              >
+                {subgroups.map((sg) => (
+                  <Cell key={sg.label} fill={sg.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={((v: number, name: string) => [v.toLocaleString(), name]) as any}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+          {subgroups.map((sg) => (
+            <div key={sg.label} className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: sg.color }}
+              />
+              <span className="text-xs text-[var(--color-db-text-secondary)]">
+                {sg.label}
+              </span>
+              <span className="font-db-mono text-xs font-medium text-[var(--color-db-text-primary)]">
+                {sg.percentage}%
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </DashboardCard>

@@ -56,6 +56,18 @@ class AgeBucket(BaseModel):
     female: float
 
 
+class RaceSubgroup(BaseModel):
+    label: str
+    value: int  # population count
+    percentage: float  # % within parent race
+
+
+class RaceDetailedBreakdown(BaseModel):
+    race_category: str
+    total: int
+    subgroups: list[RaceSubgroup]
+
+
 class DemographicContextData(BaseModel):
     """Snapshot + trend data for a single geographic context."""
 
@@ -72,6 +84,7 @@ class DemographicContextData(BaseModel):
     income_trend: list[IncomeTrendPoint]
     home_ownership_trend: list[HomeOwnershipTrendPoint]
     median_age_trend: list[MedianAgeTrendPoint]
+    race_detailed: dict[str, RaceDetailedBreakdown] | None = None
 
 
 class DemographicsResponse(BaseModel):

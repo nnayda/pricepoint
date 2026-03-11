@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from pricepoint.api.routes.demographics import (
     build_context_data,
+    build_race_detailed,
     consolidate_income,
     consolidate_race,
     estimate_age_split,
@@ -417,3 +418,49 @@ class TestDemographicsWithData:
         assert data["benchmarks"]["state"]["population"] == 10000000
 
         app.dependency_overrides.clear()
+
+
+# ── build_race_detailed tests ──
+
+
+class TestBuildRaceDetailed:
+    def _make_detailed_row(self, label, population, category="asian", code="B02015_002E"):
+        row = MagicMock()
+        row.race_category = category
+        row.subgroup_label = label
+        row.subgroup_code = code
+        row.population = population
+        return row
+
+    def test_basic_breakdown(self):
+        rows = [
+            self._make_detailed_row("Chinese", 500, code="B02015_007E"),
+            self._make_detailed_row("Asian Indian", 300, code="B02015_002E"),
+            self._make_detailed_row("Other Asian", 200, code="B02015_OTHER"),
+        ]
+        result = build_race_detailed(rows, parent_race_total=1000)
+        assert "asian" in result
+        bd = result["asian"]
+        assert bd.total == 1000
+        assert len(bd.subgroups) == 3
+        # Sorted by population descending
+        assert bd.subgroups[0].label == "Chinese"
+        assert bd.subgroups[0].value == 500
+        assert bd.subgroups[0].percentage == 50.0
+
+    def test_zero_parent_total(self):
+        rows = [self._make_detailed_row("Chinese", 100, code="B02015_007E")]
+        result = build_race_detailed(rows, parent_race_total=0)
+        assert "asian" in result
+        assert result["asian"].subgroups[0].percentage == 0.0
+
+    def test_empty_rows(self):
+        result = build_race_detailed([], parent_race_total=1000)
+        assert result == {}
+
+    def test_percentage_calculation(self):
+        rows = [
+            self._make_detailed_row("Vietnamese", 250, code="B02015_020E"),
+        ]
+        result = build_race_detailed(rows, parent_race_total=500)
+        assert result["asian"].subgroups[0].percentage == 50.0

@@ -31,10 +31,14 @@ from pricepoint.api.schemas.demographics import (
     LabelValue,
     MedianAgeTrendPoint,
     PopulationTrendPoint,
+    RaceDetailedBreakdown,
     RaceEthnicityTrendPoint,
+    RaceSubgroup,
 )
+from pricepoint.config.settings import get_settings
 from pricepoint.db.models import (
     AcsDemographic,
+    AcsDetailedRace,
     BlockGroup,
     County,
     PropertyGeoLookup,
@@ -181,6 +185,40 @@ def estimate_age_split(row: Any) -> list[AgeBucket]:
         )
         for label, count in buckets
     ]
+
+
+def build_race_detailed(
+    detailed_rows: list[Any],
+    parent_race_total: int,
+) -> dict[str, RaceDetailedBreakdown]:
+    """Build race detailed breakdowns from AcsDetailedRace rows.
+
+    Groups rows by race_category and computes sub-group percentages
+    relative to the parent race total (e.g. race_asian from AcsDemographic).
+    """
+    by_category: dict[str, list[Any]] = {}
+    for row in detailed_rows:
+        by_category.setdefault(row.race_category, []).append(row)
+
+    result: dict[str, RaceDetailedBreakdown] = {}
+    for category, rows_for_cat in by_category.items():
+        subgroups: list[RaceSubgroup] = []
+        for row in sorted(rows_for_cat, key=lambda r: -(r.population or 0)):
+            pop = row.population or 0
+            pct = round(pop / parent_race_total * 100, 1) if parent_race_total > 0 else 0.0
+            subgroups.append(
+                RaceSubgroup(
+                    label=row.subgroup_label,
+                    value=pop,
+                    percentage=pct,
+                )
+            )
+        result[category] = RaceDetailedBreakdown(
+            race_category=category,
+            total=parent_race_total,
+            subgroups=subgroups,
+        )
+    return result
 
 
 def build_context_data(rows: list[Any]) -> DemographicContextData | None:
@@ -395,31 +433,73 @@ async def get_demographics(
         key: tuple[str, str] = (str(row.geography_level), str(row.geoid))
         grouped.setdefault(key, []).append(row)
 
-    # 3. Build context data
+    # 3. Query detailed race data
+    settings = get_settings()
+    detailed_year = settings.census_acs_detailed_race_vintage
+    all_detail_geoids = list(geoid_map.values())
+
+    detailed_rows: list[AcsDetailedRace] = []
+    detail_geoid_keys = list(geoid_map.keys()) + list(_BENCHMARK_LEVELS)
+    detail_geoid_values = all_detail_geoids
+    if detail_geoid_keys:
+        detail_stmt = select(AcsDetailedRace).where(
+            AcsDetailedRace.acs_year == detailed_year,
+            or_(
+                AcsDetailedRace.geography_level.in_(list(geoid_map.keys()))
+                & AcsDetailedRace.geoid.in_(detail_geoid_values),
+                AcsDetailedRace.geography_level.in_(list(_BENCHMARK_LEVELS)),
+            ),
+        )
+        detailed_rows = list(db.execute(detail_stmt).scalars().all())
+
+    # Group detailed rows by (geography_level, geoid)
+    detailed_grouped: dict[tuple[str, str], list[Any]] = {}
+    for dr in detailed_rows:
+        key = (str(dr.geography_level), str(dr.geoid))
+        detailed_grouped.setdefault(key, []).append(dr)
+
+    # 4. Build context data
     contexts: dict[str, DemographicContextData] = {}
     for level, context_key in _LEVEL_TO_CONTEXT.items():
         geoid = geoid_map.get(level)
         if geoid:
             rows = grouped.get((level, geoid), [])
             ctx = build_context_data(rows)
-            contexts[context_key] = ctx if ctx else _empty_context()
+            if ctx:
+                # Attach detailed race if available
+                detail_rows_for_geo = detailed_grouped.get((level, geoid), [])
+                if detail_rows_for_geo:
+                    latest_rows = [r for r in rows if r.acs_year == max(r2.acs_year for r2 in rows)]
+                    parent_asian = (latest_rows[0].race_asian or 0) if latest_rows else 0
+                    ctx.race_detailed = build_race_detailed(detail_rows_for_geo, parent_asian)
+                contexts[context_key] = ctx
+            else:
+                contexts[context_key] = _empty_context()
         else:
             contexts[context_key] = _empty_context()
 
-    # 4. Build benchmarks (us, state)
+    # 5. Build benchmarks (us, state)
     benchmarks: dict[str, DemographicContextData] = {}
     benchmark_names = {"us": "national", "state": "state"}
     for level, bm_key in benchmark_names.items():
         level_rows = [r for r in acs_rows if r.geography_level == level]
         if level_rows:
-            # Group by geoid (should be one for us/state)
             by_geoid: dict[str, list[Any]] = {}
             for r in level_rows:
                 by_geoid.setdefault(str(r.geoid), []).append(r)
-            # Use first geoid
-            first_geoid_rows = list(by_geoid.values())[0]
+            first_geoid = list(by_geoid.keys())[0]
+            first_geoid_rows = by_geoid[first_geoid]
             bm = build_context_data(first_geoid_rows)
-            benchmarks[bm_key] = bm if bm else _empty_context()
+            if bm:
+                detail_rows_for_bm = detailed_grouped.get((level, first_geoid), [])
+                if detail_rows_for_bm:
+                    latest_bm = sorted(first_geoid_rows, key=lambda r: r.acs_year)[-1]
+                    bm.race_detailed = build_race_detailed(
+                        detail_rows_for_bm, latest_bm.race_asian or 0
+                    )
+                benchmarks[bm_key] = bm
+            else:
+                benchmarks[bm_key] = _empty_context()
         else:
             benchmarks[bm_key] = _empty_context()
 

@@ -574,6 +574,19 @@ export interface MedianAgeTrendPoint {
   median_age: number;
 }
 
+export interface RaceSubgroup {
+  label: string;
+  value: number;
+  percentage: number;
+  color: string;
+}
+
+export interface RaceDetailedBreakdown {
+  race_category: string;
+  total: number;
+  subgroups: RaceSubgroup[];
+}
+
 export interface DemographicDataset {
   race_ethnicity: { label: string; value: number; color: string }[];
   age_distribution: { range: string; male: number; female: number }[];
@@ -588,6 +601,7 @@ export interface DemographicDataset {
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
   median_age_trend: MedianAgeTrendPoint[];
+  race_detailed?: Record<string, RaceDetailedBreakdown>;
 }
 
 export type DemographicContext = "subdivision" | "block_group" | "neighborhood" | "town" | "county";
@@ -626,6 +640,10 @@ export interface DemographicsApiContextData {
   income_trend: IncomeTrendPoint[];
   home_ownership_trend: HomeOwnershipTrendPoint[];
   median_age_trend: MedianAgeTrendPoint[];
+  race_detailed?: Record<
+    string,
+    { race_category: string; total: number; subgroups: { label: string; value: number; percentage: number }[] }
+  >;
 }
 
 export interface ChoroplethFeatureProperties {

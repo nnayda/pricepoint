@@ -203,9 +203,7 @@ class TestComparablesEndpoint:
 
         with (
             patch("pricepoint.api.routes.comparables.assemble_features", return_value=None),
-            patch(
-                "pricepoint.api.routes.comparables.query_nuisance_sources", return_value=[]
-            ),
+            patch("pricepoint.api.routes.comparables.query_nuisance_sources", return_value=[]),
             patch("pricepoint.api.routes.comparables.query_risk_features", return_value=[]),
         ):
             app.dependency_overrides[get_db] = lambda: mock_db

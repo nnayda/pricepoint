@@ -17,6 +17,17 @@ const RACE_COLORS: Record<string, string> = {
   Unknown: "#6b7280",
 };
 
+/** Asian sub-group color palette (amber/gold shades) */
+export const ASIAN_SUBGROUP_COLORS: Record<string, string> = {
+  "Asian Indian": "#f59e0b",
+  Chinese: "#d97706",
+  Filipino: "#b45309",
+  Japanese: "#92400e",
+  Korean: "#fbbf24",
+  Vietnamese: "#f97316",
+  "Other Asian": "#78716c",
+};
+
 /* ── Sequential / diverging color ramps ── */
 
 const MAGMA_RAMP = ["#221150", "#5F187F", "#B63679", "#E8765C", "#FCFDBF"];
