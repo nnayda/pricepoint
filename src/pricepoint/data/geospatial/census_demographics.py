@@ -14,6 +14,7 @@ Supported geography levels:
 """
 
 import logging
+import time
 
 import httpx
 from sqlalchemy import delete, func, select, text
@@ -466,8 +467,23 @@ def _fetch_acs_data(
         }
         if geo_in_raw:
             params["in"] = geo_in_raw
-        response = httpx.get(base_url, params=params, timeout=120)
-        response.raise_for_status()
+        # Retry on transient server errors (502/503/504) with exponential backoff
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            response = httpx.get(base_url, params=params, timeout=120)
+            if response.status_code in (502, 503, 504) and attempt < max_retries:
+                wait = 2 ** (attempt + 1)
+                logger.warning(
+                    "Census API returned %d, retrying in %ds (attempt %d/%d)",
+                    response.status_code,
+                    wait,
+                    attempt + 1,
+                    max_retries,
+                )
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            break
         data = response.json()
 
         if not data or len(data) < 2:
