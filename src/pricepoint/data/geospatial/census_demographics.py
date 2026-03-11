@@ -1047,7 +1047,7 @@ def compute_subdivision_detailed_race() -> None:
         WITH bg_overlaps AS (
             SELECT
                 s.id AS subdivision_id,
-                ad.geoid AS bg_geoid,
+                dr.geoid AS bg_geoid,
                 ST_Area(ST_Intersection(ST_MakeValid(s.geom), ST_MakeValid(tbg.geom))::geography)
                     / NULLIF(ST_Area(tbg.geom::geography), 0) AS weight
             FROM subdivisions s

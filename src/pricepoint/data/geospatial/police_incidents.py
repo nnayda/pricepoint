@@ -128,6 +128,10 @@ def _map_record(record: dict) -> StagingCaryPoliceIncident:
     )
 
 
+_BATCH_GEOCODE_TIMEOUT = 15.0  # seconds — longer than interactive default (5s)
+_BATCH_GEOCODE_RETRIES = 2
+
+
 def _geocode_street_names(
     street_names: set[str],
     geocode_fn: Callable[..., list[dict[str, Any]]] = geocode_sync,
@@ -140,26 +144,44 @@ def _geocode_street_names(
 
     Uses the configured geocoding provider (Nominatim or Photon) via
     :func:`geocode_sync`, with a location bias centred on Cary, NC.
+
+    Applies a longer timeout than the interactive default and retries
+    each street up to ``_BATCH_GEOCODE_RETRIES`` times on failure.
     """
     # Centre of Cary, NC — used as geocoder bias
     CARY_LAT, CARY_LON = 35.7915, -78.7811
 
+    # Build a settings override with a longer timeout for batch work.
+    # Only used when geocode_fn is the real geocode_sync (tests inject
+    # a fake that ignores kwargs it doesn't need).
+    settings = get_settings()
+    batch_settings = settings.model_copy(update={"geocode_timeout": _BATCH_GEOCODE_TIMEOUT})
+
     cache: dict[str, tuple[float, float]] = {}
     for street in sorted(street_names):
         query = f"{street}, Cary, NC"
-        try:
-            results = geocode_fn(
-                query,
-                limit=1,
-                bias_lat=CARY_LAT,
-                bias_lon=CARY_LON,
-            )
-            if results:
-                cache[street] = (results[0]["lon"], results[0]["lat"])
-            else:
-                logger.debug("Geocode returned no results for %r", query)
-        except Exception:
-            logger.warning("Geocode failed for %r", query, exc_info=True)
+        results: list[dict[str, Any]] = []
+        for attempt in range(_BATCH_GEOCODE_RETRIES + 1):
+            try:
+                results = geocode_fn(
+                    query,
+                    limit=1,
+                    bias_lat=CARY_LAT,
+                    bias_lon=CARY_LON,
+                    settings=batch_settings,
+                )
+                if results:
+                    break
+            except Exception:
+                if attempt == _BATCH_GEOCODE_RETRIES:
+                    logger.warning("Geocode failed for %r after %d attempts", query, attempt + 1)
+                else:
+                    logger.debug("Geocode attempt %d failed for %r, retrying", attempt + 1, query)
+
+        if results:
+            cache[street] = (results[0]["lon"], results[0]["lat"])
+        else:
+            logger.debug("Geocode returned no results for %r", query)
 
     logger.info(
         "Geocoded %d / %d unique Cary street names",
@@ -207,16 +229,40 @@ def fetch_cary_police_incidents(
         # Normalize column names: lowercase and replace spaces with underscores
         df.columns = df.columns.str.lower().str.replace(" ", "_")
 
-        # Convert dataframe to row dicts
+        # ODSClient returns human-readable column names (e.g. "Geo Code",
+        # "Begin Date Of Occurrence") which after normalisation become
+        # "geo_code", "begin_date_of_occurrence", etc.  Rename to the
+        # internal names expected by _map_record.
+        column_mapping = {
+            "begin_date_of_occurrence": "date_from",
+            "begin_time_of_occurrence": "from_time",
+            "end_date_of_occurrence": "date_to",
+            "end_time_of_occurrence": "to_time",
+            "crime_day": "crimeday",
+            "geo_code": "geocode",
+            "neighborhood_id": "neighborhd_id",
+            "subdivision_id": "subdivisn_id",
+            "phx_activity_date": "activity_date",
+            "phx_record_status": "phxrecordstatus",
+            "phx_community": "phxcommunity",
+            "phx_status": "phxstatus",
+            "charge_count": "chrgcnt",
+        }
+        df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+
+        # Convert dataframe to row dicts — coerce all values to str so
+        # _csv_val / _csv_float work correctly.  ODS returns a mix of
+        # Python str, numpy int64/float64, and NaN/None.
         row_dicts: list[dict[str, str]] = []
         for _, row in df.iterrows():
-            row_dict = row.to_dict()
-            # Convert NaN to empty string for CSV compatibility
-            row_dict = {
-                k: (v if not (isinstance(v, float) and str(v) == "nan") else "")
-                for k, v in row_dict.items()
-            }
-            row_dicts.append(row_dict)
+            cleaned: dict[str, str] = {}
+            for k, v in row.to_dict().items():
+                try:
+                    is_missing = v is None or (v != v)  # v != v catches NaN/NaT
+                except (TypeError, ValueError):
+                    is_missing = False
+                cleaned[k] = "" if is_missing else str(v)
+            row_dicts.append(cleaned)
 
         # Geocode unique street names from the "geocode" column
         unique_streets = {r.get("geocode", "") for r in row_dicts if r.get("geocode")}
@@ -497,26 +543,27 @@ def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
         # Normalize column names: lowercase and replace spaces with underscores
         df.columns = df.columns.str.lower().str.replace(" ", "_")
 
-        # Rename columns to match expected format
+        # Rename columns from odsclient display names (after lower/underscore
+        # normalisation) to the short field IDs used by _map_morrisville_record.
         column_mapping = {
-            "inci_id": "inci_id",
+            "incident_id": "inci_id",
             "offense": "offense",
-            "date_rept": "date_rept",
-            "date_occu": "date_occu",
-            "dow1": "dow1",
-            "monthstamp": "monthstamp",
-            "yearstamp": "yearstamp",
+            "date_reported": "date_rept",
+            "date_occurred": "date_occu",
+            "day_of_week": "dow1",
+            "month": "monthstamp",
+            "year": "yearstamp",
             "street": "street",
             "city": "city",
             "state": "state",
             "zip": "zip",
-            "neighborhd": "neighborhd",
-            "subdivisn": "subdivisn",
+            "neighborhood": "neighborhd",
+            "subdivision": "subdivisn",
             "tract": "tract",
             "zone": "zone",
             "district": "district",
-            "asst_offcr": "asst_offcr",
-            "geo_point_2d": "area",  # This contains "lat, lon" format
+            "#_of_asst_officers": "asst_offcr",
+            "area": "area",
         }
 
         # Only rename columns that exist

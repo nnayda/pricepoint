@@ -41,10 +41,45 @@ def _make_record(**overrides: str) -> dict[str, str]:
 
 
 def _make_dataframe(*rows: dict[str, str]) -> pd.DataFrame:
-    """Build a DataFrame from record dicts."""
+    """Build a DataFrame from record dicts (short field IDs)."""
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(list(rows))
+
+
+# Map short field IDs → odsclient display names (what get_whole_dataframe returns)
+_DISPLAY_NAMES = {
+    "date_rept": "Date Reported",
+    "date_occu": "Date Occurred",
+    "dow1": "Day of Week",
+    "monthstamp": "Month",
+    "yearstamp": "Year",
+    "inci_id": "Incident ID",
+    "offense": "Offense",
+    "street": "Street",
+    "city": "City",
+    "state": "State",
+    "zip": "Zip",
+    "neighborhd": "Neighborhood",
+    "subdivisn": "Subdivision",
+    "tract": "Tract",
+    "zone": "Zone",
+    "district": "District",
+    "asst_offcr": "# of Asst Officers",
+    "area": "Area",
+}
+
+
+def _make_ods_dataframe(*rows: dict) -> pd.DataFrame:
+    """Build a DataFrame with odsclient display-name columns.
+
+    Accepts dicts keyed by short field IDs (same as ``_make_record``) and
+    renames columns to match what ``ODSClient.get_whole_dataframe`` returns.
+    """
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(list(rows))
+    return df.rename(columns=_DISPLAY_NAMES)
 
 
 def _mock_session():
@@ -150,7 +185,7 @@ class TestFetchMorrisvillePoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        df = _make_dataframe(
+        df = _make_ods_dataframe(
             _make_record(inci_id="R1"),
             _make_record(inci_id="R2"),
         )
@@ -168,6 +203,9 @@ class TestFetchMorrisvillePoliceIncidents:
         assert len(added) == 2
         assert added[0].inci_id == "R1"
         assert added[1].inci_id == "R2"
+        # Verify dates are populated (not None)
+        assert added[0].date_rept == "2024-01-15T10:00:00+00:00"
+        assert added[0].date_occu == "2024-01-15T08:00:00+00:00"
         session.close.assert_called_once()
 
     @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
@@ -212,7 +250,7 @@ class TestFetchMorrisvillePoliceIncidents:
         record = _make_record()
         record["date_rept"] = pd.Timestamp("2024-01-15T10:00:00+00:00")
         record["date_occu"] = pd.Timestamp("2024-01-15T08:00:00+00:00")
-        df = _make_dataframe(record)
+        df = _make_ods_dataframe(record)
 
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -234,7 +272,7 @@ class TestFetchMorrisvillePoliceIncidents:
         record = _make_record()
         record["date_rept"] = pd.NaT
         record["date_occu"] = pd.NaT
-        df = _make_dataframe(record)
+        df = _make_ods_dataframe(record)
 
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -255,9 +293,7 @@ class TestFetchMorrisvillePoliceIncidents:
 
         record = _make_record()
         record["area"] = {"lat": 35.812711, "lon": -78.819843}
-        # Rename to match the column mapping (geo_point_2d -> area)
-        record["geo_point_2d"] = record.pop("area")
-        df = _make_dataframe(record)
+        df = _make_ods_dataframe(record)
 
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -277,7 +313,7 @@ class TestFetchMorrisvillePoliceIncidents:
         mock_session_cls.return_value = session
 
         mock_client = MagicMock()
-        mock_client.get_whole_dataframe.return_value = _make_dataframe(_make_record())
+        mock_client.get_whole_dataframe.return_value = _make_ods_dataframe(_make_record())
         mock_ods_cls.return_value = mock_client
 
         fetch_morrisville_police_incidents(full_refresh=False)

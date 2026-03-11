@@ -199,6 +199,36 @@ class TestGeocodeStreetNames:
         assert result == {}
         assert "Geocode failed" in caplog.text
 
+    def test_retries_on_empty_result_then_succeeds(self):
+        """Geocoder should retry when first attempt returns empty (e.g. timeout)."""
+        call_count = 0
+
+        def _flaky_geocode(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return []  # first attempt fails (simulates timeout → empty)
+            return _fake_geocode(*args, **kwargs)
+
+        result = _geocode_street_names({"KILDAIRE FARM RD"}, geocode_fn=_flaky_geocode)
+        assert "KILDAIRE FARM RD" in result
+        assert call_count == 2
+
+    def test_retries_on_exception_then_succeeds(self):
+        """Geocoder should retry on exception and succeed on next attempt."""
+        call_count = 0
+
+        def _flaky_geocode(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("timeout")
+            return _fake_geocode(*args, **kwargs)
+
+        result = _geocode_street_names({"KILDAIRE FARM RD"}, geocode_fn=_flaky_geocode)
+        assert "KILDAIRE FARM RD" in result
+        assert call_count == 2
+
 
 # -- Tests: fetch_cary_police_incidents ----------------------------------------
 
@@ -210,9 +240,17 @@ class TestFetchCaryPoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        # Simulate API data (no lon/lat columns — like the real API)
-        row1 = {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"}
-        row2 = {"incident_number": "R2", "geocode": "NC 55 HWY", "crime_type": "FRAUD"}
+        # Simulate ODS data — column names as returned by odsclient
+        row1 = {
+            "Incident Number": "R1",
+            "Geo Code": "KILDAIRE FARM RD",
+            "Crime Type": "LARCENY",
+        }
+        row2 = {
+            "Incident Number": "R2",
+            "Geo Code": "NC 55 HWY",
+            "Crime Type": "FRAUD",
+        }
         df = pd.DataFrame([row1, row2])
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -240,7 +278,7 @@ class TestFetchCaryPoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        row = {"incident_number": "R1", "geocode": "", "crime_type": "LARCENY"}
+        row = {"Incident Number": "R1", "Geo Code": "", "Crime Type": "LARCENY"}
         df = pd.DataFrame([row])
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -260,7 +298,7 @@ class TestFetchCaryPoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        row = {"incident_number": "R1", "geocode": "UNKNOWN STREET XYZ", "crime_type": "LARCENY"}
+        row = {"Incident Number": "R1", "Geo Code": "UNKNOWN STREET XYZ", "Crime Type": "LARCENY"}
         df = pd.DataFrame([row])
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
@@ -309,7 +347,7 @@ class TestFetchCaryPoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        row = {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"}
+        row = {"Incident Number": "R1", "Geo Code": "KILDAIRE FARM RD", "Crime Type": "LARCENY"}
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = pd.DataFrame([row])
         mock_ods_cls.return_value = mock_client
@@ -329,8 +367,8 @@ class TestFetchCaryPoliceIncidents:
 
         # Two records with the same street
         rows = [
-            {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"},
-            {"incident_number": "R2", "geocode": "KILDAIRE FARM RD", "crime_type": "FRAUD"},
+            {"Incident Number": "R1", "Geo Code": "KILDAIRE FARM RD", "Crime Type": "LARCENY"},
+            {"Incident Number": "R2", "Geo Code": "KILDAIRE FARM RD", "Crime Type": "FRAUD"},
         ]
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = pd.DataFrame(rows)
