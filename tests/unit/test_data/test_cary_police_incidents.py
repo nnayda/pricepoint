@@ -8,6 +8,7 @@ import pytest
 
 from pricepoint.data.geospatial.police_incidents import (
     _build_geometry,
+    _geocode_street_names,
     _map_record,
     fetch_cary_police_incidents,
 )
@@ -18,9 +19,7 @@ from pricepoint.data.geospatial.police_incidents import (
 def _make_record(**overrides: str) -> dict[str, str]:
     """Return a minimal record dict with optional overrides."""
     base: dict[str, str] = {
-        "id": "24001001",
         "incident_number": "24001001",
-        "crime_category": "LARCENY",
         "crime_type": "LARCENY - FROM MV",
         "ucr": "230",
         "map_reference": "P083",
@@ -30,7 +29,6 @@ def _make_record(**overrides: str) -> dict[str, str]:
         "to_time": "12:00:00",
         "crimeday": "MONDAY",
         "geocode": "KILDAIRE FARM RD",
-        "location_category": "RESIDENTIAL",
         "district": "CPDS",
         "beat_number": "050",
         "neighborhd_id": "0024",
@@ -41,14 +39,7 @@ def _make_record(**overrides: str) -> dict[str, str]:
         "phxrecordstatus": "Active",
         "phxcommunity": "Yes",
         "phxstatus": "Active",
-        "record": "114109",
-        "offensecategory": "Larceny/Theft",
-        "violentproperty": "Part I",
-        "timeframe": "Day",
-        "domestic": "N",
-        "total_incidents": "1",
         "year": "2024",
-        "older_than_five_years_from_now": "False",
         "chrgcnt": "",
         "lon": "-78.748",
         "lat": "35.766",
@@ -58,11 +49,9 @@ def _make_record(**overrides: str) -> dict[str, str]:
 
 
 def _make_dataframe(*rows: dict[str, str]) -> pd.DataFrame:
-    """Build a DataFrame from record dicts, using ODS-style column names."""
+    """Build a DataFrame from record dicts, using current API column names."""
     if not rows:
-        # Return empty DataFrame with expected columns
         return pd.DataFrame()
-    # Use the column names that ODSClient returns (before rename mapping)
     return pd.DataFrame(list(rows))
 
 
@@ -75,6 +64,15 @@ def _mock_session():
     session.rollback = MagicMock()
     session.close = MagicMock()
     return session
+
+
+def _fake_geocode(query, limit=1, **kwargs):
+    """Fake geocoder that returns coords for known Cary streets."""
+    if "KILDAIRE FARM RD" in query:
+        return [{"lat": 35.766, "lon": -78.748, "display_name": "Kildaire Farm Rd"}]
+    if "NC 55 HWY" in query:
+        return [{"lat": 35.7601, "lon": -78.7675, "display_name": "NC 55 Hwy"}]
+    return []
 
 
 # -- Tests: _build_geometry / _map_record --------------------------------------
@@ -103,9 +101,7 @@ class TestMapRecord:
         record = _make_record()
         obj = _map_record(record)
 
-        assert obj.api_id == "24001001"
         assert obj.incident_number == "24001001"
-        assert obj.crime_category == "LARCENY"
         assert obj.crime_type == "LARCENY - FROM MV"
         assert obj.ucr == "230"
         assert obj.map_reference == "P083"
@@ -115,7 +111,6 @@ class TestMapRecord:
         assert obj.to_time == "12:00:00"
         assert obj.crimeday == "MONDAY"
         assert obj.geocode == "KILDAIRE FARM RD"
-        assert obj.location_category == "RESIDENTIAL"
         assert obj.district == "CPDS"
         assert obj.beat_number == "050"
         assert obj.neighborhd_id == "0024"
@@ -126,14 +121,7 @@ class TestMapRecord:
         assert obj.phxrecordstatus == "Active"
         assert obj.phxcommunity == "Yes"
         assert obj.phxstatus == "Active"
-        assert obj.record == "114109"
-        assert obj.offensecategory == "Larceny/Theft"
-        assert obj.violentproperty == "Part I"
-        assert obj.timeframe == "Day"
-        assert obj.domestic == "N"
-        assert obj.total_incidents == "1"
         assert obj.year == "2024"
-        assert obj.older_than_five_years_from_now == "False"
         assert obj.chrgcnt is None
         assert obj.lon == pytest.approx(-78.748)
         assert obj.lat == pytest.approx(35.766)
@@ -146,6 +134,71 @@ class TestMapRecord:
         assert obj.lon is None
         assert obj.lat is None
 
+    def test_fields_not_in_api_are_null(self):
+        """Columns removed from the API schema remain nullable in the model."""
+        record = _make_record()
+        # These fields no longer come from the API
+        for key in (
+            "crime_category",
+            "location_category",
+            "record",
+            "offensecategory",
+            "violentproperty",
+            "timeframe",
+            "domestic",
+            "total_incidents",
+            "older_than_five_years_from_now",
+        ):
+            record.pop(key, None)
+
+        obj = _map_record(record)
+        assert obj.crime_category is None
+        assert obj.location_category is None
+        assert obj.record is None
+        assert obj.offensecategory is None
+        assert obj.violentproperty is None
+        assert obj.timeframe is None
+        assert obj.domestic is None
+        assert obj.total_incidents is None
+        assert obj.older_than_five_years_from_now is None
+        # Other fields still work
+        assert obj.crime_type == "LARCENY - FROM MV"
+        assert obj.lon == pytest.approx(-78.748)
+
+
+# -- Tests: _geocode_street_names ----------------------------------------------
+
+
+class TestGeocodeStreetNames:
+    def test_geocodes_unique_streets(self):
+        result = _geocode_street_names(
+            {"KILDAIRE FARM RD", "NC 55 HWY"},
+            geocode_fn=_fake_geocode,
+        )
+        assert "KILDAIRE FARM RD" in result
+        assert result["KILDAIRE FARM RD"] == pytest.approx((-78.748, 35.766))
+        assert "NC 55 HWY" in result
+
+    def test_missing_street_omitted(self):
+        result = _geocode_street_names(
+            {"UNKNOWN STREET XYZ"},
+            geocode_fn=_fake_geocode,
+        )
+        assert "UNKNOWN STREET XYZ" not in result
+
+    def test_empty_set(self):
+        result = _geocode_street_names(set(), geocode_fn=_fake_geocode)
+        assert result == {}
+
+    def test_geocode_exception_handled(self, caplog):
+        def _failing_geocode(*args, **kwargs):
+            raise RuntimeError("service down")
+
+        with caplog.at_level(logging.WARNING):
+            result = _geocode_street_names({"MAIN ST"}, geocode_fn=_failing_geocode)
+        assert result == {}
+        assert "Geocode failed" in caplog.text
+
 
 # -- Tests: fetch_cary_police_incidents ----------------------------------------
 
@@ -153,30 +206,71 @@ class TestMapRecord:
 class TestFetchCaryPoliceIncidents:
     @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-    def test_single_page_fetch(self, mock_session_cls, mock_ods_cls):
+    def test_single_page_fetch_with_geocoding(self, mock_session_cls, mock_ods_cls):
         session = _mock_session()
         mock_session_cls.return_value = session
 
-        df = _make_dataframe(
-            _make_record(id="R1"),
-            _make_record(id="R2"),
-        )
+        # Simulate API data (no lon/lat columns — like the real API)
+        row1 = {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"}
+        row2 = {"incident_number": "R2", "geocode": "NC 55 HWY", "crime_type": "FRAUD"}
+        df = pd.DataFrame([row1, row2])
         mock_client = MagicMock()
         mock_client.get_whole_dataframe.return_value = df
         mock_ods_cls.return_value = mock_client
 
-        fetch_cary_police_incidents(full_refresh=True)
+        fetch_cary_police_incidents(full_refresh=True, geocode_fn=_fake_geocode)
 
         mock_ods_cls.assert_called_once_with(base_url="https://data.townofcary.org/")
         mock_client.get_whole_dataframe.assert_called_once_with(dataset_id="cpd-incidents")
-        # Should have called delete (truncate) then add_all
         session.execute.assert_called_once()
         session.add_all.assert_called_once()
         added = session.add_all.call_args[0][0]
         assert len(added) == 2
-        assert added[0].api_id == "R1"
-        assert added[1].api_id == "R2"
+        # Coordinates should be populated from geocoder
+        assert added[0].lon == pytest.approx(-78.748)
+        assert added[0].lat == pytest.approx(35.766)
+        assert added[0].location is not None
+        assert added[1].lon is not None
+        assert added[1].location is not None
         session.close.assert_called_once()
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_records_without_geocode_have_null_coords(self, mock_session_cls, mock_ods_cls):
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        row = {"incident_number": "R1", "geocode": "", "crime_type": "LARCENY"}
+        df = pd.DataFrame([row])
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = df
+        mock_ods_cls.return_value = mock_client
+
+        fetch_cary_police_incidents(full_refresh=True, geocode_fn=_fake_geocode)
+
+        added = session.add_all.call_args[0][0]
+        assert len(added) == 1
+        assert added[0].lon is None
+        assert added[0].lat is None
+        assert added[0].location is None
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_unknown_street_has_null_coords(self, mock_session_cls, mock_ods_cls):
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        row = {"incident_number": "R1", "geocode": "UNKNOWN STREET XYZ", "crime_type": "LARCENY"}
+        df = pd.DataFrame([row])
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = df
+        mock_ods_cls.return_value = mock_client
+
+        fetch_cary_police_incidents(full_refresh=True, geocode_fn=_fake_geocode)
+
+        added = session.add_all.call_args[0][0]
+        assert added[0].lon is None
+        assert added[0].location is None
 
     @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
@@ -188,7 +282,7 @@ class TestFetchCaryPoliceIncidents:
         mock_client.get_whole_dataframe.return_value = pd.DataFrame()
         mock_ods_cls.return_value = mock_client
 
-        fetch_cary_police_incidents(full_refresh=True)
+        fetch_cary_police_incidents(full_refresh=True, geocode_fn=_fake_geocode)
 
         session.add_all.assert_not_called()
         session.close.assert_called_once()
@@ -204,7 +298,7 @@ class TestFetchCaryPoliceIncidents:
         mock_ods_cls.return_value = mock_client
 
         with pytest.raises(Exception, match="network error"):
-            fetch_cary_police_incidents(full_refresh=True)
+            fetch_cary_police_incidents(full_refresh=True, geocode_fn=_fake_geocode)
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()
@@ -215,12 +309,44 @@ class TestFetchCaryPoliceIncidents:
         session = _mock_session()
         mock_session_cls.return_value = session
 
+        row = {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"}
         mock_client = MagicMock()
-        mock_client.get_whole_dataframe.return_value = _make_dataframe(_make_record())
+        mock_client.get_whole_dataframe.return_value = pd.DataFrame([row])
         mock_ods_cls.return_value = mock_client
 
-        fetch_cary_police_incidents(full_refresh=False)
+        fetch_cary_police_incidents(full_refresh=False, geocode_fn=_fake_geocode)
 
         # session.execute should NOT have been called (no delete)
         session.execute.assert_not_called()
         session.add_all.assert_called_once()
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_deduplicates_geocode_calls(self, mock_session_cls, mock_ods_cls):
+        """Same street name should only be geocoded once."""
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        # Two records with the same street
+        rows = [
+            {"incident_number": "R1", "geocode": "KILDAIRE FARM RD", "crime_type": "LARCENY"},
+            {"incident_number": "R2", "geocode": "KILDAIRE FARM RD", "crime_type": "FRAUD"},
+        ]
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = pd.DataFrame(rows)
+        mock_ods_cls.return_value = mock_client
+
+        call_count = 0
+
+        def _counting_geocode(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return _fake_geocode(*args, **kwargs)
+
+        fetch_cary_police_incidents(full_refresh=True, geocode_fn=_counting_geocode)
+
+        # Only one geocode call for the one unique street
+        assert call_count == 1
+        added = session.add_all.call_args[0][0]
+        assert added[0].lon == pytest.approx(-78.748)
+        assert added[1].lon == pytest.approx(-78.748)

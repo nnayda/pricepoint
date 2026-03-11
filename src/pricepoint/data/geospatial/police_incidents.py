@@ -6,6 +6,7 @@ Sources: municipal open-data portals (Opendatasoft, ArcGIS Feature Services).
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from geoalchemy2.shape import from_shape
@@ -13,6 +14,7 @@ from odsclient import ODSClient
 from shapely.geometry import Point
 from sqlalchemy import delete, select
 
+from pricepoint.api.services.geocoding import geocode_sync
 from pricepoint.config.settings import get_settings
 from pricepoint.db import SessionLocal
 from pricepoint.db.models import (
@@ -126,14 +128,64 @@ def _map_record(record: dict) -> StagingCaryPoliceIncident:
     )
 
 
-def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
+def _geocode_street_names(
+    street_names: set[str],
+    geocode_fn: Callable[..., list[dict[str, Any]]] = geocode_sync,
+) -> dict[str, tuple[float, float]]:
+    """Geocode a set of street names in Cary, NC.
+
+    Returns a dict mapping each street name to ``(lon, lat)`` for streets
+    that were successfully geocoded.  Streets that fail geocoding are
+    silently omitted.
+
+    Uses the configured geocoding provider (Nominatim or Photon) via
+    :func:`geocode_sync`, with a location bias centred on Cary, NC.
+    """
+    # Centre of Cary, NC — used as geocoder bias
+    CARY_LAT, CARY_LON = 35.7915, -78.7811
+
+    cache: dict[str, tuple[float, float]] = {}
+    for street in sorted(street_names):
+        query = f"{street}, Cary, NC"
+        try:
+            results = geocode_fn(
+                query,
+                limit=1,
+                bias_lat=CARY_LAT,
+                bias_lon=CARY_LON,
+            )
+            if results:
+                cache[street] = (results[0]["lon"], results[0]["lat"])
+            else:
+                logger.debug("Geocode returned no results for %r", query)
+        except Exception:
+            logger.warning("Geocode failed for %r", query, exc_info=True)
+
+    logger.info(
+        "Geocoded %d / %d unique Cary street names",
+        len(cache),
+        len(street_names),
+    )
+    return cache
+
+
+def fetch_cary_police_incidents(
+    *,
+    full_refresh: bool = True,
+    geocode_fn: Callable[..., list[dict[str, Any]]] = geocode_sync,
+) -> None:
     """Fetch all police incident records from the Town of Cary Open Data Portal.
 
     Downloads the full ``cpd-incidents`` dataset via ``odsclient`` and loads
-    records into the ``staging_cary_police_incidents`` table.
+    records into the ``staging_cary_police_incidents`` table.  Since the
+    dataset does not include coordinates, each unique street name in the
+    ``geocode`` column is geocoded using the configured provider.
 
     Args:
         full_refresh: If True (default), truncate the staging table before loading.
+        geocode_fn: Callable used for geocoding (default: ``geocode_sync``).
+            Accepts the same signature as :func:`geocode_sync`.  Overridable
+            for testing.
     """
     CARY_BASE_URL = "https://data.townofcary.org/"
     CARY_DATASET_ID = "cpd-incidents"
@@ -155,62 +207,41 @@ def fetch_cary_police_incidents(*, full_refresh: bool = True) -> None:
         # Normalize column names: lowercase and replace spaces with underscores
         df.columns = df.columns.str.lower().str.replace(" ", "_")
 
-        # Rename columns to match the expected format
-        column_mapping = {
-            "id": "id",
-            "incident_number": "incident_number",
-            "crime_category": "crime_category",
-            "crime_type": "crime_type",
-            "ucr": "ucr",
-            "map_reference": "map_reference",
-            "begin_date_of_occurrence": "date_from",
-            "begin_time_of_occurrence": "from_time",
-            "end_date_of_occurrence": "date_to",
-            "end_time_of_occurrence": "to_time",
-            "crime_day": "crimeday",
-            "geo_code": "geocode",
-            "location_category": "location_category",
-            "district": "district",
-            "beat_number": "beat_number",
-            "neighborhood_id": "neighborhd_id",
-            "apartment_complex": "apartment_complex",
-            "residential_subdivision": "residential_subdivision",
-            "subdivision_id": "subdivisn_id",
-            "phx_activity_date": "activity_date",
-            "phx_record_status": "phxrecordstatus",
-            "phx_community": "phxcommunity",
-            "phx_status": "phxstatus",
-            "record": "record",
-            "offense_category": "offensecategory",
-            "violent_property": "violentproperty",
-            "timeframe": "timeframe",
-            "domestic": "domestic",
-            "total_incidents": "total_incidents",
-            "year": "year",
-            "older_than_five_years_from_now": "older_than_five_years_from_now",
-            "charge_count": "chrgcnt",
-            "longitude": "lon",
-            "latitude": "lat",
-        }
-        df = df.rename(columns=column_mapping)
-
-        # Convert dataframe to records - iterate through rows
-        records = []
+        # Convert dataframe to row dicts
+        row_dicts: list[dict[str, str]] = []
         for _, row in df.iterrows():
-            # Convert row to dict and map to model
             row_dict = row.to_dict()
             # Convert NaN to empty string for CSV compatibility
             row_dict = {
                 k: (v if not (isinstance(v, float) and str(v) == "nan") else "")
                 for k, v in row_dict.items()
             }
+            row_dicts.append(row_dict)
+
+        # Geocode unique street names from the "geocode" column
+        unique_streets = {r.get("geocode", "") for r in row_dicts if r.get("geocode")}
+        coord_cache = _geocode_street_names(unique_streets, geocode_fn)
+
+        # Map rows to model instances, injecting geocoded coordinates
+        records = []
+        for row_dict in row_dicts:
+            street = row_dict.get("geocode", "")
+            coords = coord_cache.get(street)
+            if coords:
+                row_dict["lon"] = str(coords[0])
+                row_dict["lat"] = str(coords[1])
             records.append(_map_record(row_dict))
 
         if records:
             session.add_all(records)
             session.commit()
 
-        logger.info("Cary police incidents load complete: %d records", len(records))
+        geocoded = sum(1 for r in records if r.location is not None)
+        logger.info(
+            "Cary police incidents load complete: %d records (%d geocoded)",
+            len(records),
+            geocoded,
+        )
     except Exception:
         session.rollback()
         raise
@@ -387,17 +418,25 @@ def fetch_daily_raleigh_police_incidents() -> None:
 # -- Morrisville Opendatasoft helpers ------------------------------------------
 
 
-def _parse_area_coords(area: str) -> tuple[float | None, float | None]:
-    """Parse an Opendatasoft ``area`` value ("lat, lon") into (lat, lon).
+def _parse_area_coords(
+    area: "str | dict | None",
+) -> tuple[float | None, float | None]:
+    """Parse an Opendatasoft ``area`` value into (lat, lon).
+
+    Accepts either:
+    - A dict with ``"lat"`` and ``"lon"`` keys (current API format)
+    - A comma-separated string ``"lat, lon"`` (legacy CSV format)
 
     Returns ``(None, None)`` on any failure.
     """
     if not area:
         return None, None
     try:
-        parts = area.split(",")
+        if isinstance(area, dict):
+            return float(area["lat"]), float(area["lon"])
+        parts = str(area).split(",")
         return float(parts[0].strip()), float(parts[1].strip())
-    except (IndexError, ValueError):
+    except (KeyError, IndexError, ValueError, TypeError):
         return None, None
 
 
@@ -488,12 +527,25 @@ def fetch_morrisville_police_incidents(*, full_refresh: bool = True) -> None:
         for _, row in df.iterrows():
             # Convert row to dict and map to model
             row_dict = row.to_dict()
-            # Convert NaN to empty string
-            row_dict = {
-                k: (v if not (isinstance(v, float) and str(v) == "nan") else "")
-                for k, v in row_dict.items()
-            }
-            records.append(_map_morrisville_record(row_dict))
+            # Convert NaN/NaT to empty string; coerce non-dict values to str
+            # so that datetime/Timestamp objects become ISO strings for _csv_val
+            cleaned: dict = {}
+            for k, v in row_dict.items():
+                try:
+                    is_missing = v is None or (v != v)  # v != v catches NaN/NaT
+                except (TypeError, ValueError):
+                    is_missing = False
+                if is_missing:
+                    cleaned[k] = ""
+                elif hasattr(v, "isoformat"):
+                    # pandas Timestamp / datetime → ISO string
+                    cleaned[k] = v.isoformat()
+                elif isinstance(v, dict):
+                    # area field comes as {"lat": ..., "lon": ...}
+                    cleaned[k] = v
+                else:
+                    cleaned[k] = str(v)
+            records.append(_map_morrisville_record(cleaned))
 
         if records:
             session.add_all(records)

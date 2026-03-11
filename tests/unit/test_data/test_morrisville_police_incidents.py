@@ -87,6 +87,21 @@ class TestParseAreaCoords:
         assert lat is None
         assert lon is None
 
+    def test_dict_area(self):
+        lat, lon = _parse_area_coords({"lat": 35.812711, "lon": -78.819843})
+        assert lat == pytest.approx(35.812711)
+        assert lon == pytest.approx(-78.819843)
+
+    def test_dict_area_missing_key(self):
+        lat, lon = _parse_area_coords({"lat": 35.812711})
+        assert lat is None
+        assert lon is None
+
+    def test_dict_area_empty(self):
+        lat, lon = _parse_area_coords({})
+        assert lat is None
+        assert lon is None
+
 
 # -- Tests: _map_morrisville_record -------------------------------------------
 
@@ -185,6 +200,75 @@ class TestFetchMorrisvillePoliceIncidents:
 
         session.rollback.assert_called_once()
         session.close.assert_called_once()
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_timestamp_dates_converted_to_iso_strings(self, mock_session_cls, mock_ods_cls):
+        """Verify that pandas Timestamp date values are stored as ISO strings."""
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        # Build a DataFrame with actual Timestamp columns (as odsclient returns)
+        record = _make_record()
+        record["date_rept"] = pd.Timestamp("2024-01-15T10:00:00+00:00")
+        record["date_occu"] = pd.Timestamp("2024-01-15T08:00:00+00:00")
+        df = _make_dataframe(record)
+
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = df
+        mock_ods_cls.return_value = mock_client
+
+        fetch_morrisville_police_incidents(full_refresh=True)
+
+        added = session.add_all.call_args[0][0]
+        assert added[0].date_rept == "2024-01-15T10:00:00+00:00"
+        assert added[0].date_occu == "2024-01-15T08:00:00+00:00"
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_nat_dates_become_null(self, mock_session_cls, mock_ods_cls):
+        """Verify that NaT date values are stored as None."""
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        record = _make_record()
+        record["date_rept"] = pd.NaT
+        record["date_occu"] = pd.NaT
+        df = _make_dataframe(record)
+
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = df
+        mock_ods_cls.return_value = mock_client
+
+        fetch_morrisville_police_incidents(full_refresh=True)
+
+        added = session.add_all.call_args[0][0]
+        assert added[0].date_rept is None
+        assert added[0].date_occu is None
+
+    @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
+    @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
+    def test_dict_area_parsed_correctly(self, mock_session_cls, mock_ods_cls):
+        """Verify that dict-format area values are parsed for lat/lon."""
+        session = _mock_session()
+        mock_session_cls.return_value = session
+
+        record = _make_record()
+        record["area"] = {"lat": 35.812711, "lon": -78.819843}
+        # Rename to match the column mapping (geo_point_2d -> area)
+        record["geo_point_2d"] = record.pop("area")
+        df = _make_dataframe(record)
+
+        mock_client = MagicMock()
+        mock_client.get_whole_dataframe.return_value = df
+        mock_ods_cls.return_value = mock_client
+
+        fetch_morrisville_police_incidents(full_refresh=True)
+
+        added = session.add_all.call_args[0][0]
+        assert added[0].lat == pytest.approx(35.812711)
+        assert added[0].lon == pytest.approx(-78.819843)
+        assert added[0].location is not None
 
     @patch("pricepoint.data.geospatial.police_incidents.ODSClient")
     @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
