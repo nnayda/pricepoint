@@ -32,7 +32,7 @@ def overture_places_collection():
 
         fetch_places()
 
-    @task(outlets=[Asset("overture_places")])
+    @task(outlets=[Asset("places")])
     def verify_places():
         """Verify that place records were loaded."""
         from pricepoint.data.geospatial.overture_places import verify_places

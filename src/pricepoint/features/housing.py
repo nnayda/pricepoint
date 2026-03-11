@@ -182,14 +182,14 @@ def _compute_property_features(listing: RedfinListing, now: datetime) -> dict:
     if beds is not None and baths is not None and baths != 0:
         result["bed_bath_ratio"] = beds / baths
     else:
-        result["bed_bath_ratio"] = 0.0
+        result["bed_bath_ratio"] = None
 
     # sqft_per_bedroom
     sqft = listing.sqft
     if sqft is not None and beds is not None and beds != 0:
         result["sqft_per_bedroom"] = sqft / beds
     else:
-        result["sqft_per_bedroom"] = 0.0
+        result["sqft_per_bedroom"] = None
 
     # lot_to_building_ratio
     lot_sqft = listing.lot_size
@@ -197,7 +197,7 @@ def _compute_property_features(listing: RedfinListing, now: datetime) -> dict:
     if lot_sqft is not None and building_sqft is not None and building_sqft != 0:
         result["lot_to_building_ratio"] = lot_sqft / building_sqft
     else:
-        result["lot_to_building_ratio"] = 0.0
+        result["lot_to_building_ratio"] = None
 
     # luxury_feature_count
     luxury_count = 0

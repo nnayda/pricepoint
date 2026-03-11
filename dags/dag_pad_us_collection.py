@@ -8,7 +8,7 @@ into the greenspaces table.
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def pad_us_collection():
 
         fetch_pad_us()
 
-    @task()
+    @task(outlets=[Asset("greenspaces")])
     def verify_load():
         """Verify that greenspace records were loaded."""
         from pricepoint.data.geospatial.pad_us import verify_pad_us

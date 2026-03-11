@@ -13,7 +13,7 @@ and Wake subdivision (area-weighted from block groups).
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def census_demographic_collection():
 
         compute_subdivision_demographics()
 
-    @task()
+    @task(outlets=[Asset("demographics")])
     def verify_load():
         """Verify that ACS demographic records were loaded."""
         from pricepoint.data.geospatial.census_demographics import (

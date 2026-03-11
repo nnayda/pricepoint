@@ -10,6 +10,7 @@ from pricepoint.models.training import (
     MAX_NAN_FRACTION,
     OUTLIER_PERCENTILE_HIGH,
     OUTLIER_PERCENTILE_LOW,
+    add_missingness_indicators,
     prepare_features,
     train_model,
 )
@@ -151,7 +152,7 @@ class TestTrainModel:
         assert DEFAULT_PARAMS["n_estimators"] == 500
         assert DEFAULT_PARAMS["max_depth"] == 4
         assert DEFAULT_PARAMS["learning_rate"] == 0.03
-        assert MAX_NAN_FRACTION == 0.5
+        assert MAX_NAN_FRACTION == 0.95
 
     def test_default_params_enable_categorical(self) -> None:
         assert DEFAULT_PARAMS["enable_categorical"] is True
@@ -160,3 +161,64 @@ class TestTrainModel:
     def test_outlier_constants(self) -> None:
         assert OUTLIER_PERCENTILE_LOW == 0.01
         assert OUTLIER_PERCENTILE_HIGH == 0.99
+
+
+class TestMissingnessIndicators:
+    """Tests for add_missingness_indicators and related behaviour."""
+
+    def test_generates_missingness_indicators(self, synthetic_df_with_nan: pd.DataFrame) -> None:
+        """association_fee at ~50% NaN should produce an indicator column."""
+        x, _y = prepare_features(synthetic_df_with_nan, "sold_price", filter_outliers=False)
+        assert "association_fee_missing" in x.columns
+        # Indicator should be 0/1 integers
+        assert set(x["association_fee_missing"].unique()).issubset({0, 1})
+
+    def test_retains_moderate_nan_columns(self, synthetic_df_with_nan: pd.DataFrame) -> None:
+        """Columns at 50-70% NaN should be retained under the 95% threshold."""
+        df = synthetic_df_with_nan.copy()
+        rng = np.random.RandomState(77)
+        moderate_nan = np.full(len(df), np.nan)
+        non_null_count = int(len(df) * 0.35)  # 65% NaN
+        moderate_nan[:non_null_count] = rng.uniform(0, 100, non_null_count)
+        df["moderate_col"] = moderate_nan
+
+        x, _y = prepare_features(df, "sold_price", filter_outliers=False)
+        assert "moderate_col" in x.columns
+
+    def test_drops_very_high_nan_columns(self, synthetic_df_with_nan: pd.DataFrame) -> None:
+        """The mostly_nan_col fixture (>95% NaN) should still be dropped."""
+        x, _y = prepare_features(synthetic_df_with_nan, "sold_price", filter_outliers=False)
+        assert "mostly_nan_col" not in x.columns
+
+    def test_add_missingness_indicators_standalone(self) -> None:
+        """Direct test of add_missingness_indicators helper."""
+        df = pd.DataFrame(
+            {
+                "association_fee": [100.0, np.nan, np.nan, 200.0, np.nan],
+                "sqft": [1000, 1200, 1100, 1300, 900],
+            }
+        )
+        result = add_missingness_indicators(df)
+        assert "association_fee_missing" in result.columns
+        expected = [0, 1, 1, 0, 1]
+        assert list(result["association_fee_missing"]) == expected
+
+    def test_skips_indicator_for_non_structural_columns(self) -> None:
+        """Columns not in STRUCTURAL_NULL_FEATURES should not get indicators."""
+        df = pd.DataFrame(
+            {
+                "sqft": [1000, np.nan, np.nan, 1300, 900],
+            }
+        )
+        result = add_missingness_indicators(df)
+        assert "sqft_missing" not in result.columns
+
+    def test_skips_indicator_when_nan_fraction_too_low(self) -> None:
+        """Columns with <=1% NaN should not get indicators."""
+        df = pd.DataFrame(
+            {
+                "association_fee": [100.0] * 100,
+            }
+        )
+        result = add_missingness_indicators(df)
+        assert "association_fee_missing" not in result.columns

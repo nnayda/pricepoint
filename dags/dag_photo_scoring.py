@@ -12,7 +12,8 @@ from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
-DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
+DESCRIPTION_SCORING_DATASET = Asset("description_scores")
+PHOTO_SCORING_DATASET = Asset("photo_scores")
 
 
 @dag(
@@ -45,7 +46,7 @@ def photo_quality_scoring():
         )
         return result
 
-    @task()
+    @task(outlets=[PHOTO_SCORING_DATASET])
     def verify_scoring(result):
         """Verify scoring completed without excessive errors and DB has records."""
         from pricepoint.data.housing.photo_scorer import verify_photo_scores

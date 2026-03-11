@@ -5,14 +5,13 @@ Runs after feature engineering completes.
 
 from datetime import UTC, datetime, timedelta
 
-from airflow.sdk import dag, task
-from dag_feature_engineering import FEATURES_READY
+from airflow.sdk import Asset, dag, task
 
 
 @dag(
     dag_id="model_training",
     description="Tune, train, validate, evaluate, and register the home value model",
-    schedule=(FEATURES_READY,),
+    schedule=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -282,7 +281,7 @@ def model_training():
             auto_promote=settings.model_auto_promote,
         )
 
-    @task()
+    @task(outlets=[Asset("trained_model")])
     def notify_and_trigger(comparison: dict) -> dict:
         """Send ntfy notification and trigger batch scoring if promoted."""
         import json

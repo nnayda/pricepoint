@@ -7,7 +7,7 @@ airports into the airports table via direct upsert.
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def ourairports_collection():
         count = _fetch_airports()
         logger.info("Loaded %d airports", count)
 
-    @task()
+    @task(outlets=[Asset("airports")])
     def verify_load():
         """Verify that records were loaded into the airports table."""
         from pricepoint.data.geospatial.ourairports import verify_airports

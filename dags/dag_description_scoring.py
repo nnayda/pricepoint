@@ -12,7 +12,7 @@ from airflow.sdk import Asset, dag, task
 logger = logging.getLogger(__name__)
 
 LISTINGS_DATASET = Asset("redfin_listings")
-DESCRIPTION_SCORING_DATASET = Asset("description_scoring_complete")
+DESCRIPTION_SCORING_DATASET = Asset("description_scores")
 
 
 @dag(

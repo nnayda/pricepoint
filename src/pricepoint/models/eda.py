@@ -135,12 +135,14 @@ def generate_eda_plots(
     paths: list[Path] = []
 
     target_kwargs = {"y": y, "log_transformed": log_transformed}
+    pairwise_kwargs = {"x": x, **target_kwargs}
     generators = [
         ("eda_target_distribution.png", _plot_target_distribution, target_kwargs),
         ("eda_feature_nulls.png", _plot_feature_nulls, {"x": x}),
         ("eda_correlation_heatmap.png", _plot_correlation_heatmap, {"x": x}),
         ("eda_numeric_distributions.png", _plot_numeric_distributions, {"x": x}),
         ("eda_categorical_balance.png", _plot_categorical_balance, {"x": x}),
+        ("eda_pairwise_target.png", _plot_pairwise_target, pairwise_kwargs),
     ]
 
     for filename, func, kwargs in generators:
@@ -356,6 +358,75 @@ def _plot_categorical_balance(
         flat_axes[i].set_visible(False)
 
     fig.suptitle("Categorical Feature Value Counts", fontsize=13)
+    fig.tight_layout()
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_pairwise_target(
+    *,
+    x: pd.DataFrame,
+    y: pd.Series,
+    log_transformed: bool,
+    output_dir: Path,
+    filename: str,
+    max_features: int = 12,
+) -> Path | None:
+    """Scatter plots of top numeric features vs target with regression trendlines.
+
+    Selects features by highest absolute Pearson correlation with the target
+    and plots each in a subplot grid with an OLS trendline.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    y_dollar = np.expm1(y) if log_transformed else y
+
+    numeric = x.select_dtypes(include="number")
+    if numeric.shape[1] == 0:
+        return None
+
+    # Rank features by absolute correlation with target
+    correlations = numeric.corrwith(y_dollar).abs().dropna().sort_values(ascending=False)
+    top_cols = correlations.head(max_features).index.tolist()
+
+    if not top_cols:
+        return None
+
+    ncols = 3
+    nrows = (len(top_cols) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(5 * ncols, 4 * nrows))
+    flat_axes = np.array(axes).flatten() if nrows > 1 or ncols > 1 else [axes]
+
+    for i, col in enumerate(top_cols):
+        ax = flat_axes[i]
+        mask = numeric[col].notna() & y_dollar.notna()
+        xi = numeric[col][mask].values
+        yi = y_dollar[mask].values
+
+        ax.scatter(xi, yi, alpha=0.35, s=12, color="#1976D2", edgecolors="none")
+
+        # OLS trendline
+        if len(xi) >= 2:
+            coeffs = np.polyfit(xi, yi, 1)
+            x_line = np.linspace(xi.min(), xi.max(), 100)
+            ax.plot(x_line, np.polyval(coeffs, x_line), color="#D32F2F", linewidth=1.5)
+
+        corr_val = correlations.get(col, 0.0)
+        ax.set_title(f"{col}  (r={corr_val:.2f})", fontsize=9)
+        ax.set_xlabel(col, fontsize=8)
+        ax.set_ylabel("Sold Price ($)", fontsize=8)
+        ax.tick_params(labelsize=7)
+
+    for i in range(len(top_cols), len(flat_axes)):
+        flat_axes[i].set_visible(False)
+
+    fig.suptitle("Feature vs Target (Top by Correlation)", fontsize=13)
     fig.tight_layout()
 
     path = output_dir / filename

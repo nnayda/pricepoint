@@ -34,9 +34,40 @@ DEFAULT_PARAMS: dict[str, Any] = {
 
 EARLY_STOPPING_ROUNDS = 50
 TEST_SIZE = 0.2
-MAX_NAN_FRACTION = 0.5
+MAX_NAN_FRACTION = 0.95
 OUTLIER_PERCENTILE_LOW = 0.01
 OUTLIER_PERCENTILE_HIGH = 0.99
+
+# Features where NULL encodes a real-world state (not just "missing data").
+# Missingness indicators let XGBoost learn from presence/absence explicitly.
+STRUCTURAL_NULL_FEATURES: list[str] = [
+    "association_fee",  # NULL = no HOA
+    "years_since_renovation",  # NULL = never renovated
+    "years_since_last_sale",  # NULL = no prior sale on record
+    "decayed_sale_signal",  # NULL = no prior sale on record
+    "num_parking_spaces",  # NULL = not reported (older/smaller homes)
+    "appliances_included_count",  # NULL = not reported
+    "llm_description_score",  # NULL = no LLM analysis run
+    "llm_photo_score",  # NULL = no LLM analysis run
+]
+
+
+def add_missingness_indicators(x: pd.DataFrame) -> pd.DataFrame:
+    """Add binary indicator columns for structurally-null features.
+
+    For each column in ``STRUCTURAL_NULL_FEATURES`` present in *x* whose
+    NaN fraction is between 1% and ``MAX_NAN_FRACTION``, creates a new
+    ``{col}_missing`` column (int 0/1).  This lets XGBoost learn from
+    both presence/absence AND the actual value when present.
+    """
+    x = x.copy()
+    for col in STRUCTURAL_NULL_FEATURES:
+        if col not in x.columns:
+            continue
+        nan_frac = x[col].isna().mean()
+        if 0.01 < nan_frac < MAX_NAN_FRACTION:
+            x[f"{col}_missing"] = x[col].isna().astype(int)
+    return x
 
 
 def prepare_features(
@@ -48,7 +79,8 @@ def prepare_features(
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Separate target from features and clean the data.
 
-    Drops columns that are >50% NaN and non-numeric columns.
+    Drops columns that are >95% NaN and non-numeric columns.
+    Adds missingness indicators for structurally-null features.
     Optionally filters target outliers and applies log-transform.
     Returns (X, y).
     """
@@ -73,12 +105,25 @@ def prepare_features(
         if col in x.columns:
             x[col] = x[col].astype("category")
 
-    # Drop columns with >50% NaN
+    # Add missingness indicators for structurally-null features
+    x = add_missingness_indicators(x)
+
+    # Drop columns with >95% NaN
     nan_fractions = x.isna().mean()
     high_nan_cols = nan_fractions[nan_fractions > MAX_NAN_FRACTION].index.tolist()
     if high_nan_cols:
-        logger.info("Dropping columns with >50%% NaN: %s", high_nan_cols)
+        logger.info("Dropping columns with >95%% NaN: %s", high_nan_cols)
         x = x.drop(columns=high_nan_cols)
+
+    # Log retained columns with notable NaN fractions for monitoring
+    nan_fractions = x.isna().mean()
+    notable_nan = nan_fractions[(nan_fractions > 0.2) & (nan_fractions <= MAX_NAN_FRACTION)]
+    if not notable_nan.empty:
+        logger.info(
+            "Retained %d columns with 20-95%% NaN: %s",
+            len(notable_nan),
+            dict(notable_nan.round(2)),
+        )
 
     # Drop rows where target is NaN
     valid_mask = y.notna()

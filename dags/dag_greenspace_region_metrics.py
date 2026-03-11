@@ -8,7 +8,7 @@ county_subdivision, county).  Manual trigger only.
 import logging
 from datetime import datetime, timedelta
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 @dag(
     dag_id="greenspace_region_metrics",
     description="Precompute greenspace metrics and z-scores at TIGER geographic levels",
-    schedule=None,
+    schedule=[
+        Asset("greenspaces"),
+        Asset("trails"),
+        Asset("geo_boundaries"),
+        Asset("demographics"),
+    ],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -151,7 +156,7 @@ def greenspace_region_metrics():
         finally:
             session.close()
 
-    @task()
+    @task(outlets=[Asset("greenspace_metrics")])
     def verify():
         """Verify all metrics are populated."""
         from pricepoint.data.geospatial.greenspace_metrics import verify_metrics

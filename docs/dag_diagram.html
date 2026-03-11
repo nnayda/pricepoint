@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PricePoint DAG Dependency Diagram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; overflow: hidden; }
+
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #161b22; border-bottom: 1px solid #30363d;
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px;
+    height: 52px;
+  }
+  #toolbar h1 { font-size: 16px; font-weight: 600; color: #f0f3f6; white-space: nowrap; }
+  .legend { display: flex; gap: 14px; margin-left: 24px; flex-wrap: nowrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #8b949e; white-space: nowrap; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .legend-line { width: 20px; height: 0; border-top: 2px solid; flex-shrink: 0; }
+
+  .controls { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .controls button {
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 10px;
+    border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .controls button:hover { background: #30363d; }
+  .controls select {
+    background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 8px;
+    border-radius: 6px; font-size: 12px;
+  }
+
+  #canvas-container {
+    position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
+    overflow: hidden; cursor: grab;
+  }
+  #canvas-container.dragging { cursor: grabbing; }
+
+  svg { position: absolute; top: 0; left: 0; }
+
+  .dag-node { cursor: pointer; }
+  .dag-node rect { rx: 8; ry: 8; stroke-width: 1.5; transition: filter 0.15s; }
+  .dag-node:hover rect { filter: brightness(1.2); }
+  .dag-node text { font-family: 'Segoe UI', system-ui, sans-serif; pointer-events: none; }
+
+  .asset-node { cursor: pointer; }
+  .asset-node rect { rx: 12; ry: 12; stroke-width: 1.5; stroke-dasharray: 5,3; transition: filter 0.15s; }
+  .asset-node:hover rect { filter: brightness(1.2); }
+  .asset-node text { font-family: 'Segoe UI', system-ui, sans-serif; pointer-events: none; }
+
+  .edge { fill: none; stroke-width: 1.5; }
+  .edge-produces { stroke: #3fb950; }
+  .edge-triggers { stroke: #58a6ff; }
+  .edge-and-triggers { stroke: #d2a8ff; }
+
+  marker polygon { }
+
+  .tooltip {
+    position: fixed; background: #1c2128; border: 1px solid #30363d;
+    border-radius: 8px; padding: 12px 16px; font-size: 13px;
+    pointer-events: none; z-index: 200; max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none;
+    line-height: 1.5;
+  }
+  .tooltip .tt-title { font-weight: 600; color: #f0f3f6; margin-bottom: 4px; }
+  .tooltip .tt-type { font-size: 11px; color: #8b949e; margin-bottom: 6px; }
+  .tooltip .tt-detail { color: #c9d1d9; }
+  .tooltip .tt-detail span { color: #8b949e; }
+
+  .minimap {
+    position: fixed; bottom: 16px; right: 16px; width: 200px; height: 140px;
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    overflow: hidden; z-index: 100;
+  }
+  .minimap svg { width: 100%; height: 100%; }
+  .minimap-viewport { fill: rgba(88,166,255,0.12); stroke: #58a6ff; stroke-width: 1; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>PricePoint DAG Dependencies</h1>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:#238636;"></div> Scheduled</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#1f6feb;"></div> Asset-triggered</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#6e40c9;"></div> Manual</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#da3633; opacity:0.7;"></div> Asset</div>
+    <div class="legend-item"><div class="legend-line" style="border-color:#3fb950;"></div> Produces</div>
+    <div class="legend-item"><div class="legend-line" style="border-color:#58a6ff;"></div> Triggers (OR)</div>
+    <div class="legend-item"><div class="legend-line" style="border-color:#d2a8ff;"></div> Triggers (AND)</div>
+  </div>
+  <div class="controls">
+    <select id="filter">
+      <option value="all">All DAGs</option>
+      <option value="scheduled">Scheduled only</option>
+      <option value="asset-triggered">Asset-triggered only</option>
+      <option value="manual">Manual only</option>
+    </select>
+    <button onclick="resetView()">Reset View</button>
+    <button onclick="fitAll()">Fit All</button>
+  </div>
+</div>
+
+<div id="canvas-container">
+  <svg id="main-svg"></svg>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="minimap"><svg id="minimap-svg"></svg></div>
+
+<script>
+// ── Data Model ──────────────────────────────────────────────────
+const DAGS = [
+  { id: 'batch_scoring', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['trained_model','feature_matrix'], outlets: ['batch_scores'] },
+  { id: 'bts_noise_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['noises'] },
+  { id: 'cary_police_collection', schedule: '@weekly', triggerType: 'scheduled', triggers: [], outlets: [] },
+  { id: 'census_demographic_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['demographics'] },
+  { id: 'description_quality_scoring', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['redfin_listings'], outlets: ['description_scores'] },
+  { id: 'economic_collection', schedule: '@weekly', triggerType: 'scheduled', triggers: [], outlets: ['macrofactors'] },
+  { id: 'feature_engineering', schedule: null, triggerType: 'asset', triggerCondition: 'AND', triggers: ['redfin_listings','property_geo_lookups','description_scores','photo_scores','schools','property_history'], outlets: ['feature_matrix'] },
+  { id: 'greenspace_region_metrics', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['greenspaces','trails','geo_boundaries','demographics'], outlets: ['greenspace_metrics'] },
+  { id: 'hifld_infrastructure_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['cell_towers','transmission_lines','power_plants','nat_gas_pipelines','petroleum_pipelines'] },
+  { id: 'model_training', schedule: null, triggerType: 'manual', triggers: [], outlets: ['trained_model'] },
+  { id: 'morrisville_police_collection', schedule: '@weekly', triggerType: 'scheduled', triggers: [], outlets: [] },
+  { id: 'nces_school_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['nces_schools'] },
+  { id: 'ourairports_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['airports'] },
+  { id: 'overture_places_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['places'] },
+  { id: 'pad_us_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['greenspaces'] },
+  { id: 'photo_quality_scoring', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['description_scores'], outlets: ['photo_scores'] },
+  { id: 'place_names_refresh', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['places'], outlets: ['place_names'] },
+  { id: 'property_geo_lookups', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['geo_boundaries','subdivision_boundaries','schools','greenspace_metrics','risk_boundaries','noises'], outlets: ['property_geo_lookups'] },
+  { id: 'property_history_metrics', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['redfin_listings'], outlets: ['property_history'] },
+  { id: 'raleigh_police_collection', schedule: '@daily', triggerType: 'scheduled', triggers: [], outlets: [] },
+  { id: 'redfin_listing_collection', schedule: '@daily', triggerType: 'scheduled', triggers: [], outlets: ['staging_redfin_listings'] },
+  { id: 'redfin_listing_reprocess', schedule: null, triggerType: 'manual', triggers: [], outlets: [] },
+  { id: 'redfin_listing_transform', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['staging_redfin_listings'], outlets: ['redfin_listings'] },
+  { id: 'risk_boundary_build', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['cell_towers','transmission_lines','power_plants','nat_gas_pipelines','petroleum_pipelines'], outlets: ['risk_boundaries'] },
+  { id: 'school_gold_tables', schedule: null, triggerType: 'asset', triggerCondition: 'OR', triggers: ['redfin_listings','nces_schools'], outlets: ['schools'] },
+  { id: 'subdivision_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['subdivision_boundaries'] },
+  { id: 'tiger_boundary_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['geo_boundaries'] },
+  { id: 'tiger_road_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['roads'] },
+  { id: 'usgs_trail_collection', schedule: null, triggerType: 'manual', triggers: [], outlets: ['trails'] },
+  { id: 'wake_county_property_collection', schedule: 'every 2 weeks', triggerType: 'scheduled', triggers: [], outlets: [] },
+];
+
+// Collect unique assets
+const assetSet = new Set();
+DAGS.forEach(d => { d.triggers.forEach(a => assetSet.add(a)); d.outlets.forEach(a => assetSet.add(a)); });
+const ASSETS = [...assetSet].sort();
+
+// ── Layout (topological layers) ─────────────────────────────────
+// We'll do a layered layout: layer 0 = sources (no triggers), then assets, then consumers
+// Strategy: place nodes in columns by depth from sources
+
+function computeLayout() {
+  // Build graph: DAG -> produces asset, asset -> triggers DAG
+  const dagDepth = {};
+  const assetDepth = {};
+
+  // Initialize all sources at depth 0
+  DAGS.forEach(d => {
+    if (d.triggers.length === 0) dagDepth[d.id] = 0;
+  });
+
+  // BFS to compute depths
+  let changed = true;
+  let iter = 0;
+  while (changed && iter < 20) {
+    changed = false; iter++;
+    DAGS.forEach(d => {
+      if (dagDepth[d.id] !== undefined) {
+        // This DAG's outlets get depth = dagDepth + 1
+        d.outlets.forEach(a => {
+          const nd = dagDepth[d.id] + 1;
+          if (assetDepth[a] === undefined || nd > assetDepth[a]) {
+            assetDepth[a] = nd; changed = true;
+          }
+        });
+      }
+    });
+    DAGS.forEach(d => {
+      if (d.triggers.length > 0) {
+        const triggerDepths = d.triggers.map(a => assetDepth[a]).filter(x => x !== undefined);
+        if (triggerDepths.length > 0) {
+          const nd = Math.max(...triggerDepths) + 1;
+          if (dagDepth[d.id] === undefined || nd > dagDepth[d.id]) {
+            dagDepth[d.id] = nd; changed = true;
+          }
+        }
+      }
+    });
+  }
+
+  // Assign remaining (disconnected) DAGs depth 0
+  DAGS.forEach(d => { if (dagDepth[d.id] === undefined) dagDepth[d.id] = 0; });
+  ASSETS.forEach(a => { if (assetDepth[a] === undefined) assetDepth[a] = 0; });
+
+  return { dagDepth, assetDepth };
+}
+
+const { dagDepth, assetDepth } = computeLayout();
+
+// Group all nodes by column (depth)
+const maxDepth = Math.max(...Object.values(dagDepth), ...Object.values(assetDepth));
+const columns = [];
+for (let i = 0; i <= maxDepth; i++) columns.push([]);
+
+DAGS.forEach(d => columns[dagDepth[d.id]].push({ type: 'dag', data: d }));
+ASSETS.forEach(a => columns[assetDepth[a]].push({ type: 'asset', data: a }));
+
+// Position nodes
+const COL_WIDTH = 300;
+const DAG_W = 220, DAG_H = 44;
+const ASSET_W = 180, ASSET_H = 34;
+const ROW_GAP = 14;
+const TOP_PAD = 40;
+const LEFT_PAD = 60;
+
+const positions = {}; // id -> {x, y, w, h, type}
+
+columns.forEach((col, ci) => {
+  // Sort: DAGs first (alphabetical), then assets (alphabetical)
+  col.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dag' ? -1 : 1;
+    const aName = a.type === 'dag' ? a.data.id : a.data;
+    const bName = b.type === 'dag' ? b.data.id : b.data;
+    return aName.localeCompare(bName);
+  });
+
+  let y = TOP_PAD;
+  col.forEach(node => {
+    const id = node.type === 'dag' ? node.data.id : node.data;
+    const w = node.type === 'dag' ? DAG_W : ASSET_W;
+    const h = node.type === 'dag' ? DAG_H : ASSET_H;
+    const x = LEFT_PAD + ci * COL_WIDTH + (COL_WIDTH - w) / 2;
+    positions[id] = { x, y, w, h, type: node.type, col: ci };
+    y += h + ROW_GAP;
+  });
+});
+
+// ── Build edges ─────────────────────────────────────────────────
+const edges = [];
+
+DAGS.forEach(d => {
+  // DAG -> produces -> Asset
+  d.outlets.forEach(a => {
+    edges.push({ from: d.id, to: a, type: 'produces' });
+  });
+  // Asset -> triggers -> DAG
+  d.triggers.forEach(a => {
+    const type = d.triggerCondition === 'AND' ? 'and-triggers' : 'triggers';
+    edges.push({ from: a, to: d.id, type });
+  });
+});
+
+// ── Compute total SVG bounds ────────────────────────────────────
+function getBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  Object.values(positions).forEach(p => {
+    minX = Math.min(minX, p.x - 10);
+    minY = Math.min(minY, p.y - 10);
+    maxX = Math.max(maxX, p.x + p.w + 10);
+    maxY = Math.max(maxY, p.y + p.h + 10);
+  });
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+// ── Render ──────────────────────────────────────────────────────
+const svgEl = document.getElementById('main-svg');
+const container = document.getElementById('canvas-container');
+const tooltip = document.getElementById('tooltip');
+
+let viewX = 0, viewY = 0, viewScale = 1;
+let isDragging = false, dragStartX, dragStartY, dragStartVX, dragStartVY;
+
+const DAG_COLORS = { scheduled: '#238636', 'asset': '#1f6feb', manual: '#6e40c9' };
+const DAG_BG = { scheduled: '#0d2818', 'asset': '#0c2d6b', manual: '#2a1553' };
+
+function renderSVG() {
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+
+  // viewBox based on pan/zoom
+  const vbX = -viewX / viewScale;
+  const vbY = -viewY / viewScale;
+  const vbW = cw / viewScale;
+  const vbH = ch / viewScale;
+
+  svgEl.setAttribute('width', cw);
+  svgEl.setAttribute('height', ch);
+  svgEl.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
+
+  let html = '';
+
+  // Defs: arrow markers
+  html += `<defs>
+    <marker id="arrow-produces" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#3fb950"/>
+    </marker>
+    <marker id="arrow-triggers" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrow-and-triggers" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#d2a8ff"/>
+    </marker>
+  </defs>`;
+
+  // Render edges
+  const currentFilter = document.getElementById('filter').value;
+  const visibleDags = new Set();
+  const visibleAssets = new Set();
+
+  DAGS.forEach(d => {
+    if (currentFilter === 'all' || currentFilter === d.triggerType) {
+      visibleDags.add(d.id);
+      d.outlets.forEach(a => visibleAssets.add(a));
+      d.triggers.forEach(a => visibleAssets.add(a));
+    }
+  });
+
+  edges.forEach(e => {
+    const fp = positions[e.from], tp = positions[e.to];
+    if (!fp || !tp) return;
+
+    // Check visibility
+    const fromVisible = visibleDags.has(e.from) || visibleAssets.has(e.from);
+    const toVisible = visibleDags.has(e.to) || visibleAssets.has(e.to);
+    if (!fromVisible || !toVisible) return;
+
+    // Compute connection points
+    let x1, y1, x2, y2;
+    const fCx = fp.x + fp.w / 2, fCy = fp.y + fp.h / 2;
+    const tCx = tp.x + tp.w / 2, tCy = tp.y + tp.h / 2;
+
+    if (fp.col < tp.col) {
+      x1 = fp.x + fp.w; y1 = fCy;
+      x2 = tp.x; y2 = tCy;
+    } else if (fp.col > tp.col) {
+      x1 = fp.x; y1 = fCy;
+      x2 = tp.x + tp.w; y2 = tCy;
+    } else {
+      x1 = fCx; y1 = fCy < tCy ? fp.y + fp.h : fp.y;
+      x2 = tCx; y2 = fCy < tCy ? tp.y : tp.y + tp.h;
+    }
+
+    const dx = x2 - x1;
+    const cpOff = Math.min(Math.abs(dx) * 0.5, 80);
+    const cls = e.type === 'produces' ? 'edge-produces' : e.type === 'and-triggers' ? 'edge-and-triggers' : 'edge-triggers';
+    const marker = e.type === 'produces' ? 'arrow-produces' : e.type === 'and-triggers' ? 'arrow-and-triggers' : 'arrow-triggers';
+
+    html += `<path class="edge ${cls}" d="M${x1},${y1} C${x1 + cpOff},${y1} ${x2 - cpOff},${y2} ${x2},${y2}" marker-end="url(#${marker})" opacity="0.65"/>`;
+  });
+
+  // Render asset nodes
+  ASSETS.forEach(a => {
+    if (!visibleAssets.has(a)) return;
+    const p = positions[a];
+    if (!p) return;
+    html += `<g class="asset-node" data-id="${a}" onmouseenter="showTip(event,'asset','${a}')" onmouseleave="hideTip()">
+      <rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="#2d1215" stroke="#da3633"/>
+      <text x="${p.x + p.w/2}" y="${p.y + p.h/2 + 4}" text-anchor="middle" fill="#f85149" font-size="11" font-weight="500">${a}</text>
+    </g>`;
+  });
+
+  // Render DAG nodes
+  DAGS.forEach(d => {
+    if (!visibleDags.has(d.id)) return;
+    const p = positions[d.id];
+    if (!p) return;
+    const color = DAG_COLORS[d.triggerType];
+    const bg = DAG_BG[d.triggerType];
+    const label = d.id.replace(/_/g, '_');
+    const fontSize = label.length > 26 ? 10 : 11;
+    html += `<g class="dag-node" data-id="${d.id}" onmouseenter="showTip(event,'dag','${d.id}')" onmouseleave="hideTip()">
+      <rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${bg}" stroke="${color}"/>
+      <text x="${p.x + p.w/2}" y="${p.y + p.h/2 + 4}" text-anchor="middle" fill="${color}" font-size="${fontSize}" font-weight="600">${label}</text>
+    </g>`;
+  });
+
+  svgEl.innerHTML = html;
+  renderMinimap();
+}
+
+function showTip(ev, type, id) {
+  const tt = tooltip;
+  if (type === 'dag') {
+    const d = DAGS.find(x => x.id === id);
+    let detail = '';
+    if (d.schedule) detail += `<div class="tt-detail"><span>Schedule:</span> ${d.schedule}</div>`;
+    if (d.triggerType === 'manual') detail += `<div class="tt-detail"><span>Trigger:</span> Manual</div>`;
+    if (d.triggers.length) detail += `<div class="tt-detail"><span>Triggers (${d.triggerCondition}):</span> ${d.triggers.join(', ')}</div>`;
+    if (d.outlets.length) detail += `<div class="tt-detail"><span>Produces:</span> ${d.outlets.join(', ')}</div>`;
+    tt.innerHTML = `<div class="tt-title">${d.id}</div><div class="tt-type">DAG (${d.triggerType})</div>${detail}`;
+  } else {
+    const producers = DAGS.filter(d => d.outlets.includes(id)).map(d => d.id);
+    const consumers = DAGS.filter(d => d.triggers.includes(id)).map(d => d.id);
+    let detail = '';
+    if (producers.length) detail += `<div class="tt-detail"><span>Produced by:</span> ${producers.join(', ')}</div>`;
+    if (consumers.length) detail += `<div class="tt-detail"><span>Consumed by:</span> ${consumers.join(', ')}</div>`;
+    tt.innerHTML = `<div class="tt-title">${id}</div><div class="tt-type">Asset</div>${detail}`;
+  }
+  tt.style.display = 'block';
+  const rect = tt.getBoundingClientRect();
+  let left = ev.clientX + 12;
+  let top = ev.clientY + 12;
+  if (left + rect.width > window.innerWidth - 10) left = ev.clientX - rect.width - 12;
+  if (top + rect.height > window.innerHeight - 10) top = ev.clientY - rect.height - 12;
+  tt.style.left = left + 'px';
+  tt.style.top = top + 'px';
+}
+function hideTip() { tooltip.style.display = 'none'; }
+
+// ── Pan / Zoom ──────────────────────────────────────────────────
+container.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  isDragging = true;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  dragStartVX = viewX; dragStartVY = viewY;
+  container.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  viewX = dragStartVX + (e.clientX - dragStartX);
+  viewY = dragStartVY + (e.clientY - dragStartY);
+  renderSVG();
+});
+window.addEventListener('mouseup', () => {
+  isDragging = false;
+  container.classList.remove('dragging');
+});
+container.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.9 : 1.1;
+  const rect = container.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  viewX = mx - (mx - viewX) * factor;
+  viewY = my - (my - viewY) * factor;
+  viewScale *= factor;
+  viewScale = Math.max(0.15, Math.min(3, viewScale));
+  renderSVG();
+}, { passive: false });
+
+function resetView() { viewX = 0; viewY = 0; viewScale = 1; renderSVG(); }
+function fitAll() {
+  const b = getBounds();
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+  viewScale = Math.min(cw / (b.width + 80), ch / (b.height + 80), 1.5);
+  viewX = (cw - b.width * viewScale) / 2 - b.minX * viewScale;
+  viewY = (ch - b.height * viewScale) / 2 - b.minY * viewScale;
+  renderSVG();
+}
+
+// ── Minimap ─────────────────────────────────────────────────────
+function renderMinimap() {
+  const mmSvg = document.getElementById('minimap-svg');
+  const b = getBounds();
+  const pad = 10;
+  mmSvg.setAttribute('viewBox', `${b.minX - pad} ${b.minY - pad} ${b.width + 2*pad} ${b.height + 2*pad}`);
+
+  let html = '';
+
+  // Draw nodes as small dots
+  DAGS.forEach(d => {
+    const p = positions[d.id]; if (!p) return;
+    const color = DAG_COLORS[d.triggerType];
+    html += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="3" fill="${color}" opacity="0.5"/>`;
+  });
+  ASSETS.forEach(a => {
+    const p = positions[a]; if (!p) return;
+    html += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="6" fill="#da3633" opacity="0.4"/>`;
+  });
+
+  // Viewport indicator
+  const cw = container.clientWidth, ch = container.clientHeight;
+  const vx = -viewX / viewScale;
+  const vy = -viewY / viewScale;
+  const vw = cw / viewScale;
+  const vh = ch / viewScale;
+  html += `<rect class="minimap-viewport" x="${vx}" y="${vy}" width="${vw}" height="${vh}"/>`;
+
+  mmSvg.innerHTML = html;
+}
+
+// ── Filter ──────────────────────────────────────────────────────
+document.getElementById('filter').addEventListener('change', renderSVG);
+
+// ── Init ────────────────────────────────────────────────────────
+window.addEventListener('resize', renderSVG);
+fitAll();
+</script>
+</body>
+</html>

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
     tags=["data", "collection", "subdivisions", "boundaries"],
 )
 def subdivision_collection():
-    @task(outlets=[Asset("subdivisions")])
+    @task()
     def fetch():
         """Fetch subdivision boundaries for all configured counties."""
         from pricepoint.data.geospatial.subdivisions import fetch_subdivisions
@@ -35,7 +35,7 @@ def subdivision_collection():
         stats = fetch_subdivisions()
         logger.info("Subdivision collection stats: %s", stats)
 
-    @task()
+    @task(outlets=[Asset("subdivision_boundaries")])
     def verify():
         """Verify that subdivision records were loaded for each county."""
         from pricepoint.data.geospatial.subdivisions import verify_subdivisions

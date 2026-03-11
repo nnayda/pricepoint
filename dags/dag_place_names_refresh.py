@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @dag(
     dag_id="place_names_refresh",
     description="Rebuild place_names autocomplete lookup from Overture Places",
-    schedule=[Asset("overture_places")],
+    schedule=[Asset("places")],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -34,7 +34,7 @@ def place_names_refresh():
 
         _refresh()
 
-    @task()
+    @task(outlets=[Asset("place_names")])
     def verify_refresh():
         """Verify that place_names table has rows."""
         from sqlalchemy import text

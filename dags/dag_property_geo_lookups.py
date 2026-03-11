@@ -1,10 +1,10 @@
 """DAG: Build property geographic lookup table.
 
-Auto-triggered after Redfin transform produces new listings or after
-property_schools is built.  Precomputes geographic containment (census tract,
-block group, county subdivision, noise zone, risk zone, school district) and
-distance metrics (nearest school, park, greenway, hospital) plus school
-averages for every property with a location.
+Auto-triggered when any upstream geo/boundary/metric asset updates.
+Precomputes geographic containment (census tract, block group, county
+subdivision, noise zone, risk zone, school district) and distance metrics
+(nearest school, park, greenway, hospital) plus school averages for every
+property with a location.
 """
 
 import logging
@@ -18,7 +18,14 @@ logger = logging.getLogger(__name__)
 @dag(
     dag_id="property_geo_lookups",
     description="Precompute geographic containment and distance metric lookups for properties",
-    schedule=[Asset("redfin_listings"), Asset("property_schools")],
+    schedule=[
+        Asset("geo_boundaries"),
+        Asset("subdivision_boundaries"),
+        Asset("schools"),
+        Asset("greenspace_metrics"),
+        Asset("risk_boundaries"),
+        Asset("noises"),
+    ],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={
@@ -29,7 +36,7 @@ logger = logging.getLogger(__name__)
     tags=["data", "gold", "geo"],
 )
 def property_geo_lookups():
-    @task(outlets=[Asset("property_geo_lookups")])
+    @task()
     def build_lookups():
         """Full rebuild of property_geo_lookups table."""
         from pricepoint.data.geospatial.property_geo_lookups import (
@@ -47,7 +54,7 @@ def property_geo_lookups():
         finally:
             session.close()
 
-    @task()
+    @task(outlets=[Asset("property_geo_lookups")])
     def verify():
         """Verify lookup coverage."""
         from pricepoint.data.geospatial.property_geo_lookups import (

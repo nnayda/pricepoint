@@ -95,13 +95,14 @@ class TestGenerateEdaPlots:
         x, y = eda_xy
         paths = generate_eda_plots(x, y, log_transformed=True, output_dir=tmp_path)
         filenames = {p.name for p in paths}
-        # Target, nulls (has nulls), correlation, numeric distributions, categorical
+        # Target, nulls (has nulls), correlation, numeric distributions, categorical, pairwise
         assert "eda_target_distribution.png" in filenames
         assert "eda_feature_nulls.png" in filenames
         assert "eda_correlation_heatmap.png" in filenames
         assert "eda_numeric_distributions.png" in filenames
         assert "eda_categorical_balance.png" in filenames
-        assert len(paths) == 5
+        assert "eda_pairwise_target.png" in filenames
+        assert len(paths) == 6
         for p in paths:
             assert p.stat().st_size > 0
 

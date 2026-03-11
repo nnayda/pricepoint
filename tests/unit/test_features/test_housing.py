@@ -112,13 +112,13 @@ class TestComputePropertyFeatures:
         now = datetime(2026, 2, 19, tzinfo=UTC)
         listing = _make_listing(num_baths=0)
         result = _compute_property_features(listing, now)
-        assert result["bed_bath_ratio"] == 0.0
+        assert result["bed_bath_ratio"] is None
 
     def test_sqft_per_bedroom_zero_beds(self):
         now = datetime(2026, 2, 19, tzinfo=UTC)
         listing = _make_listing(num_beds=0)
         result = _compute_property_features(listing, now)
-        assert result["sqft_per_bedroom"] == 0.0
+        assert result["sqft_per_bedroom"] is None
 
     def test_lot_to_building_ratio(self):
         now = datetime(2026, 2, 19, tzinfo=UTC)

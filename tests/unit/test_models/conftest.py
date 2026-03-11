@@ -45,10 +45,15 @@ def synthetic_df_with_nan(synthetic_df: pd.DataFrame) -> pd.DataFrame:
     """Synthetic DataFrame with some NaN values and a high-NaN column."""
     df = synthetic_df.copy()
     rng = np.random.RandomState(99)
-    # Add a column that's >50% NaN (should be dropped)
+    # Add a column that's >95% NaN (should be dropped)
     mostly_nan = np.full(len(df), np.nan)
-    mostly_nan[: len(df) // 4] = rng.uniform(0, 1, len(df) // 4)
+    mostly_nan[: len(df) // 25] = rng.uniform(0, 1, len(df) // 25)  # 4% non-null → 96% NaN
     df["mostly_nan_col"] = mostly_nan
+
+    # Add a structural-null column at ~50% NaN to test indicator generation
+    assoc_fee = np.full(len(df), np.nan)
+    assoc_fee[: len(df) // 2] = rng.uniform(50, 500, len(df) // 2)
+    df["association_fee"] = assoc_fee
 
     # Sprinkle a few NaN values in existing columns
     mask = rng.random(len(df)) < 0.05

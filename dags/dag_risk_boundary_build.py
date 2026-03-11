@@ -50,7 +50,7 @@ def risk_boundary_build():
         finally:
             session.close()
 
-    @task()
+    @task(outlets=[Asset("risk_boundaries")])
     def verify():
         """Verify that risk boundaries were built."""
         from pricepoint.data.geospatial.risk_boundaries import verify_risk_boundaries

@@ -8,7 +8,7 @@ into the ``roads`` PostGIS table.
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def tiger_road_collection():
 
         fetch_roads()
 
-    @task()
+    @task(outlets=[Asset("roads")])
     def verify_load():
         """Verify that records were loaded into the roads table."""
         from pricepoint.data.geospatial.tiger_roads import verify_roads

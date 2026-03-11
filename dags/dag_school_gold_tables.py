@@ -68,7 +68,7 @@ def school_gold_tables():
         finally:
             session.close()
 
-    @task()
+    @task(outlets=[Asset("schools")])
     def verify_gold():
         """Verify gold tables have been populated."""
         from pricepoint.data.housing.school_gold_builder import verify_schools_gold

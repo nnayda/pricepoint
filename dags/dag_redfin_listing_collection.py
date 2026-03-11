@@ -30,7 +30,7 @@ STAGING_DATASET = Asset("staging_redfin_listings")
 def redfin_listing_collection():
     """Process new Redfin HTML listing snapshots (daily schedule)."""
 
-    @task(outlets=[STAGING_DATASET])
+    @task()
     def process_listings_task():
         """Parse HTML files, extract data, upload photos, archive to S3."""
         from pricepoint.data.housing.redfin_listings import process_listings
@@ -38,7 +38,7 @@ def redfin_listing_collection():
         result = process_listings()
         logger.info("Processed %d files, %d errors", result["processed"], result["errors"])
 
-    @task()
+    @task(outlets=[STAGING_DATASET])
     def verify_load():
         """Verify at least one record exists in staging table."""
         from pricepoint.db import SessionLocal
