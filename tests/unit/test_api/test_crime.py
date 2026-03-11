@@ -20,25 +20,23 @@ class _FakeRow:
 
 
 def _make_row(
-    incident_id="1",
+    incident_id="RPD-1",
     lat=35.79,
     lon=-78.78,
-    occurred_at=None,
+    date_of_incident=None,
     description="Larceny",
-    category="Property",
-    source_city="Cary",
+    category="Crimes Against Property",
 ):
     """Create a mock DB row for crime query results."""
-    if occurred_at is None:
-        occurred_at = datetime.now(tz=UTC) - timedelta(days=30)
+    if date_of_incident is None:
+        date_of_incident = (datetime.now(tz=UTC) - timedelta(days=30)).date()
     return _FakeRow(
         incident_id=incident_id,
         lat=lat,
         lon=lon,
-        occurred_at=occurred_at,
+        date_of_incident=date_of_incident,
         description=description,
         category=category,
-        source_city=source_city,
     )
 
 
@@ -51,27 +49,24 @@ def crime_app():
     now = datetime.now(tz=UTC)
     rows = [
         _make_row(
-            incident_id="1",
+            incident_id="RPD-1001",
             description="Larceny",
-            category="Property",
-            source_city="Cary",
-            occurred_at=now - timedelta(days=10),
+            category="Crimes Against Property",
+            date_of_incident=(now - timedelta(days=10)).date(),
         ),
         _make_row(
-            incident_id="2",
+            incident_id="CPD-2001",
             description="Assault",
-            category="Violent",
-            source_city="Raleigh",
-            occurred_at=now - timedelta(days=20),
+            category="Crimes Against Persons",
+            date_of_incident=(now - timedelta(days=20)).date(),
             lat=35.791,
             lon=-78.781,
         ),
         _make_row(
-            incident_id="3",
+            incident_id="MPD-3001",
             description="Burglary",
-            category="Property",
-            source_city="Morrisville",
-            occurred_at=now - timedelta(days=60),
+            category="Crimes Against Property",
+            date_of_incident=(now - timedelta(days=60)).date(),
             lat=35.792,
             lon=-78.782,
         ),
@@ -80,7 +75,7 @@ def crime_app():
     mock_result = MagicMock()
     mock_result.all.return_value = rows
 
-    # For the prior-period count query, return 0
+    # For the prior-period count query, return 2
     mock_count_result = MagicMock()
     mock_count_result.scalar.return_value = 2
 
@@ -317,12 +312,11 @@ class TestCrimeWithData:
         resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         assert resp.json()["metrics"]["total_incidents_1mi"] == 3
 
-    def test_incident_id_includes_source_city(self, crime_client):
-        """Incident IDs should be prefixed with source city."""
+    def test_incident_id_uses_gold_id(self, crime_client):
+        """Incident IDs should come directly from gold table (prefixed by source)."""
         resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         incident = resp.json()["incidents"][0]
-        # First row is Cary (most recent)
-        assert incident["id"].startswith("Cary-")
+        assert incident["id"].startswith("RPD-")
 
     def test_incidents_sorted_by_date_desc(self, crime_client):
         """Incidents should be sorted most recent first."""
@@ -337,14 +331,14 @@ class TestCrimeWithData:
         for point in resp.json()["heatmap"]:
             assert 0.0 < point["intensity"] <= 1.0
 
-    def test_violent_incident_detected(self, crime_client):
-        """Assault is a violent category so it should be reflected in data."""
+    def test_persons_category_detected(self, crime_client):
+        """Crimes Against Persons category should appear in data."""
         resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         categories = {i["category"] for i in resp.json()["incidents"]}
-        assert "Violent" in categories
+        assert "Crimes Against Persons" in categories
 
-    def test_multiple_source_cities(self, crime_client):
-        """Incidents come from multiple source cities."""
+    def test_multiple_source_prefixes(self, crime_client):
+        """Incidents come from multiple source prefixes (RPD, CPD, MPD)."""
         resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
         ids = [i["id"] for i in resp.json()["incidents"]]
         prefixes = {i.split("-")[0] for i in ids}
@@ -387,9 +381,9 @@ class TestCrimeValkeyCaching:
             "heatmap": [{"lat": 35.79, "lon": -78.78, "intensity": 0.5}],
             "incidents": [
                 {
-                    "id": "Cary-1",
+                    "id": "RPD-1001",
                     "incident_type": "Larceny",
-                    "category": "Property",
+                    "category": "Crimes Against Property",
                     "date": "2024-12-01",
                     "lat": 35.79,
                     "lon": -78.78,
@@ -431,7 +425,7 @@ class TestCrimeValkeyCaching:
 
         now = datetime.now(tz=UTC)
         rows = [
-            _make_row(occurred_at=now - timedelta(days=5)),
+            _make_row(date_of_incident=(now - timedelta(days=5)).date()),
         ]
         mock_result = MagicMock()
         mock_result.all.return_value = rows
@@ -478,6 +472,15 @@ class TestCrimeHelperFunctions:
         old = now - timedelta(days=300)
         intensity = _compute_intensity(old, now, 365)
         assert intensity < 0.2
+
+    def test_compute_intensity_date_object(self):
+        """Should handle date objects (not just datetime)."""
+        from pricepoint.api.routes.crime import _compute_intensity
+
+        now = datetime.now(tz=UTC)
+        recent_date = (now - timedelta(days=1)).date()
+        intensity = _compute_intensity(recent_date, now, 365)
+        assert intensity > 0.9
 
     def test_is_violent_true(self):
         """Assault category should be detected as violent."""

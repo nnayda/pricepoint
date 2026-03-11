@@ -6,7 +6,7 @@ Runs daily to fetch the previous day's incidents and append to the staging table
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def raleigh_police_collection():
 
         fetch_daily_raleigh_police_incidents()
 
-    @task()
+    @task(outlets=[Asset("raleigh_police_incidents")])
     def verify_load():
         """Verify that records exist in the staging table."""
         from sqlalchemy import func, select

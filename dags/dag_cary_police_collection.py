@@ -6,7 +6,7 @@ Runs weekly to truncate and reload the staging table with all incident records.
 import logging
 from datetime import datetime
 
-from airflow.sdk import dag, task
+from airflow.sdk import Asset, dag, task
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def cary_police_collection():
 
         fetch_cary_police_incidents(full_refresh=True)
 
-    @task()
+    @task(outlets=[Asset("cary_police_incidents")])
     def verify_load():
         """Verify that records were loaded into the staging table."""
         from sqlalchemy import func, select

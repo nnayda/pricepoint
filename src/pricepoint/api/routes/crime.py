@@ -1,25 +1,17 @@
-"""Crime endpoint — returns crime data from PostGIS spatial queries."""
+"""Crime endpoint — returns crime data from the gold police_incidents table."""
 
 import hashlib
 import json
 import logging
 import math
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2 import Geography
-from geoalchemy2.functions import ST_X, ST_Y, ST_MakePoint, ST_SetSRID
+from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
 from redis.asyncio import Redis
-from sqlalchemy import (
-    DateTime,
-    String,
-    cast,
-    func,
-    literal,
-    select,
-    union_all,
-)
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db, get_valkey
@@ -29,11 +21,7 @@ from pricepoint.api.schemas.crime import (
     CrimeMetrics,
     CrimeResponse,
 )
-from pricepoint.db.models import (
-    StagingCaryPoliceIncident,
-    StagingMorrisvillePoliceIncident,
-    StagingRaleighPoliceIncident,
-)
+from pricepoint.db.models import PoliceIncident
 
 logger = logging.getLogger(__name__)
 
@@ -66,76 +54,15 @@ def _st_dwithin_geography(geom_col, point, radius_meters: float):  # noqa: ANN00
     )
 
 
-def _build_crime_cte(
-    property_point,  # noqa: ANN001
-    radius_meters: float,
-    cutoff_date: datetime,
-):
-    """Build a CTE unioning all three police staging tables with normalized columns."""
-    # Cary: date_from (DateTime), crime_type (description), crime_category
-    cary_q = select(
-        cast(StagingCaryPoliceIncident.id, String).label("incident_id"),
-        StagingCaryPoliceIncident.location.label("location"),
-        cast(StagingCaryPoliceIncident.date_from, DateTime(timezone=True)).label("occurred_at"),
-        func.coalesce(StagingCaryPoliceIncident.crime_type, "Unknown").label("description"),
-        func.coalesce(StagingCaryPoliceIncident.crime_category, "Other").label("category"),
-        literal("Cary").label("source_city"),
-    ).where(
-        StagingCaryPoliceIncident.location.isnot(None),
-        StagingCaryPoliceIncident.date_from >= cutoff_date,
-        _st_dwithin_geography(StagingCaryPoliceIncident.location, property_point, radius_meters),
-    )
-
-    # Raleigh: reported_date (DateTime), crime_description, crime_category
-    raleigh_q = select(
-        cast(StagingRaleighPoliceIncident.id, String).label("incident_id"),
-        StagingRaleighPoliceIncident.location.label("location"),
-        cast(StagingRaleighPoliceIncident.reported_date, DateTime(timezone=True)).label(
-            "occurred_at"
-        ),
-        func.coalesce(StagingRaleighPoliceIncident.crime_description, "Unknown").label(
-            "description"
-        ),
-        func.coalesce(StagingRaleighPoliceIncident.crime_category, "Other").label("category"),
-        literal("Raleigh").label("source_city"),
-    ).where(
-        StagingRaleighPoliceIncident.location.isnot(None),
-        StagingRaleighPoliceIncident.reported_date >= cutoff_date,
-        _st_dwithin_geography(StagingRaleighPoliceIncident.location, property_point, radius_meters),
-    )
-
-    # Morrisville: date_occu (String!), offense (description), no dedicated category
-    morrisville_q = select(
-        cast(StagingMorrisvillePoliceIncident.id, String).label("incident_id"),
-        StagingMorrisvillePoliceIncident.location.label("location"),
-        cast(
-            func.to_timestamp(StagingMorrisvillePoliceIncident.date_occu, "MM/DD/YYYY"),
-            DateTime(timezone=True),
-        ).label("occurred_at"),
-        func.coalesce(StagingMorrisvillePoliceIncident.offense, "Unknown").label("description"),
-        literal("Other").label("category"),
-        literal("Morrisville").label("source_city"),
-    ).where(
-        StagingMorrisvillePoliceIncident.location.isnot(None),
-        StagingMorrisvillePoliceIncident.date_occu.isnot(None),
-        _st_dwithin_geography(
-            StagingMorrisvillePoliceIncident.location,
-            property_point,
-            radius_meters,
-        ),
-    )
-
-    combined = union_all(cary_q, raleigh_q, morrisville_q).cte("all_incidents")
-    return combined
-
-
-def _compute_intensity(occurred_at: datetime, now: datetime, days_back: int) -> float:
+def _compute_intensity(occurred_at: datetime | date, now: datetime, days_back: int) -> float:
     """Compute heatmap intensity using exponential decay on recency.
 
     More recent incidents get higher intensity (closer to 1.0).
     Half-life is set to days_back / 4 so a quarter-period-old incident
     has intensity ~0.5.
     """
+    if isinstance(occurred_at, date) and not isinstance(occurred_at, datetime):
+        occurred_at = datetime(occurred_at.year, occurred_at.month, occurred_at.day, tzinfo=UTC)
     age_days = (now - occurred_at).total_seconds() / 86400.0
     half_life = max(days_back / 4.0, 1.0)
     intensity = math.exp(-0.693 * age_days / half_life)
@@ -191,32 +118,33 @@ async def get_crime(
             logger.warning("Valkey read failed for key %s", c_key, exc_info=True)
 
     now = datetime.now(tz=UTC)
-    cutoff_date = now - timedelta(days=days_back)
+    cutoff_date = (now - timedelta(days=days_back)).date()
     radius_meters = radius_miles * METERS_PER_MILE
 
     # Build the geography point for ST_DWithin
     property_point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
 
-    cte = _build_crime_cte(property_point, radius_meters, cutoff_date)
+    # Query gold table directly
+    base_query = select(
+        PoliceIncident.incident_id,
+        PoliceIncident.latitude.label("lat"),
+        PoliceIncident.longitude.label("lon"),
+        PoliceIncident.date_of_incident,
+        func.coalesce(PoliceIncident.crime_description, "Unknown").label("description"),
+        func.coalesce(PoliceIncident.crime_category, "Other").label("category"),
+    ).where(
+        PoliceIncident.location.isnot(None),
+        PoliceIncident.date_of_incident >= cutoff_date,
+        _st_dwithin_geography(PoliceIncident.location, property_point, radius_meters),
+    )
 
-    # Fetch all incidents in the area
-    rows = db.execute(
-        select(
-            cte.c.incident_id,
-            ST_Y(cte.c.location).label("lat"),
-            ST_X(cte.c.location).label("lon"),
-            cte.c.occurred_at,
-            cte.c.description,
-            cte.c.category,
-            cte.c.source_city,
-        ).order_by(cte.c.occurred_at.desc())
-    ).all()
+    rows = db.execute(base_query.order_by(PoliceIncident.date_of_incident.desc())).all()
 
     # Build heatmap points (all incidents)
     heatmap: list[CrimeHeatmapPoint] = []
     for row in rows:
-        if row.lat is not None and row.lon is not None and row.occurred_at is not None:
-            intensity = _compute_intensity(row.occurred_at, now, days_back)
+        if row.lat is not None and row.lon is not None and row.date_of_incident is not None:
+            intensity = _compute_intensity(row.date_of_incident, now, days_back)
             heatmap.append(CrimeHeatmapPoint(lat=row.lat, lon=row.lon, intensity=intensity))
 
     # Build incident list (first 50, sorted by date desc)
@@ -225,10 +153,14 @@ async def get_crime(
         if row.lat is not None and row.lon is not None:
             incidents.append(
                 CrimeIncident(
-                    id=f"{row.source_city}-{row.incident_id}",
+                    id=row.incident_id,
                     incident_type=row.description or "Unknown",
                     category=row.category or "Other",
-                    date=(row.occurred_at.strftime("%Y-%m-%d") if row.occurred_at else "Unknown"),
+                    date=(
+                        row.date_of_incident.strftime("%Y-%m-%d")
+                        if row.date_of_incident
+                        else "Unknown"
+                    ),
                     lat=row.lat,
                     lon=row.lon,
                     description=row.description,
@@ -243,12 +175,18 @@ async def get_crime(
     incidents_per_1000 = round(incidents_per_sq_km * 0.5, 1)
 
     # Trend: compare current period vs prior period of same length
-    prior_cutoff = cutoff_date - timedelta(days=days_back)
+    prior_cutoff = (now - timedelta(days=days_back * 2)).date()
     current_count = total
-    prior_cte = _build_crime_cte(property_point, radius_meters, prior_cutoff)
     prior_total_result = db.execute(
         select(func.count()).select_from(
-            select(prior_cte.c.incident_id).where(prior_cte.c.occurred_at < cutoff_date).subquery()
+            select(PoliceIncident.incident_id)
+            .where(
+                PoliceIncident.location.isnot(None),
+                PoliceIncident.date_of_incident >= prior_cutoff,
+                PoliceIncident.date_of_incident < cutoff_date,
+                _st_dwithin_geography(PoliceIncident.location, property_point, radius_meters),
+            )
+            .subquery()
         )
     ).scalar()
     prior_count = prior_total_result or 0

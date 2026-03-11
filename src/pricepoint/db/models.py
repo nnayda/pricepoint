@@ -43,16 +43,28 @@ class Property(Base):
 
 
 class PoliceIncident(Base):
-    """Police incident report with geolocation."""
+    """Gold-layer police incident record consolidated from all staging sources."""
 
     __tablename__ = "police_incidents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     incident_id = Column(String, unique=True, nullable=False)
-    incident_type = Column(String)
-    occurred_at = Column(DateTime(timezone=True))
+    crime_code = Column(String, nullable=True)
+    crime_group = Column(String, nullable=True)
+    crime_category = Column(String, nullable=True)
+    crime_description = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    date_of_incident = Column(Date, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     location = Column(Geometry("POINT", srid=4326))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_police_incidents_location", location, postgresql_using="gist"),
+        Index("ix_police_incidents_crime_category", crime_category),
+        Index("ix_police_incidents_date_of_incident", date_of_incident),
+    )
 
 
 class StagingCaryPoliceIncident(Base):
