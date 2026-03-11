@@ -302,3 +302,25 @@ class TestDeletePropertyFeatures:
 
         assert result == 0
         db.execute.assert_not_called()
+
+
+class TestMarkFeaturesBuilt:
+    """Tests for mark_features_built."""
+
+    def test_updates_and_commits(self) -> None:
+        from pricepoint.features.store import mark_features_built
+
+        db = MagicMock()
+        mark_features_built(db, [10, 20, 30])
+
+        db.execute.assert_called_once()
+        db.commit.assert_called_once()
+
+    def test_empty_list_is_noop(self) -> None:
+        from pricepoint.features.store import mark_features_built
+
+        db = MagicMock()
+        mark_features_built(db, [])
+
+        db.execute.assert_not_called()
+        db.commit.assert_not_called()

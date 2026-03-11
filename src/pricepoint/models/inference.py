@@ -19,6 +19,7 @@ from pricepoint.db.models import PropertyShapValue, PropertyValuation
 from pricepoint.features.assembly import assemble_features
 from pricepoint.features.store import load_feature_matrix
 from pricepoint.models.registry import MODEL_NAME
+from pricepoint.models.training import add_missingness_indicators
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,10 @@ def predict_batch(model: Any, features_df: pd.DataFrame) -> np.ndarray:
     # Keep numeric and category columns
     usable_df = features_df.select_dtypes(include=["number", "category"])
 
+    # Generate missingness indicators before alignment so the model
+    # receives explicitly computed 0/1 values instead of NaN fill.
+    usable_df = add_missingness_indicators(usable_df)
+
     # Align columns to model's expected features to avoid mismatch errors
     # when the feature pipeline has added/removed columns since training.
     expected_features = getattr(model, "feature_names_in_", None)
@@ -263,6 +268,7 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
 
     # Align columns to model's expected features (same logic as predict_batch)
     usable_df = features_df.select_dtypes(include=["number", "category"])
+    usable_df = add_missingness_indicators(usable_df)
     expected_features = getattr(model, "feature_names_in_", None)
     if expected_features is not None:
         expected = list(expected_features)
@@ -324,6 +330,7 @@ def compute_shap_values_batch(
     from pricepoint.features.housing import CATEGORICAL_COLUMNS
 
     usable_df = features_df.select_dtypes(include=["number", "category"])
+    usable_df = add_missingness_indicators(usable_df)
     expected_features = getattr(model, "feature_names_in_", None)
     if expected_features is not None:
         expected = list(expected_features)
@@ -412,17 +419,19 @@ def _persist_shap_values(
     return len(rows)
 
 
-def score_all_properties(db: Session) -> int:
-    """Score all properties with the production model.
+def score_all_properties(db: Session, *, force_rebuild: bool = False) -> int:
+    """Score properties with the production model.
 
-    Loads the production model, assembles features for all properties
-    with a location, generates predictions, and upserts them into
-    property_valuations with source='ml_model'.
+    By default only scores properties whose features are newer than
+    their last valuation or that were scored with an older model version.
+    Pass ``force_rebuild=True`` to rescore every property.
 
     Parameters
     ----------
     db : Session
         SQLAlchemy database session.
+    force_rebuild : bool
+        When True, score all properties regardless of staleness.
 
     Returns
     -------
@@ -443,12 +452,30 @@ def score_all_properties(db: Session) -> int:
         logger.warning("Could not fetch model metrics for run %s; using defaults", run_id)
         metrics = {}
 
-    # Get IDs of properties with a location
-    rows = db.execute(text("SELECT id FROM redfin_listings WHERE location IS NOT NULL")).fetchall()
-    property_ids = [r[0] for r in rows]
+    if force_rebuild:
+        rows = db.execute(
+            text("SELECT id FROM redfin_listings WHERE location IS NOT NULL")
+        ).fetchall()
+        property_ids = [r[0] for r in rows]
+    else:
+        # Only score properties with stale/missing valuations or outdated model
+        rows = db.execute(
+            text("""
+                SELECT pf.property_id
+                FROM property_features pf
+                LEFT JOIN property_valuations pv
+                    ON pv.property_id = pf.property_id
+                    AND pv.source = 'ml_model'
+                WHERE pv.id IS NULL
+                   OR pf.computed_at > pv.estimated_at
+                   OR pv.model_version != :model_version
+            """),
+            {"model_version": model_version},
+        ).fetchall()
+        property_ids = [r[0] for r in rows]
 
     if not property_ids:
-        logger.warning("No properties with location found; skipping batch scoring")
+        logger.info("No properties need scoring; skipping batch scoring")
         return 0
 
     logger.info("Loading features for %d properties", len(property_ids))

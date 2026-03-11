@@ -10,6 +10,7 @@ from pricepoint.data.housing.property_history_metrics import (
     SaleRecord,
     _compute_window,
     _fetch_sale_records,
+    _has_new_sold_listings,
     _month_range,
     build_property_history_metrics,
     verify_property_history_metrics,
@@ -165,16 +166,20 @@ class TestFetchSaleRecords:
 
 
 class TestBuildPropertyHistoryMetrics:
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
     @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
-    def test_returns_zero_when_no_data(self, mock_fetch):
+    def test_returns_zero_when_no_data(self, mock_fetch, mock_has_new):
+        mock_has_new.return_value = True
         mock_fetch.return_value = {}
         session = MagicMock()
         result = build_property_history_metrics(session)
         assert result == 0
 
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
     @patch("pricepoint.data.housing.property_history_metrics.date")
     @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
-    def test_builds_metrics_for_township(self, mock_fetch, mock_date):
+    def test_builds_metrics_for_township(self, mock_fetch, mock_date, mock_has_new):
+        mock_has_new.return_value = True
         mock_date.today.return_value = date(2024, 4, 15)
         mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
@@ -191,9 +196,11 @@ class TestBuildPropertyHistoryMetrics:
         session.execute.assert_called_once()  # delete
         session.flush.assert_called_once()
 
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
     @patch("pricepoint.data.housing.property_history_metrics.date")
     @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
-    def test_excludes_current_month(self, mock_fetch, mock_date):
+    def test_excludes_current_month(self, mock_fetch, mock_date, mock_has_new):
+        mock_has_new.return_value = True
         mock_date.today.return_value = date(2024, 2, 15)
         mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
@@ -209,9 +216,11 @@ class TestBuildPropertyHistoryMetrics:
         for row in added_rows:
             assert row.metric_month < date(2024, 2, 1)
 
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
     @patch("pricepoint.data.housing.property_history_metrics.date")
     @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
-    def test_upsert_deletes_before_insert(self, mock_fetch, mock_date):
+    def test_upsert_deletes_before_insert(self, mock_fetch, mock_date, mock_has_new):
+        mock_has_new.return_value = True
         mock_date.today.return_value = date(2024, 3, 1)
         mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
 
@@ -251,3 +260,72 @@ class TestVerifyPropertyHistoryMetrics:
 
         stats = verify_property_history_metrics(session)
         assert stats["total_rows"] == 100
+
+
+# ---------------------------------------------------------------------------
+# _has_new_sold_listings
+# ---------------------------------------------------------------------------
+
+
+class TestHasNewSoldListings:
+    def test_returns_true_when_no_metrics_exist(self):
+        """First run (no metrics) should always build."""
+        session = MagicMock()
+        session.scalar.return_value = None
+
+        assert _has_new_sold_listings(session) is True
+        # Only one scalar call (for max built_at)
+        session.scalar.assert_called_once()
+
+    def test_returns_true_when_new_sold_exists(self):
+        """New SOLD listing processed after last build triggers rebuild."""
+        session = MagicMock()
+        session.scalar.side_effect = [
+            datetime(2024, 3, 1),  # latest built_at
+            1,  # count of new SOLD listings
+        ]
+
+        assert _has_new_sold_listings(session) is True
+
+    def test_returns_false_when_no_new_sold(self):
+        """No new SOLD listings means skip."""
+        session = MagicMock()
+        session.scalar.side_effect = [
+            datetime(2024, 3, 1),  # latest built_at
+            0,  # no new SOLD listings
+        ]
+
+        assert _has_new_sold_listings(session) is False
+
+
+# ---------------------------------------------------------------------------
+# build_property_history_metrics incremental
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPropertyHistoryMetricsIncremental:
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
+    @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
+    def test_skips_when_no_new_sold(self, mock_fetch, mock_has_new):
+        """Default mode short-circuits when no new SOLD listings."""
+        mock_has_new.return_value = False
+        session = MagicMock()
+
+        result = build_property_history_metrics(session)
+
+        assert result == 0
+        mock_fetch.assert_not_called()
+
+    @patch("pricepoint.data.housing.property_history_metrics._has_new_sold_listings")
+    @patch("pricepoint.data.housing.property_history_metrics._fetch_sale_records")
+    def test_force_rebuild_ignores_check(self, mock_fetch, mock_has_new):
+        """force_rebuild=True bypasses the short-circuit check."""
+        mock_has_new.return_value = False
+        mock_fetch.return_value = {}
+        session = MagicMock()
+
+        result = build_property_history_metrics(session, force_rebuild=True)
+
+        assert result == 0
+        mock_has_new.assert_not_called()
+        mock_fetch.assert_called_once()

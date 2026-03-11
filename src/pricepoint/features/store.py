@@ -94,6 +94,28 @@ def save_feature_matrix(db: Session, df: pd.DataFrame) -> int:
     return len(rows)
 
 
+def mark_features_built(db: Session, property_ids: list[int]) -> None:
+    """Update ``features_built_at`` on redfin_listings for the given IDs.
+
+    Called after features have been persisted so the dirty-flag mechanism
+    knows these properties are up-to-date.
+    """
+    if not property_ids:
+        return
+
+    from sqlalchemy import update
+
+    from pricepoint.db.models import RedfinListing
+
+    db.execute(
+        update(RedfinListing)
+        .where(RedfinListing.id.in_(property_ids))
+        .values(features_built_at=datetime.now(tz=UTC))
+    )
+    db.commit()
+    logger.info("Marked %d properties as features_built", len(property_ids))
+
+
 def load_feature_matrix(
     db: Session,
     *,

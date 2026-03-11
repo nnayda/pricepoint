@@ -497,6 +497,67 @@ class TestScoreAllProperties:
         assert val.confidence_high == 220000.0
 
 
+class TestScoreAllPropertiesIncremental:
+    """Tests for incremental scoring behavior in score_all_properties."""
+
+    @patch("pricepoint.models.inference.load_feature_matrix")
+    @patch("pricepoint.models.inference.get_model_metrics")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_incremental_skips_when_no_stale(
+        self,
+        mock_load: MagicMock,
+        mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
+    ) -> None:
+        """Default mode returns 0 when no properties are stale."""
+        from pricepoint.models.inference import ModelInfo
+
+        mock_load.return_value = ModelInfo(model=MagicMock(), version="5", run_id="run-1")
+        mock_metrics.return_value = {}
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = []
+
+        from pricepoint.models.inference import score_all_properties
+
+        result = score_all_properties(db)
+        assert result == 0
+        mock_load_features.assert_not_called()
+
+    @patch("pricepoint.models.inference.load_feature_matrix")
+    @patch("pricepoint.models.inference.get_model_metrics")
+    @patch("pricepoint.models.inference.load_production_model")
+    def test_force_rebuild_scores_all(
+        self,
+        mock_load: MagicMock,
+        mock_metrics: MagicMock,
+        mock_load_features: MagicMock,
+    ) -> None:
+        """force_rebuild=True uses the simple all-properties query."""
+        from pricepoint.models.inference import ModelInfo
+
+        model = MagicMock()
+        model.predict.return_value = np.array([200000.0])
+        model.calibration_residuals_ = None
+        model.calibration_residuals_normalized_ = None
+        mock_load.return_value = ModelInfo(model=model, version="5", run_id="run-1")
+        mock_metrics.return_value = {"mape": 10.0}
+
+        db = MagicMock()
+        db.execute.return_value.fetchall.return_value = [(1,)]
+        db.query.return_value.filter.return_value.first.return_value = None
+
+        features = pd.DataFrame(
+            {"sqft": [1500]},
+            index=pd.Index([1], name="property_id"),
+        )
+        mock_load_features.return_value = features
+
+        from pricepoint.models.inference import score_all_properties
+
+        result = score_all_properties(db, force_rebuild=True)
+        assert result == 1
+
+
 class TestComputeShapValues:
     """Tests for compute_shap_values."""
 
@@ -848,3 +909,31 @@ class TestScoreAllPropertiesShap:
         # Scoring should still succeed even though SHAP persist failed
         assert result == 1
         db.rollback.assert_called_once()
+
+
+class TestPredictBatchMissingnessIndicators:
+    """Tests that predict_batch generates missingness indicator columns."""
+
+    def test_generates_indicator_columns_for_model(self) -> None:
+        from pricepoint.models.inference import predict_batch
+
+        model = MagicMock()
+        model.predict.return_value = np.array([250000.0, 300000.0, 350000.0])
+        model.feature_names_in_ = np.array(["sqft", "association_fee", "association_fee_missing"])
+
+        features = pd.DataFrame(
+            {
+                "sqft": [1500.0, 2000.0, 2500.0],
+                "association_fee": [np.nan, 150.0, np.nan],
+            },
+            index=[1, 2, 3],
+        )
+
+        predict_batch(model, features)
+
+        called_df = model.predict.call_args[0][0]
+        assert "association_fee_missing" in called_df.columns
+        # NaN association_fee rows → indicator should be 1; non-NaN → 0
+        assert called_df["association_fee_missing"].iloc[0] == 1
+        assert called_df["association_fee_missing"].iloc[1] == 0
+        assert called_df["association_fee_missing"].iloc[2] == 1

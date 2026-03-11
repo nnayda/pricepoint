@@ -561,6 +561,7 @@ class StagingRedfinListing(Base):
     # Metadata
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
     extracted_at = Column(Date, nullable=True)
+    is_processed = Column(Boolean, server_default=text("false"), nullable=False)
 
 
 class RedfinListing(Base):
@@ -712,6 +713,7 @@ class RedfinListing(Base):
     # Metadata
     processed_at = Column(DateTime(timezone=True), server_default=func.now())
     schools_built_at = Column(DateTime(timezone=True), nullable=True)
+    features_built_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("idx_redfin_listings_location", "location", postgresql_using="gist"),

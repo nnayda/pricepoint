@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from pricepoint.features.assembly import assemble_features
+from pricepoint.features.assembly import (
+    assemble_features,
+    get_stale_property_ids,
+    reset_features_built_at,
+)
 
 
 @pytest.fixture()
@@ -161,3 +165,52 @@ def test_assemble_keeps_partial_nan_rows(mock_geo, mock_housing, mock_econ, mock
     assert len(result) == 1
     assert pd.isna(result.loc[1, "property_age"])
     assert result.loc[1, "dist_nearest_school_m"] == 100.0
+
+
+# ---------------------------------------------------------------------------
+# get_stale_property_ids
+# ---------------------------------------------------------------------------
+
+
+def test_get_stale_property_ids_returns_ids_with_null_features_built_at(mock_db):
+    """Properties with features_built_at=NULL should be detected as stale."""
+    mock_db.execute.return_value.scalars.return_value.all.return_value = [1, 3, 7]
+
+    result = get_stale_property_ids(mock_db)
+
+    assert result == [1, 3, 7]
+    mock_db.execute.assert_called_once()
+
+
+def test_get_stale_property_ids_returns_empty_when_all_current(mock_db):
+    """No stale properties returns empty list."""
+    mock_db.execute.return_value.scalars.return_value.all.return_value = []
+
+    result = get_stale_property_ids(mock_db)
+
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# reset_features_built_at
+# ---------------------------------------------------------------------------
+
+
+def test_reset_features_built_at_nulls_timestamps(mock_db):
+    """reset_features_built_at should null features_built_at and commit."""
+    mock_db.execute.return_value.rowcount = 42
+
+    count = reset_features_built_at(mock_db)
+
+    assert count == 42
+    mock_db.execute.assert_called_once()
+    mock_db.commit.assert_called_once()
+
+
+def test_reset_features_built_at_returns_zero_when_none_set(mock_db):
+    """Returns 0 when no properties had features_built_at set."""
+    mock_db.execute.return_value.rowcount = 0
+
+    count = reset_features_built_at(mock_db)
+
+    assert count == 0

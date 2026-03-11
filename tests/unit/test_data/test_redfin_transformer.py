@@ -1198,3 +1198,73 @@ class TestTransformAllListings:
         result = transform_all_listings(batch_size=100)
         assert result["errors"] == 1
         assert result["transformed"] == 0
+
+    @patch("pricepoint.data.housing.redfin_transformer.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_transformer.transform_listing")
+    def test_skips_processed_records(self, mock_transform, mock_session_cls):
+        """Default mode filters to is_processed=False."""
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        # No unprocessed records
+        session.execute.return_value.scalars.return_value.all.return_value = []
+
+        result = transform_all_listings(batch_size=100)
+        assert result == {"transformed": 0, "skipped": 0, "errors": 0}
+        mock_transform.assert_not_called()
+
+    @patch("pricepoint.data.housing.redfin_transformer.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_transformer.transform_listing")
+    def test_force_rebuild_processes_all(self, mock_transform, mock_session_cls):
+        """force_rebuild=True skips the is_processed filter."""
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        staging1 = MagicMock()
+        staging1.id = 1
+        session.execute.return_value.scalars.return_value.all.side_effect = [
+            [1],
+            [staging1],
+        ]
+        mock_transform.return_value = True
+
+        result = transform_all_listings(batch_size=100, force_rebuild=True)
+        assert result["transformed"] == 1
+
+    @patch("pricepoint.data.housing.redfin_transformer.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_transformer.transform_listing")
+    def test_marks_is_processed_on_success(self, mock_transform, mock_session_cls):
+        """Successfully transformed records should be marked is_processed=True."""
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        staging1 = MagicMock()
+        staging1.id = 1
+        staging1.is_processed = False
+        session.execute.return_value.scalars.return_value.all.side_effect = [
+            [1],
+            [staging1],
+        ]
+        mock_transform.return_value = True
+
+        transform_all_listings(batch_size=100, force_rebuild=True)
+        assert staging1.is_processed is True
+
+    @patch("pricepoint.data.housing.redfin_transformer.SessionLocal")
+    @patch("pricepoint.data.housing.redfin_transformer.transform_listing")
+    def test_does_not_mark_on_error(self, mock_transform, mock_session_cls):
+        """Failed transforms should NOT mark is_processed=True."""
+        session = MagicMock()
+        mock_session_cls.return_value = session
+
+        staging1 = MagicMock()
+        staging1.id = 1
+        staging1.is_processed = False
+        session.execute.return_value.scalars.return_value.all.side_effect = [
+            [1],
+            [staging1],
+        ]
+        mock_transform.side_effect = ValueError("boom")
+
+        transform_all_listings(batch_size=100, force_rebuild=True)
+        assert staging1.is_processed is False

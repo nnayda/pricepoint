@@ -6,13 +6,48 @@ import logging
 import time
 
 import pandas as pd
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from pricepoint.db.models import RedfinListing
 from pricepoint.features.economic import build_economic_features
 from pricepoint.features.geospatial import build_geospatial_features
 from pricepoint.features.housing import build_housing_features
 
 logger = logging.getLogger(__name__)
+
+
+def get_stale_property_ids(db: Session) -> list[int]:
+    """Find properties needing feature recomputation (NULL features_built_at)."""
+    return list(
+        db.execute(
+            select(RedfinListing.id).where(
+                RedfinListing.location.isnot(None),
+                RedfinListing.features_built_at.is_(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def reset_features_built_at(db: Session) -> int:
+    """Mark all properties as needing feature recomputation.
+
+    Sets ``features_built_at`` to NULL so that the next feature assembly
+    run will reprocess them.  Called at the start of a DAG-triggered run
+    (since the trigger means upstream data changed).
+    """
+    result = db.execute(
+        update(RedfinListing)
+        .where(RedfinListing.features_built_at.isnot(None))
+        .values(features_built_at=None)
+    )
+    db.commit()
+    count = result.rowcount or 0
+    if count:
+        logger.info("Reset features_built_at for %d properties", count)
+    return count
 
 
 def assemble_features(

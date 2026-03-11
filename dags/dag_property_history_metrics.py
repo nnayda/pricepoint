@@ -24,20 +24,22 @@ logger = logging.getLogger(__name__)
         "retries": 1,
         "retry_delay": timedelta(minutes=10),
     },
+    params={"force_rebuild": False},
     tags=["data", "gold", "metrics"],
 )
 def property_history_metrics():
-    @task(outlets=[Asset("property_history_metrics")])
-    def build_metrics():
+    @task()
+    def build_metrics(**context):
         """Build property history metrics table."""
         from pricepoint.data.housing.property_history_metrics import (
             build_property_history_metrics,
         )
         from pricepoint.db.engine import SessionLocal
 
+        force = context["params"].get("force_rebuild", False)
         session = SessionLocal()
         try:
-            count = build_property_history_metrics(session)
+            count = build_property_history_metrics(session, force_rebuild=force)
             session.commit()
             logger.info("Built %d property history metric rows", count)
             return count
@@ -47,7 +49,7 @@ def property_history_metrics():
         finally:
             session.close()
 
-    @task()
+    @task(outlets=[Asset("property_history")])
     def verify_metrics(count):
         """Verify metrics table was populated."""
         from pricepoint.data.housing.property_history_metrics import (

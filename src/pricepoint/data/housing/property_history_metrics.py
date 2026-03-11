@@ -12,7 +12,7 @@ from statistics import median
 from typing import NamedTuple
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from pricepoint.db.models import PropertyGeoLookup, PropertyHistoryMetric, RedfinListing
@@ -20,6 +20,20 @@ from pricepoint.db.models import PropertyGeoLookup, PropertyHistoryMetric, Redfi
 logger = logging.getLogger(__name__)
 
 MIN_SAMPLE_SIZE = 5
+
+
+def _has_new_sold_listings(session: Session) -> bool:
+    """Check if any SOLD listings were processed after the latest metric build."""
+    latest_built = session.scalar(select(func.max(PropertyHistoryMetric.built_at)))
+    if latest_built is None:
+        return True  # No metrics built yet — need a full build
+    new_count = session.scalar(
+        select(func.count(RedfinListing.id)).where(
+            RedfinListing.listing_status == "SOLD",
+            RedfinListing.processed_at > latest_built,
+        )
+    )
+    return (new_count or 0) > 0
 
 
 class SaleRecord(NamedTuple):
@@ -90,11 +104,22 @@ def _compute_window(
     return round(avg_dom, 2), round(med_price, 2), count
 
 
-def build_property_history_metrics(session: Session) -> int:
+def build_property_history_metrics(
+    session: Session,
+    *,
+    force_rebuild: bool = False,
+) -> int:
     """Build property_history_metrics table from sold Redfin listings.
+
+    When ``force_rebuild`` is False (default), short-circuits if no new
+    SOLD listings have been processed since the last metric build.
 
     Returns the number of metric rows upserted.
     """
+    if not force_rebuild and not _has_new_sold_listings(session):
+        logger.info("No new SOLD listings since last build; skipping history metrics")
+        return 0
+
     by_township = _fetch_sale_records(session)
     if not by_township:
         logger.warning("No sold listings with township geoid found — nothing to build")

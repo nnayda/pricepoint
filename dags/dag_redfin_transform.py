@@ -25,17 +25,19 @@ LISTINGS_DATASET = Asset("redfin_listings")
         "retries": 2,
         "retry_delay": timedelta(minutes=5),
     },
+    params={"force_rebuild": False},
     tags=["data", "transform", "housing", "redfin"],
 )
 def redfin_listing_transform():
     """Transform staging Redfin listings into production redfin_listings table."""
 
-    @task(outlets=[LISTINGS_DATASET])
-    def transform_listings():
+    @task()
+    def transform_listings(**context):
         """Run the staging-to-production transformation."""
         from pricepoint.data.housing.redfin_transformer import transform_all_listings
 
-        result = transform_all_listings()
+        force = context["params"].get("force_rebuild", False)
+        result = transform_all_listings(force_rebuild=force)
         logger.info(
             "Transform complete: %d transformed, %d skipped, %d errors",
             result["transformed"],
@@ -44,7 +46,7 @@ def redfin_listing_transform():
         )
         return result
 
-    @task()
+    @task(outlets=[LISTINGS_DATASET])
     def verify_transform(result):
         """Verify at least one production record exists."""
         from sqlalchemy import func, select

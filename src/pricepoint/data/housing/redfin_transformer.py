@@ -1492,18 +1492,36 @@ def transform_listing(
     return True
 
 
-def transform_all_listings(batch_size: int = 100) -> dict[str, int]:
-    """Transform all staging records in batches.
+def transform_all_listings(
+    batch_size: int = 100,
+    *,
+    force_rebuild: bool = False,
+) -> dict[str, int]:
+    """Transform staging records in batches.
+
+    By default only processes unprocessed staging records.  Pass
+    ``force_rebuild=True`` to reprocess every staging row regardless
+    of its ``is_processed`` flag.
 
     Returns dict with 'transformed', 'skipped', 'errors' counts.
     """
     session = SessionLocal()
     stats: dict[str, int] = {"transformed": 0, "skipped": 0, "errors": 0}
     try:
-        total = (
-            session.execute(select(StagingRedfinListing.id).order_by(StagingRedfinListing.id))
-            .scalars()
-            .all()
+        stmt = select(StagingRedfinListing.id).order_by(StagingRedfinListing.id)
+        if not force_rebuild:
+            stmt = stmt.where(StagingRedfinListing.is_processed.is_(False))
+
+        total = session.execute(stmt).scalars().all()
+
+        if not total:
+            logger.info("No staging records to process")
+            return stats
+
+        logger.info(
+            "Processing %d staging records (force_rebuild=%s)",
+            len(total),
+            force_rebuild,
         )
 
         for i in range(0, len(total), batch_size):
@@ -1518,6 +1536,7 @@ def transform_all_listings(batch_size: int = 100) -> dict[str, int]:
             for record in records:
                 try:
                     changed = transform_listing(session, record)
+                    record.is_processed = True
                     if changed:
                         stats["transformed"] += 1
                     else:
