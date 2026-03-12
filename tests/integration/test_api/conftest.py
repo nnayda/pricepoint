@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from pricepoint.api.dependencies import get_db
 from pricepoint.api.main import create_app
-from pricepoint.db.engine import get_db
 
 
 @pytest.fixture

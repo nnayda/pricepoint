@@ -48,7 +48,7 @@ class TestPoliceIncidentModel:
         """Create a police incident with a POINT geometry."""
         incident = PoliceIncident(
             incident_id="INC-001",
-            incident_type="THEFT",
+            crime_category="THEFT",
             location=from_shape(Point(-78.64, 35.77), srid=4326),
         )
         db_session.add(incident)

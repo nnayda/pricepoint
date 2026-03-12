@@ -1,7 +1,8 @@
 """Integration tests for Morrisville police incidents collector against a real PostGIS database."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 from sqlalchemy import func, select, text
 
@@ -12,56 +13,52 @@ from pricepoint.db.models import StagingMorrisvillePoliceIncident
 
 pytestmark = pytest.mark.integration
 
-_CSV_HEADERS = (
-    "date_rept;date_occu;dow1;monthstamp;yearstamp;inci_id;offense;"
-    "street;city;state;zip;neighborhd;subdivisn;tract;zone;district;"
-    "asst_offcr;area"
-)
 
+def _make_dataframe(*rows: dict[str, str]) -> pd.DataFrame:
+    """Build a DataFrame matching what ODSClient.get_whole_dataframe() returns.
 
-def _make_csv(*rows: dict[str, str]) -> str:
-    """Build a semicolon-delimited CSV string with the standard headers."""
-    lines = [_CSV_HEADERS]
-    for row in rows:
-        fields = _CSV_HEADERS.split(";")
-        lines.append(";".join(row.get(f, "") for f in fields))
-    return "\n".join(lines)
-
-
-def _make_record(**overrides: str) -> dict[str, str]:
-    """Return a minimal CSV-style record dict with optional overrides."""
-    base: dict[str, str] = {
-        "date_rept": "2024-01-15T10:00:00+00:00",
-        "date_occu": "2024-01-15T08:00:00+00:00",
-        "dow1": "Monday",
-        "monthstamp": "January",
-        "yearstamp": "2024",
-        "inci_id": "24001001",
-        "offense": "LARCENY - FROM MOTOR VEHICLE",
-        "street": "TOWN HALL DR",
-        "city": "MORRISVILLE",
-        "state": "NC",
-        "zip": "27560",
-        "neighborhd": "",
-        "subdivisn": "0009",
-        "tract": "P132",
-        "zone": "2",
-        "district": "MPD1",
-        "asst_offcr": "1",
-        "area": "35.812711, -78.819843",
+    Column names use the human-readable form that ODSClient produces
+    (Title Case with spaces).  The collector normalises them internally.
+    """
+    defaults: dict[str, str] = {
+        "Incident Id": "24001001",
+        "Offense": "LARCENY - FROM MOTOR VEHICLE",
+        "Date Reported": "2024-01-15T10:00:00+00:00",
+        "Date Occurred": "2024-01-15T08:00:00+00:00",
+        "Day Of Week": "Monday",
+        "Month": "January",
+        "Year": "2024",
+        "Street": "TOWN HALL DR",
+        "City": "MORRISVILLE",
+        "State": "NC",
+        "Zip": "27560",
+        "Neighborhood": "",
+        "Subdivision": "0009",
+        "Tract": "P132",
+        "Zone": "2",
+        "District": "MPD1",
+        "# Of Asst Officers": "1",
+        "Area": "35.812711, -78.819843",
     }
-    base.update(overrides)
-    return base
+    records = []
+    for row in rows:
+        record = defaults.copy()
+        record.update(row)
+        records.append(record)
+    return pd.DataFrame(records)
 
 
-@patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
+@patch("pricepoint.data.geospatial.police_incidents.ODSClient")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_records_persist_to_staging_table(mock_session_cls, mock_get_dataset, db_session):
+def test_records_persist_to_staging_table(mock_session_cls, mock_ods_cls, db_session):
     """Records should be persisted to the staging table with correct field values."""
     mock_session_cls.return_value = db_session
 
-    csv_text = _make_csv(_make_record(inci_id="INT_M1", offense="VANDALISM"))
-    mock_get_dataset.return_value = csv_text
+    mock_client = MagicMock()
+    mock_client.get_whole_dataframe.return_value = _make_dataframe(
+        {"Incident Id": "INT_M1", "Offense": "VANDALISM"}
+    )
+    mock_ods_cls.return_value = mock_client
 
     fetch_morrisville_police_incidents(full_refresh=True)
 
@@ -77,9 +74,9 @@ def test_records_persist_to_staging_table(mock_session_cls, mock_get_dataset, db
     assert row.location is not None
 
 
-@patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
+@patch("pricepoint.data.geospatial.police_incidents.ODSClient")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_full_refresh_truncates_before_load(mock_session_cls, mock_get_dataset, db_session):
+def test_full_refresh_truncates_before_load(mock_session_cls, mock_ods_cls, db_session):
     """Full refresh should remove old records and only keep new ones."""
     mock_session_cls.return_value = db_session
 
@@ -88,9 +85,11 @@ def test_full_refresh_truncates_before_load(mock_session_cls, mock_get_dataset, 
     db_session.add(old)
     db_session.flush()
 
-    # Mock returns a different record
-    csv_text = _make_csv(_make_record(inci_id="NEW_1", offense="NEW"))
-    mock_get_dataset.return_value = csv_text
+    mock_client = MagicMock()
+    mock_client.get_whole_dataframe.return_value = _make_dataframe(
+        {"Incident Id": "NEW_1", "Offense": "NEW"}
+    )
+    mock_ods_cls.return_value = mock_client
 
     fetch_morrisville_police_incidents(full_refresh=True)
 
@@ -101,14 +100,17 @@ def test_full_refresh_truncates_before_load(mock_session_cls, mock_get_dataset, 
     assert len(rows) == 1
 
 
-@patch("pricepoint.data.geospatial.police_incidents.get_whole_dataset")
+@patch("pricepoint.data.geospatial.police_incidents.ODSClient")
 @patch("pricepoint.data.geospatial.police_incidents.SessionLocal")
-def test_geometry_column_is_queryable(mock_session_cls, mock_get_dataset, db_session):
+def test_geometry_column_is_queryable(mock_session_cls, mock_ods_cls, db_session):
     """The geometry column should support spatial queries."""
     mock_session_cls.return_value = db_session
 
-    csv_text = _make_csv(_make_record(inci_id="GEO_1", area="35.812711, -78.819843"))
-    mock_get_dataset.return_value = csv_text
+    mock_client = MagicMock()
+    mock_client.get_whole_dataframe.return_value = _make_dataframe(
+        {"Incident Id": "GEO_1", "Area": "35.812711, -78.819843"}
+    )
+    mock_ods_cls.return_value = mock_client
 
     fetch_morrisville_police_incidents(full_refresh=True)
 
