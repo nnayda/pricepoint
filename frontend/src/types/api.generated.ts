@@ -4,3506 +4,3506 @@
  */
 
 export interface paths {
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Health
-         * @description Liveness probe — returns 200 if the service is running.
-         */
-        get: operations["health_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Ready
-         * @description Readiness probe — checks database connectivity.
-         *
-         *     Returns 200 if the database is reachable, 503 otherwise.
-         */
-        get: operations["ready_ready_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Health
+     * @description Liveness probe — returns 200 if the service is running.
+     */
+    get: operations["health_health_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/ready": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stats
-         * @description Return aggregate statistics (listing count) with a 5-minute TTL cache.
-         */
-        get: operations["stats_api_stats_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Ready
+     * @description Readiness probe — checks database connectivity.
+     *
+     *     Returns 200 if the database is reachable, 503 otherwise.
+     */
+    get: operations["ready_ready_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/stats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register
-         * @description Create a new user account and return a token for auto-login.
-         */
-        post: operations["register_api_auth_register_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Stats
+     * @description Return aggregate statistics (listing count) with a 5-minute TTL cache.
+     */
+    get: operations["stats_api_stats_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/register": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Login
-         * @description Authenticate with JSON body and return a JWT access token + user.
-         */
-        post: operations["login_api_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Register
+     * @description Create a new user account and return a token for auto-login.
+     */
+    post: operations["register_api_auth_register_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Me
-         * @description Return the current authenticated user's profile.
-         */
-        get: operations["get_me_api_auth_me_get"];
-        /**
-         * Update Me
-         * @description Update the current user's display name.
-         */
-        put: operations["update_me_api_auth_me_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Login
+     * @description Authenticate with JSON body and return a JWT access token + user.
+     */
+    post: operations["login_api_auth_login_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google Login
-         * @description Redirect the user to Google's OAuth consent screen.
-         */
-        get: operations["google_login_api_auth_google_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Me
+     * @description Return the current authenticated user's profile.
+     */
+    get: operations["get_me_api_auth_me_get"];
+    /**
+     * Update Me
+     * @description Update the current user's display name.
+     */
+    put: operations["update_me_api_auth_me_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/google": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/auth/google/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google Callback
-         * @description Handle the OAuth callback from Google.
-         *
-         *     Exchanges the authorization code for tokens, fetches user info, then
-         *     either logs in an existing user, links a Google account, or creates a
-         *     new account.
-         */
-        get: operations["google_callback_api_auth_google_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Google Login
+     * @description Redirect the user to Google's OAuth consent screen.
+     */
+    get: operations["google_login_api_auth_google_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/google/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/forecast": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Forecast
-         * @description Return a home value forecast for the given address.
-         *
-         *     Geocodes the address, builds features, and runs the production model.
-         *     Falls back gracefully when MLflow is unavailable.
-         */
-        post: operations["forecast_api_forecast_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Google Callback
+     * @description Handle the OAuth callback from Google.
+     *
+     *     Exchanges the authorization code for tokens, fetches user info, then
+     *     either logs in an existing user, links a Google account, or creates a
+     *     new account.
+     */
+    get: operations["google_callback_api_auth_google_callback_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/forecast": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/forecast/importance/{property_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Feature Importance
-         * @description Return feature importance attributions for a property prediction.
-         *
-         *     Loads the production model's global feature importances weighted by
-         *     the property's feature values.  Returns top 10 positive and top 10
-         *     negative contributors.  Falls back to stub data when MLflow is
-         *     unavailable.
-         */
-        get: operations["feature_importance_api_forecast_importance__property_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Forecast
+     * @description Return a home value forecast for the given address.
+     *
+     *     Geocodes the address, builds features, and runs the production model.
+     *     Falls back gracefully when MLflow is unavailable.
+     */
+    post: operations["forecast_api_forecast_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/forecast/importance/{property_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/geocode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Geocode
-         * @description Look up addresses via geocoding provider, with optional Valkey caching.
-         */
-        get: operations["geocode_api_geocode_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Feature Importance
+     * @description Return feature importance attributions for a property prediction.
+     *
+     *     Loads the production model's global feature importances weighted by
+     *     the property's feature values.  Returns top 10 positive and top 10
+     *     negative contributors.  Falls back to stub data when MLflow is
+     *     unavailable.
+     */
+    get: operations["feature_importance_api_forecast_importance__property_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/geocode": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/property": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Property
-         * @description Return property details for the given location.
-         *
-         *     Lookup strategy:
-         *     1. Spatial search — closest property within ~100 m of (lat, lon).
-         *     2. Street-name prefix match — first comma-delimited segment of address.
-         *     3. Fall back to stub data.
-         */
-        get: operations["get_property_api_property_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Geocode
+     * @description Look up addresses via geocoding provider, with optional Valkey caching.
+     */
+    get: operations["geocode_api_geocode_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/property": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/photos/{path}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Photo
-         * @description Stream a property photo from S3 storage.
-         */
-        get: operations["get_photo_api_photos__path__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Property
+     * @description Return property details for the given location.
+     *
+     *     Lookup strategy:
+     *     1. Spatial search — closest property within ~100 m of (lat, lon).
+     *     2. Street-name prefix match — first comma-delimited segment of address.
+     *     3. Fall back to stub data.
+     */
+    get: operations["get_property_api_property_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/photos/{path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/comparables": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Comparables
-         * @description Return comparable recently-sold properties near a given location.
-         *
-         *     Filters by radius, bedroom count (+/- 1), and square footage (+/- 25%).
-         *     Results are ranked by a composite similarity score combining distance,
-         *     size difference, and recency.
-         */
-        get: operations["get_comparables_api_comparables_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Photo
+     * @description Stream a property photo from S3 storage.
+     */
+    get: operations["get_photo_api_photos__path__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/comparables": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/schools/nearby": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nearby Schools
-         * @description Return schools near a given location, ordered by distance.
-         *
-         *     Uses a spatial query on the schools table (gold layer).
-         *     If a property is found at the given coordinates, enriches results
-         *     with assigned status and travel times from the property_schools linkage.
-         *     Also returns school district boundaries near the property.
-         */
-        get: operations["get_nearby_schools_api_schools_nearby_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Comparables
+     * @description Return comparable recently-sold properties near a given location.
+     *
+     *     Filters by radius, bedroom count (+/- 1), and square footage (+/- 25%).
+     *     Results are ranked by a composite similarity score combining distance,
+     *     size difference, and recency.
+     */
+    get: operations["get_comparables_api_comparables_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/schools/nearby": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/demographics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Demographics
-         * @description Return ACS census demographics for geographic contexts around a point.
-         */
-        get: operations["get_demographics_api_demographics_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Nearby Schools
+     * @description Return schools near a given location, ordered by distance.
+     *
+     *     Uses a spatial query on the schools table (gold layer).
+     *     If a property is found at the given coordinates, enriches results
+     *     with assigned status and travel times from the property_schools linkage.
+     *     Also returns school district boundaries near the property.
+     */
+    get: operations["get_nearby_schools_api_schools_nearby_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/demographics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/crime": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Crime
-         * @description Return crime data for the area around the given location.
-         */
-        get: operations["get_crime_api_crime_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Demographics
+     * @description Return ACS census demographics for geographic contexts around a point.
+     */
+    get: operations["get_demographics_api_demographics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/crime": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/pois": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Pois
-         * @description Return points of interest near the given location.
-         */
-        get: operations["get_pois_api_pois_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Crime
+     * @description Return crime data for the area around the given location.
+     */
+    get: operations["get_crime_api_crime_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pois": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/pois/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Pois
-         * @description Search for commercial POIs by name or category near a location.
-         */
-        get: operations["search_pois_api_pois_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Pois
+     * @description Return points of interest near the given location.
+     */
+    get: operations["get_pois_api_pois_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pois/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/pois/autocomplete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Autocomplete Pois
-         * @description Autocomplete POI brands/names for saving.
-         */
-        get: operations["autocomplete_pois_api_pois_autocomplete_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Search Pois
+     * @description Search for commercial POIs by name or category near a location.
+     */
+    get: operations["search_pois_api_pois_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pois/autocomplete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/pois/saved-nearby": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Saved Pois Nearby
-         * @description Return nearby locations matching the user's saved POIs.
-         */
-        get: operations["get_saved_pois_nearby_api_pois_saved_nearby_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Autocomplete Pois
+     * @description Autocomplete POI brands/names for saving.
+     */
+    get: operations["autocomplete_pois_api_pois_autocomplete_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/pois/saved-nearby": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/greenspace": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Greenspace
-         * @description Return greenspace features and metrics near the given location.
-         */
-        get: operations["get_greenspace_api_greenspace_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Saved Pois Nearby
+     * @description Return nearby locations matching the user's saved POIs.
+     */
+    get: operations["get_saved_pois_nearby_api_pois_saved_nearby_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/greenspace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/utilities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Utilities
-         * @description Return utility infrastructure features near the given location.
-         */
-        get: operations["get_utilities_api_utilities_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Greenspace
+     * @description Return greenspace features and metrics near the given location.
+     */
+    get: operations["get_greenspace_api_greenspace_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/utilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/saved": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Saved
-         * @description Return all saved properties for the authenticated user.
-         */
-        get: operations["list_saved_api_saved_get"];
-        put?: never;
-        /**
-         * Save Property
-         * @description Bookmark a property listing for the authenticated user.
-         */
-        post: operations["save_property_api_saved_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Utilities
+     * @description Return utility infrastructure features near the given location.
+     */
+    get: operations["get_utilities_api_utilities_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/saved": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/saved/{saved_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Saved
-         * @description Update notes on a saved property. Must be the owner.
-         */
-        put: operations["update_saved_api_saved__saved_id__put"];
-        post?: never;
-        /**
-         * Delete Saved
-         * @description Remove a saved property. Must be the owner.
-         */
-        delete: operations["delete_saved_api_saved__saved_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List Saved
+     * @description Return all saved properties for the authenticated user.
+     */
+    get: operations["list_saved_api_saved_get"];
+    put?: never;
+    /**
+     * Save Property
+     * @description Bookmark a property listing for the authenticated user.
+     */
+    post: operations["save_property_api_saved_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/saved/{saved_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/saved-pois": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Saved Pois
-         * @description Return all saved POIs for the authenticated user.
-         */
-        get: operations["list_saved_pois_api_saved_pois_get"];
-        put?: never;
-        /**
-         * Create Saved Poi
-         * @description Save a POI for proximity tracking. Validates the match exists in places.
-         */
-        post: operations["create_saved_poi_api_saved_pois_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * Update Saved
+     * @description Update notes on a saved property. Must be the owner.
+     */
+    put: operations["update_saved_api_saved__saved_id__put"];
+    post?: never;
+    /**
+     * Delete Saved
+     * @description Remove a saved property. Must be the owner.
+     */
+    delete: operations["delete_saved_api_saved__saved_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/saved-pois": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/saved-pois/{saved_poi_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Saved Poi
-         * @description Remove a saved POI. Must be the owner.
-         */
-        delete: operations["delete_saved_poi_api_saved_pois__saved_poi_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Saved Poi
-         * @description Partially update a saved POI. Must be the owner.
-         */
-        patch: operations["update_saved_poi_api_saved_pois__saved_poi_id__patch"];
-        trace?: never;
+    /**
+     * List Saved Pois
+     * @description Return all saved POIs for the authenticated user.
+     */
+    get: operations["list_saved_pois_api_saved_pois_get"];
+    put?: never;
+    /**
+     * Create Saved Poi
+     * @description Save a POI for proximity tracking. Validates the match exists in places.
+     */
+    post: operations["create_saved_poi_api_saved_pois_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/saved-pois/{saved_poi_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/upload/redfin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Redfin Html
-         * @description Accept one or more Redfin HTML files and save to the configured directory.
-         */
-        post: operations["upload_redfin_html_api_upload_redfin_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Saved Poi
+     * @description Remove a saved POI. Must be the owner.
+     */
+    delete: operations["delete_saved_poi_api_saved_pois__saved_poi_id__delete"];
+    options?: never;
+    head?: never;
+    /**
+     * Update Saved Poi
+     * @description Partially update a saved POI. Must be the owner.
+     */
+    patch: operations["update_saved_poi_api_saved_pois__saved_poi_id__patch"];
+    trace?: never;
+  };
+  "/api/upload/redfin": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/data-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Data Request
-         * @description Create a data request for a property not yet in the database.
-         *
-         *     Deduplicates: if a pending or processing request already exists for the
-         *     same address, the existing request is returned instead of creating a new one.
-         */
-        post: operations["create_data_request_api_data_requests_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Upload Redfin Html
+     * @description Accept one or more Redfin HTML files and save to the configured directory.
+     */
+    post: operations["upload_redfin_html_api_upload_redfin_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/data-requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/data-requests/{request_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Data Request
-         * @description Check the status of a data request.
-         */
-        get: operations["get_data_request_api_data_requests__request_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Create Data Request
+     * @description Create a data request for a property not yet in the database.
+     *
+     *     Deduplicates: if a pending or processing request already exists for the
+     *     same address, the existing request is returned instead of creating a new one.
+     */
+    post: operations["create_data_request_api_data_requests_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/data-requests/{request_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/neighborhood/valuation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Neighborhood Valuation
-         * @description Return median and max home values for the census tract containing the point.
-         */
-        get: operations["get_neighborhood_valuation_api_neighborhood_valuation_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Data Request
+     * @description Check the status of a data request.
+     */
+    get: operations["get_data_request_api_data_requests__request_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/neighborhood/valuation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/neighborhood/valuation/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Neighborhood Valuation History
-         * @description Return monthly median home-value time series for the census tract.
-         */
-        get: operations["get_neighborhood_valuation_history_api_neighborhood_valuation_history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Neighborhood Valuation
+     * @description Return median and max home values for the census tract containing the point.
+     */
+    get: operations["get_neighborhood_valuation_api_neighborhood_valuation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/neighborhood/valuation/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/neighborhood/valuation/properties": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Neighborhood Valuation Properties
-         * @description Return individual properties in the census tract with their effective prices.
-         */
-        get: operations["get_neighborhood_valuation_properties_api_neighborhood_valuation_properties_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Neighborhood Valuation History
+     * @description Return monthly median home-value time series for the census tract.
+     */
+    get: operations["get_neighborhood_valuation_history_api_neighborhood_valuation_history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/neighborhood/valuation/properties": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/nuisances/sources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Nuisance Sources
-         * @description Return identified nuisance sources near the given location.
-         *
-         *     Finds noise polygons containing the property, identifies the loudest
-         *     polygon per source layer, then queries the nearest matching infrastructure
-         *     (airport, road, or railroad) for detail.
-         */
-        get: operations["get_nuisance_sources_api_nuisances_sources_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Neighborhood Valuation Properties
+     * @description Return individual properties in the census tract with their effective prices.
+     */
+    get: operations["get_neighborhood_valuation_properties_api_neighborhood_valuation_properties_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/nuisances/sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/risks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Risks
-         * @description Return infrastructure risk features and boundary polygons near the given location.
-         */
-        get: operations["get_risks_api_risks_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Nuisance Sources
+     * @description Return identified nuisance sources near the given location.
+     *
+     *     Finds noise polygons containing the property, identifies the loudest
+     *     polygon per source layer, then queries the nearest matching infrastructure
+     *     (airport, road, or railroad) for detail.
+     */
+    get: operations["get_nuisance_sources_api_nuisances_sources_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/risks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/comparables/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Comparables
-         * @description Find comparable sold properties and rank by ML feature similarity.
-         */
-        get: operations["search_comparables_api_comparables_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Risks
+     * @description Return infrastructure risk features and boundary polygons near the given location.
+     */
+    get: operations["get_risks_api_risks_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/comparables/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/api/cache/{prefix}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete Cache
-         * @description Invalidate all cached keys with the given prefix.
-         *
-         *     Requires authentication.  Returns the number of keys deleted.
-         */
-        delete: operations["delete_cache_api_cache__prefix__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Search Comparables
+     * @description Find comparable sold properties and rank by ML feature similarity.
+     */
+    get: operations["search_comparables_api_comparables_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/cache/{prefix}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Metrics
-         * @description Endpoint that serves Prometheus metrics.
-         */
-        get: operations["metrics_metrics_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Delete Cache
+     * @description Invalidate all cached keys with the given prefix.
+     *
+     *     Requires authentication.  Returns the number of keys deleted.
+     */
+    delete: operations["delete_cache_api_cache__prefix__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/metrics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /**
+     * Metrics
+     * @description Endpoint that serves Prometheus metrics.
+     */
+    get: operations["metrics_metrics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** AgeBucket */
-        AgeBucket: {
-            /** Range */
-            range: string;
-            /** Male */
-            male: number;
-            /** Female */
-            female: number;
-        };
-        /** AgeDistributionTrendPoint */
-        AgeDistributionTrendPoint: {
-            /** Year */
-            year: number;
-            /** Under18 */
-            under18: number;
-            /** Age18 22 */
-            age18_22: number;
-            /** Age23 29 */
-            age23_29: number;
-            /** Age30 39 */
-            age30_39: number;
-            /** Age40 49 */
-            age40_49: number;
-            /** Age50 64 */
-            age50_64: number;
-            /** Age65Plus */
-            age65plus: number;
-        };
-        /**
-         * AuthResponse
-         * @description JWT token + user profile returned on login/register.
-         */
-        AuthResponse: {
-            /** Access Token */
-            access_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-            user: components["schemas"]["UserResponse"];
-        };
-        /** Body_upload_redfin_html_api_upload_redfin_post */
-        Body_upload_redfin_html_api_upload_redfin_post: {
-            /** Files */
-            files: string[];
-        };
-        /**
-         * ClimateRisk
-         * @description Climate risk assessment.
-         */
-        ClimateRisk: {
-            /** Flood Risk */
-            flood_risk: string;
-            /** Flood Score */
-            flood_score: number;
-            /** Fire Risk */
-            fire_risk: string;
-            /** Fire Score */
-            fire_score: number;
-        };
-        /**
-         * CompNuisance
-         * @description Nuisance source for a comparable property.
-         */
-        CompNuisance: {
-            /** Name */
-            name: string;
-            /** Source Type */
-            source_type: string;
-            /** Severity */
-            severity: string;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Detail */
-            detail: string;
-        };
-        /**
-         * CompProperty
-         * @description A single comparable (or subject) property with full details.
-         */
-        CompProperty: {
-            /** Listing Id */
-            listing_id: number;
-            /** Address */
-            address: string;
-            /** City */
-            city: string;
-            /** State */
-            state: string;
-            /** Zip Code */
-            zip_code: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Sold Price */
-            sold_price?: number | null;
-            /** Sold Date */
-            sold_date?: string | null;
-            /** Listing Price */
-            listing_price?: number | null;
-            /** Beds */
-            beds: number;
-            /** Baths */
-            baths: number;
-            /** Sqft */
-            sqft?: number | null;
-            /** Lot Size */
-            lot_size?: number | null;
-            /** Year Built */
-            year_built?: number | null;
-            /**
-             * Garage Spaces
-             * @default 0
-             */
-            garage_spaces: number;
-            /** Price Per Sqft */
-            price_per_sqft?: number | null;
-            /**
-             * Photos
-             * @default []
-             */
-            photos: string[];
-            /** Description Score */
-            description_score?: number | null;
-            /** Photo Score */
-            photo_score?: number | null;
-            /**
-             * Feature Groups
-             * @default []
-             */
-            feature_groups: components["schemas"]["FeatureGroup"][];
-            /**
-             * Nuisances
-             * @default []
-             */
-            nuisances: components["schemas"]["CompNuisance"][];
-            /**
-             * Risks
-             * @default []
-             */
-            risks: components["schemas"]["CompRisk"][];
-            /** Similarity Distance */
-            similarity_distance?: number | null;
-        };
-        /**
-         * CompRisk
-         * @description Infrastructure risk for a comparable property.
-         */
-        CompRisk: {
-            /** Name */
-            name: string;
-            /** Infrastructure Type */
-            infrastructure_type: string;
-            /** Severity */
-            severity: string;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Detail */
-            detail: string;
-        };
-        /**
-         * ComparableProperty
-         * @description A comparable property for comparison.
-         */
-        ComparableProperty: {
-            /** Id */
-            id: number;
-            /** Address */
-            address: string;
-            /** Sale Price */
-            sale_price: number;
-            /** Sold Date */
-            sold_date: string;
-            /** Beds */
-            beds: number;
-            /** Baths */
-            baths: number;
-            /** Sqft */
-            sqft: number;
-            /** Price Per Sqft */
-            price_per_sqft: number;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-        };
-        /**
-         * ComparablesResponse
-         * @description Response body for the comparables endpoint.
-         */
-        ComparablesResponse: {
-            subject: components["schemas"]["CompProperty"];
-            /** Comparables */
-            comparables: components["schemas"]["CompProperty"][];
-            /** Total Candidates */
-            total_candidates: number;
-        };
-        /**
-         * CrimeHeatmapPoint
-         * @description A single heatmap data point.
-         */
-        CrimeHeatmapPoint: {
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Intensity */
-            intensity: number;
-        };
-        /**
-         * CrimeIncident
-         * @description A single crime incident record.
-         */
-        CrimeIncident: {
-            /** Id */
-            id: string;
-            /** Incident Type */
-            incident_type: string;
-            /** Category */
-            category: string;
-            /** Date */
-            date: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Description */
-            description?: string | null;
-            /** Address */
-            address?: string | null;
-            /** Crime Group */
-            crime_group?: string | null;
-            /** Offense Class */
-            offense_class?: string | null;
-        };
-        /**
-         * CrimeMetrics
-         * @description Aggregate crime metrics for the area.
-         */
-        CrimeMetrics: {
-            /** Total Incidents 1Mi */
-            total_incidents_1mi: number;
-            /** Incidents Per 1000 People */
-            incidents_per_1000_people: number;
-            /** Crime Z Score */
-            crime_z_score: number;
-            /** Trend */
-            trend: string;
-        };
-        /**
-         * CrimeResponse
-         * @description Response body for crime data lookup.
-         */
-        CrimeResponse: {
-            /** Heatmap */
-            heatmap: components["schemas"]["CrimeHeatmapPoint"][];
-            /** Incidents */
-            incidents: components["schemas"]["CrimeIncident"][];
-            metrics: components["schemas"]["CrimeMetrics"];
-        };
-        /**
-         * DataRequestCreate
-         * @description Request body for creating a data request.
-         */
-        DataRequestCreate: {
-            /** Address */
-            address: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Email */
-            email?: string | null;
-        };
-        /**
-         * DataRequestResponse
-         * @description Response body for a data request.
-         */
-        DataRequestResponse: {
-            /** Id */
-            id: number;
-            /** Address */
-            address: string;
-            /** Status */
-            status: string;
-            /** Created At */
-            created_at?: string | null;
-        };
-        /**
-         * DemographicContextData
-         * @description Snapshot + trend data for a single geographic context.
-         */
-        DemographicContextData: {
-            /** Race Ethnicity */
-            race_ethnicity: components["schemas"]["LabelValue"][];
-            /** Age Distribution */
-            age_distribution: components["schemas"]["AgeBucket"][];
-            /** Median Income */
-            median_income: number;
-            /** Income Brackets */
-            income_brackets: components["schemas"]["LabelValue"][];
-            /** Home Ownership Rate */
-            home_ownership_rate: number;
-            /** Median Home Value */
-            median_home_value: number;
-            /** Population */
-            population: number;
-            /** Population Trend */
-            population_trend: components["schemas"]["PopulationTrendPoint"][];
-            /** Race Ethnicity Trend */
-            race_ethnicity_trend: components["schemas"]["RaceEthnicityTrendPoint"][];
-            /** Age Distribution Trend */
-            age_distribution_trend: components["schemas"]["AgeDistributionTrendPoint"][];
-            /** Income Trend */
-            income_trend: components["schemas"]["IncomeTrendPoint"][];
-            /** Home Ownership Trend */
-            home_ownership_trend: components["schemas"]["HomeOwnershipTrendPoint"][];
-            /** Median Age Trend */
-            median_age_trend: components["schemas"]["MedianAgeTrendPoint"][];
-            /** Race Detailed */
-            race_detailed?: {
-                [key: string]: components["schemas"]["RaceDetailedBreakdown"];
-            } | null;
-        };
-        /**
-         * DemographicsResponse
-         * @description Full demographics response with multiple geographic contexts.
-         *
-         *     Boundary geometry and choropleth map data are now served via Martin
-         *     vector tiles and are no longer included in this response.
-         */
-        DemographicsResponse: {
-            /** Contexts */
-            contexts: {
-                [key: string]: components["schemas"]["DemographicContextData"];
-            };
-            /** Benchmarks */
-            benchmarks: {
-                [key: string]: components["schemas"]["DemographicContextData"];
-            };
-        };
-        /**
-         * ExteriorFeatures
-         * @description Exterior feature details.
-         */
-        ExteriorFeatures: {
-            /** Roof */
-            roof: string;
-            /** Siding */
-            siding: string;
-            /** Foundation */
-            foundation: string;
-            /** Parking */
-            parking: string;
-            /** Pool */
-            pool: boolean;
-            /** Fence */
-            fence: string;
-            /** Lot Features */
-            lot_features?: string | null;
-        };
-        /**
-         * FeatureAttribution
-         * @description A single feature's contribution to the predicted value.
-         */
-        FeatureAttribution: {
-            /** Feature */
-            feature: string;
-            /** Display Name */
-            display_name: string;
-            /** Impact Dollars */
-            impact_dollars: number;
-            /**
-             * Group
-             * @default Other
-             */
-            group: string;
-        };
-        /**
-         * FeatureGroup
-         * @description A group of ML features under one category.
-         */
-        FeatureGroup: {
-            /** Category */
-            category: string;
-            /** Features */
-            features: {
-                [key: string]: number | string | boolean | null;
-            };
-        };
-        /**
-         * FinancialDetails
-         * @description Financial information about the property.
-         */
-        FinancialDetails: {
-            /** Hoa Monthly */
-            hoa_monthly?: number | null;
-            /** Tax Annual */
-            tax_annual: number;
-            /** Tax Year */
-            tax_year: number;
-            /** Assessed Value */
-            assessed_value: number;
-        };
-        /**
-         * ForecastRequest
-         * @description Request body for a home value forecast.
-         */
-        ForecastRequest: {
-            /** Address */
-            address: string;
-            /** City */
-            city?: string | null;
-            /** State */
-            state?: string | null;
-            /** Zip Code */
-            zip_code?: string | null;
-        };
-        /**
-         * ForecastResponse
-         * @description Response body with predicted home value and confidence interval.
-         */
-        ForecastResponse: {
-            /** Address */
-            address: string;
-            /** Predicted Value */
-            predicted_value: number;
-            /** Confidence Interval Low */
-            confidence_interval_low: number;
-            /** Confidence Interval High */
-            confidence_interval_high: number;
-            /** Model Version */
-            model_version: string;
-        };
-        /**
-         * GeocodeResponse
-         * @description Response body for geocode lookups.
-         */
-        GeocodeResponse: {
-            /** Results */
-            results: components["schemas"]["GeocodeResult"][];
-            /** Cached */
-            cached: boolean;
-        };
-        /**
-         * GeocodeResult
-         * @description A single geocoding result.
-         */
-        GeocodeResult: {
-            /** Display Name */
-            display_name: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Place Id */
-            place_id?: number | null;
-            /** Osm Type */
-            osm_type: string;
-            /** Osm Id */
-            osm_id: number;
-            /**
-             * Boundingbox
-             * @default []
-             */
-            boundingbox: number[];
-        };
-        /**
-         * GreenspaceFeature
-         * @description A single greenspace feature.
-         */
-        GreenspaceFeature: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Feature Type */
-            feature_type: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Acreage */
-            acreage?: number | null;
-            /** Length Miles */
-            length_miles?: number | null;
-        };
-        /**
-         * GreenspaceMetrics
-         * @description Aggregate greenspace metrics for the area.
-         */
-        GreenspaceMetrics: {
-            /** Parks Within 1Mi */
-            parks_within_1mi: number;
-            /** Nearest Park Miles */
-            nearest_park_miles: number;
-            /**
-             * Nearest Greenway Miles
-             * @default 0
-             */
-            nearest_greenway_miles: number;
-            /** Total Green Acres 1Mi */
-            total_green_acres_1mi: number;
-            /** Greenspace Z Score */
-            greenspace_z_score: number;
-        };
-        /**
-         * GreenspaceResponse
-         * @description Response body for greenspace data lookup.
-         */
-        GreenspaceResponse: {
-            /** Features */
-            features: components["schemas"]["GreenspaceFeature"][];
-            metrics: components["schemas"]["GreenspaceMetrics"];
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** HomeOwnershipTrendPoint */
-        HomeOwnershipTrendPoint: {
-            /** Year */
-            year: number;
-            /** Ownership Rate */
-            ownership_rate: number;
-        };
-        /** IncomeTrendPoint */
-        IncomeTrendPoint: {
-            /** Year */
-            year: number;
-            /** Median Income */
-            median_income: number;
-        };
-        /**
-         * InteriorFeatures
-         * @description Interior feature details.
-         */
-        InteriorFeatures: {
-            /** Flooring */
-            flooring: string[];
-            /** Appliances */
-            appliances: string[];
-            /** Heating */
-            heating: string;
-            /** Cooling */
-            cooling: string;
-            /** Fireplace */
-            fireplace: boolean;
-            /** Basement */
-            basement?: string | null;
-            /** Laundry */
-            laundry?: string | null;
-        };
-        /** LabelValue */
-        LabelValue: {
-            /** Label */
-            label: string;
-            /** Value */
-            value: number;
-        };
-        /**
-         * ListingQuality
-         * @description LLM-generated listing quality scores.
-         */
-        ListingQuality: {
-            /** Description Score */
-            description_score?: number | null;
-            /** Quality Reasoning */
-            quality_reasoning?: string | null;
-            /**
-             * Positive Factors
-             * @default []
-             */
-            positive_factors: string[];
-        };
-        /**
-         * LoginRequest
-         * @description Request body for JSON-based login.
-         */
-        LoginRequest: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Password */
-            password: string;
-        };
-        /** MedianAgeTrendPoint */
-        MedianAgeTrendPoint: {
-            /** Year */
-            year: number;
-            /** Median Age */
-            median_age: number;
-        };
-        /** NeighborhoodMedianPoint */
-        NeighborhoodMedianPoint: {
-            /** Date */
-            date: string;
-            /** Median Value */
-            median_value: number;
-        };
-        /** NeighborhoodPropertiesResponse */
-        NeighborhoodPropertiesResponse: {
-            /** Tract Geoid */
-            tract_geoid: string;
-            /** Sample Size */
-            sample_size: number;
-            /** Properties */
-            properties: components["schemas"]["NeighborhoodPropertyPoint"][];
-        };
-        /** NeighborhoodPropertyPoint */
-        NeighborhoodPropertyPoint: {
-            /** Address */
-            address: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Effective Price */
-            effective_price: number;
-            /** Listing Status */
-            listing_status: string;
-        };
-        /** NeighborhoodValuationHistoryResponse */
-        NeighborhoodValuationHistoryResponse: {
-            /** Tract Geoid */
-            tract_geoid: string;
-            /** Sample Size */
-            sample_size: number;
-            /** Monthly Medians */
-            monthly_medians: components["schemas"]["NeighborhoodMedianPoint"][];
-        };
-        /** NeighborhoodValuationResponse */
-        NeighborhoodValuationResponse: {
-            /** Tract Geoid */
-            tract_geoid: string;
-            /** Median Value */
-            median_value: number | null;
-            /** Max Value */
-            max_value: number | null;
-            /** Sample Size */
-            sample_size: number;
-        };
-        /**
-         * NuisanceSource
-         * @description A single nuisance source near the property.
-         */
-        NuisanceSource: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Source Type */
-            source_type: string;
-            /** Severity */
-            severity: string;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Lat */
-            lat?: number | null;
-            /** Lon */
-            lon?: number | null;
-            /** Detail */
-            detail: string;
-            /** Noise Min Db */
-            noise_min_db?: number | null;
-            /** Noise Band */
-            noise_band?: string | null;
-        };
-        /**
-         * NuisanceSourcesResponse
-         * @description List of nuisance sources near a property.
-         */
-        NuisanceSourcesResponse: {
-            /** Sources */
-            sources: components["schemas"]["NuisanceSource"][];
-        };
-        /**
-         * PoiAutocompleteItem
-         * @description A single autocomplete suggestion.
-         */
-        PoiAutocompleteItem: {
-            /** Match Type */
-            match_type: string;
-            /** Match Value */
-            match_value: string;
-            /** Display Name */
-            display_name: string;
-            /** Category */
-            category?: string | null;
-            /** Count */
-            count: number;
-        };
-        /**
-         * PoiAutocompleteResponse
-         * @description Autocomplete results for POI search.
-         */
-        PoiAutocompleteResponse: {
-            /** Results */
-            results: components["schemas"]["PoiAutocompleteItem"][];
-            /** Query */
-            query: string;
-        };
-        /**
-         * PointOfInterest
-         * @description A single point of interest.
-         */
-        PointOfInterest: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Category */
-            category: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Drive Minutes */
-            drive_minutes: number;
-            /** Subcategory */
-            subcategory?: string | null;
-            /** Address */
-            address?: string | null;
-        };
-        /**
-         * PoisMetrics
-         * @description Aggregate metrics for POI results.
-         */
-        PoisMetrics: {
-            /** Total Count */
-            total_count: number;
-            /** Categories Represented */
-            categories_represented: number;
-            /** Nearest Distance Miles */
-            nearest_distance_miles: number | null;
-        };
-        /**
-         * PoisResponse
-         * @description Response body for points of interest lookup.
-         */
-        PoisResponse: {
-            /** Pois */
-            pois: components["schemas"]["PointOfInterest"][];
-            metrics?: components["schemas"]["PoisMetrics"] | null;
-        };
-        /**
-         * PoisSearchResponse
-         * @description Response body for POI search.
-         */
-        PoisSearchResponse: {
-            /** Pois */
-            pois: components["schemas"]["PointOfInterest"][];
-            /** Total Count */
-            total_count: number;
-            /** Query */
-            query: string;
-        };
-        /** PopulationTrendPoint */
-        PopulationTrendPoint: {
-            /** Year */
-            year: number;
-            /** Population */
-            population: number;
-        };
-        /**
-         * PropertyDetails
-         * @description Core property details.
-         */
-        PropertyDetails: {
-            /** Address */
-            address: string;
-            /** City */
-            city: string;
-            /** State */
-            state: string;
-            /** Zip Code */
-            zip_code: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Bedrooms */
-            bedrooms: number;
-            /** Bathrooms */
-            bathrooms: number;
-            /** Sqft */
-            sqft: number;
-            /** Lot Size Sqft */
-            lot_size_sqft: number;
-            /** Year Built */
-            year_built: number;
-            /** Property Type */
-            property_type: string;
-            /** Stories */
-            stories: number;
-            /** Garage Spaces */
-            garage_spaces: number;
-            /** Description */
-            description: string;
-            /** Highlights */
-            highlights: string[];
-            /** Images */
-            images: components["schemas"]["PropertyImage"][];
-            /** Listing Status */
-            listing_status?: string | null;
-            /** Price Per Sqft */
-            price_per_sqft?: number | null;
-            /** Days On Market */
-            days_on_market?: number | null;
-            /** Listed Date */
-            listed_date?: string | null;
-            /** Hoa Monthly */
-            hoa_monthly?: number | null;
-            /** Redfin Url */
-            redfin_url?: string | null;
-        };
-        /**
-         * PropertyImage
-         * @description A single property image.
-         */
-        PropertyImage: {
-            /** Url */
-            url: string;
-            /** Alt */
-            alt: string;
-            /**
-             * Is Primary
-             * @default false
-             */
-            is_primary: boolean;
-        };
-        /**
-         * PropertyResponse
-         * @description Response body for property lookup.
-         */
-        PropertyResponse: {
-            /** Listing Id */
-            listing_id?: number | null;
-            property: components["schemas"]["PropertyDetails"];
-            valuation: components["schemas"]["ValuationData"];
-            interior: components["schemas"]["InteriorFeatures"];
-            exterior: components["schemas"]["ExteriorFeatures"];
-            financial: components["schemas"]["FinancialDetails"];
-            utilities?: components["schemas"]["UtilityDetails"] | null;
-            /** Schools */
-            schools: components["schemas"]["SchoolNearby"][];
-            /** Sale History */
-            sale_history: components["schemas"]["SaleHistoryEntry"][];
-            /** Tax History */
-            tax_history: components["schemas"]["TaxHistoryEntry"][];
-            climate_risk: components["schemas"]["ClimateRisk"];
-            listing_quality?: components["schemas"]["ListingQuality"] | null;
-            /**
-             * Feature Attributions
-             * @default []
-             */
-            feature_attributions: components["schemas"]["FeatureAttribution"][];
-        };
-        /** RaceDetailedBreakdown */
-        RaceDetailedBreakdown: {
-            /** Race Category */
-            race_category: string;
-            /** Total */
-            total: number;
-            /** Subgroups */
-            subgroups: components["schemas"]["RaceSubgroup"][];
-        };
-        /** RaceEthnicityTrendPoint */
-        RaceEthnicityTrendPoint: {
-            /** Year */
-            year: number;
-            /** White */
-            white: number;
-            /** Black */
-            black: number;
-            /** Hispanic */
-            hispanic: number;
-            /** Asian */
-            asian: number;
-            /** Other */
-            other: number;
-        };
-        /** RaceSubgroup */
-        RaceSubgroup: {
-            /** Label */
-            label: string;
-            /** Value */
-            value: number;
-            /** Percentage */
-            percentage: number;
-        };
-        /**
-         * RiskFeature
-         * @description A single infrastructure risk feature with severity assessment.
-         */
-        RiskFeature: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Infrastructure Type */
-            infrastructure_type: string;
-            /** Severity */
-            severity: string;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Detail */
-            detail: string;
-            /**
-             * Metadata
-             * @default {}
-             */
-            metadata: {
-                [key: string]: string | number | null;
-            };
-        };
-        /**
-         * RisksResponse
-         * @description Response body for infrastructure risks lookup.
-         */
-        RisksResponse: {
-            /** Features */
-            features: components["schemas"]["RiskFeature"][];
-        };
-        /**
-         * SaleHistoryEntry
-         * @description A single sale history event.
-         */
-        SaleHistoryEntry: {
-            /** Date */
-            date: string;
-            /** Price */
-            price: number;
-            /** Event Type */
-            event_type: string;
-        };
-        /**
-         * SavedPoiCreate
-         * @description Request body to save a POI.
-         */
-        SavedPoiCreate: {
-            /** Match Type */
-            match_type: string;
-            /** Match Value */
-            match_value: string;
-            /** Display Name */
-            display_name: string;
-            /** Category */
-            category?: string | null;
-            /** User Category */
-            user_category?: string | null;
-            /** Marker Color */
-            marker_color?: string | null;
-            /** Marker Image Url */
-            marker_image_url?: string | null;
-            /** Alternate Names */
-            alternate_names?: string[] | null;
-        };
-        /**
-         * SavedPoiMatch
-         * @description A nearby location matching a saved POI.
-         */
-        SavedPoiMatch: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Address */
-            address?: string | null;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Drive Minutes */
-            drive_minutes: number;
-        };
-        /**
-         * SavedPoiNearbyGroup
-         * @description A saved POI with its nearby matching locations.
-         */
-        SavedPoiNearbyGroup: {
-            /** Saved Poi Id */
-            saved_poi_id: number;
-            /** Display Name */
-            display_name: string;
-            /** Category */
-            category?: string | null;
-            /** Match Type */
-            match_type: string;
-            /** Matches */
-            matches: components["schemas"]["SavedPoiMatch"][];
-            /** User Category */
-            user_category?: string | null;
-            /** Marker Color */
-            marker_color?: string | null;
-            /** Marker Image Url */
-            marker_image_url?: string | null;
-        };
-        /**
-         * SavedPoiNearbyResponse
-         * @description Grouped nearby results for all saved POIs.
-         */
-        SavedPoiNearbyResponse: {
-            /** Groups */
-            groups: components["schemas"]["SavedPoiNearbyGroup"][];
-        };
-        /**
-         * SavedPoiResponse
-         * @description A single saved POI.
-         */
-        SavedPoiResponse: {
-            /** Id */
-            id: number;
-            /** Match Type */
-            match_type: string;
-            /** Match Value */
-            match_value: string;
-            /** Display Name */
-            display_name: string;
-            /** Category */
-            category?: string | null;
-            /** User Category */
-            user_category?: string | null;
-            /** Marker Color */
-            marker_color?: string | null;
-            /** Marker Image Url */
-            marker_image_url?: string | null;
-            /** Alternate Names */
-            alternate_names?: string[] | null;
-            /** Created At */
-            created_at?: string | null;
-        };
-        /**
-         * SavedPoiUpdate
-         * @description Request body to partially update a saved POI.
-         */
-        SavedPoiUpdate: {
-            /** User Category */
-            user_category?: string | null;
-            /** Marker Color */
-            marker_color?: string | null;
-            /** Marker Image Url */
-            marker_image_url?: string | null;
-            /** Alternate Names */
-            alternate_names?: string[] | null;
-        };
-        /**
-         * SavedPropertyCreate
-         * @description Request body to save/bookmark a property.
-         */
-        SavedPropertyCreate: {
-            /** Listing Id */
-            listing_id: number;
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
-         * SavedPropertyResponse
-         * @description Single saved-property record returned to the client.
-         */
-        SavedPropertyResponse: {
-            /** Id */
-            id: number;
-            /** Listing Id */
-            listing_id: number;
-            /** Notes */
-            notes?: string | null;
-            /** Created At */
-            created_at?: string | null;
-            /** Listing Address */
-            listing_address?: string | null;
-            /** City */
-            city?: string | null;
-            /** State */
-            state?: string | null;
-            /** Zip Code */
-            zip_code?: string | null;
-            /** Listing Status */
-            listing_status?: string | null;
-            /** Listing Price */
-            listing_price?: number | null;
-            /** Sold Price */
-            sold_price?: number | null;
-            /** Num Beds */
-            num_beds?: number | null;
-            /** Num Baths */
-            num_baths?: number | null;
-            /** Sqft */
-            sqft?: number | null;
-            /** Year Built */
-            year_built?: number | null;
-            /** Photo Url */
-            photo_url?: string | null;
-            /** Lat */
-            lat?: number | null;
-            /** Lon */
-            lon?: number | null;
-        };
-        /**
-         * SavedPropertyUpdate
-         * @description Request body to update notes on a saved property.
-         */
-        SavedPropertyUpdate: {
-            /** Notes */
-            notes?: string | null;
-        };
-        /**
-         * SchoolDistrictInfo
-         * @description School district boundary info.
-         */
-        SchoolDistrictInfo: {
-            /** Name */
-            name: string;
-            /** Geoid */
-            geoid: string;
-            /** District Type */
-            district_type?: string | null;
-            /** Geojson */
-            geojson?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Is Home
-             * @default false
-             */
-            is_home: boolean;
-            /** Label Lat */
-            label_lat?: number | null;
-            /** Label Lon */
-            label_lon?: number | null;
-        };
-        /**
-         * SchoolNearby
-         * @description A nearby school.
-         */
-        SchoolNearby: {
-            /** Name */
-            name: string;
-            /** Address */
-            address?: string | null;
-            /** School Type */
-            school_type: string;
-            /** School Level */
-            school_level?: string | null;
-            /** Rating */
-            rating?: number | null;
-            /** Grades */
-            grades?: string | null;
-            /** Distance Miles */
-            distance_miles: number;
-            /** Drive Minutes */
-            drive_minutes: number;
-            /** Walk Minutes */
-            walk_minutes?: number | null;
-            /** Student Teacher Ratio */
-            student_teacher_ratio?: number | null;
-            /** Enrollment */
-            enrollment?: number | null;
-            /**
-             * Assigned
-             * @default false
-             */
-            assigned: boolean;
-            /** Lat */
-            lat?: number | null;
-            /** Lon */
-            lon?: number | null;
-            /** Pct Frl Eligible */
-            pct_frl_eligible?: number | null;
-            /**
-             * In District
-             * @default false
-             */
-            in_district: boolean;
-        };
-        /**
-         * SchoolsNearbyResponse
-         * @description Wrapper response for nearby schools with district boundaries.
-         */
-        SchoolsNearbyResponse: {
-            /** Schools */
-            schools: components["schemas"]["SchoolNearby"][];
-            /**
-             * School Districts
-             * @default []
-             */
-            school_districts: components["schemas"]["SchoolDistrictInfo"][];
-        };
-        /**
-         * TaxHistoryEntry
-         * @description A single tax history record.
-         */
-        TaxHistoryEntry: {
-            /** Year */
-            year: number;
-            /** Assessed Value */
-            assessed_value: number;
-            /** Tax Amount */
-            tax_amount: number;
-        };
-        /**
-         * TokenResponse
-         * @description JWT token response from login.
-         */
-        TokenResponse: {
-            /** Access Token */
-            access_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-        };
-        /**
-         * UserCreate
-         * @description Request body for user registration.
-         */
-        UserCreate: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Password */
-            password: string;
-            /** Display Name */
-            display_name?: string | null;
-        };
-        /**
-         * UserResponse
-         * @description Public user profile returned by API.
-         */
-        UserResponse: {
-            /** Id */
-            id: number;
-            /** Email */
-            email: string;
-            /** Display Name */
-            display_name?: string | null;
-            /** Is Active */
-            is_active: boolean;
-            /**
-             * Is Admin
-             * @default false
-             */
-            is_admin: boolean;
-            /** Last Login At */
-            last_login_at?: string | null;
-            /** Created At */
-            created_at?: string | null;
-        };
-        /**
-         * UserUpdate
-         * @description Request body for updating user profile.
-         */
-        UserUpdate: {
-            /** Display Name */
-            display_name?: string | null;
-        };
-        /**
-         * UtilitiesMetrics
-         * @description Aggregate utilities metrics for the area.
-         */
-        UtilitiesMetrics: {
-            /** Nearest Cell Tower Miles */
-            nearest_cell_tower_miles: number;
-            /** Nearest Transmission Line Miles */
-            nearest_transmission_line_miles: number;
-            /** Nearest Power Plant Miles */
-            nearest_power_plant_miles: number;
-            /** Nearest Pipeline Miles */
-            nearest_pipeline_miles: number;
-            /** Nuisance Score */
-            nuisance_score: number;
-        };
-        /**
-         * UtilitiesResponse
-         * @description Response body for utilities data lookup.
-         */
-        UtilitiesResponse: {
-            /** Features */
-            features: components["schemas"]["UtilityFeature"][];
-            metrics: components["schemas"]["UtilitiesMetrics"];
-        };
-        /**
-         * UtilityDetails
-         * @description Utility/infrastructure details.
-         */
-        UtilityDetails: {
-            /** Water */
-            water?: string | null;
-            /** Sewer */
-            sewer?: string | null;
-            /** Electric */
-            electric?: string | null;
-        };
-        /**
-         * UtilityFeature
-         * @description A single utility infrastructure feature.
-         */
-        UtilityFeature: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Feature Type */
-            feature_type: string;
-            /** Lat */
-            lat: number;
-            /** Lon */
-            lon: number;
-            /** Distance Miles */
-            distance_miles: number;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
-        /**
-         * ValuationData
-         * @description Property valuation and prediction data.
-         */
-        ValuationData: {
-            /** Listed Price */
-            listed_price?: number | null;
-            /** Last Sold Price */
-            last_sold_price?: number | null;
-            /** Last Sold Date */
-            last_sold_date?: string | null;
-            /** Redfin Estimate */
-            redfin_estimate?: number | null;
-            /** Predicted Value */
-            predicted_value?: number | null;
-            /** Confidence Interval Low */
-            confidence_interval_low?: number | null;
-            /** Confidence Interval High */
-            confidence_interval_high?: number | null;
-            /** Model Version */
-            model_version?: string | null;
-            /** Prediction Date */
-            prediction_date?: string | null;
-        };
+  schemas: {
+    /** AgeBucket */
+    AgeBucket: {
+      /** Range */
+      range: string;
+      /** Male */
+      male: number;
+      /** Female */
+      female: number;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** AgeDistributionTrendPoint */
+    AgeDistributionTrendPoint: {
+      /** Year */
+      year: number;
+      /** Under18 */
+      under18: number;
+      /** Age18 22 */
+      age18_22: number;
+      /** Age23 29 */
+      age23_29: number;
+      /** Age30 39 */
+      age30_39: number;
+      /** Age40 49 */
+      age40_49: number;
+      /** Age50 64 */
+      age50_64: number;
+      /** Age65Plus */
+      age65plus: number;
+    };
+    /**
+     * AuthResponse
+     * @description JWT token + user profile returned on login/register.
+     */
+    AuthResponse: {
+      /** Access Token */
+      access_token: string;
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type: string;
+      user: components["schemas"]["UserResponse"];
+    };
+    /** Body_upload_redfin_html_api_upload_redfin_post */
+    Body_upload_redfin_html_api_upload_redfin_post: {
+      /** Files */
+      files: string[];
+    };
+    /**
+     * ClimateRisk
+     * @description Climate risk assessment.
+     */
+    ClimateRisk: {
+      /** Flood Risk */
+      flood_risk: string;
+      /** Flood Score */
+      flood_score: number;
+      /** Fire Risk */
+      fire_risk: string;
+      /** Fire Score */
+      fire_score: number;
+    };
+    /**
+     * CompNuisance
+     * @description Nuisance source for a comparable property.
+     */
+    CompNuisance: {
+      /** Name */
+      name: string;
+      /** Source Type */
+      source_type: string;
+      /** Severity */
+      severity: string;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Detail */
+      detail: string;
+    };
+    /**
+     * CompProperty
+     * @description A single comparable (or subject) property with full details.
+     */
+    CompProperty: {
+      /** Listing Id */
+      listing_id: number;
+      /** Address */
+      address: string;
+      /** City */
+      city: string;
+      /** State */
+      state: string;
+      /** Zip Code */
+      zip_code: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Sold Price */
+      sold_price?: number | null;
+      /** Sold Date */
+      sold_date?: string | null;
+      /** Listing Price */
+      listing_price?: number | null;
+      /** Beds */
+      beds: number;
+      /** Baths */
+      baths: number;
+      /** Sqft */
+      sqft?: number | null;
+      /** Lot Size */
+      lot_size?: number | null;
+      /** Year Built */
+      year_built?: number | null;
+      /**
+       * Garage Spaces
+       * @default 0
+       */
+      garage_spaces: number;
+      /** Price Per Sqft */
+      price_per_sqft?: number | null;
+      /**
+       * Photos
+       * @default []
+       */
+      photos: string[];
+      /** Description Score */
+      description_score?: number | null;
+      /** Photo Score */
+      photo_score?: number | null;
+      /**
+       * Feature Groups
+       * @default []
+       */
+      feature_groups: components["schemas"]["FeatureGroup"][];
+      /**
+       * Nuisances
+       * @default []
+       */
+      nuisances: components["schemas"]["CompNuisance"][];
+      /**
+       * Risks
+       * @default []
+       */
+      risks: components["schemas"]["CompRisk"][];
+      /** Similarity Distance */
+      similarity_distance?: number | null;
+    };
+    /**
+     * CompRisk
+     * @description Infrastructure risk for a comparable property.
+     */
+    CompRisk: {
+      /** Name */
+      name: string;
+      /** Infrastructure Type */
+      infrastructure_type: string;
+      /** Severity */
+      severity: string;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Detail */
+      detail: string;
+    };
+    /**
+     * ComparableProperty
+     * @description A comparable property for comparison.
+     */
+    ComparableProperty: {
+      /** Id */
+      id: number;
+      /** Address */
+      address: string;
+      /** Sale Price */
+      sale_price: number;
+      /** Sold Date */
+      sold_date: string;
+      /** Beds */
+      beds: number;
+      /** Baths */
+      baths: number;
+      /** Sqft */
+      sqft: number;
+      /** Price Per Sqft */
+      price_per_sqft: number;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+    };
+    /**
+     * ComparablesResponse
+     * @description Response body for the comparables endpoint.
+     */
+    ComparablesResponse: {
+      subject: components["schemas"]["CompProperty"];
+      /** Comparables */
+      comparables: components["schemas"]["CompProperty"][];
+      /** Total Candidates */
+      total_candidates: number;
+    };
+    /**
+     * CrimeHeatmapPoint
+     * @description A single heatmap data point.
+     */
+    CrimeHeatmapPoint: {
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Intensity */
+      intensity: number;
+    };
+    /**
+     * CrimeIncident
+     * @description A single crime incident record.
+     */
+    CrimeIncident: {
+      /** Id */
+      id: string;
+      /** Incident Type */
+      incident_type: string;
+      /** Category */
+      category: string;
+      /** Date */
+      date: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Description */
+      description?: string | null;
+      /** Address */
+      address?: string | null;
+      /** Crime Group */
+      crime_group?: string | null;
+      /** Offense Class */
+      offense_class?: string | null;
+    };
+    /**
+     * CrimeMetrics
+     * @description Aggregate crime metrics for the area.
+     */
+    CrimeMetrics: {
+      /** Total Incidents 1Mi */
+      total_incidents_1mi: number;
+      /** Incidents Per 1000 People */
+      incidents_per_1000_people: number;
+      /** Crime Z Score */
+      crime_z_score: number;
+      /** Trend */
+      trend: string;
+    };
+    /**
+     * CrimeResponse
+     * @description Response body for crime data lookup.
+     */
+    CrimeResponse: {
+      /** Heatmap */
+      heatmap: components["schemas"]["CrimeHeatmapPoint"][];
+      /** Incidents */
+      incidents: components["schemas"]["CrimeIncident"][];
+      metrics: components["schemas"]["CrimeMetrics"];
+    };
+    /**
+     * DataRequestCreate
+     * @description Request body for creating a data request.
+     */
+    DataRequestCreate: {
+      /** Address */
+      address: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Email */
+      email?: string | null;
+    };
+    /**
+     * DataRequestResponse
+     * @description Response body for a data request.
+     */
+    DataRequestResponse: {
+      /** Id */
+      id: number;
+      /** Address */
+      address: string;
+      /** Status */
+      status: string;
+      /** Created At */
+      created_at?: string | null;
+    };
+    /**
+     * DemographicContextData
+     * @description Snapshot + trend data for a single geographic context.
+     */
+    DemographicContextData: {
+      /** Race Ethnicity */
+      race_ethnicity: components["schemas"]["LabelValue"][];
+      /** Age Distribution */
+      age_distribution: components["schemas"]["AgeBucket"][];
+      /** Median Income */
+      median_income: number;
+      /** Income Brackets */
+      income_brackets: components["schemas"]["LabelValue"][];
+      /** Home Ownership Rate */
+      home_ownership_rate: number;
+      /** Median Home Value */
+      median_home_value: number;
+      /** Population */
+      population: number;
+      /** Population Trend */
+      population_trend: components["schemas"]["PopulationTrendPoint"][];
+      /** Race Ethnicity Trend */
+      race_ethnicity_trend: components["schemas"]["RaceEthnicityTrendPoint"][];
+      /** Age Distribution Trend */
+      age_distribution_trend: components["schemas"]["AgeDistributionTrendPoint"][];
+      /** Income Trend */
+      income_trend: components["schemas"]["IncomeTrendPoint"][];
+      /** Home Ownership Trend */
+      home_ownership_trend: components["schemas"]["HomeOwnershipTrendPoint"][];
+      /** Median Age Trend */
+      median_age_trend: components["schemas"]["MedianAgeTrendPoint"][];
+      /** Race Detailed */
+      race_detailed?: {
+        [key: string]: components["schemas"]["RaceDetailedBreakdown"];
+      } | null;
+    };
+    /**
+     * DemographicsResponse
+     * @description Full demographics response with multiple geographic contexts.
+     *
+     *     Boundary geometry and choropleth map data are now served via Martin
+     *     vector tiles and are no longer included in this response.
+     */
+    DemographicsResponse: {
+      /** Contexts */
+      contexts: {
+        [key: string]: components["schemas"]["DemographicContextData"];
+      };
+      /** Benchmarks */
+      benchmarks: {
+        [key: string]: components["schemas"]["DemographicContextData"];
+      };
+    };
+    /**
+     * ExteriorFeatures
+     * @description Exterior feature details.
+     */
+    ExteriorFeatures: {
+      /** Roof */
+      roof: string;
+      /** Siding */
+      siding: string;
+      /** Foundation */
+      foundation: string;
+      /** Parking */
+      parking: string;
+      /** Pool */
+      pool: boolean;
+      /** Fence */
+      fence: string;
+      /** Lot Features */
+      lot_features?: string | null;
+    };
+    /**
+     * FeatureAttribution
+     * @description A single feature's contribution to the predicted value.
+     */
+    FeatureAttribution: {
+      /** Feature */
+      feature: string;
+      /** Display Name */
+      display_name: string;
+      /** Impact Dollars */
+      impact_dollars: number;
+      /**
+       * Group
+       * @default Other
+       */
+      group: string;
+    };
+    /**
+     * FeatureGroup
+     * @description A group of ML features under one category.
+     */
+    FeatureGroup: {
+      /** Category */
+      category: string;
+      /** Features */
+      features: {
+        [key: string]: number | string | boolean | null;
+      };
+    };
+    /**
+     * FinancialDetails
+     * @description Financial information about the property.
+     */
+    FinancialDetails: {
+      /** Hoa Monthly */
+      hoa_monthly?: number | null;
+      /** Tax Annual */
+      tax_annual: number;
+      /** Tax Year */
+      tax_year: number;
+      /** Assessed Value */
+      assessed_value: number;
+    };
+    /**
+     * ForecastRequest
+     * @description Request body for a home value forecast.
+     */
+    ForecastRequest: {
+      /** Address */
+      address: string;
+      /** City */
+      city?: string | null;
+      /** State */
+      state?: string | null;
+      /** Zip Code */
+      zip_code?: string | null;
+    };
+    /**
+     * ForecastResponse
+     * @description Response body with predicted home value and confidence interval.
+     */
+    ForecastResponse: {
+      /** Address */
+      address: string;
+      /** Predicted Value */
+      predicted_value: number;
+      /** Confidence Interval Low */
+      confidence_interval_low: number;
+      /** Confidence Interval High */
+      confidence_interval_high: number;
+      /** Model Version */
+      model_version: string;
+    };
+    /**
+     * GeocodeResponse
+     * @description Response body for geocode lookups.
+     */
+    GeocodeResponse: {
+      /** Results */
+      results: components["schemas"]["GeocodeResult"][];
+      /** Cached */
+      cached: boolean;
+    };
+    /**
+     * GeocodeResult
+     * @description A single geocoding result.
+     */
+    GeocodeResult: {
+      /** Display Name */
+      display_name: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Place Id */
+      place_id?: number | null;
+      /** Osm Type */
+      osm_type: string;
+      /** Osm Id */
+      osm_id: number;
+      /**
+       * Boundingbox
+       * @default []
+       */
+      boundingbox: number[];
+    };
+    /**
+     * GreenspaceFeature
+     * @description A single greenspace feature.
+     */
+    GreenspaceFeature: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Feature Type */
+      feature_type: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Acreage */
+      acreage?: number | null;
+      /** Length Miles */
+      length_miles?: number | null;
+    };
+    /**
+     * GreenspaceMetrics
+     * @description Aggregate greenspace metrics for the area.
+     */
+    GreenspaceMetrics: {
+      /** Parks Within 1Mi */
+      parks_within_1mi: number;
+      /** Nearest Park Miles */
+      nearest_park_miles: number;
+      /**
+       * Nearest Greenway Miles
+       * @default 0
+       */
+      nearest_greenway_miles: number;
+      /** Total Green Acres 1Mi */
+      total_green_acres_1mi: number;
+      /** Greenspace Z Score */
+      greenspace_z_score: number;
+    };
+    /**
+     * GreenspaceResponse
+     * @description Response body for greenspace data lookup.
+     */
+    GreenspaceResponse: {
+      /** Features */
+      features: components["schemas"]["GreenspaceFeature"][];
+      metrics: components["schemas"]["GreenspaceMetrics"];
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /** HomeOwnershipTrendPoint */
+    HomeOwnershipTrendPoint: {
+      /** Year */
+      year: number;
+      /** Ownership Rate */
+      ownership_rate: number;
+    };
+    /** IncomeTrendPoint */
+    IncomeTrendPoint: {
+      /** Year */
+      year: number;
+      /** Median Income */
+      median_income: number;
+    };
+    /**
+     * InteriorFeatures
+     * @description Interior feature details.
+     */
+    InteriorFeatures: {
+      /** Flooring */
+      flooring: string[];
+      /** Appliances */
+      appliances: string[];
+      /** Heating */
+      heating: string;
+      /** Cooling */
+      cooling: string;
+      /** Fireplace */
+      fireplace: boolean;
+      /** Basement */
+      basement?: string | null;
+      /** Laundry */
+      laundry?: string | null;
+    };
+    /** LabelValue */
+    LabelValue: {
+      /** Label */
+      label: string;
+      /** Value */
+      value: number;
+    };
+    /**
+     * ListingQuality
+     * @description LLM-generated listing quality scores.
+     */
+    ListingQuality: {
+      /** Description Score */
+      description_score?: number | null;
+      /** Quality Reasoning */
+      quality_reasoning?: string | null;
+      /**
+       * Positive Factors
+       * @default []
+       */
+      positive_factors: string[];
+    };
+    /**
+     * LoginRequest
+     * @description Request body for JSON-based login.
+     */
+    LoginRequest: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Password */
+      password: string;
+    };
+    /** MedianAgeTrendPoint */
+    MedianAgeTrendPoint: {
+      /** Year */
+      year: number;
+      /** Median Age */
+      median_age: number;
+    };
+    /** NeighborhoodMedianPoint */
+    NeighborhoodMedianPoint: {
+      /** Date */
+      date: string;
+      /** Median Value */
+      median_value: number;
+    };
+    /** NeighborhoodPropertiesResponse */
+    NeighborhoodPropertiesResponse: {
+      /** Tract Geoid */
+      tract_geoid: string;
+      /** Sample Size */
+      sample_size: number;
+      /** Properties */
+      properties: components["schemas"]["NeighborhoodPropertyPoint"][];
+    };
+    /** NeighborhoodPropertyPoint */
+    NeighborhoodPropertyPoint: {
+      /** Address */
+      address: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Effective Price */
+      effective_price: number;
+      /** Listing Status */
+      listing_status: string;
+    };
+    /** NeighborhoodValuationHistoryResponse */
+    NeighborhoodValuationHistoryResponse: {
+      /** Tract Geoid */
+      tract_geoid: string;
+      /** Sample Size */
+      sample_size: number;
+      /** Monthly Medians */
+      monthly_medians: components["schemas"]["NeighborhoodMedianPoint"][];
+    };
+    /** NeighborhoodValuationResponse */
+    NeighborhoodValuationResponse: {
+      /** Tract Geoid */
+      tract_geoid: string;
+      /** Median Value */
+      median_value: number | null;
+      /** Max Value */
+      max_value: number | null;
+      /** Sample Size */
+      sample_size: number;
+    };
+    /**
+     * NuisanceSource
+     * @description A single nuisance source near the property.
+     */
+    NuisanceSource: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Source Type */
+      source_type: string;
+      /** Severity */
+      severity: string;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Lat */
+      lat?: number | null;
+      /** Lon */
+      lon?: number | null;
+      /** Detail */
+      detail: string;
+      /** Noise Min Db */
+      noise_min_db?: number | null;
+      /** Noise Band */
+      noise_band?: string | null;
+    };
+    /**
+     * NuisanceSourcesResponse
+     * @description List of nuisance sources near a property.
+     */
+    NuisanceSourcesResponse: {
+      /** Sources */
+      sources: components["schemas"]["NuisanceSource"][];
+    };
+    /**
+     * PoiAutocompleteItem
+     * @description A single autocomplete suggestion.
+     */
+    PoiAutocompleteItem: {
+      /** Match Type */
+      match_type: string;
+      /** Match Value */
+      match_value: string;
+      /** Display Name */
+      display_name: string;
+      /** Category */
+      category?: string | null;
+      /** Count */
+      count: number;
+    };
+    /**
+     * PoiAutocompleteResponse
+     * @description Autocomplete results for POI search.
+     */
+    PoiAutocompleteResponse: {
+      /** Results */
+      results: components["schemas"]["PoiAutocompleteItem"][];
+      /** Query */
+      query: string;
+    };
+    /**
+     * PointOfInterest
+     * @description A single point of interest.
+     */
+    PointOfInterest: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Category */
+      category: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Drive Minutes */
+      drive_minutes: number;
+      /** Subcategory */
+      subcategory?: string | null;
+      /** Address */
+      address?: string | null;
+    };
+    /**
+     * PoisMetrics
+     * @description Aggregate metrics for POI results.
+     */
+    PoisMetrics: {
+      /** Total Count */
+      total_count: number;
+      /** Categories Represented */
+      categories_represented: number;
+      /** Nearest Distance Miles */
+      nearest_distance_miles: number | null;
+    };
+    /**
+     * PoisResponse
+     * @description Response body for points of interest lookup.
+     */
+    PoisResponse: {
+      /** Pois */
+      pois: components["schemas"]["PointOfInterest"][];
+      metrics?: components["schemas"]["PoisMetrics"] | null;
+    };
+    /**
+     * PoisSearchResponse
+     * @description Response body for POI search.
+     */
+    PoisSearchResponse: {
+      /** Pois */
+      pois: components["schemas"]["PointOfInterest"][];
+      /** Total Count */
+      total_count: number;
+      /** Query */
+      query: string;
+    };
+    /** PopulationTrendPoint */
+    PopulationTrendPoint: {
+      /** Year */
+      year: number;
+      /** Population */
+      population: number;
+    };
+    /**
+     * PropertyDetails
+     * @description Core property details.
+     */
+    PropertyDetails: {
+      /** Address */
+      address: string;
+      /** City */
+      city: string;
+      /** State */
+      state: string;
+      /** Zip Code */
+      zip_code: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Bedrooms */
+      bedrooms: number;
+      /** Bathrooms */
+      bathrooms: number;
+      /** Sqft */
+      sqft: number;
+      /** Lot Size Sqft */
+      lot_size_sqft: number;
+      /** Year Built */
+      year_built: number;
+      /** Property Type */
+      property_type: string;
+      /** Stories */
+      stories: number;
+      /** Garage Spaces */
+      garage_spaces: number;
+      /** Description */
+      description: string;
+      /** Highlights */
+      highlights: string[];
+      /** Images */
+      images: components["schemas"]["PropertyImage"][];
+      /** Listing Status */
+      listing_status?: string | null;
+      /** Price Per Sqft */
+      price_per_sqft?: number | null;
+      /** Days On Market */
+      days_on_market?: number | null;
+      /** Listed Date */
+      listed_date?: string | null;
+      /** Hoa Monthly */
+      hoa_monthly?: number | null;
+      /** Redfin Url */
+      redfin_url?: string | null;
+    };
+    /**
+     * PropertyImage
+     * @description A single property image.
+     */
+    PropertyImage: {
+      /** Url */
+      url: string;
+      /** Alt */
+      alt: string;
+      /**
+       * Is Primary
+       * @default false
+       */
+      is_primary: boolean;
+    };
+    /**
+     * PropertyResponse
+     * @description Response body for property lookup.
+     */
+    PropertyResponse: {
+      /** Listing Id */
+      listing_id?: number | null;
+      property: components["schemas"]["PropertyDetails"];
+      valuation: components["schemas"]["ValuationData"];
+      interior: components["schemas"]["InteriorFeatures"];
+      exterior: components["schemas"]["ExteriorFeatures"];
+      financial: components["schemas"]["FinancialDetails"];
+      utilities?: components["schemas"]["UtilityDetails"] | null;
+      /** Schools */
+      schools: components["schemas"]["SchoolNearby"][];
+      /** Sale History */
+      sale_history: components["schemas"]["SaleHistoryEntry"][];
+      /** Tax History */
+      tax_history: components["schemas"]["TaxHistoryEntry"][];
+      climate_risk: components["schemas"]["ClimateRisk"];
+      listing_quality?: components["schemas"]["ListingQuality"] | null;
+      /**
+       * Feature Attributions
+       * @default []
+       */
+      feature_attributions: components["schemas"]["FeatureAttribution"][];
+    };
+    /** RaceDetailedBreakdown */
+    RaceDetailedBreakdown: {
+      /** Race Category */
+      race_category: string;
+      /** Total */
+      total: number;
+      /** Subgroups */
+      subgroups: components["schemas"]["RaceSubgroup"][];
+    };
+    /** RaceEthnicityTrendPoint */
+    RaceEthnicityTrendPoint: {
+      /** Year */
+      year: number;
+      /** White */
+      white: number;
+      /** Black */
+      black: number;
+      /** Hispanic */
+      hispanic: number;
+      /** Asian */
+      asian: number;
+      /** Other */
+      other: number;
+    };
+    /** RaceSubgroup */
+    RaceSubgroup: {
+      /** Label */
+      label: string;
+      /** Value */
+      value: number;
+      /** Percentage */
+      percentage: number;
+    };
+    /**
+     * RiskFeature
+     * @description A single infrastructure risk feature with severity assessment.
+     */
+    RiskFeature: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Infrastructure Type */
+      infrastructure_type: string;
+      /** Severity */
+      severity: string;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Detail */
+      detail: string;
+      /**
+       * Metadata
+       * @default {}
+       */
+      metadata: {
+        [key: string]: string | number | null;
+      };
+    };
+    /**
+     * RisksResponse
+     * @description Response body for infrastructure risks lookup.
+     */
+    RisksResponse: {
+      /** Features */
+      features: components["schemas"]["RiskFeature"][];
+    };
+    /**
+     * SaleHistoryEntry
+     * @description A single sale history event.
+     */
+    SaleHistoryEntry: {
+      /** Date */
+      date: string;
+      /** Price */
+      price: number;
+      /** Event Type */
+      event_type: string;
+    };
+    /**
+     * SavedPoiCreate
+     * @description Request body to save a POI.
+     */
+    SavedPoiCreate: {
+      /** Match Type */
+      match_type: string;
+      /** Match Value */
+      match_value: string;
+      /** Display Name */
+      display_name: string;
+      /** Category */
+      category?: string | null;
+      /** User Category */
+      user_category?: string | null;
+      /** Marker Color */
+      marker_color?: string | null;
+      /** Marker Image Url */
+      marker_image_url?: string | null;
+      /** Alternate Names */
+      alternate_names?: string[] | null;
+    };
+    /**
+     * SavedPoiMatch
+     * @description A nearby location matching a saved POI.
+     */
+    SavedPoiMatch: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Address */
+      address?: string | null;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Drive Minutes */
+      drive_minutes: number;
+    };
+    /**
+     * SavedPoiNearbyGroup
+     * @description A saved POI with its nearby matching locations.
+     */
+    SavedPoiNearbyGroup: {
+      /** Saved Poi Id */
+      saved_poi_id: number;
+      /** Display Name */
+      display_name: string;
+      /** Category */
+      category?: string | null;
+      /** Match Type */
+      match_type: string;
+      /** Matches */
+      matches: components["schemas"]["SavedPoiMatch"][];
+      /** User Category */
+      user_category?: string | null;
+      /** Marker Color */
+      marker_color?: string | null;
+      /** Marker Image Url */
+      marker_image_url?: string | null;
+    };
+    /**
+     * SavedPoiNearbyResponse
+     * @description Grouped nearby results for all saved POIs.
+     */
+    SavedPoiNearbyResponse: {
+      /** Groups */
+      groups: components["schemas"]["SavedPoiNearbyGroup"][];
+    };
+    /**
+     * SavedPoiResponse
+     * @description A single saved POI.
+     */
+    SavedPoiResponse: {
+      /** Id */
+      id: number;
+      /** Match Type */
+      match_type: string;
+      /** Match Value */
+      match_value: string;
+      /** Display Name */
+      display_name: string;
+      /** Category */
+      category?: string | null;
+      /** User Category */
+      user_category?: string | null;
+      /** Marker Color */
+      marker_color?: string | null;
+      /** Marker Image Url */
+      marker_image_url?: string | null;
+      /** Alternate Names */
+      alternate_names?: string[] | null;
+      /** Created At */
+      created_at?: string | null;
+    };
+    /**
+     * SavedPoiUpdate
+     * @description Request body to partially update a saved POI.
+     */
+    SavedPoiUpdate: {
+      /** User Category */
+      user_category?: string | null;
+      /** Marker Color */
+      marker_color?: string | null;
+      /** Marker Image Url */
+      marker_image_url?: string | null;
+      /** Alternate Names */
+      alternate_names?: string[] | null;
+    };
+    /**
+     * SavedPropertyCreate
+     * @description Request body to save/bookmark a property.
+     */
+    SavedPropertyCreate: {
+      /** Listing Id */
+      listing_id: number;
+      /** Notes */
+      notes?: string | null;
+    };
+    /**
+     * SavedPropertyResponse
+     * @description Single saved-property record returned to the client.
+     */
+    SavedPropertyResponse: {
+      /** Id */
+      id: number;
+      /** Listing Id */
+      listing_id: number;
+      /** Notes */
+      notes?: string | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Listing Address */
+      listing_address?: string | null;
+      /** City */
+      city?: string | null;
+      /** State */
+      state?: string | null;
+      /** Zip Code */
+      zip_code?: string | null;
+      /** Listing Status */
+      listing_status?: string | null;
+      /** Listing Price */
+      listing_price?: number | null;
+      /** Sold Price */
+      sold_price?: number | null;
+      /** Num Beds */
+      num_beds?: number | null;
+      /** Num Baths */
+      num_baths?: number | null;
+      /** Sqft */
+      sqft?: number | null;
+      /** Year Built */
+      year_built?: number | null;
+      /** Photo Url */
+      photo_url?: string | null;
+      /** Lat */
+      lat?: number | null;
+      /** Lon */
+      lon?: number | null;
+    };
+    /**
+     * SavedPropertyUpdate
+     * @description Request body to update notes on a saved property.
+     */
+    SavedPropertyUpdate: {
+      /** Notes */
+      notes?: string | null;
+    };
+    /**
+     * SchoolDistrictInfo
+     * @description School district boundary info.
+     */
+    SchoolDistrictInfo: {
+      /** Name */
+      name: string;
+      /** Geoid */
+      geoid: string;
+      /** District Type */
+      district_type?: string | null;
+      /** Geojson */
+      geojson?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Is Home
+       * @default false
+       */
+      is_home: boolean;
+      /** Label Lat */
+      label_lat?: number | null;
+      /** Label Lon */
+      label_lon?: number | null;
+    };
+    /**
+     * SchoolNearby
+     * @description A nearby school.
+     */
+    SchoolNearby: {
+      /** Name */
+      name: string;
+      /** Address */
+      address?: string | null;
+      /** School Type */
+      school_type: string;
+      /** School Level */
+      school_level?: string | null;
+      /** Rating */
+      rating?: number | null;
+      /** Grades */
+      grades?: string | null;
+      /** Distance Miles */
+      distance_miles: number;
+      /** Drive Minutes */
+      drive_minutes: number;
+      /** Walk Minutes */
+      walk_minutes?: number | null;
+      /** Student Teacher Ratio */
+      student_teacher_ratio?: number | null;
+      /** Enrollment */
+      enrollment?: number | null;
+      /**
+       * Assigned
+       * @default false
+       */
+      assigned: boolean;
+      /** Lat */
+      lat?: number | null;
+      /** Lon */
+      lon?: number | null;
+      /** Pct Frl Eligible */
+      pct_frl_eligible?: number | null;
+      /**
+       * In District
+       * @default false
+       */
+      in_district: boolean;
+    };
+    /**
+     * SchoolsNearbyResponse
+     * @description Wrapper response for nearby schools with district boundaries.
+     */
+    SchoolsNearbyResponse: {
+      /** Schools */
+      schools: components["schemas"]["SchoolNearby"][];
+      /**
+       * School Districts
+       * @default []
+       */
+      school_districts: components["schemas"]["SchoolDistrictInfo"][];
+    };
+    /**
+     * TaxHistoryEntry
+     * @description A single tax history record.
+     */
+    TaxHistoryEntry: {
+      /** Year */
+      year: number;
+      /** Assessed Value */
+      assessed_value: number;
+      /** Tax Amount */
+      tax_amount: number;
+    };
+    /**
+     * TokenResponse
+     * @description JWT token response from login.
+     */
+    TokenResponse: {
+      /** Access Token */
+      access_token: string;
+      /**
+       * Token Type
+       * @default bearer
+       */
+      token_type: string;
+    };
+    /**
+     * UserCreate
+     * @description Request body for user registration.
+     */
+    UserCreate: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Password */
+      password: string;
+      /** Display Name */
+      display_name?: string | null;
+    };
+    /**
+     * UserResponse
+     * @description Public user profile returned by API.
+     */
+    UserResponse: {
+      /** Id */
+      id: number;
+      /** Email */
+      email: string;
+      /** Display Name */
+      display_name?: string | null;
+      /** Is Active */
+      is_active: boolean;
+      /**
+       * Is Admin
+       * @default false
+       */
+      is_admin: boolean;
+      /** Last Login At */
+      last_login_at?: string | null;
+      /** Created At */
+      created_at?: string | null;
+    };
+    /**
+     * UserUpdate
+     * @description Request body for updating user profile.
+     */
+    UserUpdate: {
+      /** Display Name */
+      display_name?: string | null;
+    };
+    /**
+     * UtilitiesMetrics
+     * @description Aggregate utilities metrics for the area.
+     */
+    UtilitiesMetrics: {
+      /** Nearest Cell Tower Miles */
+      nearest_cell_tower_miles: number;
+      /** Nearest Transmission Line Miles */
+      nearest_transmission_line_miles: number;
+      /** Nearest Power Plant Miles */
+      nearest_power_plant_miles: number;
+      /** Nearest Pipeline Miles */
+      nearest_pipeline_miles: number;
+      /** Nuisance Score */
+      nuisance_score: number;
+    };
+    /**
+     * UtilitiesResponse
+     * @description Response body for utilities data lookup.
+     */
+    UtilitiesResponse: {
+      /** Features */
+      features: components["schemas"]["UtilityFeature"][];
+      metrics: components["schemas"]["UtilitiesMetrics"];
+    };
+    /**
+     * UtilityDetails
+     * @description Utility/infrastructure details.
+     */
+    UtilityDetails: {
+      /** Water */
+      water?: string | null;
+      /** Sewer */
+      sewer?: string | null;
+      /** Electric */
+      electric?: string | null;
+    };
+    /**
+     * UtilityFeature
+     * @description A single utility infrastructure feature.
+     */
+    UtilityFeature: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Feature Type */
+      feature_type: string;
+      /** Lat */
+      lat: number;
+      /** Lon */
+      lon: number;
+      /** Distance Miles */
+      distance_miles: number;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
+    };
+    /**
+     * ValuationData
+     * @description Property valuation and prediction data.
+     */
+    ValuationData: {
+      /** Listed Price */
+      listed_price?: number | null;
+      /** Last Sold Price */
+      last_sold_price?: number | null;
+      /** Last Sold Date */
+      last_sold_date?: string | null;
+      /** Redfin Estimate */
+      redfin_estimate?: number | null;
+      /** Predicted Value */
+      predicted_value?: number | null;
+      /** Confidence Interval Low */
+      confidence_interval_low?: number | null;
+      /** Confidence Interval High */
+      confidence_interval_high?: number | null;
+      /** Model Version */
+      model_version?: string | null;
+      /** Prediction Date */
+      prediction_date?: string | null;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    health_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
+  health_health_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    ready_ready_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
+      };
     };
-    stats_api_stats_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
+  };
+  ready_ready_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    register_api_auth_register_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
+        content: {
+          "application/json": unknown;
         };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+      };
     };
-    login_api_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  stats_api_stats_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_me_api_auth_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
+      };
     };
-    update_me_api_auth_me_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  register_api_auth_register_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    google_login_api_auth_google_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserCreate"];
+      };
     };
-    google_callback_api_auth_google_callback_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenResponse"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuthResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    forecast_api_forecast_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ForecastRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ForecastResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  login_api_auth_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    feature_importance_api_forecast_importance__property_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                property_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FeatureAttribution"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LoginRequest"];
+      };
     };
-    geocode_api_geocode_get: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeocodeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuthResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_property_api_property_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                address: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PropertyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_me_api_auth_me_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_photo_api_photos__path__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
         };
+      };
     };
-    get_comparables_api_comparables_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                beds: number;
-                sqft: number;
-                radius_miles?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ComparableProperty"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  update_me_api_auth_me_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_nearby_schools_api_schools_nearby_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolsNearbyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserUpdate"];
+      };
     };
-    get_demographics_api_demographics_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DemographicsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["UserResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_crime_api_crime_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-                days_back?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CrimeResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  google_login_api_auth_google_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_pois_api_pois_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-                per_category?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PoisResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": unknown;
         };
+      };
     };
-    search_pois_api_pois_search_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                query: string;
-                radius_miles?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PoisSearchResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  google_callback_api_auth_google_callback_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    autocomplete_pois_api_pois_autocomplete_get: {
-        parameters: {
-            query: {
-                q: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PoiAutocompleteResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["TokenResponse"];
         };
+      };
     };
-    get_saved_pois_nearby_api_pois_saved_nearby_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPoiNearbyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  forecast_api_forecast_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_greenspace_api_greenspace_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GreenspaceResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ForecastRequest"];
+      };
     };
-    get_utilities_api_utilities_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UtilitiesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ForecastResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    list_saved_api_saved_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPropertyResponse"][];
-                };
-            };
-        };
+  };
+  feature_importance_api_forecast_importance__property_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        property_id: number;
+      };
+      cookie?: never;
     };
-    save_property_api_saved_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavedPropertyCreate"];
-            };
+        content: {
+          "application/json": components["schemas"]["FeatureAttribution"][];
         };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPropertyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    update_saved_api_saved__saved_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saved_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavedPropertyUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPropertyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  geocode_api_geocode_get: {
+    parameters: {
+      query: {
+        q: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    delete_saved_api_saved__saved_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saved_id: number;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["GeocodeResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    list_saved_pois_api_saved_pois_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPoiResponse"][];
-                };
-            };
-        };
+  };
+  get_property_api_property_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        address: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    create_saved_poi_api_saved_pois_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavedPoiCreate"];
-            };
+        content: {
+          "application/json": components["schemas"]["PropertyResponse"];
         };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPoiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    delete_saved_poi_api_saved_pois__saved_poi_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saved_poi_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_photo_api_photos__path__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        path: string;
+      };
+      cookie?: never;
     };
-    update_saved_poi_api_saved_pois__saved_poi_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                saved_poi_id: number;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavedPoiUpdate"];
-            };
+        content: {
+          "application/json": unknown;
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SavedPoiResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    upload_redfin_html_api_upload_redfin_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_upload_redfin_html_api_upload_redfin_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_comparables_api_comparables_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        beds: number;
+        sqft: number;
+        radius_miles?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    create_data_request_api_data_requests_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DataRequestCreate"];
-            };
+        content: {
+          "application/json": components["schemas"]["ComparableProperty"][];
         };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataRequestResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_data_request_api_data_requests__request_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                request_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataRequestResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_nearby_schools_api_schools_nearby_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_neighborhood_valuation_api_neighborhood_valuation_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NeighborhoodValuationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["SchoolsNearbyResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_neighborhood_valuation_history_api_neighborhood_valuation_history_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NeighborhoodValuationHistoryResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_demographics_api_demographics_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_neighborhood_valuation_properties_api_neighborhood_valuation_properties_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NeighborhoodPropertiesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["DemographicsResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_nuisance_sources_api_nuisances_sources_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NuisanceSourcesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_crime_api_crime_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+        days_back?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_risks_api_risks_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                radius_miles?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RisksResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["CrimeResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    search_comparables_api_comparables_search_get: {
-        parameters: {
-            query: {
-                lat: number;
-                lon: number;
-                address: string;
-                time_period_months?: number;
-                distance_miles?: number;
-                same_schools?: boolean;
-                sqft_pct?: number;
-                lot_pct?: number;
-                same_beds?: boolean;
-                same_baths?: boolean;
-                year_built_diff?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ComparablesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_pois_api_pois_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+        per_category?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    delete_cache_api_cache__prefix__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                prefix: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["PoisResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    metrics_metrics_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
+  };
+  search_pois_api_pois_search_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        query: string;
+        radius_miles?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PoisSearchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  autocomplete_pois_api_pois_autocomplete_get: {
+    parameters: {
+      query: {
+        q: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PoiAutocompleteResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_saved_pois_nearby_api_pois_saved_nearby_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPoiNearbyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_greenspace_api_greenspace_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GreenspaceResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_utilities_api_utilities_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UtilitiesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_saved_api_saved_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPropertyResponse"][];
+        };
+      };
+    };
+  };
+  save_property_api_saved_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SavedPropertyCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPropertyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_saved_api_saved__saved_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        saved_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SavedPropertyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPropertyResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_saved_api_saved__saved_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        saved_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_saved_pois_api_saved_pois_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPoiResponse"][];
+        };
+      };
+    };
+  };
+  create_saved_poi_api_saved_pois_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SavedPoiCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPoiResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_saved_poi_api_saved_pois__saved_poi_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        saved_poi_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_saved_poi_api_saved_pois__saved_poi_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        saved_poi_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SavedPoiUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedPoiResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_redfin_html_api_upload_redfin_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_redfin_html_api_upload_redfin_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_data_request_api_data_requests_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DataRequestCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DataRequestResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_data_request_api_data_requests__request_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DataRequestResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_neighborhood_valuation_api_neighborhood_valuation_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NeighborhoodValuationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_neighborhood_valuation_history_api_neighborhood_valuation_history_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NeighborhoodValuationHistoryResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_neighborhood_valuation_properties_api_neighborhood_valuation_properties_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NeighborhoodPropertiesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_nuisance_sources_api_nuisances_sources_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NuisanceSourcesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_risks_api_risks_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        radius_miles?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RisksResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_comparables_api_comparables_search_get: {
+    parameters: {
+      query: {
+        lat: number;
+        lon: number;
+        address: string;
+        time_period_months?: number;
+        distance_miles?: number;
+        same_schools?: boolean;
+        sqft_pct?: number;
+        lot_pct?: number;
+        same_beds?: boolean;
+        same_baths?: boolean;
+        year_built_diff?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ComparablesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_cache_api_cache__prefix__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        prefix: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  metrics_metrics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
 }
