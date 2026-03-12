@@ -7,6 +7,10 @@ interface CompColumnProps {
   subjectProperty?: CompPropertyDetail;
   /** Union of all feature keys per category, for row alignment */
   allKeysByCategory?: Record<string, string[]>;
+  /** Union of all risk names across properties, for row alignment */
+  allRiskNames?: string[];
+  /** Union of all nuisance names across properties, for row alignment */
+  allNuisanceNames?: string[];
   /** Which categories are expanded (synced across columns) */
   expandedCategories?: Set<string>;
   /** Toggle a category's expanded state */
@@ -60,6 +64,8 @@ function CompColumn({
   isSubject,
   subjectProperty,
   allKeysByCategory,
+  allRiskNames,
+  allNuisanceNames,
   expandedCategories,
   onToggleCategory,
 }: CompColumnProps) {
@@ -187,38 +193,62 @@ function CompColumn({
       </div>
 
       {/* Nuisances */}
-      {prop.nuisances.length > 0 && (
+      {(allNuisanceNames ?? prop.nuisances.map((n) => n.name)).length > 0 && (
         <div className="border-b border-[var(--color-db-border-subtle)] px-3 py-2">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-db-text-secondary)]">
             Nuisances
           </p>
-          {prop.nuisances.map((n, i) => (
-            <div key={i} className="flex items-center gap-1.5 py-0.5 text-[11px]">
-              <SeverityDot severity={n.severity} />
-              <span className="truncate text-[var(--color-db-text)]">{n.name}</span>
-              <span className="ml-auto shrink-0 text-[var(--color-db-text-secondary)]">
-                {n.distance_miles} mi
-              </span>
-            </div>
-          ))}
+          {(allNuisanceNames ?? prop.nuisances.map((n) => n.name)).map((name) => {
+            const item = prop.nuisances.find((n) => n.name === name);
+            return (
+              <div key={name} className="flex items-center gap-1.5 py-0.5 text-[11px]">
+                {item ? (
+                  <>
+                    <SeverityDot severity={item.severity} />
+                    <span className="truncate text-[var(--color-db-text)]">{item.name}</span>
+                    <span className="ml-auto shrink-0 text-[var(--color-db-text-secondary)]">
+                      {item.distance_miles} mi
+                    </span>
+                  </>
+                ) : (
+                  <span className="invisible">
+                    <span className="inline-block h-2 w-2 shrink-0" />
+                    <span className="truncate">{name}</span>
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Risks */}
-      {prop.risks.length > 0 && (
+      {(allRiskNames ?? prop.risks.map((r) => r.name)).length > 0 && (
         <div className="border-b border-[var(--color-db-border-subtle)] px-3 py-2">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-db-text-secondary)]">
             Risks
           </p>
-          {prop.risks.map((r, i) => (
-            <div key={i} className="flex items-center gap-1.5 py-0.5 text-[11px]">
-              <SeverityDot severity={r.severity} />
-              <span className="truncate text-[var(--color-db-text)]">{r.name}</span>
-              <span className="ml-auto shrink-0 text-[var(--color-db-text-secondary)]">
-                {r.distance_miles} mi
-              </span>
-            </div>
-          ))}
+          {(allRiskNames ?? prop.risks.map((r) => r.name)).map((name) => {
+            const item = prop.risks.find((r) => r.name === name);
+            return (
+              <div key={name} className="flex items-center gap-1.5 py-0.5 text-[11px]">
+                {item ? (
+                  <>
+                    <SeverityDot severity={item.severity} />
+                    <span className="truncate text-[var(--color-db-text)]">{item.name}</span>
+                    <span className="ml-auto shrink-0 text-[var(--color-db-text-secondary)]">
+                      {item.distance_miles} mi
+                    </span>
+                  </>
+                ) : (
+                  <span className="invisible">
+                    <span className="inline-block h-2 w-2 shrink-0" />
+                    <span className="truncate">{name}</span>
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -1,44 +1,26 @@
-{{- if .Values.airflow.enabled }}
-apiVersion: apps/v1
-kind: Deployment
+{{- if and .Values.airflow.enabled (eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor") }}
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: {{ include "pricepoint.fullname" . }}-airflow-scheduler
+  name: {{ include "pricepoint.fullname" . }}-airflow-pod-template
   labels:
     {{- include "pricepoint.labels" . | nindent 4 }}
-    app.kubernetes.io/component: airflow-scheduler
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: airflow-scheduler
-  template:
+    app.kubernetes.io/component: airflow
+data:
+  pod-template.yaml: |
+    apiVersion: v1
+    kind: Pod
     metadata:
+      name: placeholder
       labels:
-        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: airflow-scheduler
-      annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        app.kubernetes.io/name: {{ include "pricepoint.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: airflow-worker
     spec:
-      {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
       serviceAccountName: {{ include "pricepoint.fullname" . }}-airflow
-      {{- end }}
       containers:
-        - name: scheduler
+        - name: base
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
-          args: ["scheduler"]
-          env:
-            - name: AIRFLOW__API_SERVER__API_URL
-              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}"
-            - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
-              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}/execution/v1"
-            {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
-            - name: AIRFLOW__KUBERNETES_EXECUTOR__POD_TEMPLATE_FILE
-              value: /opt/airflow/pod-template/pod-template.yaml
-            - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
-              value: {{ .Release.Namespace | quote }}
-            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "pricepoint.fullname" . }}-config
@@ -51,14 +33,11 @@ spec:
               mountPath: /opt/airflow/dags
             - name: redfin-data
               mountPath: /opt/airflow/redfin-data
-            {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
-            - name: pod-template
-              mountPath: /opt/airflow/pod-template
-            {{- end }}
           resources:
             {{- toYaml .Values.airflow.scheduler.resources | nindent 12 }}
-        {{- if .Values.airflow.dagSync.enabled }}
-        - name: git-sync
+      {{- if .Values.airflow.dagSync.enabled }}
+      initContainers:
+        - name: git-sync-init
           image: "{{ .Values.airflow.dagSync.image.repository }}:{{ .Values.airflow.dagSync.image.tag }}"
           env:
             - name: GITSYNC_REPO
@@ -71,8 +50,8 @@ spec:
               value: /opt/airflow/dags
             - name: GITSYNC_SUBPATH
               value: {{ .Values.airflow.dagSync.subPath | quote }}
-            - name: GITSYNC_PERIOD
-              value: "60s"
+            - name: GITSYNC_ONE_TIME
+              value: "true"
             {{- if and .Values.airflow.dagSync.credentials .Values.airflow.dagSync.credentials.username }}
             - name: GITSYNC_USERNAME
               value: {{ .Values.airflow.dagSync.credentials.username | quote }}
@@ -84,7 +63,7 @@ spec:
               mountPath: /opt/airflow/dags
           resources:
             {{- toYaml .Values.airflow.dagSync.resources | nindent 12 }}
-        {{- end }}
+      {{- end }}
       volumes:
         - name: airflow-logs
           emptyDir: {}
@@ -93,9 +72,5 @@ spec:
         - name: redfin-data
           persistentVolumeClaim:
             claimName: {{ include "pricepoint.fullname" . }}-airflow-redfin
-        {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
-        - name: pod-template
-          configMap:
-            name: {{ include "pricepoint.fullname" . }}-airflow-pod-template
-        {{- end }}
+      restartPolicy: Never
 {{- end }}

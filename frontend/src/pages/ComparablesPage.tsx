@@ -91,6 +91,25 @@ function ComparablesPage() {
     return result;
   }, [data]);
 
+  // --- Compute union of risk/nuisance names for row alignment ---
+  const allRiskNames = useMemo(() => {
+    if (!data) return [] as string[];
+    const names = new Set<string>();
+    for (const prop of [data.subject, ...data.comparables]) {
+      for (const r of prop.risks) names.add(r.name);
+    }
+    return Array.from(names);
+  }, [data]);
+
+  const allNuisanceNames = useMemo(() => {
+    if (!data) return [] as string[];
+    const names = new Set<string>();
+    for (const prop of [data.subject, ...data.comparables]) {
+      for (const n of prop.nuisances) names.add(n.name);
+    }
+    return Array.from(names);
+  }, [data]);
+
   return (
     <div className="min-h-screen bg-[var(--th-bg-base)] font-db-sans">
       <DashboardNav />
@@ -156,6 +175,8 @@ function ComparablesPage() {
                 property={data.subject}
                 isSubject
                 allKeysByCategory={allKeysByCategory}
+                allRiskNames={allRiskNames}
+                allNuisanceNames={allNuisanceNames}
                 expandedCategories={effectiveExpanded}
                 onToggleCategory={toggleCategory}
               />
@@ -170,6 +191,8 @@ function ComparablesPage() {
                   property={comp}
                   subjectProperty={data.subject}
                   allKeysByCategory={allKeysByCategory}
+                  allRiskNames={allRiskNames}
+                  allNuisanceNames={allNuisanceNames}
                   expandedCategories={effectiveExpanded}
                   onToggleCategory={toggleCategory}
                 />

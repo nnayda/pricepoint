@@ -3,10 +3,13 @@ import type { DashboardTab, DashboardData } from "../../types";
 import { preloadSchoolsNearby } from "../../hooks/useSchoolsNearby";
 import { preloadRisks } from "../../hooks/useRisks";
 import { preloadNuisanceSources } from "../../hooks/useNuisanceSources";
+import { preloadPoliceIncidents, usePoliceIncidents } from "../../hooks/usePoliceIncidents";
+import type { CrimeIncident } from "../../types";
 import TabDot from "./ui/TabDot";
 
 const ValuationTab = lazy(() => import("./tabs/ValuationTab"));
 const RisksTab = lazy(() => import("./tabs/RisksTab"));
+const PoliceTab = lazy(() => import("./tabs/PoliceTab"));
 const DemographicsTab = lazy(() => import("./tabs/DemographicsTab"));
 const SchoolsTab = lazy(() => import("./tabs/SchoolsTab"));
 const PoisTab = lazy(() => import("./tabs/PoisTab"));
@@ -22,6 +25,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: "valuation", label: "Valuation" },
   { id: "risks", label: "Risks" },
+  { id: "police", label: "Crime" },
   { id: "demographics", label: "Demographics" },
   { id: "schools", label: "Schools" },
   { id: "pois", label: "Points of Interest" },
@@ -29,6 +33,43 @@ const TABS: TabDef[] = [
   { id: "greenspace", label: "Greenspace" },
   { id: "property-details", label: "Property Details" },
 ];
+
+const MILES_TO_RADIANS = Math.PI / 180;
+
+/** Haversine distance in miles between two lat/lon points */
+function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8; // Earth radius in miles
+  const dLat = (lat2 - lat1) * MILES_TO_RADIANS;
+  const dLon = (lon2 - lon1) * MILES_TO_RADIANS;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * MILES_TO_RADIANS) * Math.cos(lat2 * MILES_TO_RADIANS) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Return the worst offense class among incidents within 0.5 miles: "Group A" > "Group B" > null */
+function worstOffenseWithinHalfMile(
+  incidents: CrimeIncident[],
+  lat: number,
+  lon: number,
+): "Group A" | "Group B" | null {
+  let hasGroupB = false;
+  for (const i of incidents) {
+    if (distanceMiles(lat, lon, i.lat, i.lon) <= 0.5) {
+      if (
+        i.offense_class &&
+        i.offense_class !== "Group B" &&
+        i.offense_class !== "Animal Disturbance"
+      ) {
+        return "Group A"; // Severe — short-circuit
+      }
+      if (i.offense_class === "Group B") {
+        hasGroupB = true;
+      }
+    }
+  }
+  return hasGroupB ? "Group B" : null;
+}
 
 /** Compute data-driven dot colors based on actual data */
 function computeTabDots(data: DashboardData): Partial<Record<DashboardTab, string>> {
@@ -66,6 +107,7 @@ const TAB_COMPONENTS: Record<
 > = {
   valuation: ValuationTab,
   risks: RisksTab,
+  police: PoliceTab,
   demographics: DemographicsTab,
   schools: SchoolsTab,
   pois: PoisTab,
@@ -89,15 +131,26 @@ function TabLoader() {
 function DashboardTabs({ data }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("valuation");
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { incidents } = usePoliceIncidents(data.property.lat, data.property.lon);
 
   // Preload data so it's ready when tabs are opened
   useEffect(() => {
     preloadSchoolsNearby(data.property.lat, data.property.lon);
     preloadRisks(data.property.lat, data.property.lon);
     preloadNuisanceSources(data.property.lat, data.property.lon);
+    preloadPoliceIncidents(data.property.lat, data.property.lon);
   }, [data.property.lat, data.property.lon]);
 
-  const tabDots = useMemo(() => computeTabDots(data), [data]);
+  const tabDots = useMemo(() => {
+    const dots = computeTabDots(data);
+    const worst = worstOffenseWithinHalfMile(incidents, data.property.lat, data.property.lon);
+    if (worst === "Group A") {
+      dots.police = "#F87171"; // red
+    } else if (worst === "Group B") {
+      dots.police = "#FBBF24"; // yellow
+    }
+    return dots;
+  }, [data, incidents]);
 
   const handleTabClick = useCallback((tab: DashboardTab) => {
     setActiveTab(tab);

@@ -307,9 +307,10 @@ config:
 # -- Airflow (optional, bundled) -----------------------------------------------
 airflow:
   enabled: true
+  executor: KubernetesExecutor
   image:
     repository: apache/airflow
-    tag: "2.9-python3.12"
+    tag: "3.0.2-python3.12"
   webserver:
     service:
       type: ClusterIP
@@ -334,6 +335,9 @@ airflow:
     repo: ""
     branch: "main"
     subPath: "dags"
+    credentials:
+      username: ""
+      password: ""
     image:
       repository: registry.k8s.io/git-sync/git-sync
       tag: v4.4.0

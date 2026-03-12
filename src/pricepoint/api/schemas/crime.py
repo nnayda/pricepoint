@@ -21,6 +21,9 @@ class CrimeIncident(BaseModel):
     lat: float
     lon: float
     description: str | None = None
+    address: str | None = None
+    crime_group: str | None = None
+    offense_class: str | None = None
 
 
 class CrimeMetrics(BaseModel):

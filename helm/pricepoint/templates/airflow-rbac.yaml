@@ -1,0 +1,46 @@
+{{- if and .Values.airflow.enabled (eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor") }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "pricepoint.fullname" . }}-airflow
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "pricepoint.fullname" . }}-airflow
+    namespace: {{ .Release.Namespace }}
+{{- end }}

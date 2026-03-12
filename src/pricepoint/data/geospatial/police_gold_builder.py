@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 _MINIMUM_EXPECTED_INCIDENTS = 500
 
+# Code prefixes for non-criminal/administrative events to skip
+_SKIP_PREFIXES = ("81", "99")
+
 
 def _parse_morrisville_date(date_str: str | None) -> datetime | None:
     """Parse Morrisville date string (MM/DD/YYYY) into a date object."""
@@ -37,8 +40,27 @@ def _parse_morrisville_date(date_str: str | None) -> datetime | None:
         return None
 
 
-def _upsert_incident(session: Session, incident_id: str, fields: dict) -> None:
-    """Insert or update a PoliceIncident by incident_id."""
+def _should_skip(code: str | None) -> bool:
+    """Return True if the crime code should be skipped (non-criminal/admin)."""
+    if not code:
+        return True
+    return any(code.startswith(prefix) for prefix in _SKIP_PREFIXES)
+
+
+def _upsert_incident(
+    session: Session, incident_id: str, fields: dict, pending: dict[str, PoliceIncident]
+) -> None:
+    """Insert or update a PoliceIncident by incident_id.
+
+    Uses ``pending`` dict to track objects added in this batch that haven't
+    been flushed yet, avoiding duplicate-key errors when the same incident_id
+    appears multiple times in staging (e.g. multiple offenses per case).
+    """
+    if incident_id in pending:
+        for key, value in fields.items():
+            setattr(pending[incident_id], key, value)
+        return
+
     existing = session.execute(
         select(PoliceIncident).where(PoliceIncident.incident_id == incident_id)
     ).scalar_one_or_none()
@@ -46,8 +68,11 @@ def _upsert_incident(session: Session, incident_id: str, fields: dict) -> None:
     if existing:
         for key, value in fields.items():
             setattr(existing, key, value)
+        pending[incident_id] = existing
     else:
-        session.add(PoliceIncident(incident_id=incident_id, **fields))
+        obj = PoliceIncident(incident_id=incident_id, **fields)
+        session.add(obj)
+        pending[incident_id] = obj
 
 
 def build_police_incidents_gold(session: Session) -> int:
@@ -77,21 +102,50 @@ def build_police_incidents_gold(session: Session) -> int:
         )
 
     count = 0
+    skipped = 0
+    pending: dict[str, PoliceIncident] = {}
+    warned_codes: set[str] = set()
     start_time = time.monotonic()
     last_log_time = start_time
 
     # --- Raleigh ---
-    raleigh_rows = session.execute(select(StagingRaleighPoliceIncident)).scalars().all()
+    raleigh_rows = (
+        session.execute(
+            select(StagingRaleighPoliceIncident).where(
+                StagingRaleighPoliceIncident.location.isnot(None)
+            )
+        )
+        .scalars()
+        .all()
+    )
     logger.info("Processing %d Raleigh staging records", len(raleigh_rows))
 
     for rpd in raleigh_rows:
+        # Skip zero-coordinate records
+        if rpd.latitude == 0 or rpd.longitude == 0:
+            skipped += 1
+            continue
+
+        crime_code: str | None = rpd.crime_code  # type: ignore[assignment]
+
+        # Skip non-criminal codes
+        if _should_skip(crime_code):
+            logger.debug("Skipping non-criminal Raleigh code: %r", crime_code)
+            skipped += 1
+            continue
+
         incident_id = f"RPD-{rpd.case_number}" if rpd.case_number else f"RPD-{rpd.id}"
-        group, category = lookup_ucr(rpd.crime_code)  # type: ignore[arg-type]
+        group, category, offense_class = lookup_ucr(crime_code)
+
+        if group is None and crime_code and crime_code not in warned_codes:
+            logger.warning("Unmatched Raleigh crime code: %r", crime_code)
+            warned_codes.add(crime_code)
 
         fields: dict = {
-            "crime_code": rpd.crime_code,
+            "crime_code": crime_code,
             "crime_group": group,
             "crime_category": category,
+            "offense_class": offense_class,
             "crime_description": rpd.crime_description,
             "address": rpd.reported_block_address,
             "date_of_incident": rpd.reported_date.date() if rpd.reported_date else None,
@@ -99,7 +153,7 @@ def build_police_incidents_gold(session: Session) -> int:
             "longitude": rpd.longitude,
             "location": rpd.location,
         }
-        _upsert_incident(session, incident_id, fields)
+        _upsert_incident(session, incident_id, fields, pending)
         count += 1
 
         now = time.monotonic()
@@ -116,17 +170,41 @@ def build_police_incidents_gold(session: Session) -> int:
             )
 
     # --- Cary ---
-    cary_rows = session.execute(select(StagingCaryPoliceIncident)).scalars().all()
+    cary_rows = (
+        session.execute(
+            select(StagingCaryPoliceIncident).where(StagingCaryPoliceIncident.location.isnot(None))
+        )
+        .scalars()
+        .all()
+    )
     logger.info("Processing %d Cary staging records", len(cary_rows))
 
     for cpd in cary_rows:
+        # Skip zero-coordinate records
+        if cpd.lat == 0 or cpd.lon == 0:
+            skipped += 1
+            continue
+
+        crime_code = cpd.ucr  # type: ignore[assignment]
+
+        # Skip non-criminal codes
+        if _should_skip(crime_code):
+            logger.debug("Skipping non-criminal Cary code: %r", crime_code)
+            skipped += 1
+            continue
+
         incident_id = f"CPD-{cpd.incident_number}" if cpd.incident_number else f"CPD-{cpd.id}"
-        group, category = lookup_ucr(cpd.ucr)  # type: ignore[arg-type]
+        group, category, offense_class = lookup_ucr(crime_code)
+
+        if group is None and crime_code and crime_code not in warned_codes:
+            logger.warning("Unmatched Cary crime code: %r", crime_code)
+            warned_codes.add(crime_code)
 
         fields = {
-            "crime_code": cpd.ucr,
+            "crime_code": crime_code,
             "crime_group": group,
             "crime_category": category,
+            "offense_class": offense_class,
             "crime_description": cpd.crime_type,
             "address": cpd.geocode,
             "date_of_incident": cpd.date_from.date() if cpd.date_from else None,
@@ -134,7 +212,7 @@ def build_police_incidents_gold(session: Session) -> int:
             "longitude": cpd.lon,
             "location": cpd.location,
         }
-        _upsert_incident(session, incident_id, fields)
+        _upsert_incident(session, incident_id, fields, pending)
         count += 1
 
         now = time.monotonic()
@@ -151,12 +229,25 @@ def build_police_incidents_gold(session: Session) -> int:
             )
 
     # --- Morrisville ---
-    morrisville_rows = session.execute(select(StagingMorrisvillePoliceIncident)).scalars().all()
+    morrisville_rows = (
+        session.execute(
+            select(StagingMorrisvillePoliceIncident).where(
+                StagingMorrisvillePoliceIncident.location.isnot(None)
+            )
+        )
+        .scalars()
+        .all()
+    )
     logger.info("Processing %d Morrisville staging records", len(morrisville_rows))
 
     for mpd in morrisville_rows:
+        # Skip zero-coordinate records
+        if mpd.lat == 0 or mpd.lon == 0:
+            skipped += 1
+            continue
+
         incident_id = f"MPD-{mpd.inci_id}" if mpd.inci_id else f"MPD-{mpd.id}"
-        matched_code, group, category = fuzzy_match_ucr(mpd.offense)  # type: ignore[arg-type]
+        matched_code, group, category, offense_class = fuzzy_match_ucr(mpd.offense)  # type: ignore[arg-type]
 
         parsed_date = _parse_morrisville_date(mpd.date_occu)  # type: ignore[arg-type]
 
@@ -164,6 +255,7 @@ def build_police_incidents_gold(session: Session) -> int:
             "crime_code": matched_code,
             "crime_group": group,
             "crime_category": category,
+            "offense_class": offense_class,
             "crime_description": mpd.offense,
             "address": mpd.street,
             "date_of_incident": parsed_date.date() if parsed_date else None,
@@ -171,7 +263,7 @@ def build_police_incidents_gold(session: Session) -> int:
             "longitude": mpd.lon,
             "location": mpd.location,
         }
-        _upsert_incident(session, incident_id, fields)
+        _upsert_incident(session, incident_id, fields, pending)
         count += 1
 
         now = time.monotonic()
@@ -189,7 +281,9 @@ def build_police_incidents_gold(session: Session) -> int:
 
     session.flush()
     elapsed = time.monotonic() - start_time
-    logger.info("Built %d gold police incident records in %.1f sec", count, elapsed)
+    logger.info(
+        "Built %d gold police incident records in %.1f sec (skipped %d)", count, elapsed, skipped
+    )
     return count
 
 

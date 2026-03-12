@@ -152,6 +152,17 @@ export function getChoroplethStyle(
       break;
     }
     case "race": {
+      if (raceFilter === "asian") {
+        const subgroup = (props.dominant_asian_subgroup as string) ?? "Other Asian";
+        fillColor = ASIAN_SUBGROUP_COLORS[subgroup] ?? ASIAN_SUBGROUP_COLORS["Other Asian"];
+        const pct = (props.pct_asian as number) ?? 0;
+        return {
+          fillColor,
+          fillOpacity: 0.15 + (pct / 100) * 0.6,
+          color: isHome ? "#6366f1" : "#475569",
+          weight: isHome ? 3 : 1,
+        };
+      }
       if (raceFilter && raceFilter !== "all") {
         const pctKey = RACE_PCT_KEY[raceFilter];
         const pct = (pctKey ? (props[pctKey] as number) : 0) ?? 0;
@@ -220,6 +231,12 @@ export function getTooltipText(
     case "ownership":
       return `${prefix}Ownership: ${props.home_ownership_rate ?? 0}%`;
     case "race": {
+      if (raceFilter === "asian") {
+        const subgroup = (props.dominant_asian_subgroup as string) ?? "Unknown";
+        const subPct = (props.dominant_asian_subgroup_pct as number) ?? 0;
+        const pctAsian = (props.pct_asian as number) ?? 0;
+        return `${prefix}Asian: ${pctAsian}%\nDominant: ${subgroup} (${subPct}%)`;
+      }
       if (raceFilter && raceFilter !== "all") {
         const pctKey = RACE_PCT_KEY[raceFilter];
         const pct = pctKey ? ((props[pctKey] as number) ?? 0) : 0;
@@ -289,6 +306,15 @@ export function getLegendConfig(subTab: DemographicSubTab, raceFilter?: string):
         labels: ["0%", "100%"],
       };
     case "race": {
+      if (raceFilter === "asian") {
+        const subgroupEntries = Object.entries(ASIAN_SUBGROUP_COLORS);
+        return {
+          type: "categorical",
+          title: "Dominant Asian Sub-Group",
+          colors: subgroupEntries.map(([, c]) => c),
+          labels: subgroupEntries.map(([l]) => l),
+        };
+      }
       if (raceFilter && raceFilter !== "all") {
         const label = RACE_FILTER_LABEL[raceFilter] ?? raceFilter;
         const hex = RACE_FILTER_COLOR[raceFilter] ?? "#6b7280";
@@ -313,6 +339,58 @@ export function getLegendConfig(subTab: DemographicSubTab, raceFilter?: string):
       };
     }
   }
+}
+
+/**
+ * MapLibre text-field expression for demographics map labels.
+ *
+ * Shows the region name plus a relevant metric line beneath it,
+ * e.g. "Chapel Hill\nChinese 45%" when the Asian filter is active.
+ */
+export function getLabelTextField(
+  subTab: DemographicSubTab,
+  raceFilter: string,
+): ExpressionSpecification {
+  if (subTab === "race") {
+    if (raceFilter === "asian") {
+      // "Name\nSubgroup Pct%"
+      return [
+        "concat",
+        ["get", "name"],
+        "\n",
+        ["coalesce", ["get", "dominant_asian_subgroup"], ""],
+        " ",
+        ["to-string", ["coalesce", ["get", "dominant_asian_subgroup_pct"], 0]],
+        "%",
+      ] as ExpressionSpecification;
+    }
+    if (raceFilter && raceFilter !== "all") {
+      const pctKey = RACE_PCT_KEY[raceFilter] ?? "pct_white";
+      const label = RACE_FILTER_LABEL[raceFilter] ?? raceFilter;
+      return [
+        "concat",
+        ["get", "name"],
+        "\n",
+        label,
+        " ",
+        ["to-string", ["coalesce", ["get", pctKey], 0]],
+        "%",
+      ] as ExpressionSpecification;
+    }
+    // All races — show dominant race + pct
+    return [
+      "concat",
+      ["get", "name"],
+      "\n",
+      ["coalesce", ["get", "dominant_race"], ""],
+      " ",
+      ["to-string", ["coalesce", ["get", "dominant_race_pct"], 0]],
+      "%",
+    ] as ExpressionSpecification;
+  }
+
+  // Non-race sub-tabs — just show the region name
+  return ["get", "name"] as ExpressionSpecification;
 }
 
 /* ── MapLibre vector-tile expressions ── */
@@ -346,6 +424,15 @@ export function getChoroplethColorExpression(
   raceFilter: string,
 ): ExpressionSpecification {
   if (subTab === "race") {
+    if (raceFilter === "asian") {
+      // Asian filter — color by dominant Asian sub-group
+      const cases: unknown[] = ["case"];
+      for (const [label, color] of Object.entries(ASIAN_SUBGROUP_COLORS)) {
+        cases.push(["==", ["coalesce", ["get", "dominant_asian_subgroup"], ""], label], color);
+      }
+      cases.push(ASIAN_SUBGROUP_COLORS["Other Asian"]);
+      return cases as ExpressionSpecification;
+    }
     if (raceFilter && raceFilter !== "all") {
       // Single-race filter — use that race's color (opacity handled separately)
       const color = RACE_FILTER_COLOR[raceFilter] ?? RACE_COLORS.Unknown;
@@ -435,6 +522,18 @@ export function getChoroplethOpacityExpression(
   raceFilter: string,
 ): ExpressionSpecification | number {
   if (subTab === "race") {
+    if (raceFilter === "asian") {
+      // Asian filter — opacity by dominant subgroup pct (same as all-race map)
+      return [
+        "interpolate",
+        ["linear"],
+        ["coalesce", ["get", "dominant_asian_subgroup_pct"], 0],
+        0,
+        0.2,
+        100,
+        0.8,
+      ] as ExpressionSpecification;
+    }
     if (raceFilter && raceFilter !== "all") {
       const pctKey = RACE_TILE_KEY[raceFilter] ?? "pct_white";
       return [

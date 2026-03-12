@@ -89,9 +89,11 @@ def _compute_trend(current_count: int, prior_count: int) -> tuple[str, float]:
     return "stable", round(pct, 1)
 
 
-def _cache_key(lat: float, lon: float, radius_miles: float, days_back: int) -> str:
+def _cache_key(
+    lat: float, lon: float, radius_miles: float, days_back: int, limit: int = 200
+) -> str:
     """Build a deterministic cache key for the crime query."""
-    raw = f"crime:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}:{days_back}"
+    raw = f"crime:{lat:.6f}:{lon:.6f}:{radius_miles:.2f}:{days_back}:{limit}"
     digest = hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
     return f"crime:{digest}"
 
@@ -102,12 +104,13 @@ async def get_crime(
     lon: Annotated[float, Query(ge=-180, le=180)],
     radius_miles: Annotated[float, Query(gt=0, le=10)] = 1.0,
     days_back: Annotated[int, Query(ge=1, le=3650)] = 365,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
     db: Annotated[Session, Depends(get_db)] = None,  # type: ignore[assignment]
     valkey: Annotated[Redis | None, Depends(get_valkey)] = None,
 ) -> CrimeResponse:
     """Return crime data for the area around the given location."""
     # Check cache
-    c_key = _cache_key(lat, lon, radius_miles, days_back)
+    c_key = _cache_key(lat, lon, radius_miles, days_back, limit)
     if valkey is not None:
         try:
             cached = await valkey.get(c_key)
@@ -132,6 +135,9 @@ async def get_crime(
         PoliceIncident.date_of_incident,
         func.coalesce(PoliceIncident.crime_description, "Unknown").label("description"),
         func.coalesce(PoliceIncident.crime_category, "Other").label("category"),
+        PoliceIncident.crime_group,
+        PoliceIncident.offense_class,
+        PoliceIncident.address,
     ).where(
         PoliceIncident.location.isnot(None),
         PoliceIncident.date_of_incident >= cutoff_date,
@@ -147,9 +153,9 @@ async def get_crime(
             intensity = _compute_intensity(row.date_of_incident, now, days_back)
             heatmap.append(CrimeHeatmapPoint(lat=row.lat, lon=row.lon, intensity=intensity))
 
-    # Build incident list (first 50, sorted by date desc)
+    # Build incident list (first `limit`, sorted by date desc)
     incidents: list[CrimeIncident] = []
-    for row in rows[:50]:
+    for row in rows[:limit]:
         if row.lat is not None and row.lon is not None:
             incidents.append(
                 CrimeIncident(
@@ -164,6 +170,9 @@ async def get_crime(
                     lat=row.lat,
                     lon=row.lon,
                     description=row.description,
+                    address=getattr(row, "address", None),
+                    crime_group=getattr(row, "crime_group", None),
+                    offense_class=getattr(row, "offense_class", None),
                 )
             )
 

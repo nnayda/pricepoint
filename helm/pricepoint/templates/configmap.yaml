@@ -43,7 +43,7 @@ data:
   # Airflow
   AIRFLOW_BASE_URL: {{ include "pricepoint.airflowBaseUrl" . | quote }}
   {{- if .Values.airflow.enabled }}
-  AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
+  AIRFLOW__CORE__EXECUTOR: {{ .Values.airflow.executor | default "LocalExecutor" | quote }}
   AIRFLOW__CORE__AUTH_MANAGER: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
   AIRFLOW__LOGGING__LOGGING_LEVEL: {{ .Values.config.logLevel | quote }}
   {{- end }}

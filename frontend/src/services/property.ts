@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {
+  CrimeResponse,
   DataRequestCreate,
   DataRequestResponse,
   DemographicsApiResponse,
@@ -147,6 +148,19 @@ export async function getNeighborhoodProperties(
 
 export async function getFeatureAttributions(propertyId: number): Promise<FeatureAttribution[]> {
   const { data } = await client.get<FeatureAttribution[]>(`/api/forecast/importance/${propertyId}`);
+  return data;
+}
+
+export async function getPoliceIncidents(
+  lat: number,
+  lon: number,
+  radiusMiles: number = 3,
+  daysBack: number = 365,
+  limit: number = 500,
+): Promise<CrimeResponse> {
+  const { data } = await client.get<CrimeResponse>("/api/crime", {
+    params: { lat, lon, radius_miles: radiusMiles, days_back: daysBack, limit },
+  });
   return data;
 }
 

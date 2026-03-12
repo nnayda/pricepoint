@@ -204,6 +204,9 @@ export interface CrimeIncident {
   lat: number;
   lon: number;
   description?: string;
+  address?: string;
+  crime_group?: string | null;
+  offense_class?: string | null;
 }
 
 export interface CrimeMetrics {
@@ -431,6 +434,7 @@ export interface RecentlyViewedItem {
 export type DashboardTab =
   | "valuation"
   | "risks"
+  | "police"
   | "demographics"
   | "schools"
   | "pois"

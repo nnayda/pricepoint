@@ -18,58 +18,126 @@ class TestUcrMapping:
     def test_string_code_lookup(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("13A")
+        group, category, offense_class = lookup_ucr("13A")
         assert group == "Assault"
         assert category == "Crimes Against Persons"
+        assert offense_class == "Group A"
 
     def test_numeric_string_code_lookup(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("200")
+        group, category, offense_class = lookup_ucr("200")
         assert group == "Arson"
         assert category == "Crimes Against Property"
+        assert offense_class == "Group A"
 
     def test_int_like_code_lookup(self):
         """Codes that look like ints (e.g. '200') should be found."""
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("  200  ")
+        group, category, offense_class = lookup_ucr("  200  ")
         assert group == "Arson"
 
     def test_none_code_returns_none(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr(None)
+        group, category, offense_class = lookup_ucr(None)
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_empty_code_returns_none(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("")
+        group, category, offense_class = lookup_ucr("")
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_unknown_code_returns_none(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("ZZZ")
+        group, category, offense_class = lookup_ucr("ZZZ")
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_lowercase_alpha_code(self):
         """Should handle lowercase input (normalized to upper)."""
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("13a")
+        group, category, offense_class = lookup_ucr("13a")
         assert group == "Assault"
 
     def test_group_b_code(self):
         from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
 
-        group, category = lookup_ucr("90D")
+        group, category, offense_class = lookup_ucr("90D")
         assert group == "All Other Offenses"
         assert category == "Group B"
+        assert offense_class == "Group B"
+
+    def test_new_nibrs_2025_code(self):
+        """New standard NIBRS codes from 2025 spec should resolve."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("26H")
+        assert group == "Fraud"
+        assert category == "Crimes Against Property"
+        assert offense_class == "Group A"
+
+    def test_raleigh_srs_weapon_code(self):
+        """Raleigh SRS-style local codes should resolve."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("51A")
+        assert group == "Weapon Offenses"
+        assert category == "Crimes Against Society"
+        assert offense_class == "Group A"
+
+    def test_raleigh_srs_assault_code(self):
+        """Raleigh SRS-style assault code should resolve."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("25G")
+        assert group == "Assault"
+        assert category == "Crimes Against Persons"
+        assert offense_class == "Group A"
+
+    def test_raleigh_srs_group_b_code(self):
+        """Raleigh SRS-style Group B code should resolve correctly."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("70C")
+        assert group == "All Other Offenses"
+        assert category == "Group B"
+        assert offense_class == "Group B"
+
+    def test_raleigh_animal_disturbance_code(self):
+        """Raleigh 82x animal codes have Animal Disturbance offense class."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("82E")
+        assert group == "Animal Disturbance"
+        assert category == "Crimes Against Society"
+        assert offense_class == "Animal Disturbance"
+
+    def test_bribery_category_is_property(self):
+        """510 Bribery should be Crimes Against Property per 2025 spec."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("510")
+        assert group == "Bribery"
+        assert category == "Crimes Against Property"
+
+    def test_9910_not_in_map(self):
+        """Cary 99xx codes should not be in the map."""
+        from pricepoint.data.geospatial.ucr_mapping import lookup_ucr
+
+        group, category, offense_class = lookup_ucr("9910")
+        assert group is None
+        assert category is None
+        assert offense_class is None
 
 
 class TestFuzzyMatchUcr:
@@ -78,15 +146,16 @@ class TestFuzzyMatchUcr:
     def test_exact_match(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("Aggravated Assault")
+        code, group, category, offense_class = fuzzy_match_ucr("Aggravated Assault")
         assert code == "13A"
         assert group == "Assault"
         assert category == "Crimes Against Persons"
+        assert offense_class == "Group A"
 
     def test_close_match(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("Aggravated Assault - Weapon")
+        code, group, category, offense_class = fuzzy_match_ucr("Aggravated Assault - Weapon")
         # Should still fuzzy match to aggravated assault
         assert code is not None
         assert group is not None
@@ -94,38 +163,41 @@ class TestFuzzyMatchUcr:
     def test_no_match_gibberish(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("xyzzy foo bar baz quux")
+        code, group, category, offense_class = fuzzy_match_ucr("xyzzy foo bar baz quux")
         assert code is None
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_none_input(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr(None)
+        code, group, category, offense_class = fuzzy_match_ucr(None)
         assert code is None
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_empty_string(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("")
+        code, group, category, offense_class = fuzzy_match_ucr("")
         assert code is None
         assert group is None
         assert category is None
+        assert offense_class is None
 
     def test_robbery_match(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("Robbery")
+        code, group, category, offense_class = fuzzy_match_ucr("Robbery")
         assert code == "120"
         assert group == "Robbery"
 
     def test_shoplifting_match(self):
         from pricepoint.data.geospatial.ucr_mapping import fuzzy_match_ucr
 
-        code, group, category = fuzzy_match_ucr("Shoplifting")
+        code, group, category, offense_class = fuzzy_match_ucr("Shoplifting")
         assert code == "23C"
 
 
@@ -280,6 +352,7 @@ class TestBuildPoliceIncidentsGold:
         assert added.incident_id == "RPD-R2024-001"
         assert added.crime_code == "13A"
         assert added.crime_group == "Assault"
+        assert added.offense_class == "Group A"
 
     def test_cary_field_mapping(self):
         """Cary rows produce CPD-prefixed incident_ids."""
@@ -383,6 +456,205 @@ class TestBuildPoliceIncidentsGold:
         session.add.assert_not_called()
         # Should have updated existing record's attributes
         assert existing_record.crime_code == "13A"
+
+    def test_duplicate_case_number_no_unique_violation(self):
+        """Multiple staging rows with the same case_number should not fail.
+
+        Raleigh data can have multiple offenses per incident (same case_number,
+        different crime codes). The gold builder should handle this by updating
+        the pending in-memory object rather than inserting duplicates.
+        """
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [500, 50, 50]
+
+        # Two staging rows with the same case_number but different offenses
+        row1 = _make_staging_row(
+            "raleigh",
+            case_number="P26006816",
+            crime_code="54Z",
+            crime_description="Drug Equipment/Paraphernalia",
+        )
+        row2 = _make_staging_row(
+            "raleigh",
+            case_number="P26006816",
+            crime_code="54C",
+            crime_description="Drug Violation/Felony",
+        )
+
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = [row1, row2]
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = []
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        # Only the first occurrence triggers a DB lookup (returns None = new)
+        upsert_result = MagicMock()
+        upsert_result.scalar_one_or_none.return_value = None
+
+        session.execute.side_effect = [
+            raleigh_result,
+            upsert_result,  # DB lookup for first row1
+            # row2 is handled via pending dict — no DB query
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 2  # both rows counted
+
+        # Only one session.add call (first occurrence creates, second updates in-memory)
+        assert session.add.call_count == 1
+        added = session.add.call_args[0][0]
+        assert added.incident_id == "RPD-P26006816"
+        # Last write wins — row2's crime_code should be on the object
+        assert added.crime_code == "54C"
+        assert added.crime_description == "Drug Violation/Felony"
+        # Both codes are now valid mapped codes
+        assert added.crime_group == "Drug Offenses"
+        assert added.crime_category == "Crimes Against Society"
+        assert added.offense_class == "Group A"
+
+    def test_cary_99xx_code_skipped(self):
+        """Cary 99xx non-criminal codes should be skipped."""
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [50, 500, 50]
+
+        cary_row = _make_staging_row("cary", ucr="9910", crime_type="Found Property")
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = []
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = [cary_row]
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        session.execute.side_effect = [
+            raleigh_result,
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 0
+        session.add.assert_not_called()
+
+    def test_raleigh_81x_code_skipped(self):
+        """Raleigh 81x non-criminal codes should be skipped."""
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [500, 50, 50]
+
+        raleigh_row = _make_staging_row(
+            "raleigh", crime_code="81A", crime_description="Deceased Person"
+        )
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = [raleigh_row]
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = []
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        session.execute.side_effect = [
+            raleigh_result,
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 0
+        session.add.assert_not_called()
+
+    def test_null_crime_code_skipped(self):
+        """Records with null crime_code should be skipped."""
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [50, 500, 50]
+
+        cary_row = _make_staging_row("cary", ucr=None, crime_type="Unknown")
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = []
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = [cary_row]
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        session.execute.side_effect = [
+            raleigh_result,
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 0
+        session.add.assert_not_called()
+
+    def test_empty_crime_code_skipped(self):
+        """Records with empty string crime_code should be skipped."""
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [500, 50, 50]
+
+        raleigh_row = _make_staging_row("raleigh", crime_code="", crime_description="Unknown")
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = [raleigh_row]
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = []
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        session.execute.side_effect = [
+            raleigh_result,
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 0
+        session.add.assert_not_called()
+
+    def test_zero_coordinate_skipped(self):
+        """Records with lat=0 or lon=0 should be skipped."""
+        from pricepoint.data.geospatial.police_gold_builder import (
+            build_police_incidents_gold,
+        )
+
+        session = MagicMock()
+        session.scalar.side_effect = [500, 50, 50]
+
+        raleigh_row = _make_staging_row("raleigh", latitude=0, longitude=0)
+        raleigh_result = MagicMock()
+        raleigh_result.scalars.return_value.all.return_value = [raleigh_row]
+        cary_result = MagicMock()
+        cary_result.scalars.return_value.all.return_value = []
+        morrisville_result = MagicMock()
+        morrisville_result.scalars.return_value.all.return_value = []
+
+        session.execute.side_effect = [
+            raleigh_result,
+            cary_result,
+            morrisville_result,
+        ]
+
+        count = build_police_incidents_gold(session)
+        assert count == 0
+        session.add.assert_not_called()
 
 
 class TestVerifyPoliceIncidentsGold:

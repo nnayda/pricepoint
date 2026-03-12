@@ -121,10 +121,20 @@ describe("getLegendConfig", () => {
     expect(config.labels).toContain("White");
   });
 
-  it("returns sequential legend for race filter", () => {
+  it("returns sequential legend for race filter (non-Asian)", () => {
     const config = getLegendConfig("race", "black");
     expect(config.type).toBe("sequential");
     expect(config.labels).toEqual(["0%", "100%"]);
+  });
+
+  it("returns categorical legend for Asian race filter with subgroup labels", () => {
+    const config = getLegendConfig("race", "asian");
+    expect(config.type).toBe("categorical");
+    expect(config.title).toBe("Dominant Asian Sub-Group");
+    expect(config.labels).toContain("Asian Indian");
+    expect(config.labels).toContain("Chinese");
+    expect(config.labels).toContain("Other Asian");
+    expect(config.colors.length).toBe(config.labels.length);
   });
 });
 
@@ -180,10 +190,21 @@ describe("getChoroplethColorExpression", () => {
     expect(flat).toContain("Asian");
   });
 
-  it("returns a solid color string for a filtered race", () => {
+  it("returns a solid color string for a filtered race (non-Asian)", () => {
     const expr = getChoroplethColorExpression("race", "black");
     expect(typeof expr).toBe("string");
     expect(expr).toBe("#22d3ee"); // Cyan for Black
+  });
+
+  it("returns a case expression for Asian filter using dominant_asian_subgroup", () => {
+    const expr = getChoroplethColorExpression("race", "asian");
+    expect(Array.isArray(expr)).toBe(true);
+    expect((expr as unknown[])[0]).toBe("case");
+    const flat = JSON.stringify(expr);
+    expect(flat).toContain("dominant_asian_subgroup");
+    expect(flat).toContain("Asian Indian");
+    expect(flat).toContain("Chinese");
+    expect(flat).toContain("Vietnamese");
   });
 
   it("returns an interpolate expression for non-race subTabs", () => {
@@ -210,6 +231,13 @@ describe("getChoroplethOpacityExpression", () => {
     expect(Array.isArray(expr)).toBe(true);
     const flat = JSON.stringify(expr);
     expect(flat).toContain("pct_hispanic");
+  });
+
+  it("returns an interpolate expression for Asian filter based on dominant_asian_subgroup_pct", () => {
+    const expr = getChoroplethOpacityExpression("race", "asian");
+    expect(Array.isArray(expr)).toBe(true);
+    const flat = JSON.stringify(expr);
+    expect(flat).toContain("dominant_asian_subgroup_pct");
   });
 
   it("returns a fixed number for non-race subTabs", () => {

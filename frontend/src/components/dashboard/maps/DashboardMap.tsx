@@ -31,6 +31,15 @@ export interface MapMarker {
 
 export type MapStyle = "street" | "satellite" | "dark" | "light";
 
+export interface RadiusCircle {
+  /** Radius in miles */
+  radiusMiles: number;
+  /** Stroke color (CSS) */
+  color?: string;
+  /** Stroke opacity 0–1 */
+  opacity?: number;
+}
+
 interface DashboardMapProps {
   center: [number, number];
   zoom?: number;
@@ -42,6 +51,8 @@ interface DashboardMapProps {
   selectedId?: string | null;
   cluster?: boolean;
   interactiveLayerIds?: string[];
+  /** Dotted radius circle drawn around `center` */
+  radiusCircle?: RadiusCircle;
   onLayerClick?: (e: MapLayerMouseEvent) => void;
   onMoveEnd?: (bounds: { swLat: number; swLon: number; neLat: number; neLon: number }) => void;
   /** Called when the user clicks a marker on the map (id of clicked marker) */
@@ -342,7 +353,7 @@ const CLUSTER_LAYER: maplibregl.LayerSpecification = {
   source: "clustered-markers",
   filter: ["has", "point_count"],
   paint: {
-    "circle-color": "var(--color-db-accent, #6366F1)",
+    "circle-color": "#6366F1",
     "circle-radius": ["step", ["get", "point_count"], 16, 10, 19, 50, 22],
     "circle-stroke-width": 2,
     "circle-stroke-color": "rgba(255,255,255,0.9)",
@@ -377,6 +388,68 @@ const UNCLUSTERED_POINT_LAYER: maplibregl.LayerSpecification = {
   },
 };
 
+/** Convert miles to pixels at a given latitude and zoom level. */
+function milesToPixels(lat: number, miles: number, zoom: number): number {
+  const metersPerMile = 1609.344;
+  const metersPerPixel = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+  return (miles * metersPerMile) / metersPerPixel;
+}
+
+/** SVG circle overlay rendered as a single Marker at the center point. */
+function RadiusOverlay({
+  center,
+  radiusCircle,
+  mapRef,
+}: {
+  center: [number, number];
+  radiusCircle: RadiusCircle;
+  mapRef: React.RefObject<MapRef | null>;
+}) {
+  const [radiusPx, setRadiusPx] = useState(0);
+
+  const update = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const px = milesToPixels(center[0], radiusCircle.radiusMiles, map.getZoom());
+    setRadiusPx(px);
+  }, [center, radiusCircle.radiusMiles, mapRef]);
+
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    update();
+    map.on("zoom", update);
+    map.on("move", update);
+    return () => {
+      map.off("zoom", update);
+      map.off("move", update);
+    };
+  }, [mapRef, update]);
+
+  if (radiusPx < 2) return null;
+
+  const size = radiusPx * 2 + 4; // +4 for stroke width
+  const color = radiusCircle.color ?? "#475569";
+  const opacity = radiusCircle.opacity ?? 0.85;
+
+  return (
+    <Marker longitude={center[1]} latitude={center[0]} anchor="center">
+      <svg width={size} height={size} style={{ pointerEvents: "none", overflow: "visible" }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radiusPx}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          opacity={opacity}
+        />
+      </svg>
+    </Marker>
+  );
+}
+
 function DashboardMap({
   center,
   zoom = 14,
@@ -388,6 +461,7 @@ function DashboardMap({
   selectedId,
   cluster = false,
   interactiveLayerIds: extraInteractiveIds = [],
+  radiusCircle,
   onLayerClick,
   onMoveEnd,
   onMarkerSelect,
@@ -398,6 +472,8 @@ function DashboardMap({
   const [mapStyle, handleStyleChange] = useMapStyle(getDefaultStyle(resolvedTheme));
   const mapRef = useRef<MapRef>(null);
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
+
+  // radiusCircle is rendered via RadiusOverlay component below
 
   // Clear popup when selection is removed
   useEffect(() => {
@@ -517,6 +593,11 @@ function DashboardMap({
         }}
       >
         <NavigationControl position="top-left" />
+
+        {/* Optional radius circle around center (SVG overlay) */}
+        {radiusCircle && (
+          <RadiusOverlay center={center} radiusCircle={radiusCircle} mapRef={mapRef} />
+        )}
 
         {/* Property markers always rendered as React markers */}
         {propertyMarkers.map((m) => (

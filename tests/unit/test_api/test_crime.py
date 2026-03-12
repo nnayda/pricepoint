@@ -26,6 +26,8 @@ def _make_row(
     date_of_incident=None,
     description="Larceny",
     category="Crimes Against Property",
+    crime_group=None,
+    address=None,
 ):
     """Create a mock DB row for crime query results."""
     if date_of_incident is None:
@@ -37,6 +39,8 @@ def _make_row(
         date_of_incident=date_of_incident,
         description=description,
         category=category,
+        crime_group=crime_group,
+        address=address,
     )
 
 
@@ -53,6 +57,8 @@ def crime_app():
             description="Larceny",
             category="Crimes Against Property",
             date_of_incident=(now - timedelta(days=10)).date(),
+            crime_group="Crimes Against Property",
+            address="100 Main St",
         ),
         _make_row(
             incident_id="CPD-2001",
@@ -61,6 +67,8 @@ def crime_app():
             date_of_incident=(now - timedelta(days=20)).date(),
             lat=35.791,
             lon=-78.781,
+            crime_group="Crimes Against Persons",
+            address="200 Oak Ave",
         ),
         _make_row(
             incident_id="MPD-3001",
@@ -69,6 +77,8 @@ def crime_app():
             date_of_incident=(now - timedelta(days=60)).date(),
             lat=35.792,
             lon=-78.782,
+            crime_group="Group B",
+            address=None,
         ),
     ]
 
@@ -532,3 +542,98 @@ class TestCrimeHelperFunctions:
         k1 = _cache_key(35.79, -78.78, 1.0, 365)
         k2 = _cache_key(35.79, -78.78, 2.0, 365)
         assert k1 != k2
+
+    def test_cache_key_varies_with_limit(self):
+        """Different limit values should produce different cache keys."""
+        from pricepoint.api.routes.crime import _cache_key
+
+        k1 = _cache_key(35.79, -78.78, 1.0, 365, 200)
+        k2 = _cache_key(35.79, -78.78, 1.0, 365, 500)
+        assert k1 != k2
+
+
+class TestCrimeNewFields:
+    """Tests for address, crime_group, and limit parameter."""
+
+    def test_incident_has_address_field(self, crime_client):
+        """Incidents should include the address field."""
+        resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
+        incidents = resp.json()["incidents"]
+        first = incidents[0]
+        assert "address" in first
+
+    def test_incident_has_crime_group_field(self, crime_client):
+        """Incidents should include the crime_group field."""
+        resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
+        incidents = resp.json()["incidents"]
+        first = incidents[0]
+        assert "crime_group" in first
+
+    def test_address_value_populated(self, crime_client):
+        """Address should match the mock data when present."""
+        resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
+        incidents = resp.json()["incidents"]
+        addresses = [i["address"] for i in incidents if i["address"] is not None]
+        assert len(addresses) >= 1
+        assert "100 Main St" in addresses
+
+    def test_crime_group_value_populated(self, crime_client):
+        """crime_group should match the mock data."""
+        resp = crime_client.get("/api/crime", params={"lat": 35.79, "lon": -78.78})
+        incidents = resp.json()["incidents"]
+        groups = {i["crime_group"] for i in incidents if i["crime_group"] is not None}
+        assert "Group B" in groups
+
+    def test_limit_param_caps_incidents(self):
+        """Explicit limit=2 should cap incident list to 2."""
+        app = create_app()
+        mock_session = MagicMock()
+
+        now = datetime.now(tz=UTC)
+        rows = [
+            _make_row(
+                incident_id=f"RPD-{i}",
+                date_of_incident=(now - timedelta(days=i)).date(),
+            )
+            for i in range(1, 6)
+        ]
+
+        mock_result = MagicMock()
+        mock_result.all.return_value = rows
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 0
+        mock_session.execute.side_effect = [mock_result, mock_count_result]
+
+        def _override_get_db():
+            yield mock_session
+
+        async def _override_get_valkey():
+            yield None
+
+        app.dependency_overrides[get_db] = _override_get_db
+        app.dependency_overrides[get_valkey] = _override_get_valkey
+
+        client = TestClient(app)
+        resp = client.get(
+            "/api/crime",
+            params={"lat": 35.79, "lon": -78.78, "limit": 2},
+        )
+        assert resp.status_code == 200
+        assert len(resp.json()["incidents"]) == 2
+        app.dependency_overrides.clear()
+
+    def test_limit_param_validation_too_large(self, crime_client):
+        """limit > 1000 should return 422."""
+        resp = crime_client.get(
+            "/api/crime",
+            params={"lat": 35.79, "lon": -78.78, "limit": 1001},
+        )
+        assert resp.status_code == 422
+
+    def test_limit_param_validation_zero(self, crime_client):
+        """limit=0 should return 422."""
+        resp = crime_client.get(
+            "/api/crime",
+            params={"lat": 35.79, "lon": -78.78, "limit": 0},
+        )
+        assert resp.status_code == 422

@@ -36,6 +36,7 @@ import {
   getLegendConfig,
   getChoroplethColorExpression,
   getChoroplethOpacityExpression,
+  getLabelTextField,
 } from "../../../utils/choroplethColors";
 import {
   TOOLTIP_CONTENT_STYLE,
@@ -129,7 +130,23 @@ function RegionPopup({
       { key: "hispanic", label: "Hispanic", prop: "pct_hispanic" },
       { key: "asian", label: "Asian", prop: "pct_asian" },
     ];
-    if (raceFilter && raceFilter !== "all") {
+    if (raceFilter === "asian") {
+      const pctAsian = props.pct_asian as number | undefined;
+      if (pctAsian != null) rows.push({ label: "Asian", value: `${pctAsian}%` });
+      const subgroups: { label: string; prop: string }[] = [
+        { label: "Asian Indian", prop: "pct_asian_indian" },
+        { label: "Chinese", prop: "pct_chinese" },
+        { label: "Filipino", prop: "pct_filipino" },
+        { label: "Japanese", prop: "pct_japanese" },
+        { label: "Korean", prop: "pct_korean" },
+        { label: "Vietnamese", prop: "pct_vietnamese" },
+        { label: "Other Asian", prop: "pct_other_asian" },
+      ];
+      for (const sg of subgroups) {
+        const pct = props[sg.prop] as number | undefined;
+        if (pct != null && pct > 0) rows.push({ label: `  ${sg.label}`, value: `${pct}%` });
+      }
+    } else if (raceFilter && raceFilter !== "all") {
       const r = raceRows.find((x) => x.key === raceFilter);
       if (r) {
         const pct = props[r.prop] as number | undefined;
@@ -223,6 +240,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
     () => getChoroplethOpacityExpression(subTab, raceFilter),
     [subTab, raceFilter],
   );
+  const labelTextField = useMemo(() => getLabelTextField(subTab, raceFilter), [subTab, raceFilter]);
 
   // Click-on-region popup state
   const [clickedFeature, setClickedFeature] = useState<{
@@ -395,7 +413,7 @@ function DemographicsTab({ data }: DemographicsTabProps) {
                     type="symbol"
                     source-layer={labelSource}
                     layout={{
-                      "text-field": ["get", "name"],
+                      "text-field": labelTextField,
                       "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 14, 13],
                       "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
                       "text-anchor": "center",
