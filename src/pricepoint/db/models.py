@@ -315,7 +315,6 @@ class SchoolDistrict(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    __table_args__ = (Index("idx_school_districts_geom", "geom", postgresql_using="gist"),)
 
 
 class County(Base):
