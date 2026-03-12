@@ -322,7 +322,7 @@ airflow:
   enabled: true
   subchart:
     enabled: false
-  executor: KubernetesExecutor
+  executor: LocalExecutor
   image:
     repository: apache/airflow
     tag: "3.0.2-python3.12"
