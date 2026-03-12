@@ -316,7 +316,6 @@ class SchoolDistrict(Base):
     )
 
 
-
 class County(Base):
     """US Census TIGER/Line county boundaries (COUNTY)."""
 
