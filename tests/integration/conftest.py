@@ -49,6 +49,7 @@ def db_engine(postgis_container):
     # Enable PostGIS extension
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         conn.commit()
 
     Base.metadata.create_all(engine)
