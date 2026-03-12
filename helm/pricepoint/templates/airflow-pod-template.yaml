@@ -23,7 +23,7 @@ data:
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
           envFrom:
             - configMapRef:
-                name: {{ include "pricepoint.fullname" . }}-config
+                name: {{ include "pricepoint.fullname" . }}-app-config
             - secretRef:
                 name: {{ include "pricepoint.fullname" . }}-secret
           volumeMounts:

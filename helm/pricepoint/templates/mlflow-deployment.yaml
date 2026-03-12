@@ -26,7 +26,7 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: {{ include "pricepoint.fullname" . }}-config
+                name: {{ include "pricepoint.fullname" . }}-app-config
             - secretRef:
                 name: {{ include "pricepoint.fullname" . }}-secret
           command: ["mlflow"]
