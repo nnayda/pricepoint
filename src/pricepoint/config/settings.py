@@ -40,8 +40,6 @@ class Settings(BaseSettings):
     # US Census TIGER/Line Shapefiles
     tiger_base_url: str = "https://www2.census.gov/geo/tiger"
     tiger_year: int = 2025
-    tiger_state_fips: str = "37"  # North Carolina
-    tiger_county_fips: str = "183"  # Wake County
 
     # Wake County Property Data
     wake_county_extracts_url: str = "https://services.wake.gov/realdata_extracts/"

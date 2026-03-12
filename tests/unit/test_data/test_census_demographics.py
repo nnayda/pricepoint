@@ -45,8 +45,6 @@ def _make_settings(**overrides):
     s.census_acs_base_url = "https://api.census.gov/data"
     s.census_acs_vintages = [2019]
     s.census_acs_block_group_min_year = 2014
-    s.tiger_state_fips = "37"
-    s.tiger_county_fips = "183"
     for k, v in overrides.items():
         setattr(s, k, v)
     return s

@@ -58,13 +58,12 @@ ZSCORE_PARENT_PREFIX: dict[str, int] = {
 def compute_base_metrics(
     session: Session,
     geo_level: str,
-    state_fips: str,
-    county_fips: str,
 ) -> int:
     """Compute raw greenspace metrics for a geographic level.
 
     Joins TIGER regions with greenspaces/trails via ST_Intersects, computes
     clipped areas/lengths, and upserts rows into greenspace_region_metrics.
+    Processes all boundaries present in the database.
 
     Returns the number of rows inserted.
     """
@@ -74,12 +73,6 @@ def compute_base_metrics(
     name_col = cfg["name"]
     aland_col = cfg["aland"]
     geom_col = cfg["geom"]
-
-    # Build state/county filter for TIGER table
-    if geo_level == "county":
-        where_clause = "t.statefp = :state_fips"
-    else:
-        where_clause = "t.statefp = :state_fips AND t.countyfp = :county_fips"
 
     sql = text(f"""
         WITH parks AS (
@@ -94,7 +87,6 @@ def compute_base_metrics(
                 ), 0) AS total_park_acres
             FROM {tiger_table} t
             LEFT JOIN greenspaces g ON ST_Intersects(t.{geom_col}, g.geom)
-            WHERE {where_clause}
             GROUP BY t.{geoid_col}
         ),
         trail_metrics AS (
@@ -106,7 +98,6 @@ def compute_base_metrics(
                 ), 0) AS total_trail_miles
             FROM {tiger_table} t
             LEFT JOIN trails tr ON ST_Intersects(t.{geom_col}, tr.geom)
-            WHERE {where_clause}
             GROUP BY t.{geoid_col}
         )
         SELECT
@@ -126,14 +117,9 @@ def compute_base_metrics(
         FROM {tiger_table} t
         LEFT JOIN parks p ON p.geoid = t.{geoid_col}
         LEFT JOIN trail_metrics tm ON tm.geoid = t.{geoid_col}
-        WHERE {where_clause}
     """)
 
-    params: dict[str, str] = {"state_fips": state_fips}
-    if geo_level != "county":
-        params["county_fips"] = county_fips
-
-    rows = session.execute(sql, params).fetchall()
+    rows = session.execute(sql).fetchall()
     logger.info("Computed %d %s rows from TIGER/greenspace join", len(rows), geo_level)
 
     # Delete existing rows for this geo_level, then bulk insert

@@ -28,10 +28,14 @@ spec:
           args: ["--config", "/config.yaml"]
           env:
             - name: DATABASE_URL
+              {{- if .Values.martin.databaseUrl }}
+              value: {{ .Values.martin.databaseUrl | quote }}
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ include "pricepoint.fullname" . }}-secret
                   key: DATABASE_URL
+              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /config.yaml

@@ -48,5 +48,3 @@ def test_tiger_settings_defaults():
     )
     assert settings.tiger_base_url == "https://www2.census.gov/geo/tiger"
     assert settings.tiger_year == 2025
-    assert settings.tiger_state_fips == "37"
-    assert settings.tiger_county_fips == "183"

@@ -60,7 +60,7 @@ class TestComputeBaseMetrics:
         session.execute.return_value = mock_result
         session.query.return_value.filter.return_value.delete.return_value = 0
 
-        count = compute_base_metrics(session, "block_group", "37", "183")
+        count = compute_base_metrics(session, "block_group")
 
         assert count == 2
         session.bulk_save_objects.assert_called_once()
@@ -78,7 +78,7 @@ class TestComputeBaseMetrics:
         session.execute.return_value = mock_result
         session.query.return_value.filter.return_value.delete.return_value = 5
 
-        count = compute_base_metrics(session, "tract", "37", "183")
+        count = compute_base_metrics(session, "tract")
 
         assert count == 0
         session.query.return_value.filter.return_value.delete.assert_called_once()
@@ -104,43 +104,25 @@ class TestComputeBaseMetrics:
         session.execute.return_value = mock_result
         session.query.return_value.filter.return_value.delete.return_value = 0
 
-        count = compute_base_metrics(session, "county", "37", "183")
+        count = compute_base_metrics(session, "county")
 
         assert count == 1
         obj = session.bulk_save_objects.call_args[0][0][0]
         assert obj.greenspace_ratio is None
 
-    def test_county_level_uses_only_state_fips(self):
-        """County-level query should only filter by state_fips, not county_fips."""
+    def test_no_params_passed_to_sql(self):
+        """Query should not use any FIPS filter params."""
         session = MagicMock()
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []
         session.execute.return_value = mock_result
         session.query.return_value.filter.return_value.delete.return_value = 0
 
-        compute_base_metrics(session, "county", "37", "183")
-
-        # Check that execute was called with params containing state_fips
-        # but not county_fips
-        call_args = session.execute.call_args
-        params = call_args[0][1]
-        assert params["state_fips"] == "37"
-        assert "county_fips" not in params
-
-    def test_sub_county_level_uses_both_fips(self):
-        """Sub-county levels should filter by both state and county FIPS."""
-        session = MagicMock()
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = []
-        session.execute.return_value = mock_result
-        session.query.return_value.filter.return_value.delete.return_value = 0
-
-        compute_base_metrics(session, "block_group", "37", "183")
+        compute_base_metrics(session, "block_group")
 
         call_args = session.execute.call_args
-        params = call_args[0][1]
-        assert params["state_fips"] == "37"
-        assert params["county_fips"] == "183"
+        # Should be called with just the SQL text, no params
+        assert len(call_args[0]) == 1
 
     def test_rounds_numeric_values(self):
         """Should round acres, miles, and area to reasonable precision."""
@@ -163,7 +145,7 @@ class TestComputeBaseMetrics:
         session.execute.return_value = mock_result
         session.query.return_value.filter.return_value.delete.return_value = 0
 
-        compute_base_metrics(session, "block_group", "37", "183")
+        compute_base_metrics(session, "block_group")
 
         obj = session.bulk_save_objects.call_args[0][0][0]
         assert obj.total_park_acres == 45.57

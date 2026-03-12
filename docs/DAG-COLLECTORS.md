@@ -462,7 +462,6 @@ All collector settings go in `src/pricepoint/config/settings.py` as Pydantic fie
 # In Settings class
 tiger_base_url: str = "https://www2.census.gov/geo/tiger"
 tiger_year: int = 2025
-tiger_state_fips: str = "37"
 ```
 
 Access via `get_settings()` inside collector functions:

@@ -74,6 +74,7 @@ mlflow:
 # -- Martin tileserver ----------------------------------------------------------
 martin:
   enabled: true
+  databaseUrl: ""  # Override if Martin should use a different DB than the main app
   replicaCount: 1
   image:
     repository: ghcr.io/maplibre/martin
@@ -304,7 +305,10 @@ config:
   apiPort: "8000"
   apiCorsOrigins: '["*"]'
   geocodeRateLimitSeconds: "1.0"
+  geocodeTimeout: "5.0"
   osrmRateLimitSeconds: "0.1"
+  tigerYear: "2025"
+  mlflowArtifactRoot: "s3://mlflow-artifacts"
   ollamaBaseUrl: ""
   ollamaModel: ""
   ntfyEnabled: "false"

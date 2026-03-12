@@ -35,19 +35,15 @@ def greenspace_region_metrics():
     @task()
     def compute_block_groups():
         """Compute base metrics + population for block groups."""
-        from pricepoint.config.settings import get_settings
         from pricepoint.data.geospatial.greenspace_metrics import (
             compute_base_metrics,
             enrich_population,
         )
         from pricepoint.db.engine import SessionLocal
 
-        settings = get_settings()
         session = SessionLocal()
         try:
-            count = compute_base_metrics(
-                session, "block_group", settings.tiger_state_fips, settings.tiger_county_fips
-            )
+            count = compute_base_metrics(session, "block_group")
             enrich_population(session, "block_group")
             session.commit()
             logger.info("Block group metrics: %d rows", count)
@@ -60,19 +56,15 @@ def greenspace_region_metrics():
     @task()
     def compute_tracts():
         """Compute base metrics + population for tracts."""
-        from pricepoint.config.settings import get_settings
         from pricepoint.data.geospatial.greenspace_metrics import (
             compute_base_metrics,
             enrich_population,
         )
         from pricepoint.db.engine import SessionLocal
 
-        settings = get_settings()
         session = SessionLocal()
         try:
-            count = compute_base_metrics(
-                session, "tract", settings.tiger_state_fips, settings.tiger_county_fips
-            )
+            count = compute_base_metrics(session, "tract")
             enrich_population(session, "tract")
             session.commit()
             logger.info("Tract metrics: %d rows", count)
@@ -85,22 +77,15 @@ def greenspace_region_metrics():
     @task()
     def compute_subdivisions():
         """Compute base metrics + population for county subdivisions."""
-        from pricepoint.config.settings import get_settings
         from pricepoint.data.geospatial.greenspace_metrics import (
             compute_base_metrics,
             enrich_population,
         )
         from pricepoint.db.engine import SessionLocal
 
-        settings = get_settings()
         session = SessionLocal()
         try:
-            count = compute_base_metrics(
-                session,
-                "county_subdivision",
-                settings.tiger_state_fips,
-                settings.tiger_county_fips,
-            )
+            count = compute_base_metrics(session, "county_subdivision")
             enrich_population(session, "county_subdivision")
             session.commit()
             logger.info("County subdivision metrics: %d rows", count)
@@ -113,19 +98,15 @@ def greenspace_region_metrics():
     @task()
     def compute_counties():
         """Compute base metrics + population for counties."""
-        from pricepoint.config.settings import get_settings
         from pricepoint.data.geospatial.greenspace_metrics import (
             compute_base_metrics,
             enrich_population,
         )
         from pricepoint.db.engine import SessionLocal
 
-        settings = get_settings()
         session = SessionLocal()
         try:
-            count = compute_base_metrics(
-                session, "county", settings.tiger_state_fips, settings.tiger_county_fips
-            )
+            count = compute_base_metrics(session, "county")
             enrich_population(session, "county")
             session.commit()
             logger.info("County metrics: %d rows", count)

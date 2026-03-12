@@ -20,9 +20,14 @@ data:
   GEOCODE_PROVIDER: {{ include "pricepoint.geocodeProvider" . | quote }}
   GEOCODE_URL: {{ include "pricepoint.geocodeUrl" . | quote }}
   GEOCODE_RATE_LIMIT_SECONDS: {{ .Values.config.geocodeRateLimitSeconds | quote }}
+  GEOCODE_TIMEOUT: {{ .Values.config.geocodeTimeout | quote }}
   # OSRM
   OSRM_BASE_URL: {{ include "pricepoint.osrmBaseUrl" . | quote }}
   OSRM_RATE_LIMIT_SECONDS: {{ .Values.config.osrmRateLimitSeconds | quote }}
+  # TIGER/Census
+  TIGER_YEAR: {{ .Values.config.tigerYear | quote }}
+  # MLflow artifact root
+  MLFLOW_ARTIFACT_ROOT: {{ .Values.config.mlflowArtifactRoot | quote }}
   # Valkey
   {{- if or .Values.valkey.enabled .Values.externalValkey.url }}
   VALKEY_URL: {{ include "pricepoint.valkeyUrl" . | quote }}
