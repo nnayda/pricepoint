@@ -26,6 +26,9 @@ npx --prefix "$FRONTEND_DIR" openapi-typescript "$SCHEMA_FILE" -o "$OUTPUT_FILE"
 # Clean up temp schema file
 rm -f "$SCHEMA_FILE"
 
+# Step 2b: Format with Prettier so output matches committed style
+npx --prefix "$FRONTEND_DIR" prettier --write "$OUTPUT_FILE" > /dev/null 2>&1
+
 # Step 3: Check mode — fail if generated types differ from committed version
 if [[ "${1:-}" == "--check" ]]; then
     echo "Checking for API contract drift..."
