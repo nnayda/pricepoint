@@ -46,7 +46,7 @@ spec:
       containers:
         - name: webserver
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
-          args: ["webserver"]
+          args: ["api-server"]
           ports:
             - containerPort: 8080
               protocol: TCP

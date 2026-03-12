@@ -17,8 +17,8 @@ dependencies:
   - name: valkey
     version: 2.4.7
     repository: file://charts
-    condition: valkey.enabled
+    condition: valkey.subchart.enabled
   - name: airflow
     version: 1.18.0
     repository: file://charts
-    condition: airflow.enabled
+    condition: airflow.subchart.enabled

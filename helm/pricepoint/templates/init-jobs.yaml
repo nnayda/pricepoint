@@ -102,7 +102,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: api-migrate
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.image.tag }}"
           command: ["alembic", "upgrade", "head"]
           envFrom:
             - configMapRef:

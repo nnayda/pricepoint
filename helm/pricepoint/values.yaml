@@ -12,7 +12,7 @@ api:
   replicaCount: 1
   image:
     repository: pricepoint/api
-    tag: latest
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -35,7 +35,7 @@ frontend:
   replicaCount: 1
   image:
     repository: pricepoint/frontend
-    tag: latest
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -58,7 +58,7 @@ mlflow:
   replicaCount: 1
   image:
     repository: pricepoint/mlflow
-    tag: latest
+    tag: ""
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -197,6 +197,8 @@ externalS3:
 # -- Valkey (optional, bundled Redis-compatible cache) -------------------------
 valkey:
   enabled: true
+  subchart:
+    enabled: false
   image:
     repository: valkey/valkey
     tag: 8-alpine
@@ -318,6 +320,8 @@ config:
 # -- Airflow (optional, bundled) -----------------------------------------------
 airflow:
   enabled: true
+  subchart:
+    enabled: false
   executor: KubernetesExecutor
   image:
     repository: apache/airflow
