@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.4 (2026-03-12)
+
+### Bug Fixes
+
+- **helm**: Rename configmap from -config to -app-config to avoid naming conflicts
+  ([`ec9756d`](https://github.com/nnayda/pricepoint/-/commit/ec9756db231d2ff1f2298cdf52d0667deb0af9c3))
+
+
 ## v1.0.0-dev.3 (2026-03-12)
 
 ### Bug Fixes
