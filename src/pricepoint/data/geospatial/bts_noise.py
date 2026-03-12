@@ -482,12 +482,17 @@ def _build_noise_production(
 # ---------------------------------------------------------------------------
 # Public entry points
 # ---------------------------------------------------------------------------
-def fetch_transportation_noise(mode: str = "aviation_road_rail") -> int:
+def fetch_transportation_noise(
+    mode: str = "aviation_road_rail",
+    bbox: tuple[float, float, float, float] | None = None,
+) -> int:
     """Download BTS noise tiles for one mode, vectorize, stage, smooth, and load.
 
     Args:
         mode: One of the ``NOISE_MODES`` keys (aviation, road, rail,
               aviation_road_rail).
+        bbox: Optional ``(south, north, west, east)`` bounding box in
+              degrees.  When *None*, falls back to the settings defaults.
 
     Returns the number of production polygon records inserted.
     """
@@ -505,13 +510,15 @@ def fetch_transportation_noise(mode: str = "aviation_road_rail") -> int:
     morphological_closing = settings.bts_noise_morphological_closing
     source_layer = mode
 
-    tiles = _enumerate_tiles(
-        settings.bts_noise_bbox_south,
-        settings.bts_noise_bbox_north,
-        settings.bts_noise_bbox_west,
-        settings.bts_noise_bbox_east,
-        zoom,
-    )
+    if bbox is not None:
+        bb_south, bb_north, bb_west, bb_east = bbox
+    else:
+        bb_south = settings.bts_noise_bbox_south
+        bb_north = settings.bts_noise_bbox_north
+        bb_west = settings.bts_noise_bbox_west
+        bb_east = settings.bts_noise_bbox_east
+
+    tiles = _enumerate_tiles(bb_south, bb_north, bb_west, bb_east, zoom)
     logger.info("Enumerated %d tiles at zoom %d for mode %s", len(tiles), zoom, mode)
 
     run_started = datetime.now(UTC)
@@ -602,12 +609,19 @@ def fetch_transportation_noise(mode: str = "aviation_road_rail") -> int:
         client.close()
 
 
-def fetch_all_transportation_noise() -> int:
-    """Fetch all configured BTS noise modes and return total production count."""
+def fetch_all_transportation_noise(
+    bbox: tuple[float, float, float, float] | None = None,
+) -> int:
+    """Fetch all configured BTS noise modes and return total production count.
+
+    Args:
+        bbox: Optional ``(south, north, west, east)`` bounding box passed
+              through to each :func:`fetch_transportation_noise` call.
+    """
     settings = get_settings()
     total = 0
     for mode in settings.bts_noise_modes:
-        total += fetch_transportation_noise(mode=mode)
+        total += fetch_transportation_noise(mode=mode, bbox=bbox)
     return total
 
 

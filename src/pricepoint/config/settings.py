@@ -135,6 +135,7 @@ class Settings(BaseSettings):
     bts_noise_base_url: str = "https://geo.dot.gov/server/rest/services/Hosted"
     bts_noise_modes: list[str] = ["aviation", "road", "rail", "aviation_road_rail"]
     bts_noise_zoom: int = 12
+    # Default bbox covers Wake County, NC; override via env vars or bbox parameter
     bts_noise_bbox_south: float = 35.5
     bts_noise_bbox_north: float = 36.1
     bts_noise_bbox_west: float = -79.1
@@ -177,7 +178,6 @@ class Settings(BaseSettings):
         "MORTGAGE15US",
         "CPIAUCSL",
         "UNRATE",
-        "NCUR",
         "HOUST",
         "PERMIT",
         "CSUSHPISA",

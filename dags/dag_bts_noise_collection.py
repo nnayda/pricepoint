@@ -26,36 +26,45 @@ logger = logging.getLogger(__name__)
     tags=["data", "collection", "bts", "noise"],
 )
 def bts_noise_collection():
+    def _get_bbox(**context: object) -> tuple[float, float, float, float] | None:
+        """Extract optional bbox from dag_run.conf (south, north, west, east)."""
+        params = context.get("params", {})
+        raw = params.get("bbox") if isinstance(params, dict) else None  # type: ignore[union-attr]
+        if raw is None:
+            return None
+        south, north, west, east = (float(v) for v in raw)
+        return (south, north, west, east)
+
     @task()
-    def fetch_aviation():
+    def fetch_aviation(**context: object):
         """Download aviation noise tiles, stage, smooth, and load."""
         from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
 
-        count = fetch_transportation_noise(mode="aviation")
+        count = fetch_transportation_noise(mode="aviation", bbox=_get_bbox(**context))
         logger.info("Loaded %d aviation noise polygons", count)
 
     @task()
-    def fetch_road():
+    def fetch_road(**context: object):
         """Download road noise tiles, stage, smooth, and load."""
         from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
 
-        count = fetch_transportation_noise(mode="road")
+        count = fetch_transportation_noise(mode="road", bbox=_get_bbox(**context))
         logger.info("Loaded %d road noise polygons", count)
 
     @task()
-    def fetch_rail():
+    def fetch_rail(**context: object):
         """Download rail noise tiles, stage, smooth, and load."""
         from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
 
-        count = fetch_transportation_noise(mode="rail")
+        count = fetch_transportation_noise(mode="rail", bbox=_get_bbox(**context))
         logger.info("Loaded %d rail noise polygons", count)
 
     @task()
-    def fetch_combined():
+    def fetch_combined(**context: object):
         """Download combined aviation+road+rail noise tiles, stage, smooth, and load."""
         from pricepoint.data.geospatial.bts_noise import fetch_transportation_noise
 
-        count = fetch_transportation_noise(mode="aviation_road_rail")
+        count = fetch_transportation_noise(mode="aviation_road_rail", bbox=_get_bbox(**context))
         logger.info("Loaded %d combined noise polygons", count)
 
     @task(outlets=[Asset("noises")])

@@ -533,6 +533,33 @@ class TestFetchTransportationNoise:
         count = fetch_transportation_noise(mode="road")
         assert count == 0
 
+    @patch("pricepoint.data.geospatial.bts_noise._enumerate_tiles")
+    @patch("pricepoint.data.geospatial.bts_noise.SessionLocal")
+    @patch("pricepoint.data.geospatial.bts_noise.get_settings")
+    def test_fetch_with_bbox_override(self, mock_settings, mock_session_cls, mock_enum_tiles):
+        """fetch_transportation_noise with bbox should use provided bbox, not settings."""
+        settings = MagicMock()
+        settings.bts_noise_zoom = 12
+        settings.bts_noise_base_url = "https://geo.dot.gov/server/rest/services/Hosted"
+        settings.bts_noise_tile_rate_limit = 0.0
+        settings.bts_noise_batch_size = 100
+        settings.bts_noise_simplify_tolerance = 0.0001
+        settings.bts_noise_min_polygon_area_sq_m = 500.0
+        settings.bts_noise_morphological_closing = False
+        mock_settings.return_value = settings
+
+        mock_enum_tiles.return_value = []  # No tiles
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        bbox = (30.0, 30.5, -98.0, -97.5)
+        count = fetch_transportation_noise(mode="road", bbox=bbox)
+        assert count == 0
+
+        # _enumerate_tiles should have been called with the provided bbox
+        mock_enum_tiles.assert_called_once_with(30.0, 30.5, -98.0, -97.5, 12)
+
     def test_fetch_invalid_mode(self):
         """Unknown mode should raise ValueError."""
         with pytest.raises(ValueError, match="Unknown noise mode"):
@@ -588,10 +615,10 @@ class TestFetchAllTransportationNoise:
         total = fetch_all_transportation_noise()
         assert total == 40
         assert mock_fetch.call_count == 4
-        mock_fetch.assert_any_call(mode="aviation")
-        mock_fetch.assert_any_call(mode="road")
-        mock_fetch.assert_any_call(mode="rail")
-        mock_fetch.assert_any_call(mode="aviation_road_rail")
+        mock_fetch.assert_any_call(mode="aviation", bbox=None)
+        mock_fetch.assert_any_call(mode="road", bbox=None)
+        mock_fetch.assert_any_call(mode="rail", bbox=None)
+        mock_fetch.assert_any_call(mode="aviation_road_rail", bbox=None)
 
     @patch("pricepoint.data.geospatial.bts_noise.fetch_transportation_noise")
     @patch("pricepoint.data.geospatial.bts_noise.get_settings")
