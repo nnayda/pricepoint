@@ -71,7 +71,6 @@ class PoliceIncident(Base):
     )
 
     __table_args__ = (
-        Index("ix_police_incidents_location", location, postgresql_using="gist"),
         Index("ix_police_incidents_crime_category", crime_category),
         Index("ix_police_incidents_offense_class", offense_class),
         Index("ix_police_incidents_date_of_incident", date_of_incident),
@@ -382,7 +381,6 @@ class Road(Base):
     """
 
     __tablename__ = "roads"
-    __table_args__ = (Index("ix_roads_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     linearid: Mapped[str | None] = mapped_column(String(22), unique=True, index=True)
@@ -871,7 +869,6 @@ class RedfinListing(Base):
     )
 
     __table_args__ = (
-        Index("idx_redfin_listings_location", "location", postgresql_using="gist"),
         Index(
             "uq_redfin_listings_address",
             "street_address",
@@ -980,8 +977,6 @@ class School(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-
-    __table_args__ = (Index("idx_schools_location", "location", postgresql_using="gist"),)
 
 
 class PropertySchool(Base):
@@ -1136,7 +1131,6 @@ class Subdivision(Base):
 
     __table_args__ = (
         UniqueConstraint("county_fips", "source_id", name="uq_subdivisions_county_source"),
-        Index("ix_subdivisions_geom", "geom", postgresql_using="gist"),
         Index("ix_subdivisions_name", "name"),
         Index("ix_subdivisions_county_fips", "county_fips"),
     )
@@ -1146,7 +1140,6 @@ class Hospital(Base):
     """Hospital location from HIFLD."""
 
     __tablename__ = "hospitals"
-    __table_args__ = (Index("ix_hospitals_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1180,7 +1173,6 @@ class Greenspace(Base):
     """Protected area / greenspace from PAD-US (Fee layer)."""
 
     __tablename__ = "greenspaces"
-    __table_args__ = (Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False, index=True)
@@ -1203,7 +1195,6 @@ class Trail(Base):
     """Trail from USGS National Digital Trails dataset."""
 
     __tablename__ = "trails"
-    __table_args__ = (Index("ix_trails_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     permanentidentifier: Mapped[str] = mapped_column(
@@ -1236,7 +1227,6 @@ class CellTower(Base):
     """Cell tower location from HIFLD ArcGIS FeatureServer."""
 
     __tablename__ = "cell_towers"
-    __table_args__ = (Index("ix_cell_towers_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1257,7 +1247,6 @@ class TransmissionLine(Base):
     """Electric power transmission line from HIFLD ArcGIS FeatureServer."""
 
     __tablename__ = "transmission_lines"
-    __table_args__ = (Index("ix_transmission_lines_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1278,7 +1267,6 @@ class PowerPlant(Base):
     """Power plant location from HIFLD ArcGIS FeatureServer."""
 
     __tablename__ = "power_plants"
-    __table_args__ = (Index("ix_power_plants_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1300,7 +1288,6 @@ class NatGasPipeline(Base):
     """Natural gas pipeline from HIFLD ArcGIS FeatureServer."""
 
     __tablename__ = "nat_gas_pipelines"
-    __table_args__ = (Index("ix_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1317,7 +1304,6 @@ class PetroleumPipeline(Base):
     """Petroleum products pipeline from HIFLD ArcGIS FeatureServer."""
 
     __tablename__ = "petroleum_pipelines"
-    __table_args__ = (Index("ix_petroleum_pipelines_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     objectid: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1334,7 +1320,6 @@ class RiskBoundary(Base):
 
     __tablename__ = "risk_boundaries"
     __table_args__ = (
-        Index("ix_risk_boundaries_geom", "geom", postgresql_using="gist"),
         Index("ix_risk_boundaries_infra", "infrastructure_type", "infrastructure_id"),
     )
 
@@ -1352,7 +1337,6 @@ class Railroad(Base):
     """HIFLD North American Rail Network lines (entire US)."""
 
     __tablename__ = "railroads"
-    __table_args__ = (Index("ix_railroads_geom", "geom", postgresql_using="gist"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     fraarcid: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)
@@ -1377,10 +1361,7 @@ class Airport(Base):
     """Airport location from OurAirports."""
 
     __tablename__ = "airports"
-    __table_args__ = (
-        Index("ix_airports_geom", "geom", postgresql_using="gist"),
-        UniqueConstraint("ident", name="uq_airports_ident"),
-    )
+    __table_args__ = (UniqueConstraint("ident", name="uq_airports_ident"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ident: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -1403,10 +1384,7 @@ class TransportationNoise(Base):
     """Transportation noise polygon from BTS National Noise Map (aviation+road+rail)."""
 
     __tablename__ = "noises"
-    __table_args__ = (
-        Index("ix_noises_geom", "geom", postgresql_using="gist"),
-        Index("ix_noises_noise_min_db", "noise_min_db"),
-    )
+    __table_args__ = (Index("ix_noises_noise_min_db", "noise_min_db"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     noise_min_db: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -1485,7 +1463,6 @@ class Place(Base):
 
     __tablename__ = "places"
     __table_args__ = (
-        Index("ix_places_geom", "geom", postgresql_using="gist"),
         Index("ix_places_name", "name"),
         Index("ix_places_category", "category"),
         Index("ix_places_state", "state"),
