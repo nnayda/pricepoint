@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from typing import cast as type_cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography
@@ -90,7 +91,12 @@ def _build_comp_property(
     if feature_row:
         grouped = group_features(feature_row)
         for cat, feats in grouped.items():
-            feature_groups.append(FeatureGroup(category=cat, features=feats))
+            feature_groups.append(
+                FeatureGroup(
+                    category=cat,
+                    features=type_cast(dict[str, "float | str | bool | None"], feats),
+                )
+            )
 
     # Nuisances & risks
     nuisances = query_nuisance_sources(db, lat, lon) if lat and lon else []

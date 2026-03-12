@@ -20,4 +20,4 @@ class DataRequestResponse(BaseModel):
     id: int
     address: str
     status: str
-    created_at: datetime
+    created_at: datetime | None = None

@@ -281,7 +281,7 @@ def fetch_nces_schools() -> int:
         if total > 0:
             stale_count = session.execute(
                 delete(NcesSchool).where(NcesSchool.loaded_at < run_started)
-            ).rowcount  # type: ignore[union-attr]
+            ).rowcount  # type: ignore[attr-defined]
             session.commit()
             if stale_count:
                 logger.info("Removed %d stale NCES school records", stale_count)

@@ -197,7 +197,7 @@ def enrich_population(session: Session, geo_level: str) -> int:
     """)
 
     result = session.execute(sql, {"geo_level": geo_level, "acs_level": acs_level})
-    count = result.rowcount  # type: ignore[union-attr]
+    count = result.rowcount  # type: ignore[attr-defined]
     session.flush()
     logger.info("Enriched %d %s rows with ACS population data", count, geo_level)
     return count
@@ -252,7 +252,7 @@ def compute_zscores(session: Session, geo_level: str) -> int:
     """)
 
     result = session.execute(sql, {"geo_level": geo_level})
-    count = result.rowcount  # type: ignore[union-attr]
+    count = result.rowcount  # type: ignore[attr-defined]
     session.flush()
     logger.info("Computed z-scores for %d %s rows", count, geo_level)
     return count

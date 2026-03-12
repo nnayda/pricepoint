@@ -731,7 +731,7 @@ def _extract_photos(
 # ---------------------------------------------------------------------------
 
 
-def _parse_html_file(file_path: str, source_filename: str) -> dict:
+def _parse_html_file(file_path: str, source_filename: str) -> tuple[dict, int]:
     """Open an HTML file, parse with lxml, and extract all listing data."""
     logger.info("Parsing %s", source_filename)
 

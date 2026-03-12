@@ -73,7 +73,7 @@ async def invalidate_pattern(valkey: Redis | None, pattern: str) -> int:
         return 0
     deleted = 0
     try:
-        cursor: int | bytes = 0
+        cursor: int = 0
         while True:
             cursor, keys = await valkey.scan(cursor=cursor, match=pattern, count=100)
             if keys:

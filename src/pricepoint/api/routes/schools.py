@@ -166,7 +166,7 @@ async def get_nearby_schools(
 
         # Enrich with linkage data if available
         link = linkage.get(school.id)
-        assigned = link.assigned if link else False
+        assigned = bool(link.assigned) if link else False
         drive_minutes = link.drive_minutes if link and link.drive_minutes else 0
         walk_minutes = link.walk_minutes if link else None
         # Prefer linkage distance if available (more accurate via OSRM)

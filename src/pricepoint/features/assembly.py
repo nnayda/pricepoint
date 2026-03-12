@@ -44,7 +44,7 @@ def reset_features_built_at(db: Session) -> int:
         .values(features_built_at=None)
     )
     db.commit()
-    count = result.rowcount or 0
+    count = result.rowcount or 0  # type: ignore[attr-defined]
     if count:
         logger.info("Reset features_built_at for %d properties", count)
     return count

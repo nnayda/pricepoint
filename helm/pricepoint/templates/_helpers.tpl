@@ -138,11 +138,18 @@ http://{{ include "pricepoint.fullname" . }}-photon:2322/api
 {{- end }}
 
 {{/*
+Airflow webserver port — first port from the service ports array
+*/}}
+{{- define "pricepoint.airflowPort" -}}
+{{- (index .Values.airflow.webserver.service.ports 0).port -}}
+{{- end }}
+
+{{/*
 Airflow base URL — use internal airflow or external
 */}}
 {{- define "pricepoint.airflowBaseUrl" -}}
 {{- if .Values.airflow.enabled -}}
-http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}
+http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}
 {{- else -}}
 {{ .Values.externalAirflow.baseUrl }}
 {{- end -}}

@@ -1,5 +1,8 @@
 """SQLAlchemy ORM models with PostGIS geometry columns."""
 
+from datetime import date, datetime
+from typing import Any
+
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     BigInteger,
@@ -18,7 +21,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSON
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
@@ -30,16 +33,20 @@ class Property(Base):
 
     __tablename__ = "properties"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    parcel_id = Column(String, unique=True, nullable=False, index=True)
-    address = Column(String, nullable=False)
-    city = Column(String)
-    state = Column(String(2))
-    zip_code = Column(String(10))
-    assessed_value = Column(Float)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    parcel_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    address: Mapped[str] = mapped_column(String, nullable=False)
+    city: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String(2))
+    zip_code: Mapped[str | None] = mapped_column(String(10))
+    assessed_value: Mapped[float | None] = mapped_column(Float)
     location = Column(Geometry("POINT", srid=4326))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
 
 
 class PoliceIncident(Base):
@@ -47,19 +54,21 @@ class PoliceIncident(Base):
 
     __tablename__ = "police_incidents"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    incident_id = Column(String, unique=True, nullable=False)
-    crime_code = Column(String, nullable=True)
-    crime_group = Column(String, nullable=True)
-    crime_category = Column(String, nullable=True)
-    offense_class = Column(String, nullable=True)
-    crime_description = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    date_of_incident = Column(Date, nullable=True)
-    latitude = Column(Float, nullable=True)
-    longitude = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    incident_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    crime_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_group: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    offense_class: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_description: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(String, nullable=True)
+    date_of_incident: Mapped[date | None] = mapped_column(Date, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     location = Column(Geometry("POINT", srid=4326))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         Index("ix_police_incidents_location", location, postgresql_using="gist"),
@@ -77,43 +86,45 @@ class StagingCaryPoliceIncident(Base):
 
     __tablename__ = "staging_cary_police_incidents"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    api_id = Column(String, index=True)
-    incident_number = Column(String, index=True)
-    crime_category = Column(String, nullable=True)
-    crime_type = Column(String, nullable=True)
-    ucr = Column(String, nullable=True)
-    map_reference = Column(String, nullable=True)
-    date_from = Column(DateTime(timezone=True), nullable=True)
-    from_time = Column(String, nullable=True)
-    date_to = Column(DateTime(timezone=True), nullable=True)
-    to_time = Column(String, nullable=True)
-    crimeday = Column(String, nullable=True)
-    geocode = Column(String, nullable=True)
-    location_category = Column(String, nullable=True)
-    district = Column(String, nullable=True)
-    beat_number = Column(String, nullable=True)
-    neighborhd_id = Column(String, nullable=True)
-    apartment_complex = Column(String, nullable=True)
-    residential_subdivision = Column(String, nullable=True)
-    subdivisn_id = Column(String, nullable=True)
-    activity_date = Column(String, nullable=True)
-    phxrecordstatus = Column(String, nullable=True)
-    phxcommunity = Column(String, nullable=True)
-    phxstatus = Column(String, nullable=True)
-    record = Column(String, nullable=True)
-    offensecategory = Column(String, nullable=True)
-    violentproperty = Column(String, nullable=True)
-    timeframe = Column(String, nullable=True)
-    domestic = Column(String, nullable=True)
-    total_incidents = Column(String, nullable=True)
-    year = Column(String, nullable=True)
-    older_than_five_years_from_now = Column(String, nullable=True)
-    chrgcnt = Column(String, nullable=True)
-    lon = Column(Float, nullable=True)
-    lat = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    api_id: Mapped[str | None] = mapped_column(String, index=True)
+    incident_number: Mapped[str | None] = mapped_column(String, index=True)
+    crime_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    ucr: Mapped[str | None] = mapped_column(String, nullable=True)
+    map_reference: Mapped[str | None] = mapped_column(String, nullable=True)
+    date_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    from_time: Mapped[str | None] = mapped_column(String, nullable=True)
+    date_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    to_time: Mapped[str | None] = mapped_column(String, nullable=True)
+    crimeday: Mapped[str | None] = mapped_column(String, nullable=True)
+    geocode: Mapped[str | None] = mapped_column(String, nullable=True)
+    location_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    district: Mapped[str | None] = mapped_column(String, nullable=True)
+    beat_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    neighborhd_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    apartment_complex: Mapped[str | None] = mapped_column(String, nullable=True)
+    residential_subdivision: Mapped[str | None] = mapped_column(String, nullable=True)
+    subdivisn_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    activity_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    phxrecordstatus: Mapped[str | None] = mapped_column(String, nullable=True)
+    phxcommunity: Mapped[str | None] = mapped_column(String, nullable=True)
+    phxstatus: Mapped[str | None] = mapped_column(String, nullable=True)
+    record: Mapped[str | None] = mapped_column(String, nullable=True)
+    offensecategory: Mapped[str | None] = mapped_column(String, nullable=True)
+    violentproperty: Mapped[str | None] = mapped_column(String, nullable=True)
+    timeframe: Mapped[str | None] = mapped_column(String, nullable=True)
+    domestic: Mapped[str | None] = mapped_column(String, nullable=True)
+    total_incidents: Mapped[str | None] = mapped_column(String, nullable=True)
+    year: Mapped[str | None] = mapped_column(String, nullable=True)
+    older_than_five_years_from_now: Mapped[str | None] = mapped_column(String, nullable=True)
+    chrgcnt: Mapped[str | None] = mapped_column(String, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingRaleighPoliceIncident(Base):
@@ -125,30 +136,32 @@ class StagingRaleighPoliceIncident(Base):
 
     __tablename__ = "staging_raleigh_police_incidents"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(String, nullable=True)
-    global_id = Column(String, nullable=True)
-    case_number = Column(String, nullable=True, index=True)
-    crime_category = Column(String, nullable=True)
-    crime_code = Column(String, nullable=True)
-    crime_description = Column(String, nullable=True)
-    crime_type = Column(String, nullable=True)
-    reported_block_address = Column(String, nullable=True)
-    city_of_incident = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    district = Column(String, nullable=True)
-    reported_date = Column(DateTime(timezone=True), nullable=True)
-    reported_year = Column(Integer, nullable=True)
-    reported_month = Column(Integer, nullable=True)
-    reported_day = Column(Integer, nullable=True)
-    reported_hour = Column(Integer, nullable=True)
-    reported_dayofwk = Column(String, nullable=True)
-    latitude = Column(Float, nullable=True)
-    longitude = Column(Float, nullable=True)
-    agency = Column(String, nullable=True)
-    updated_date = Column(DateTime(timezone=True), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[str | None] = mapped_column(String, nullable=True)
+    global_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    case_number: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    crime_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_description: Mapped[str | None] = mapped_column(String, nullable=True)
+    crime_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    reported_block_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    city_of_incident: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    district: Mapped[str | None] = mapped_column(String, nullable=True)
+    reported_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reported_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reported_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reported_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reported_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reported_dayofwk: Mapped[str | None] = mapped_column(String, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    agency: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingMorrisvillePoliceIncident(Base):
@@ -159,28 +172,30 @@ class StagingMorrisvillePoliceIncident(Base):
 
     __tablename__ = "staging_morrisville_police_incidents"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    inci_id = Column(String, nullable=True, index=True)
-    offense = Column(String, nullable=True)
-    date_rept = Column(String, nullable=True)
-    date_occu = Column(String, nullable=True)
-    dow1 = Column(String, nullable=True)
-    monthstamp = Column(String, nullable=True)
-    yearstamp = Column(String, nullable=True)
-    street = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    state = Column(String, nullable=True)
-    zip = Column(String, nullable=True)
-    neighborhd = Column(String, nullable=True)
-    subdivisn = Column(String, nullable=True)
-    tract = Column(String, nullable=True)
-    zone = Column(String, nullable=True)
-    district = Column(String, nullable=True)
-    asst_offcr = Column(String, nullable=True)
-    lat = Column(Float, nullable=True)
-    lon = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    inci_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    offense: Mapped[str | None] = mapped_column(String, nullable=True)
+    date_rept: Mapped[str | None] = mapped_column(String, nullable=True)
+    date_occu: Mapped[str | None] = mapped_column(String, nullable=True)
+    dow1: Mapped[str | None] = mapped_column(String, nullable=True)
+    monthstamp: Mapped[str | None] = mapped_column(String, nullable=True)
+    yearstamp: Mapped[str | None] = mapped_column(String, nullable=True)
+    street: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String, nullable=True)
+    zip: Mapped[str | None] = mapped_column(String, nullable=True)
+    neighborhd: Mapped[str | None] = mapped_column(String, nullable=True)
+    subdivisn: Mapped[str | None] = mapped_column(String, nullable=True)
+    tract: Mapped[str | None] = mapped_column(String, nullable=True)
+    zone: Mapped[str | None] = mapped_column(String, nullable=True)
+    district: Mapped[str | None] = mapped_column(String, nullable=True)
+    asst_offcr: Mapped[str | None] = mapped_column(String, nullable=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class RedfinSchool(Base):
@@ -188,12 +203,14 @@ class RedfinSchool(Base):
 
     __tablename__ = "redfin_schools"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    school_type = Column(String)
-    rating = Column(Float)
-    grades = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    school_type: Mapped[str | None] = mapped_column(String)
+    rating: Mapped[float | None] = mapped_column(Float)
+    grades: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Block(Base):
@@ -201,26 +218,28 @@ class Block(Base):
 
     __tablename__ = "blocks"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    statefp20 = Column(String(2))
-    countyfp20 = Column(String(3))
-    tractce20 = Column(String(6))
-    blockce20 = Column(String(4))
-    geoid20 = Column(String(15), index=True)
-    name20 = Column(String)
-    aland20 = Column(BigInteger)
-    awater20 = Column(BigInteger)
-    intptlat20 = Column(String(11))
-    intptlon20 = Column(String(12))
-    funcstat20 = Column(String(1))
-    mtfcc20 = Column(String(5))
-    ur20 = Column(String(1))
-    uace20 = Column(String(5))
-    uatype20 = Column(String(1))
-    housing20 = Column(Integer)
-    pop20 = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    statefp20: Mapped[str | None] = mapped_column(String(2))
+    countyfp20: Mapped[str | None] = mapped_column(String(3))
+    tractce20: Mapped[str | None] = mapped_column(String(6))
+    blockce20: Mapped[str | None] = mapped_column(String(4))
+    geoid20: Mapped[str | None] = mapped_column(String(15), index=True)
+    name20: Mapped[str | None] = mapped_column(String)
+    aland20: Mapped[int | None] = mapped_column(BigInteger)
+    awater20: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat20: Mapped[str | None] = mapped_column(String(11))
+    intptlon20: Mapped[str | None] = mapped_column(String(12))
+    funcstat20: Mapped[str | None] = mapped_column(String(1))
+    mtfcc20: Mapped[str | None] = mapped_column(String(5))
+    ur20: Mapped[str | None] = mapped_column(String(1))
+    uace20: Mapped[str | None] = mapped_column(String(5))
+    uatype20: Mapped[str | None] = mapped_column(String(1))
+    housing20: Mapped[int | None] = mapped_column(Integer)
+    pop20: Mapped[int | None] = mapped_column(Integer)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class BlockGroup(Base):
@@ -228,21 +247,23 @@ class BlockGroup(Base):
 
     __tablename__ = "block_groups"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    statefp = Column(String(2))
-    countyfp = Column(String(3))
-    tractce = Column(String(6))
-    blkgrpce = Column(String(1))
-    geoid = Column(String(12), index=True)
-    namelsad = Column(String(100))
-    aland = Column(BigInteger)
-    awater = Column(BigInteger)
-    intptlat = Column(String(11))
-    intptlon = Column(String(12))
-    funcstat = Column(String(1))
-    mtfcc = Column(String(5))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    statefp: Mapped[str | None] = mapped_column(String(2))
+    countyfp: Mapped[str | None] = mapped_column(String(3))
+    tractce: Mapped[str | None] = mapped_column(String(6))
+    blkgrpce: Mapped[str | None] = mapped_column(String(1))
+    geoid: Mapped[str | None] = mapped_column(String(12), index=True)
+    namelsad: Mapped[str | None] = mapped_column(String(100))
+    aland: Mapped[int | None] = mapped_column(BigInteger)
+    awater: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat: Mapped[str | None] = mapped_column(String(11))
+    intptlon: Mapped[str | None] = mapped_column(String(12))
+    funcstat: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Tract(Base):
@@ -250,21 +271,23 @@ class Tract(Base):
 
     __tablename__ = "tracts"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    statefp = Column(String(2))
-    countyfp = Column(String(3))
-    tractce = Column(String(6))
-    geoid = Column(String(11), index=True)
-    name = Column(String)
-    namelsad = Column(String(100))
-    aland = Column(BigInteger)
-    awater = Column(BigInteger)
-    intptlat = Column(String(11))
-    intptlon = Column(String(12))
-    funcstat = Column(String(1))
-    mtfcc = Column(String(5))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    statefp: Mapped[str | None] = mapped_column(String(2))
+    countyfp: Mapped[str | None] = mapped_column(String(3))
+    tractce: Mapped[str | None] = mapped_column(String(6))
+    geoid: Mapped[str | None] = mapped_column(String(11), index=True)
+    name: Mapped[str | None] = mapped_column(String)
+    namelsad: Mapped[str | None] = mapped_column(String(100))
+    aland: Mapped[int | None] = mapped_column(BigInteger)
+    awater: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat: Mapped[str | None] = mapped_column(String(11))
+    intptlon: Mapped[str | None] = mapped_column(String(12))
+    funcstat: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class SchoolDistrict(Base):
@@ -272,23 +295,25 @@ class SchoolDistrict(Base):
 
     __tablename__ = "school_districts"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    district_type = Column(String(10), index=True)
-    statefp = Column(String(2))
-    geoid = Column(String(7), index=True)
-    name = Column(String)
-    lsad = Column(String(2))
-    lograde = Column(String(2))
-    higrade = Column(String(2))
-    aland = Column(BigInteger)
-    awater = Column(BigInteger)
-    intptlat = Column(String(11))
-    intptlon = Column(String(12))
-    funcstat = Column(String(1))
-    mtfcc = Column(String(5))
-    sdtyp = Column(String(1))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    district_type: Mapped[str | None] = mapped_column(String(10), index=True)
+    statefp: Mapped[str | None] = mapped_column(String(2))
+    geoid: Mapped[str | None] = mapped_column(String(7), index=True)
+    name: Mapped[str | None] = mapped_column(String)
+    lsad: Mapped[str | None] = mapped_column(String(2))
+    lograde: Mapped[str | None] = mapped_column(String(2))
+    higrade: Mapped[str | None] = mapped_column(String(2))
+    aland: Mapped[int | None] = mapped_column(BigInteger)
+    awater: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat: Mapped[str | None] = mapped_column(String(11))
+    intptlon: Mapped[str | None] = mapped_column(String(12))
+    funcstat: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
+    sdtyp: Mapped[str | None] = mapped_column(String(1))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (Index("idx_school_districts_geom", "geom", postgresql_using="gist"),)
 
@@ -298,26 +323,28 @@ class County(Base):
 
     __tablename__ = "counties"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    statefp = Column(String(2))
-    countyfp = Column(String(3))
-    countyns = Column(String(8))
-    geoid = Column(String(5), index=True)
-    name = Column(String)
-    namelsad = Column(String(100))
-    lsad = Column(String(2))
-    classfp = Column(String(2))
-    aland = Column(BigInteger)
-    awater = Column(BigInteger)
-    intptlat = Column(String(11))
-    intptlon = Column(String(12))
-    funcstat = Column(String(1))
-    mtfcc = Column(String(5))
-    csafp = Column(String(3))
-    cbsafp = Column(String(5))
-    metdivfp = Column(String(5))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    statefp: Mapped[str | None] = mapped_column(String(2))
+    countyfp: Mapped[str | None] = mapped_column(String(3))
+    countyns: Mapped[str | None] = mapped_column(String(8))
+    geoid: Mapped[str | None] = mapped_column(String(5), index=True)
+    name: Mapped[str | None] = mapped_column(String)
+    namelsad: Mapped[str | None] = mapped_column(String(100))
+    lsad: Mapped[str | None] = mapped_column(String(2))
+    classfp: Mapped[str | None] = mapped_column(String(2))
+    aland: Mapped[int | None] = mapped_column(BigInteger)
+    awater: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat: Mapped[str | None] = mapped_column(String(11))
+    intptlon: Mapped[str | None] = mapped_column(String(12))
+    funcstat: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
+    csafp: Mapped[str | None] = mapped_column(String(3))
+    cbsafp: Mapped[str | None] = mapped_column(String(5))
+    metdivfp: Mapped[str | None] = mapped_column(String(5))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Township(Base):
@@ -325,26 +352,28 @@ class Township(Base):
 
     __tablename__ = "townships"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    statefp = Column(String(2))
-    countyfp = Column(String(3))
-    cousubfp = Column(String(5))
-    cousubns = Column(String(8))
-    geoid = Column(String(10), index=True)
-    name = Column(String)
-    namelsad = Column(String(100))
-    lsad = Column(String(2))
-    classfp = Column(String(2))
-    aland = Column(BigInteger)
-    awater = Column(BigInteger)
-    intptlat = Column(String(11))
-    intptlon = Column(String(12))
-    funcstat = Column(String(1))
-    mtfcc = Column(String(5))
-    cnectafp = Column(String(3))
-    nectafp = Column(String(5))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    statefp: Mapped[str | None] = mapped_column(String(2))
+    countyfp: Mapped[str | None] = mapped_column(String(3))
+    cousubfp: Mapped[str | None] = mapped_column(String(5))
+    cousubns: Mapped[str | None] = mapped_column(String(8))
+    geoid: Mapped[str | None] = mapped_column(String(10), index=True)
+    name: Mapped[str | None] = mapped_column(String)
+    namelsad: Mapped[str | None] = mapped_column(String(100))
+    lsad: Mapped[str | None] = mapped_column(String(2))
+    classfp: Mapped[str | None] = mapped_column(String(2))
+    aland: Mapped[int | None] = mapped_column(BigInteger)
+    awater: Mapped[int | None] = mapped_column(BigInteger)
+    intptlat: Mapped[str | None] = mapped_column(String(11))
+    intptlon: Mapped[str | None] = mapped_column(String(12))
+    funcstat: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
+    cnectafp: Mapped[str | None] = mapped_column(String(3))
+    nectafp: Mapped[str | None] = mapped_column(String(5))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Road(Base):
@@ -357,13 +386,15 @@ class Road(Base):
     __tablename__ = "roads"
     __table_args__ = (Index("ix_roads_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    linearid = Column(String(22), unique=True, index=True)
-    fullname = Column(String(100))
-    rttyp = Column(String(1))
-    mtfcc = Column(String(5))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    linearid: Mapped[str | None] = mapped_column(String(22), unique=True, index=True)
+    fullname: Mapped[str | None] = mapped_column(String(100))
+    rttyp: Mapped[str | None] = mapped_column(String(1))
+    mtfcc: Mapped[str | None] = mapped_column(String(5))
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingWakeCountyPropertyData(Base):
@@ -375,142 +406,144 @@ class StagingWakeCountyPropertyData(Base):
 
     __tablename__ = "staging_wake_county_property_data"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # Ownership and mailing address
-    owner_1 = Column(String(35), nullable=True)
-    owner_2 = Column(String(35), nullable=True)
-    address_1 = Column(String(35), nullable=True)
-    address_2 = Column(String(35), nullable=True)
-    address_3 = Column(String(35), nullable=True)
+    owner_1: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    owner_2: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    address_1: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    address_2: Mapped[str | None] = mapped_column(String(35), nullable=True)
+    address_3: Mapped[str | None] = mapped_column(String(35), nullable=True)
 
     # Property identification
-    reid = Column(String(7), nullable=True, index=True)
-    card_num = Column(String(3), nullable=True)
-    num_cards = Column(String(3), nullable=True)
+    reid: Mapped[str | None] = mapped_column(String(7), nullable=True, index=True)
+    card_num: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    num_cards: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Physical address components
-    street_num = Column(String(6), nullable=True)
-    street_prefix = Column(String(2), nullable=True)
-    street_name = Column(String(25), nullable=True)
-    street_type = Column(String(4), nullable=True)
-    street_suffix = Column(String(2), nullable=True)
-    street_misc = Column(String(2), nullable=True)
+    street_num: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    street_prefix: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    street_name: Mapped[str | None] = mapped_column(String(25), nullable=True)
+    street_type: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    street_suffix: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    street_misc: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # Location and jurisdiction
-    planning_jurisdiction = Column(String(2), nullable=True)
-    township = Column(String(2), nullable=True)
-    fire_district = Column(String(2), nullable=True)
-    physical_city = Column(String(50), nullable=True)
-    physical_zip_code = Column(String(5), nullable=True)
-    city = Column(String(3), nullable=True)
+    planning_jurisdiction: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    township: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    fire_district: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    physical_city: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    physical_zip_code: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Parcel details
-    parcel_identification = Column(String(19), nullable=True)
-    billing_class = Column(String(1), nullable=True)
-    land_classification = Column(String(1), nullable=True)
-    zoning = Column(String(5), nullable=True)
-    deeded_acreage = Column(Float, nullable=True)
+    parcel_identification: Mapped[str | None] = mapped_column(String(19), nullable=True)
+    billing_class: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    land_classification: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    zoning: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    deeded_acreage: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Special districts
-    special_district_1 = Column(String(3), nullable=True)
-    special_district_2 = Column(String(3), nullable=True)
-    special_district_3 = Column(String(3), nullable=True)
+    special_district_1: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    special_district_2: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    special_district_3: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Land sales
-    land_sale_price = Column(Float, nullable=True)
-    land_sale_date = Column(String(10), nullable=True)
+    land_sale_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    land_sale_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Total sales
-    total_sale_price = Column(Float, nullable=True)
-    total_sale_date = Column(String(10), nullable=True)
+    total_sale_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_sale_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Assessed values
-    assessed_building_value = Column(Float, nullable=True)
-    assessed_land_value = Column(Float, nullable=True)
+    assessed_building_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assessed_land_value: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Deed information
-    deed_book = Column(String(6), nullable=True)
-    deed_page = Column(String(6), nullable=True)
-    deed_date = Column(String(10), nullable=True)
+    deed_book: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    deed_page: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    deed_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     # Property description and indexing
-    property_description = Column(String(40), nullable=True)
-    vcs = Column(String(7), nullable=True)
-    property_index = Column(String(40), nullable=True)
-    type_use = Column(String(3), nullable=True)
+    property_description: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    vcs: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    property_index: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    type_use: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Building characteristics
-    year_built = Column(Integer, nullable=True)
-    num_rooms = Column(Integer, nullable=True)
-    units = Column(Integer, nullable=True)
-    heated_area = Column(Float, nullable=True)
+    year_built: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    num_rooms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    units: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    heated_area: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Utilities and site features
-    utilities = Column(String(3), nullable=True)
-    street_pavement = Column(String(1), nullable=True)
-    topography = Column(String(1), nullable=True)
+    utilities: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    street_pavement: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    topography: Mapped[str | None] = mapped_column(String(1), nullable=True)
 
     # Building years and modifications
-    year_of_addition = Column(Integer, nullable=True)
-    effective_year = Column(Integer, nullable=True)
-    remodeled_year = Column(Integer, nullable=True)
-    unused = Column(String(2), nullable=True)
-    special_write_in = Column(String(8), nullable=True)
+    year_of_addition: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    effective_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    remodeled_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unused: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    special_write_in: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
     # Building structure
-    story_height = Column(String(1), nullable=True)
-    design_style = Column(String(1), nullable=True)
-    foundation_basement = Column(String(1), nullable=True)
-    foundation_basement_pct = Column(String(2), nullable=True)
-    exterior_wall = Column(String(1), nullable=True)
-    common_wall = Column(String(1), nullable=True)
-    roof = Column(String(1), nullable=True)
-    roof_floor_system = Column(String(1), nullable=True)
+    story_height: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    design_style: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    foundation_basement: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    foundation_basement_pct: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    exterior_wall: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    common_wall: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    roof: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    roof_floor_system: Mapped[str | None] = mapped_column(String(1), nullable=True)
 
     # Interior finishes
-    floor_finish = Column(String(1), nullable=True)
-    interior_finish = Column(String(1), nullable=True)
-    interior_finish_1 = Column(String(1), nullable=True)
-    interior_finish_1_pct = Column(String(2), nullable=True)
-    interior_finish_2 = Column(String(1), nullable=True)
-    interior_finish_2_pct = Column(String(2), nullable=True)
+    floor_finish: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    interior_finish: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    interior_finish_1: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    interior_finish_1_pct: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    interior_finish_2: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    interior_finish_2_pct: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # HVAC systems
-    heat = Column(String(1), nullable=True)
-    heat_pct = Column(String(2), nullable=True)
-    air = Column(String(1), nullable=True)
-    air_pct = Column(String(2), nullable=True)
+    heat: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    heat_pct: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    air: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    air_pct: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # Bathrooms
-    bath = Column(String(1), nullable=True)
-    bath_fixtures = Column(String(3), nullable=True)
+    bath: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    bath_fixtures: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Built-in features
-    builtin_1_description = Column(String(15), nullable=True)
-    builtin_2_description = Column(String(15), nullable=True)
-    builtin_3_description = Column(String(15), nullable=True)
-    builtin_4_description = Column(String(15), nullable=True)
-    builtin_5_description = Column(String(15), nullable=True)
+    builtin_1_description: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    builtin_2_description: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    builtin_3_description: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    builtin_4_description: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    builtin_5_description: Mapped[str | None] = mapped_column(String(15), nullable=True)
 
     # Quality and condition
-    grade = Column(String(5), nullable=True)
-    assessed_grade_difference = Column(String(3), nullable=True)
-    accrued_assessed_condition_pct = Column(String(3), nullable=True)
+    grade: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    assessed_grade_difference: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    accrued_assessed_condition_pct: Mapped[str | None] = mapped_column(String(3), nullable=True)
 
     # Deferred values
-    land_deferred_code = Column(String(1), nullable=True)
-    land_deferred_amount = Column(Float, nullable=True)
-    historic_deferred_code = Column(String(1), nullable=True)
-    historic_deferred_amount = Column(Float, nullable=True)
+    land_deferred_code: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    land_deferred_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    historic_deferred_code: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    historic_deferred_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Additional flags
-    recycled_units = Column(Integer, nullable=True)
-    disqualifying_qualifying_flags = Column(String(1), nullable=True)
-    land_disqualify_qualify_flag = Column(String(1), nullable=True)
+    recycled_units: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    disqualifying_qualifying_flags: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    land_disqualify_qualify_flag: Mapped[str | None] = mapped_column(String(1), nullable=True)
 
     # Metadata
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingRedfinListing(Base):
@@ -521,61 +554,65 @@ class StagingRedfinListing(Base):
 
     __tablename__ = "staging_redfin_listings"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # Address
-    address = Column(String, nullable=True, index=True)
-    city = Column(String, nullable=True)
-    state = Column(String, nullable=True)
-    zip_code = Column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String, nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Status
-    listing_status = Column(String, nullable=True)
-    sold_date = Column(String, nullable=True)
-    sold_price = Column(String, nullable=True)
+    listing_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    sold_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    sold_price: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Key stats
-    listing_price = Column(String, nullable=True)
-    beds = Column(Integer, nullable=True)
-    baths = Column(Float, nullable=True)
-    sqft = Column(Integer, nullable=True)
+    listing_price: Mapped[str | None] = mapped_column(String, nullable=True)
+    beds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    baths: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sqft: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Description
-    description = Column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Key details
-    year_built = Column(Integer, nullable=True)
-    lot_size = Column(String, nullable=True)
-    price_per_sqft = Column(String, nullable=True)
+    year_built: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lot_size: Mapped[str | None] = mapped_column(String, nullable=True)
+    price_per_sqft: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Agent info
-    listing_agent = Column(String, nullable=True)
-    listing_brokerage = Column(String, nullable=True)
-    buying_agent = Column(String, nullable=True)
-    buying_brokerage = Column(String, nullable=True)
+    listing_agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    listing_brokerage: Mapped[str | None] = mapped_column(String, nullable=True)
+    buying_agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    buying_brokerage: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Redfin estimate
-    redfin_estimate = Column(String, nullable=True)
+    redfin_estimate: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # JSON fields
-    sale_history = Column(JSON, nullable=True)
-    tax_history = Column(JSON, nullable=True)
-    property_details = Column(JSON, nullable=True)
-    schools = Column(JSON, nullable=True)
+    sale_history: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    tax_history: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    property_details: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    schools: Mapped[Any | None] = mapped_column(JSON, nullable=True)
 
     # Climate risk
-    climate_flood_factor = Column(String, nullable=True)
-    climate_fire_factor = Column(String, nullable=True)
+    climate_flood_factor: Mapped[str | None] = mapped_column(String, nullable=True)
+    climate_fire_factor: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Photos and source
-    photo_s3_paths = Column(JSON, nullable=True)
-    source_file = Column(String, nullable=True)
-    redfin_url = Column(String, nullable=True)
+    photo_s3_paths: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    source_file: Mapped[str | None] = mapped_column(String, nullable=True)
+    redfin_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Metadata
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
-    extracted_at = Column(Date, nullable=True)
-    is_processed = Column(Boolean, server_default=text("false"), nullable=False)
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    extracted_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_processed: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
+    )
 
     __table_args__ = (
         Index(
@@ -591,151 +628,249 @@ class RedfinListing(Base):
 
     __tablename__ = "redfin_listings"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # Location
-    street_address = Column(String, nullable=False, index=True)
-    city = Column(String, nullable=True)
-    state = Column(String(2), nullable=True)
-    zip_code = Column(String(10), nullable=True)
+    street_address: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
 
     # Listing
-    listing_status = Column(String, nullable=True)
-    sold_date = Column(DateTime, nullable=True)
-    sold_price = Column(Float, nullable=True)
-    listing_price = Column(Float, nullable=True)
-    description = Column(Text, nullable=True)
+    listing_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    sold_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sold_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    listing_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Climate risk
-    flood_factor = Column(String, nullable=True)
-    fire_factor = Column(String, nullable=True)
-    flood_score = Column(Integer, nullable=True)
-    fire_score = Column(Integer, nullable=True)
+    flood_factor: Mapped[str | None] = mapped_column(String, nullable=True)
+    fire_factor: Mapped[str | None] = mapped_column(String, nullable=True)
+    flood_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fire_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Parking
-    has_garage = Column(Boolean, default=False, server_default=text("false"))
-    num_garage_spaces = Column(Integer, nullable=True)
-    parking_type = Column(String, nullable=True)
-    garage_entry = Column(String, nullable=True)
-    driveway_surface = Column(String, nullable=True)
-    has_workshop = Column(Boolean, default=False, server_default=text("false"))
-    has_circular_driveway = Column(Boolean, default=False, server_default=text("false"))
-    has_ev_charging = Column(Boolean, default=False, server_default=text("false"))
-    num_parking_spaces = Column(Integer, nullable=True)
+    has_garage: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    num_garage_spaces: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    parking_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    garage_entry: Mapped[str | None] = mapped_column(String, nullable=True)
+    driveway_surface: Mapped[str | None] = mapped_column(String, nullable=True)
+    has_workshop: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_circular_driveway: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_ev_charging: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    num_parking_spaces: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Fireplace
-    has_fireplace = Column(Boolean, default=False, server_default=text("false"))
-    has_outdoor_fireplace = Column(Boolean, default=False, server_default=text("false"))
-    has_primary_fireplace = Column(Boolean, default=False, server_default=text("false"))
-    has_architectural_fireplace = Column(Boolean, default=False, server_default=text("false"))
-    fireplace_fuel_source = Column(String, nullable=True)
-    num_fireplaces = Column(Integer, nullable=True)
+    has_fireplace: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_outdoor_fireplace: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_primary_fireplace: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_architectural_fireplace: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    fireplace_fuel_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    num_fireplaces: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Appliances / energy
-    water_heater_energy_source = Column(String, nullable=True)
-    cooktop_energy_source = Column(String, nullable=True)
-    oven_energy_source = Column(String, nullable=True)
-    has_drink_fridge = Column(Boolean, default=False, server_default=text("false"))
-    has_stainless_appliances = Column(Boolean, default=False, server_default=text("false"))
-    appliances_included_count = Column(Integer, nullable=True)
+    water_heater_energy_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    cooktop_energy_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    oven_energy_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    has_drink_fridge: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_stainless_appliances: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    appliances_included_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Windows
-    has_efficient_windows = Column(Boolean, default=False, server_default=text("false"))
-    has_skylights = Column(Boolean, default=False, server_default=text("false"))
-    has_bay_window = Column(Boolean, default=False, server_default=text("false"))
+    has_efficient_windows: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_skylights: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_bay_window: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # Laundry
-    laundry_location = Column(String, nullable=True)
-    has_laundry_room = Column(Boolean, default=False, server_default=text("false"))
-    has_utility_sink = Column(Boolean, default=False, server_default=text("false"))
+    laundry_location: Mapped[str | None] = mapped_column(String, nullable=True)
+    has_laundry_room: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_utility_sink: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # Interior features
-    countertop_material = Column(String, nullable=True)
-    is_primary_downstairs = Column(Boolean, default=False, server_default=text("false"))
-    has_guest_suite = Column(Boolean, default=False, server_default=text("false"))
-    has_butler_pantry = Column(Boolean, default=False, server_default=text("false"))
-    has_walkin_closets = Column(Boolean, default=False, server_default=text("false"))
-    has_tall_ceilings = Column(Boolean, default=False, server_default=text("false"))
-    has_luxury_ceilings = Column(Boolean, default=False, server_default=text("false"))
-    has_sauna = Column(Boolean, default=False, server_default=text("false"))
-    has_bar = Column(Boolean, default=False, server_default=text("false"))
-    has_second_primary = Column(Boolean, default=False, server_default=text("false"))
-    has_room_over_garage = Column(Boolean, default=False, server_default=text("false"))
-    has_open_floorplan = Column(Boolean, default=False, server_default=text("false"))
+    countertop_material: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_primary_downstairs: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_guest_suite: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_butler_pantry: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_walkin_closets: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_tall_ceilings: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_luxury_ceilings: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_sauna: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_bar: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_second_primary: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_room_over_garage: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_open_floorplan: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # Flooring
-    is_carpet_free = Column(Boolean, default=False, server_default=text("false"))
-    has_premium_stone = Column(Boolean, default=False, server_default=text("false"))
-    has_hardwood = Column(Boolean, default=False, server_default=text("false"))
-    has_crawl_space = Column(Boolean, default=False, server_default=text("false"))
+    is_carpet_free: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_premium_stone: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_hardwood: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_crawl_space: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # Exterior / structure
-    facade_type = Column(String, nullable=True)
-    building_area = Column(Float, nullable=True)
-    above_grade_finished_area = Column(Float, nullable=True)
-    below_grade_finished_area = Column(Float, nullable=True)
-    num_stories = Column(Float, nullable=True)
-    lot_size = Column(Float, nullable=True)
-    is_waterfront = Column(Boolean, default=False, server_default=text("false"))
-    buyer_financing = Column(String, nullable=True)
+    facade_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    building_area: Mapped[float | None] = mapped_column(Float, nullable=True)
+    above_grade_finished_area: Mapped[float | None] = mapped_column(Float, nullable=True)
+    below_grade_finished_area: Mapped[float | None] = mapped_column(Float, nullable=True)
+    num_stories: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lot_size: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_waterfront: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    buyer_financing: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Utilities
-    is_septic = Column(Boolean, default=False, server_default=text("false"))
-    is_well_water = Column(Boolean, default=False, server_default=text("false"))
-    no_heating = Column(Boolean, default=False, server_default=text("false"))
-    no_cooling = Column(Boolean, default=False, server_default=text("false"))
+    is_septic: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    is_well_water: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    no_heating: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    no_cooling: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # HOA / community
-    has_hoa = Column(Boolean, default=False, server_default=text("false"))
-    association_fee = Column(Float, nullable=True)
-    hoa_name = Column(String, nullable=True)
+    has_hoa: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    association_fee: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hoa_name: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Porch / outdoor
-    has_enclosed_porch = Column(Boolean, default=False, server_default=text("false"))
-    has_front_porch = Column(Boolean, default=False, server_default=text("false"))
-    has_fenced_yard = Column(Boolean, default=False, server_default=text("false"))
-    has_outdoor_kitchen = Column(Boolean, default=False, server_default=text("false"))
-    has_sport_court = Column(Boolean, default=False, server_default=text("false"))
-    has_private_pool = Column(Boolean, default=False, server_default=text("false"))
-    has_community_pool = Column(Boolean, default=False, server_default=text("false"))
-    has_clubhouse = Column(Boolean, default=False, server_default=text("false"))
-    has_exterior_storage = Column(Boolean, default=False, server_default=text("false"))
-    has_garden = Column(Boolean, default=False, server_default=text("false"))
+    has_enclosed_porch: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_front_porch: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_fenced_yard: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_outdoor_kitchen: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_sport_court: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_private_pool: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_community_pool: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_clubhouse: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_exterior_storage: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    has_garden: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     # Core stats
-    year_built = Column(Integer, nullable=True)
-    year_renovated = Column(Integer, nullable=True)
-    num_beds = Column(Integer, nullable=True)
-    num_baths = Column(Float, nullable=True)
-    sqft = Column(Integer, nullable=True)
-    price_per_sqft = Column(Float, nullable=True)
+    year_built: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    year_renovated: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    num_beds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    num_baths: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sqft: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    price_per_sqft: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Agents
-    listing_agent = Column(String, nullable=True)
-    listing_brokerage = Column(String, nullable=True)
-    buying_agent = Column(String, nullable=True)
-    buying_brokerage = Column(String, nullable=True)
+    listing_agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    listing_brokerage: Mapped[str | None] = mapped_column(String, nullable=True)
+    buying_agent: Mapped[str | None] = mapped_column(String, nullable=True)
+    buying_brokerage: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Identifiers
-    apn = Column(String, nullable=True)
-    contract_date = Column(DateTime, nullable=True)
+    apn: Mapped[str | None] = mapped_column(String, nullable=True)
+    contract_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Raw data for UI
-    property_details = Column(JSON, nullable=True)
+    property_details: Mapped[Any | None] = mapped_column(JSON, nullable=True)
 
     # Photos and source
-    property_photos = Column(JSON, nullable=True)
-    source_file = Column(String, nullable=True)
-    redfin_url = Column(String, nullable=True)
+    property_photos: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    source_file: Mapped[str | None] = mapped_column(String, nullable=True)
+    redfin_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Change detection
-    staging_hash = Column(String(64), nullable=True)
+    staging_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Metadata
-    processed_at = Column(DateTime(timezone=True), server_default=func.now())
-    schools_built_at = Column(DateTime(timezone=True), nullable=True)
-    features_built_at = Column(DateTime(timezone=True), nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    schools_built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    features_built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         Index("idx_redfin_listings_location", "location", postgresql_using="gist"),
@@ -755,12 +890,12 @@ class SaleHistoryRecord(Base):
 
     __tablename__ = "sale_history"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    property_id = Column(Integer, nullable=False, index=True)
-    date = Column(DateTime, nullable=True)
-    event = Column(String, nullable=True)
-    price = Column(Float, nullable=True)
-    source = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    property_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    event: Mapped[str | None] = mapped_column(String, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class TaxHistoryRecord(Base):
@@ -768,14 +903,14 @@ class TaxHistoryRecord(Base):
 
     __tablename__ = "tax_history"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    property_id = Column(Integer, nullable=False, index=True)
-    date = Column(DateTime, nullable=True)
-    property_tax = Column(Float, nullable=True)
-    assessment_value_land = Column(Float, nullable=True)
-    assessment_value_additions = Column(Float, nullable=True)
-    assessment_value = Column(Float, nullable=True)
-    source = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    property_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    property_tax: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assessment_value_land: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assessment_value_additions: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assessment_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class PropertyValuation(Base):
@@ -783,14 +918,16 @@ class PropertyValuation(Base):
 
     __tablename__ = "property_valuations"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    property_id = Column(Integer, nullable=False, index=True)
-    source = Column(String, nullable=False)
-    value = Column(Float, nullable=False)
-    model_version = Column(String, nullable=True)
-    confidence_low = Column(Float, nullable=True)
-    confidence_high = Column(Float, nullable=True)
-    estimated_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    property_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    confidence_low: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confidence_high: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estimated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (Index("idx_property_valuations_property_source", "property_id", "source"),)
 
@@ -800,9 +937,9 @@ class RedfinPropertySchool(Base):
 
     __tablename__ = "redfin_property_schools"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    property_id = Column(Integer, nullable=False, index=True)
-    redfin_school_id = Column(Integer, nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    property_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    redfin_school_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
 
     __table_args__ = (
         Index(
@@ -819,28 +956,32 @@ class School(Base):
 
     __tablename__ = "schools"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nces_id = Column(String, unique=True, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    street = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    state = Column(String(2), nullable=True)
-    zip_code = Column(String(10), nullable=True)
-    school_type = Column(String, nullable=True)
-    school_level = Column(String, nullable=True)
-    grades = Column(String, nullable=True)
-    rating = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nces_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    street: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    school_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    school_level: Mapped[str | None] = mapped_column(String, nullable=True)
+    grades: Mapped[str | None] = mapped_column(String, nullable=True)
+    rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
-    enrollment = Column(Integer, nullable=True)
-    teachers = Column(Float, nullable=True)
-    student_teacher_ratio = Column(Float, nullable=True)
-    free_lunch_eligible = Column(Integer, nullable=True)
-    reduced_lunch_eligible = Column(Integer, nullable=True)
-    total_frl_eligible = Column(Integer, nullable=True)
-    pct_frl_eligible = Column(Float, nullable=True)
-    district_id = Column(Integer, nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    enrollment: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    teachers: Mapped[float | None] = mapped_column(Float, nullable=True)
+    student_teacher_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    free_lunch_eligible: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reduced_lunch_eligible: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_frl_eligible: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pct_frl_eligible: Mapped[float | None] = mapped_column(Float, nullable=True)
+    district_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     __table_args__ = (Index("idx_schools_location", "location", postgresql_using="gist"),)
 
@@ -850,14 +991,18 @@ class PropertySchool(Base):
 
     __tablename__ = "property_schools"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    property_id = Column(Integer, nullable=False, index=True)
-    school_id = Column(Integer, nullable=False, index=True)
-    assigned = Column(Boolean, default=False, server_default=text("false"))
-    distance_miles = Column(Float, nullable=True)
-    drive_minutes = Column(Integer, nullable=True)
-    walk_minutes = Column(Integer, nullable=True)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    property_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    school_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    assigned: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    distance_miles: Mapped[float | None] = mapped_column(Float, nullable=True)
+    drive_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    walk_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     __table_args__ = (
         Index(
@@ -883,7 +1028,7 @@ class PropertyGeoLookup(Base):
         Index("ix_property_geo_lookups_bg", "census_block_group_geoid"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     property_id = Column(
         Integer,
         ForeignKey("redfin_listings.id", ondelete="CASCADE"),
@@ -891,30 +1036,38 @@ class PropertyGeoLookup(Base):
         nullable=False,
         index=True,
     )
-    census_tract_geoid = Column(String(11), nullable=True)
-    census_block_group_geoid = Column(String(12), nullable=True)
-    county_subdivision_geoid = Column(String(10), nullable=True)
-    county_geoid = Column(String(5), nullable=True)
-    subdivision_id = Column(Integer, nullable=True)
-    subdivision_name = Column(String, nullable=True)
-    in_noise_zone = Column(Boolean, default=False, server_default=text("false"))
-    noise_max_db = Column(Integer, nullable=True)
-    noise_source_layers = Column(JSON, nullable=True)
-    in_risk_zone = Column(Boolean, default=False, server_default=text("false"))
-    risk_max_severity = Column(String, nullable=True)
-    risk_types = Column(JSON, nullable=True)
-    school_district_geoid = Column(String(7), nullable=True)
-    dist_nearest_school_m = Column(Float, nullable=True)
-    dist_nearest_elementary_m = Column(Float, nullable=True)
-    dist_nearest_middle_m = Column(Float, nullable=True)
-    dist_nearest_high_m = Column(Float, nullable=True)
-    dist_nearest_park_m = Column(Float, nullable=True)
-    dist_nearest_greenway_m = Column(Float, nullable=True)
-    dist_nearest_hospital_m = Column(Float, nullable=True)
-    avg_school_rating = Column(Float, nullable=True)
-    avg_school_drive = Column(Float, nullable=True)
-    in_critical_risk_zone = Column(Boolean, default=False, server_default=text("false"))
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
+    census_tract_geoid: Mapped[str | None] = mapped_column(String(11), nullable=True)
+    census_block_group_geoid: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    county_subdivision_geoid: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    county_geoid: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    subdivision_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    subdivision_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    in_noise_zone: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    noise_max_db: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    noise_source_layers: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    in_risk_zone: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    risk_max_severity: Mapped[str | None] = mapped_column(String, nullable=True)
+    risk_types: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    school_district_geoid: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    dist_nearest_school_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_elementary_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_middle_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_high_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_park_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_greenway_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dist_nearest_hospital_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_school_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_school_drive: Mapped[float | None] = mapped_column(Float, nullable=True)
+    in_critical_risk_zone: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class NcesSchool(Base):
@@ -922,20 +1075,22 @@ class NcesSchool(Base):
 
     __tablename__ = "nces_schools"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    nces_id = Column(String, unique=True, nullable=False, index=True)
-    name = Column(String, nullable=False)
-    street = Column(String, nullable=True)
-    city = Column(String, nullable=True)
-    state = Column(String(2), nullable=True)
-    zip_code = Column(String(10), nullable=True)
-    school_type = Column(String, nullable=True)
-    school_level = Column(String, nullable=True)
-    grades_low = Column(String, nullable=True)
-    grades_high = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nces_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    street: Mapped[str | None] = mapped_column(String, nullable=True)
+    city: Mapped[str | None] = mapped_column(String, nullable=True)
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    school_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    school_level: Mapped[str | None] = mapped_column(String, nullable=True)
+    grades_low: Mapped[str | None] = mapped_column(String, nullable=True)
+    grades_high: Mapped[str | None] = mapped_column(String, nullable=True)
     location = Column(Geometry("POINT", srid=4326), nullable=True)
-    extras = Column(JSON, nullable=True)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    extras: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class WakeSubdivision(Base):
@@ -943,23 +1098,25 @@ class WakeSubdivision(Base):
 
     __tablename__ = "wake_subdivisions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    name = Column(String(40))
-    snumber = Column(String(10), index=True)
-    access_rd = Column(String(30))
-    jurisdiction = Column(String(25))
-    status = Column(String(20))
-    acres = Column(Float)
-    lots = Column(Integer)
-    density = Column(Float)
-    mapclass = Column(Integer)
-    iscluster = Column(String(5))
-    approvdate = Column(DateTime(timezone=True))
-    appldate = Column(DateTime(timezone=True))
-    last_edited_date = Column(DateTime(timezone=True))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    name: Mapped[str | None] = mapped_column(String(40))
+    snumber: Mapped[str | None] = mapped_column(String(10), index=True)
+    access_rd: Mapped[str | None] = mapped_column(String(30))
+    jurisdiction: Mapped[str | None] = mapped_column(String(25))
+    status: Mapped[str | None] = mapped_column(String(20))
+    acres: Mapped[float | None] = mapped_column(Float)
+    lots: Mapped[int | None] = mapped_column(Integer)
+    density: Mapped[float | None] = mapped_column(Float)
+    mapclass: Mapped[int | None] = mapped_column(Integer)
+    iscluster: Mapped[str | None] = mapped_column(String(5))
+    approvdate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    appldate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_edited_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Subdivision(Base):
@@ -967,15 +1124,17 @@ class Subdivision(Base):
 
     __tablename__ = "subdivisions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    county_fips = Column(String(5), nullable=False)
-    source_id = Column(String(50), nullable=False)
-    name = Column(String, nullable=True)
-    acres = Column(Float, nullable=True)
-    lots = Column(Integer, nullable=True)
-    density = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    county_fips: Mapped[str] = mapped_column(String(5), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    acres: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lots: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    density: Mapped[float | None] = mapped_column(Float, nullable=True)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326), nullable=True)
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
+    built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("county_fips", "source_id", name="uq_subdivisions_county_source"),
@@ -991,30 +1150,32 @@ class Hospital(Base):
     __tablename__ = "hospitals"
     __table_args__ = (Index("ix_hospitals_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    hifld_id = Column(String, index=True)
-    name = Column(String, index=True)
-    address = Column(String)
-    city = Column(String)
-    state = Column(String)
-    zip_code = Column(String)
-    telephone = Column(String)
-    hospital_type = Column(String)
-    status = Column(String)
-    population = Column(Integer)
-    county = Column(String)
-    countyfips = Column(String)
-    owner = Column(String)
-    beds = Column(Integer)
-    trauma = Column(String)
-    helipad = Column(String)
-    website = Column(String)
-    naics_code = Column(String)
-    naics_desc = Column(String)
-    ttl_staff = Column(Integer)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    hifld_id: Mapped[str | None] = mapped_column(String, index=True)
+    name: Mapped[str | None] = mapped_column(String, index=True)
+    address: Mapped[str | None] = mapped_column(String)
+    city: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String)
+    zip_code: Mapped[str | None] = mapped_column(String)
+    telephone: Mapped[str | None] = mapped_column(String)
+    hospital_type: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str | None] = mapped_column(String)
+    population: Mapped[int | None] = mapped_column(Integer)
+    county: Mapped[str | None] = mapped_column(String)
+    countyfips: Mapped[str | None] = mapped_column(String)
+    owner: Mapped[str | None] = mapped_column(String)
+    beds: Mapped[int | None] = mapped_column(Integer)
+    trauma: Mapped[str | None] = mapped_column(String)
+    helipad: Mapped[str | None] = mapped_column(String)
+    website: Mapped[str | None] = mapped_column(String)
+    naics_code: Mapped[str | None] = mapped_column(String)
+    naics_desc: Mapped[str | None] = mapped_column(String)
+    ttl_staff: Mapped[int | None] = mapped_column(Integer)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Greenspace(Base):
@@ -1023,19 +1184,21 @@ class Greenspace(Base):
     __tablename__ = "greenspaces"
     __table_args__ = (Index("ix_greenspaces_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source_id = Column(Integer, unique=True, nullable=False, index=True)
-    name = Column(String, index=True)
-    gis_acres = Column(Float)
-    manager_type = Column(String(10))
-    manager_name = Column(String)
-    designation_type = Column(String(20))
-    pub_access = Column(String(2))
-    gap_sts = Column(Integer)
-    state_name = Column(String)
-    category = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String, index=True)
+    gis_acres: Mapped[float | None] = mapped_column(Float)
+    manager_type: Mapped[str | None] = mapped_column(String(10))
+    manager_name: Mapped[str | None] = mapped_column(String)
+    designation_type: Mapped[str | None] = mapped_column(String(20))
+    pub_access: Mapped[str | None] = mapped_column(String(2))
+    gap_sts: Mapped[int | None] = mapped_column(Integer)
+    state_name: Mapped[str | None] = mapped_column(String)
+    category: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Trail(Base):
@@ -1044,27 +1207,31 @@ class Trail(Base):
     __tablename__ = "trails"
     __table_args__ = (Index("ix_trails_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    permanentidentifier = Column(String, unique=True, nullable=False, index=True)
-    name = Column(String, index=True)
-    trail_type = Column(String)
-    length_miles = Column(Float)
-    maintainer = Column(String)
-    national_designation = Column(String)
-    hiker_pedestrian = Column(String)
-    bicycle = Column(String)
-    pack_saddle = Column(String)
-    atv = Column(String)
-    motorcycle = Column(String)
-    ohv_over_50_inches = Column(String)
-    snowshoe = Column(String)
-    cross_country_ski = Column(String)
-    dogsled = Column(String)
-    snowmobile = Column(String)
-    non_motorized_watercraft = Column(String)
-    motorized_watercraft = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    permanentidentifier: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, index=True
+    )
+    name: Mapped[str | None] = mapped_column(String, index=True)
+    trail_type: Mapped[str | None] = mapped_column(String)
+    length_miles: Mapped[float | None] = mapped_column(Float)
+    maintainer: Mapped[str | None] = mapped_column(String)
+    national_designation: Mapped[str | None] = mapped_column(String)
+    hiker_pedestrian: Mapped[str | None] = mapped_column(String)
+    bicycle: Mapped[str | None] = mapped_column(String)
+    pack_saddle: Mapped[str | None] = mapped_column(String)
+    atv: Mapped[str | None] = mapped_column(String)
+    motorcycle: Mapped[str | None] = mapped_column(String)
+    ohv_over_50_inches: Mapped[str | None] = mapped_column(String)
+    snowshoe: Mapped[str | None] = mapped_column(String)
+    cross_country_ski: Mapped[str | None] = mapped_column(String)
+    dogsled: Mapped[str | None] = mapped_column(String)
+    snowmobile: Mapped[str | None] = mapped_column(String)
+    non_motorized_watercraft: Mapped[str | None] = mapped_column(String)
+    motorized_watercraft: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class CellTower(Base):
@@ -1073,17 +1240,19 @@ class CellTower(Base):
     __tablename__ = "cell_towers"
     __table_args__ = (Index("ix_cell_towers_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    licensee = Column(String)
-    callsign = Column(String)
-    city = Column(String)
-    state = Column(String)
-    county = Column(String)
-    structure_type = Column(String)
-    height_ft = Column(Float)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    licensee: Mapped[str | None] = mapped_column(String)
+    callsign: Mapped[str | None] = mapped_column(String)
+    city: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String)
+    county: Mapped[str | None] = mapped_column(String)
+    structure_type: Mapped[str | None] = mapped_column(String)
+    height_ft: Mapped[float | None] = mapped_column(Float)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class TransmissionLine(Base):
@@ -1092,17 +1261,19 @@ class TransmissionLine(Base):
     __tablename__ = "transmission_lines"
     __table_args__ = (Index("ix_transmission_lines_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    line_type = Column(String)
-    status = Column(String)
-    owner = Column(String)
-    voltage = Column(Float)
-    volt_class = Column(String)
-    sub_1 = Column(String)
-    sub_2 = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    line_type: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str | None] = mapped_column(String)
+    owner: Mapped[str | None] = mapped_column(String)
+    voltage: Mapped[float | None] = mapped_column(Float)
+    volt_class: Mapped[str | None] = mapped_column(String)
+    sub_1: Mapped[str | None] = mapped_column(String)
+    sub_2: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class PowerPlant(Base):
@@ -1111,18 +1282,20 @@ class PowerPlant(Base):
     __tablename__ = "power_plants"
     __table_args__ = (Index("ix_power_plants_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    plant_code = Column(Integer)
-    name = Column(String, index=True)
-    utility_name = Column(String)
-    state = Column(String)
-    county = Column(String)
-    primary_source = Column(String)
-    install_mw = Column(Float)
-    total_mw = Column(Float)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    plant_code: Mapped[int | None] = mapped_column(Integer)
+    name: Mapped[str | None] = mapped_column(String, index=True)
+    utility_name: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String)
+    county: Mapped[str | None] = mapped_column(String)
+    primary_source: Mapped[str | None] = mapped_column(String)
+    install_mw: Mapped[float | None] = mapped_column(Float)
+    total_mw: Mapped[float | None] = mapped_column(Float)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class NatGasPipeline(Base):
@@ -1131,13 +1304,15 @@ class NatGasPipeline(Base):
     __tablename__ = "nat_gas_pipelines"
     __table_args__ = (Index("ix_nat_gas_pipelines_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    pipe_type = Column(String)
-    operator = Column(String)
-    status = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    pipe_type: Mapped[str | None] = mapped_column(String)
+    operator: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class PetroleumPipeline(Base):
@@ -1146,12 +1321,14 @@ class PetroleumPipeline(Base):
     __tablename__ = "petroleum_pipelines"
     __table_args__ = (Index("ix_petroleum_pipelines_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    objectid = Column(Integer, index=True)
-    operator = Column(String)
-    pipe_name = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    objectid: Mapped[int | None] = mapped_column(Integer, index=True)
+    operator: Mapped[str | None] = mapped_column(String)
+    pipe_name: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class RiskBoundary(Base):
@@ -1163,12 +1340,14 @@ class RiskBoundary(Base):
         Index("ix_risk_boundaries_infra", "infrastructure_type", "infrastructure_id"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    infrastructure_type = Column(String, nullable=False)
-    infrastructure_id = Column(Integer, nullable=False)
-    severity = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    infrastructure_type: Mapped[str] = mapped_column(String, nullable=False)
+    infrastructure_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    severity: Mapped[str] = mapped_column(String, nullable=False)
     geom = Column(Geometry("GEOMETRY", srid=4326))
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
+    built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Railroad(Base):
@@ -1177,21 +1356,23 @@ class Railroad(Base):
     __tablename__ = "railroads"
     __table_args__ = (Index("ix_railroads_geom", "geom", postgresql_using="gist"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    fraarcid = Column(Integer, unique=True, index=True)
-    rrowner1 = Column(String)
-    rrowner2 = Column(String)
-    rrowner3 = Column(String)
-    stateab = Column(String(2))
-    cntyfips = Column(String(5))
-    subdivision = Column(String)
-    branch = Column(String)
-    passngr = Column(String)
-    tracks = Column(Integer)
-    miles = Column(Float)
-    net = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fraarcid: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)
+    rrowner1: Mapped[str | None] = mapped_column(String)
+    rrowner2: Mapped[str | None] = mapped_column(String)
+    rrowner3: Mapped[str | None] = mapped_column(String)
+    stateab: Mapped[str | None] = mapped_column(String(2))
+    cntyfips: Mapped[str | None] = mapped_column(String(5))
+    subdivision: Mapped[str | None] = mapped_column(String)
+    branch: Mapped[str | None] = mapped_column(String)
+    passngr: Mapped[str | None] = mapped_column(String)
+    tracks: Mapped[int | None] = mapped_column(Integer)
+    miles: Mapped[float | None] = mapped_column(Float)
+    net: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("MULTILINESTRING", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Airport(Base):
@@ -1203,19 +1384,21 @@ class Airport(Base):
         UniqueConstraint("ident", name="uq_airports_ident"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ident = Column(String, nullable=False, index=True)
-    airport_type = Column(String)
-    name = Column(String, index=True)
-    elevation_ft = Column(Integer)
-    iso_region = Column(String)
-    municipality = Column(String)
-    scheduled_service = Column(Boolean)
-    iata_code = Column(String)
-    home_link = Column(String)
-    wikipedia_link = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ident: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    airport_type: Mapped[str | None] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String, index=True)
+    elevation_ft: Mapped[int | None] = mapped_column(Integer)
+    iso_region: Mapped[str | None] = mapped_column(String)
+    municipality: Mapped[str | None] = mapped_column(String)
+    scheduled_service: Mapped[bool | None] = mapped_column(Boolean)
+    iata_code: Mapped[str | None] = mapped_column(String)
+    home_link: Mapped[str | None] = mapped_column(String)
+    wikipedia_link: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class TransportationNoise(Base):
@@ -1227,14 +1410,16 @@ class TransportationNoise(Base):
         Index("ix_noises_noise_min_db", "noise_min_db"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    noise_min_db = Column(Integer, nullable=False)
-    noise_max_db = Column(Integer, nullable=True)
-    noise_band = Column(String, nullable=False)
-    source_layer = Column(String, nullable=False)
-    area_sq_m = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    noise_min_db: Mapped[int] = mapped_column(Integer, nullable=False)
+    noise_max_db: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    noise_band: Mapped[str] = mapped_column(String, nullable=False)
+    source_layer: Mapped[str] = mapped_column(String, nullable=False)
+    area_sq_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingTransportationNoise(Base):
@@ -1246,14 +1431,16 @@ class StagingTransportationNoise(Base):
 
     __tablename__ = "staging_noises"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    noise_min_db = Column(Integer, nullable=False)
-    noise_max_db = Column(Integer, nullable=True)
-    noise_band = Column(String, nullable=False)
-    source_layer = Column(String, nullable=False)
-    area_sq_m = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    noise_min_db: Mapped[int] = mapped_column(Integer, nullable=False)
+    noise_max_db: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    noise_band: Mapped[str] = mapped_column(String, nullable=False)
+    source_layer: Mapped[str] = mapped_column(String, nullable=False)
+    area_sq_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     geom = Column(Geometry("MULTIPOLYGON", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class StagingPlace(Base):
@@ -1265,28 +1452,30 @@ class StagingPlace(Base):
 
     __tablename__ = "staging_places"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source_id = Column(String, nullable=False)
-    name = Column(String)
-    category = Column(String)
-    alternate_categories = Column(JSON)
-    confidence = Column(Float)
-    operating_status = Column(String)
-    address = Column(String)
-    city = Column(String)
-    state = Column(String)
-    postcode = Column(String)
-    country = Column(String)
-    brand_name = Column(String)
-    brand_wikidata = Column(String)
-    website = Column(String)
-    phone = Column(String)
-    email = Column(String)
-    social = Column(String)
-    source_dataset = Column(String)
-    source_record_id = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str | None] = mapped_column(String)
+    category: Mapped[str | None] = mapped_column(String)
+    alternate_categories: Mapped[Any | None] = mapped_column(JSON)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    operating_status: Mapped[str | None] = mapped_column(String)
+    address: Mapped[str | None] = mapped_column(String)
+    city: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String)
+    postcode: Mapped[str | None] = mapped_column(String)
+    country: Mapped[str | None] = mapped_column(String)
+    brand_name: Mapped[str | None] = mapped_column(String)
+    brand_wikidata: Mapped[str | None] = mapped_column(String)
+    website: Mapped[str | None] = mapped_column(String)
+    phone: Mapped[str | None] = mapped_column(String)
+    email: Mapped[str | None] = mapped_column(String)
+    social: Mapped[str | None] = mapped_column(String)
+    source_dataset: Mapped[str | None] = mapped_column(String)
+    source_record_id: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Place(Base):
@@ -1304,28 +1493,30 @@ class Place(Base):
         Index("ix_places_state", "state"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    source_id = Column(String, unique=True, nullable=False, index=True)
-    name = Column(String)
-    category = Column(String)
-    alternate_categories = Column(JSON)
-    confidence = Column(Float)
-    operating_status = Column(String)
-    address = Column(String)
-    city = Column(String)
-    state = Column(String)
-    postcode = Column(String)
-    country = Column(String)
-    brand_name = Column(String)
-    brand_wikidata = Column(String)
-    website = Column(String)
-    phone = Column(String)
-    email = Column(String)
-    social = Column(String)
-    source_dataset = Column(String)
-    source_record_id = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String)
+    category: Mapped[str | None] = mapped_column(String)
+    alternate_categories: Mapped[Any | None] = mapped_column(JSON)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    operating_status: Mapped[str | None] = mapped_column(String)
+    address: Mapped[str | None] = mapped_column(String)
+    city: Mapped[str | None] = mapped_column(String)
+    state: Mapped[str | None] = mapped_column(String)
+    postcode: Mapped[str | None] = mapped_column(String)
+    country: Mapped[str | None] = mapped_column(String)
+    brand_name: Mapped[str | None] = mapped_column(String)
+    brand_wikidata: Mapped[str | None] = mapped_column(String)
+    website: Mapped[str | None] = mapped_column(String)
+    phone: Mapped[str | None] = mapped_column(String)
+    email: Mapped[str | None] = mapped_column(String)
+    social: Mapped[str | None] = mapped_column(String)
+    source_dataset: Mapped[str | None] = mapped_column(String)
+    source_record_id: Mapped[str | None] = mapped_column(String)
     geom = Column(Geometry("POINT", srid=4326))
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class PlaceName(Base):
@@ -1333,12 +1524,16 @@ class PlaceName(Base):
 
     __tablename__ = "place_names"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    match_type = Column(String, nullable=False)  # "brand" or "name"
-    value = Column(String, nullable=False)
-    category = Column(String, nullable=True)  # representative category (MIN)
-    count = Column(Integer, nullable=False)
-    refreshed_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    match_type: Mapped[str] = mapped_column(String, nullable=False)  # "brand" or "name"
+    value: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # representative category (MIN)
+    count: Mapped[int] = mapped_column(Integer, nullable=False)
+    refreshed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("match_type", "value", name="uq_place_name_type_value"),
@@ -1360,17 +1555,19 @@ class LlmQualityScore(Base):
 
     __tablename__ = "llm_quality_scores"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    listing_id = Column(Integer, nullable=False, index=True)
-    model_name = Column(String, nullable=False)
-    model_version = Column(String, nullable=False)
-    description_hash = Column(String(64), nullable=False)
-    quality_score = Column(Integer, nullable=True)
-    quality_reasoning = Column(Text, nullable=True)
-    positive_factors = Column(JSON, nullable=True)
-    negative_factors = Column(JSON, nullable=True)
-    raw_response = Column(JSON, nullable=False)
-    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    listing_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    model_name: Mapped[str] = mapped_column(String, nullable=False)
+    model_version: Mapped[str] = mapped_column(String, nullable=False)
+    description_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    quality_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quality_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positive_factors: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    negative_factors: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    raw_response: Mapped[Any] = mapped_column(JSON, nullable=False)
+    extracted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -1387,17 +1584,19 @@ class LlmPhotoScore(Base):
 
     __tablename__ = "llm_photo_scores"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    listing_id = Column(Integer, nullable=False, index=True)
-    model_name = Column(String, nullable=False)
-    model_version = Column(String, nullable=False)
-    photos_hash = Column(String(64), nullable=False)
-    visual_quality_score = Column(Integer, nullable=True)
-    visual_reasoning = Column(Text, nullable=True)
-    detected_features = Column(JSON, nullable=True)
-    renovation_level = Column(String, nullable=True)
-    raw_response = Column(JSON, nullable=False)
-    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    listing_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    model_name: Mapped[str] = mapped_column(String, nullable=False)
+    model_version: Mapped[str] = mapped_column(String, nullable=False)
+    photos_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    visual_quality_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    visual_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detected_features: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    renovation_level: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_response: Mapped[Any] = mapped_column(JSON, nullable=False)
+    extracted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -1419,80 +1618,82 @@ class AcsDemographic(Base):
 
     __tablename__ = "acs_demographics"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    geography_level = Column(String(25), nullable=False, index=True)
-    geoid = Column(String(15), nullable=False, index=True)
-    name = Column(String, nullable=True)
-    acs_year = Column(Integer, nullable=False, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    geography_level: Mapped[str] = mapped_column(String(25), nullable=False, index=True)
+    geoid: Mapped[str] = mapped_column(String(15), nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    acs_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
 
     # Population (B01001)
-    total_population = Column(Integer, nullable=True)
-    male_population = Column(Integer, nullable=True)
-    female_population = Column(Integer, nullable=True)
+    total_population: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    male_population: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    female_population: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Age (aggregated from B01001 sub-vars)
-    pop_under_18 = Column(Integer, nullable=True)
-    pop_18_to_22 = Column(Integer, nullable=True)
-    pop_23_to_29 = Column(Integer, nullable=True)
-    pop_30_to_39 = Column(Integer, nullable=True)
-    pop_40_to_49 = Column(Integer, nullable=True)
-    pop_50_to_64 = Column(Integer, nullable=True)
-    pop_65_plus = Column(Integer, nullable=True)
-    median_age = Column(Float, nullable=True)
+    pop_under_18: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_18_to_22: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_23_to_29: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_30_to_39: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_40_to_49: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_50_to_64: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pop_65_plus: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    median_age: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Race (B02001)
-    race_white = Column(Integer, nullable=True)
-    race_black = Column(Integer, nullable=True)
-    race_american_indian = Column(Integer, nullable=True)
-    race_asian = Column(Integer, nullable=True)
-    race_pacific_islander = Column(Integer, nullable=True)
-    race_other = Column(Integer, nullable=True)
-    race_two_or_more = Column(Integer, nullable=True)
+    race_white: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_black: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_american_indian: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_asian: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_pacific_islander: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_other: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_two_or_more: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Hispanic (B03003)
-    hispanic_total = Column(Integer, nullable=True)
-    not_hispanic = Column(Integer, nullable=True)
-    hispanic = Column(Integer, nullable=True)
+    hispanic_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    not_hispanic: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hispanic: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Income brackets (B19001)
-    total_households = Column(Integer, nullable=True)
-    hh_income_under_10k = Column(Integer, nullable=True)
-    hh_income_10k_to_15k = Column(Integer, nullable=True)
-    hh_income_15k_to_20k = Column(Integer, nullable=True)
-    hh_income_20k_to_25k = Column(Integer, nullable=True)
-    hh_income_25k_to_30k = Column(Integer, nullable=True)
-    hh_income_30k_to_35k = Column(Integer, nullable=True)
-    hh_income_35k_to_40k = Column(Integer, nullable=True)
-    hh_income_40k_to_45k = Column(Integer, nullable=True)
-    hh_income_45k_to_50k = Column(Integer, nullable=True)
-    hh_income_50k_to_60k = Column(Integer, nullable=True)
-    hh_income_60k_to_75k = Column(Integer, nullable=True)
-    hh_income_75k_to_100k = Column(Integer, nullable=True)
-    hh_income_100k_to_125k = Column(Integer, nullable=True)
-    hh_income_125k_to_150k = Column(Integer, nullable=True)
-    hh_income_150k_to_200k = Column(Integer, nullable=True)
-    hh_income_200k_plus = Column(Integer, nullable=True)
+    total_households: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_under_10k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_10k_to_15k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_15k_to_20k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_20k_to_25k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_25k_to_30k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_30k_to_35k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_35k_to_40k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_40k_to_45k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_45k_to_50k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_50k_to_60k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_60k_to_75k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_75k_to_100k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_100k_to_125k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_125k_to_150k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_150k_to_200k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hh_income_200k_plus: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Median income (B19013)
-    median_household_income = Column(Integer, nullable=True)
+    median_household_income: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Education (B15003, aggregated into 5 buckets, pop 25+)
-    edu_total = Column(Integer, nullable=True)
-    edu_less_than_hs = Column(Integer, nullable=True)
-    edu_high_school = Column(Integer, nullable=True)
-    edu_some_college = Column(Integer, nullable=True)
-    edu_bachelors = Column(Integer, nullable=True)
-    edu_graduate_plus = Column(Integer, nullable=True)
+    edu_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edu_less_than_hs: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edu_high_school: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edu_some_college: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edu_bachelors: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    edu_graduate_plus: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Home ownership (B25003)
-    housing_total_occupied = Column(Integer, nullable=True)
-    housing_owner_occupied = Column(Integer, nullable=True)
-    housing_renter_occupied = Column(Integer, nullable=True)
+    housing_total_occupied: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    housing_owner_occupied: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    housing_renter_occupied: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Home value (B25077)
-    median_home_value = Column(Integer, nullable=True)
+    median_home_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -1513,15 +1714,17 @@ class AcsDetailedRace(Base):
 
     __tablename__ = "acs_detailed_race"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    geography_level = Column(String(25), nullable=False)
-    geoid = Column(String(15), nullable=False)
-    acs_year = Column(Integer, nullable=False)
-    race_category = Column(String(20), nullable=False)  # e.g. "asian"
-    subgroup_code = Column(String(15), nullable=False)  # e.g. "B02015_002E"
-    subgroup_label = Column(String(60), nullable=False)  # e.g. "Asian Indian"
-    population = Column(Integer, nullable=True)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    geography_level: Mapped[str] = mapped_column(String(25), nullable=False)
+    geoid: Mapped[str] = mapped_column(String(15), nullable=False)
+    acs_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    race_category: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "asian"
+    subgroup_code: Mapped[str] = mapped_column(String(15), nullable=False)  # e.g. "B02015_002E"
+    subgroup_label: Mapped[str] = mapped_column(String(60), nullable=False)  # e.g. "Asian Indian"
+    population: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -1545,37 +1748,39 @@ class GreenspaceRegionMetric(Base):
 
     __tablename__ = "greenspace_region_metrics"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    geo_level = Column(String(25), nullable=False, index=True)
-    geoid = Column(String(15), nullable=False, index=True)
-    name = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    geo_level: Mapped[str] = mapped_column(String(25), nullable=False, index=True)
+    geoid: Mapped[str] = mapped_column(String(15), nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Raw counts
-    park_count = Column(Integer, nullable=False, default=0)
-    trail_count = Column(Integer, nullable=False, default=0)
+    park_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    trail_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Area / length
-    total_park_acres = Column(Float, nullable=False, default=0.0)
-    total_trail_miles = Column(Float, nullable=False, default=0.0)
-    greenspace_area_sqm = Column(Float, nullable=False, default=0.0)
-    region_land_area_sqm = Column(Float, nullable=False, default=0.0)
-    greenspace_ratio = Column(Float, nullable=True)
+    total_park_acres: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    total_trail_miles: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    greenspace_area_sqm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    region_land_area_sqm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    greenspace_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Population-normalized
-    population = Column(Integer, nullable=True)
-    parks_per_1k_residents = Column(Float, nullable=True)
-    greenspace_acres_per_1k_residents = Column(Float, nullable=True)
+    population: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    parks_per_1k_residents: Mapped[float | None] = mapped_column(Float, nullable=True)
+    greenspace_acres_per_1k_residents: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Z-scores (relative to peer regions)
-    greenspace_ratio_zscore = Column(Float, nullable=True)
-    park_count_zscore = Column(Float, nullable=True)
-    trail_count_zscore = Column(Float, nullable=True)
-    total_park_acres_zscore = Column(Float, nullable=True)
-    total_trail_miles_zscore = Column(Float, nullable=True)
-    parks_per_1k_zscore = Column(Float, nullable=True)
-    greenspace_acres_per_1k_zscore = Column(Float, nullable=True)
+    greenspace_ratio_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    park_count_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trail_count_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_park_acres_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_trail_miles_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    parks_per_1k_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
+    greenspace_acres_per_1k_zscore: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("geo_level", "geoid", name="uq_greenspace_region_level_geoid"),
@@ -1587,11 +1792,13 @@ class EconomicIndicator(Base):
 
     __tablename__ = "economic_indicators"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    series_id = Column(String, nullable=False)
-    observation_date = Column(Date, nullable=False)
-    value = Column(Float, nullable=False)
-    loaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    series_id: Mapped[str] = mapped_column(String, nullable=False)
+    observation_date: Mapped[date] = mapped_column(Date, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    loaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("series_id", "observation_date", name="uq_economic_series_date"),
@@ -1604,17 +1811,25 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    email = Column(String, unique=True, nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
-    display_name = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True, server_default=text("true"))
-    is_admin = Column(Boolean, default=False, server_default=text("false"))
-    oauth_provider = Column(String, nullable=True)
-    oauth_id = Column(String, nullable=True)
-    last_login_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_active: Mapped[bool | None] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    is_admin: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    oauth_provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    oauth_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
 
 
 class SavedProperty(Base):
@@ -1622,18 +1837,20 @@ class SavedProperty(Base):
 
     __tablename__ = "saved_properties"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    listing_id = Column(
+    listing_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("redfin_listings.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("user_id", "listing_id", name="uq_saved_property_user_listing"),
@@ -1645,19 +1862,29 @@ class SavedPoi(Base):
 
     __tablename__ = "saved_pois"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    match_type = Column(String, nullable=False)  # "brand" or "name"
-    match_value = Column(String, nullable=False)  # exact value to match
-    display_name = Column(String, nullable=False)  # UI label
-    category = Column(String, nullable=True)  # informational, from Overture
-    user_category = Column(String, nullable=True)  # user-defined grouping
-    marker_color = Column(String(7), nullable=True)  # hex color like #FF5733
-    marker_image_url = Column(String, nullable=True)  # optional logo URL
-    alternate_names = Column(ARRAY(String), nullable=True, server_default=text("'{}'"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    match_type: Mapped[str] = mapped_column(String, nullable=False)  # "brand" or "name"
+    match_value: Mapped[str] = mapped_column(String, nullable=False)  # exact value to match
+    display_name: Mapped[str] = mapped_column(String, nullable=False)  # UI label
+    category: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # informational, from Overture
+    user_category: Mapped[str | None] = mapped_column(
+        String, nullable=True
+    )  # user-defined grouping
+    marker_color: Mapped[str | None] = mapped_column(
+        String(7), nullable=True
+    )  # hex color like #FF5733
+    marker_image_url: Mapped[str | None] = mapped_column(String, nullable=True)  # optional logo URL
+    alternate_names: Mapped[list[str] | None] = mapped_column(
+        ARRAY(String), nullable=True, server_default=text("'{}'")
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint("user_id", "match_type", "match_value", name="uq_saved_poi_user_match"),
@@ -1669,14 +1896,18 @@ class DataRequest(Base):
 
     __tablename__ = "data_requests"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    address = Column(String, nullable=False, index=True)
-    lat = Column(Float, nullable=False)
-    lon = Column(Float, nullable=False)
-    status = Column(String, nullable=False, server_default=text("'pending'"))
-    requested_by_email = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    address: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    lon: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default=text("'pending'"))
+    requested_by_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
 
 
 class PropertyFeature(Base):
@@ -1690,7 +1921,7 @@ class PropertyFeature(Base):
     __tablename__ = "property_features"
     __table_args__ = (Index("ix_property_features_computed_at", "computed_at"),)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     property_id = Column(
         Integer,
         ForeignKey("redfin_listings.id", ondelete="CASCADE"),
@@ -1698,10 +1929,14 @@ class PropertyFeature(Base):
         nullable=False,
         index=True,
     )
-    features = Column(JSON, nullable=False)
-    feature_hash = Column(String, nullable=False)
-    computed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    features: Mapped[Any] = mapped_column(JSON, nullable=False)
+    feature_hash: Mapped[str] = mapped_column(String, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
 
 
 class PropertyShapValue(Base):
@@ -1718,17 +1953,19 @@ class PropertyShapValue(Base):
         UniqueConstraint("property_id", "model_version", name="uq_property_shap_prop_version"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     property_id = Column(
         Integer,
         ForeignKey("redfin_listings.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    model_version = Column(String, nullable=False)
-    shap_values = Column(JSON, nullable=False)
-    base_value = Column(Float, nullable=True)
-    computed_at = Column(DateTime(timezone=True), server_default=func.now())
+    model_version: Mapped[str] = mapped_column(String, nullable=False)
+    shap_values: Mapped[Any] = mapped_column(JSON, nullable=False)
+    base_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    computed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class PropertyHistoryMetric(Base):
@@ -1746,19 +1983,21 @@ class PropertyHistoryMetric(Base):
         Index("ix_phm_month", "metric_month"),
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    township_geoid = Column(String(10), nullable=False)
-    metric_month = Column(Date, nullable=False)
-    avg_days_on_market_1m = Column(Float, nullable=True)
-    avg_days_on_market_3m = Column(Float, nullable=True)
-    avg_days_on_market_1y = Column(Float, nullable=True)
-    median_sale_price_1m = Column(Float, nullable=True)
-    median_sale_price_3m = Column(Float, nullable=True)
-    median_sale_price_1y = Column(Float, nullable=True)
-    sample_count_1m = Column(Integer, nullable=True)
-    sample_count_3m = Column(Integer, nullable=True)
-    sample_count_1y = Column(Integer, nullable=True)
-    built_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    township_geoid: Mapped[str] = mapped_column(String(10), nullable=False)
+    metric_month: Mapped[date] = mapped_column(Date, nullable=False)
+    avg_days_on_market_1m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_days_on_market_3m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_days_on_market_1y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    median_sale_price_1m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    median_sale_price_3m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    median_sale_price_1y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sample_count_1m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sample_count_3m: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sample_count_1y: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class ApiKey(Base):
@@ -1766,12 +2005,16 @@ class ApiKey(Base):
 
     __tablename__ = "api_keys"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    key_hash = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_used_at = Column(DateTime(timezone=True), nullable=True)
-    is_active = Column(Boolean, default=True, server_default=text("true"))
+    key_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool | None] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )

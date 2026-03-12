@@ -395,7 +395,7 @@ def autocomplete_pois(
             PlaceName.match_type,
             PlaceName.value,
             PlaceName.category,
-            PlaceName.count,
+            PlaceName.count.label("place_count"),
         )
         .where(PlaceName.value.ilike(pattern))
         .order_by(
@@ -412,7 +412,7 @@ def autocomplete_pois(
             match_value=r.value,
             display_name=r.value,
             category=r.category,
-            count=r.count,
+            count=r.place_count,
         )
         for r in rows
     ]

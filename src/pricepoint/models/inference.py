@@ -300,7 +300,7 @@ def compute_shap_values(model: Any, features_df: pd.DataFrame) -> list[dict[str,
         results.append({"feature": name, "shap_value": float(val)})
 
     # Sort by absolute impact descending
-    results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
+    results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)  # type: ignore[arg-type]
     return results
 
 
@@ -368,7 +368,7 @@ def compute_shap_values_batch(
             {"feature": name, "shap_value": float(val)}
             for name, val in zip(feature_names, row_values, strict=True)
         ]
-        results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)
+        results.sort(key=lambda x: abs(float(x["shap_value"])), reverse=True)  # type: ignore[arg-type]
         all_results.append(results)
 
     # Convert base_value to dollar-space for storage

@@ -1,12 +1,17 @@
 """Forecast endpoint — predict home value for a given address."""
 
+from __future__ import annotations
+
 import json
 import logging
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Request
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from pricepoint.api.dependencies import get_db, get_valkey
 from pricepoint.api.rate_limit import limiter
@@ -109,7 +114,7 @@ async def _geocode_address(request: ForecastRequest) -> tuple[float, float] | No
 def _build_features_for_property(
     db: Session,
     property_id: int,
-) -> "pd.DataFrame":  # noqa: F821
+) -> pd.DataFrame:
     """Load persisted features for a property, falling back to assembly."""
     import pandas as pd
 
@@ -129,7 +134,7 @@ def _build_features_for_property(
 
 
 def _load_model_and_predict(
-    features: "pd.DataFrame",  # noqa: F821
+    features: pd.DataFrame,
 ) -> tuple[float, float, float, str]:
     """Load the production model from MLflow and generate a prediction.
 
@@ -165,20 +170,18 @@ def _get_or_create_property_id(
     """
     from geoalchemy2.functions import ST_DWithin, ST_MakePoint, ST_SetSRID
 
-    from pricepoint.db.models import PropertyDetail
+    from pricepoint.db.models import RedfinListing
 
     point = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
     existing = (
-        db.query(PropertyDetail.id)
-        .filter(ST_DWithin(PropertyDetail.location, point, 0.0005))
-        .first()
+        db.query(RedfinListing.id).filter(ST_DWithin(RedfinListing.location, point, 0.0005)).first()
     )
     if existing:
         return existing[0]
 
     # Create a temporary property record for feature engineering
-    prop = PropertyDetail(
-        address=address,
+    prop = RedfinListing(
+        street_address=address,
         location=f"SRID=4326;POINT({lon} {lat})",
     )
     db.add(prop)
@@ -301,8 +304,8 @@ def _shap_list_to_attributions(
 
     Takes top 10 positive and top 10 negative contributors.
     """
-    positive = [r for r in shap_list if float(r["shap_value"]) > 0][:10]
-    negative = [r for r in shap_list if float(r["shap_value"]) < 0][:10]
+    positive = [r for r in shap_list if float(str(r["shap_value"])) > 0][:10]
+    negative = [r for r in shap_list if float(str(r["shap_value"])) < 0][:10]
 
     results: list[FeatureAttribution] = []
     for entry in positive + negative:
@@ -313,7 +316,7 @@ def _shap_list_to_attributions(
             FeatureAttribution(
                 feature=name,
                 display_name=display,
-                impact_dollars=round(float(entry["shap_value"]), 2),
+                impact_dollars=round(float(str(entry["shap_value"])), 2),
                 group=group,
             )
         )
@@ -332,7 +335,7 @@ def _convert_log_shap_to_dollars(
     """
     import numpy as np
 
-    values = np.array([float(s["shap_value"]) for s in shap_list])
+    values = np.array([float(str(s["shap_value"])) for s in shap_list])
     log_pred = base_value + float(np.sum(values))
     dollar_base = float(np.expm1(base_value))
     dollar_pred = float(np.expm1(log_pred))
@@ -442,7 +445,7 @@ def _load_feature_importances(
                 str(entry["feature"]),
                 str(entry["feature"]).replace("_", " ").title(),
             ),
-            impact_dollars=float(entry["impact_dollars"]),
+            impact_dollars=float(str(entry["impact_dollars"])),
             group=FEATURE_GROUPS.get(str(entry["feature"]), "Other"),
         )
         for entry in _STUB_IMPORTANCES

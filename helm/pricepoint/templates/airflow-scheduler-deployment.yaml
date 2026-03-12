@@ -30,9 +30,9 @@ spec:
           args: ["scheduler"]
           env:
             - name: AIRFLOW__API_SERVER__API_URL
-              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}"
+              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}"
             - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
-              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ .Values.airflow.webserver.service.port }}/execution/v1"
+              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}/execution/v1"
             {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
             - name: AIRFLOW__KUBERNETES_EXECUTOR__POD_TEMPLATE_FILE
               value: /opt/airflow/pod-template/pod-template.yaml

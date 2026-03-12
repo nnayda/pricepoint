@@ -197,4 +197,4 @@ def delete_property_features(
         delete(PropertyFeature).where(PropertyFeature.property_id.in_(property_ids))
     )
     db.commit()
-    return result.rowcount  # type: ignore[union-attr,return-value]
+    return result.rowcount  # type: ignore[attr-defined, return-value]

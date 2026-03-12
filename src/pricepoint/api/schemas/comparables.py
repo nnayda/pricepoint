@@ -14,7 +14,7 @@ class ComparablesQuery(BaseModel):
     lon: float = Field(ge=-180, le=180)
     address: str = Field(min_length=1)
     time_period_months: Literal[3, 6, 9, 12] = 3
-    distance_miles: Literal[0.5, 1, 2, 5] = 1  # type: ignore[assignment]
+    distance_miles: float = Field(default=1.0, ge=0.5, le=5.0)
     same_schools: bool = True
     sqft_pct: int = Field(default=10, ge=0, le=40)
     lot_pct: int = Field(default=10, ge=0, le=40)

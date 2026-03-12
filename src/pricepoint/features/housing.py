@@ -238,12 +238,12 @@ def _compute_sale_features(sale_records: list[SaleHistoryRecord], now: datetime)
 
     # Sort sold events by date descending
     sold_dated = [s for s in sold_events if s.date is not None]
-    sold_dated.sort(key=lambda r: r.date, reverse=True)  # type: ignore[arg-type]
+    sold_dated.sort(key=lambda r: r.date or datetime.min, reverse=True)
 
     # years_since_last_sale
     if sold_dated:
-        last_date = sold_dated[0].date  # type: ignore[union-attr]
-        if last_date.tzinfo is None and now.tzinfo is not None:
+        last_date = sold_dated[0].date
+        if last_date is not None and last_date.tzinfo is None and now.tzinfo is not None:
             last_date = last_date.replace(tzinfo=now.tzinfo)
         delta = now - last_date  # type: ignore[operator]
         result["years_since_last_sale"] = delta.days / 365.25

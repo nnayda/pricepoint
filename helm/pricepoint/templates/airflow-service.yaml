@@ -9,7 +9,7 @@ metadata:
 spec:
   type: {{ .Values.airflow.webserver.service.type }}
   ports:
-    - port: {{ .Values.airflow.webserver.service.port }}
+    - port: {{ include "pricepoint.airflowPort" . }}
       targetPort: 8080
       protocol: TCP
   selector:

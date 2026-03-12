@@ -118,7 +118,9 @@ def _make_saved_poi(
 
 class TestAutocomplete:
     def test_returns_brand_results(self, client, mock_db):
-        brand_row = SimpleNamespace(match_type="brand", value="Costco", category="store", count=47)
+        brand_row = SimpleNamespace(
+            match_type="brand", value="Costco", category="store", place_count=47
+        )
         mock_db.execute.return_value = MagicMock(all=MagicMock(return_value=[brand_row]))
 
         resp = client.get("/api/pois/autocomplete", params={"q": "cost"})
@@ -136,7 +138,7 @@ class TestAutocomplete:
 
     def test_returns_name_results(self, client, mock_db):
         name_row = SimpleNamespace(
-            match_type="name", value="Joe's Pizza", category="restaurant", count=3
+            match_type="name", value="Joe's Pizza", category="restaurant", place_count=3
         )
         mock_db.execute.return_value = MagicMock(all=MagicMock(return_value=[name_row]))
 

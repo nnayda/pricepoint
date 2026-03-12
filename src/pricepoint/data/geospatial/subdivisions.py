@@ -202,7 +202,7 @@ def fetch_subdivisions(sources: list[SubdivisionSource] | None = None) -> dict[s
                 )
                 result = session.execute(stale)
                 session.commit()
-                deleted = result.rowcount  # type: ignore[union-attr]
+                deleted = result.rowcount  # type: ignore[attr-defined]
                 if deleted:
                     logger.info(
                         "County %s: deleted %d stale rows",

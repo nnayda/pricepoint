@@ -667,13 +667,15 @@ async def get_comparables(
             ComparableProperty(
                 id=prop.id,
                 address=full_address,
-                sale_price=prop.sold_price,
-                sold_date=prop.sold_date.strftime("%Y-%m-%d"),
+                sale_price=prop.sold_price or 0.0,
+                sold_date=prop.sold_date.strftime("%Y-%m-%d") if prop.sold_date else "",
                 beds=prop.num_beds or 0,
                 baths=prop.num_baths or 0.0,
                 sqft=prop.sqft or 0,
                 price_per_sqft=prop.price_per_sqft
-                or (round(prop.sold_price / prop.sqft, 2) if prop.sqft else 0.0),
+                or (
+                    round(prop.sold_price / prop.sqft, 2) if prop.sold_price and prop.sqft else 0.0
+                ),
                 lat=prop_point.lat,
                 lon=prop_point.lon,
             )

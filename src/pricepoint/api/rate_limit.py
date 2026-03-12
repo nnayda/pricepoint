@@ -92,4 +92,9 @@ def setup_rate_limiting(app: FastAPI) -> None:
     app.state.limiter = limiter
     app.add_middleware(RateLimitHeaderMiddleware)
     app.add_middleware(SlowAPIMiddleware)
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    async def _handle_rate_limit(request: Request, exc: Exception) -> Response:
+        assert isinstance(exc, RateLimitExceeded)
+        return _rate_limit_exceeded_handler(request, exc)
+
+    app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)

@@ -24,7 +24,7 @@ class SavedPropertyResponse(BaseModel):
     id: int
     listing_id: int
     notes: str | None = None
-    created_at: datetime
+    created_at: datetime | None = None
     listing_address: str | None = None
 
     # Enriched fields from RedfinListing

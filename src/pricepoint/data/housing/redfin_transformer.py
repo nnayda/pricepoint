@@ -1202,7 +1202,7 @@ def transform_listing(
     fire_factor = map_climate_label(staging.climate_fire_factor)
 
     # 3. Resolve location
-    location = None
+    location: Any = None
     if existing and existing.location is not None:
         location = existing.location
     else:

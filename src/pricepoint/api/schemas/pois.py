@@ -96,7 +96,7 @@ class SavedPoiResponse(BaseModel):
     marker_color: str | None = None
     marker_image_url: str | None = None
     alternate_names: list[str] | None = None
-    created_at: datetime
+    created_at: datetime | None = None
 
 
 class SavedPoiMatch(BaseModel):
