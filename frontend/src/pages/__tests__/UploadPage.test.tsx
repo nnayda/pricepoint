@@ -111,21 +111,8 @@ describe("UploadPage", () => {
     expect(btn).toBeDisabled();
   });
 
-  it("uploads files and shows success with pipeline started", async () => {
-    mockUpload.mockResolvedValue({ saved: ["listing.html"], errors: [], dag_triggered: true });
-    renderPage();
-    const input = screen.getByTestId("file-input") as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [createFile("listing.html")] } });
-    fireEvent.click(screen.getByRole("button", { name: /upload 1 file$/i }));
-    await waitFor(() => {
-      expect(screen.getByText("1 file uploaded successfully")).toBeInTheDocument();
-    });
-    expect(screen.getByText("Processing pipeline started automatically.")).toBeInTheDocument();
-    expect(mockUpload).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows fallback message when pipeline fails to start", async () => {
-    mockUpload.mockResolvedValue({ saved: ["listing.html"], errors: [], dag_triggered: false });
+  it("uploads files and shows success", async () => {
+    mockUpload.mockResolvedValue({ saved: ["listing.html"], errors: [] });
     renderPage();
     const input = screen.getByTestId("file-input") as HTMLInputElement;
     fireEvent.change(input, { target: { files: [createFile("listing.html")] } });
@@ -134,8 +121,9 @@ describe("UploadPage", () => {
       expect(screen.getByText("1 file uploaded successfully")).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/listings will be processed on the next scheduled run/i),
+      screen.getByText("Files saved. They will be processed on the next scheduled run."),
     ).toBeInTheDocument();
+    expect(mockUpload).toHaveBeenCalledTimes(1);
   });
 
   it("shows error on upload failure", async () => {

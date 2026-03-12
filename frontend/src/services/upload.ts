@@ -3,7 +3,6 @@ import axios from "axios";
 export interface UploadResult {
   saved: string[];
   errors: string[];
-  dag_triggered: boolean;
 }
 
 export async function uploadRedfinFiles(
