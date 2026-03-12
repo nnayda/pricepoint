@@ -52,6 +52,7 @@ class PoliceIncident(Base):
     crime_code = Column(String, nullable=True)
     crime_group = Column(String, nullable=True)
     crime_category = Column(String, nullable=True)
+    offense_class = Column(String, nullable=True)
     crime_description = Column(String, nullable=True)
     address = Column(String, nullable=True)
     date_of_incident = Column(Date, nullable=True)
@@ -63,6 +64,7 @@ class PoliceIncident(Base):
     __table_args__ = (
         Index("ix_police_incidents_location", location, postgresql_using="gist"),
         Index("ix_police_incidents_crime_category", crime_category),
+        Index("ix_police_incidents_offense_class", offense_class),
         Index("ix_police_incidents_date_of_incident", date_of_incident),
     )
 
@@ -574,6 +576,14 @@ class StagingRedfinListing(Base):
     loaded_at = Column(DateTime(timezone=True), server_default=func.now())
     extracted_at = Column(Date, nullable=True)
     is_processed = Column(Boolean, server_default=text("false"), nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_staging_unprocessed",
+            "id",
+            postgresql_where=text("is_processed = false"),
+        ),
+    )
 
 
 class RedfinListing(Base):
