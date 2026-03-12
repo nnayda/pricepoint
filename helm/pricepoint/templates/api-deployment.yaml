@@ -38,7 +38,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: api
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.image.tag }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.api.service.port }}
