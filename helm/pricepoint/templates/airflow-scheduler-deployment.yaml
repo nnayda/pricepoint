@@ -27,6 +27,15 @@ spec:
       {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
       serviceAccountName: {{ include "pricepoint.fullname" . }}-airflow
       {{- end }}
+      initContainers:
+        - name: fix-redfin-perms
+          image: busybox:1.37
+          command: ["sh", "-c", "chmod 2775 /opt/airflow/redfin-data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: redfin-data
+              mountPath: /opt/airflow/redfin-data
       containers:
         - name: scheduler
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
