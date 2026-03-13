@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.9 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Move db migrations from hook to init container
+  ([`dfcf034`](https://github.com/nnayda/pricepoint/-/commit/dfcf034a22188c64a8c3678bad2c917de67e56a5))
+
+
 ## v1.0.0-dev.8 (2026-03-13)
 
 ### Bug Fixes
