@@ -370,6 +370,7 @@ airflow:
     storage:
       size: 5Gi
       storageClass: ""
+      accessMode: ReadWriteOnce
 
 # External Airflow (used when airflow.enabled=false)
 externalAirflow:

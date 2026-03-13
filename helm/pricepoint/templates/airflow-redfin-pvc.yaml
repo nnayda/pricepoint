@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: airflow
 spec:
   accessModes:
-    - ReadWriteOnce
+    - {{ .Values.airflow.redfin.storage.accessMode }}
   {{- if .Values.airflow.redfin.storage.storageClass }}
   storageClassName: {{ .Values.airflow.redfin.storage.storageClass | quote }}
   {{- end }}
