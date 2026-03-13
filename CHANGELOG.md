@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.16 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Add init container to chmod redfin PVC directory for NFS access
+  ([`c1026f2`](https://github.com/nnayda/pricepoint/-/commit/c1026f2d30883a4a57367f3629d6ebc208401b58))
+
+
 ## v1.0.0-dev.15 (2026-03-13)
 
 ### Bug Fixes
