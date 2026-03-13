@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.5 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Fix subchart conflicts, image tags, and airflow command
+  ([`524bb87`](https://github.com/nnayda/pricepoint/-/commit/524bb873b62a116b505c89dc393f2c381e45f40f))
+
+- **helm**: Switch airflow from KubernetesExecutor to LocalExecutor
+  ([`2fc2f53`](https://github.com/nnayda/pricepoint/-/commit/2fc2f5360300771fee257e80c364bb17bbbfb02f))
+
+
 ## v1.0.0-dev.4 (2026-03-12)
 
 ### Bug Fixes
