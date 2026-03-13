@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.14 (2026-03-13)
+
+### Bug Fixes
+
+- **airflow**: Upgrade to 3.1.8 to fix LocalExecutor task execution failures
+  ([`a22c8d0`](https://github.com/nnayda/pricepoint/-/commit/a22c8d08db9d25e900b2fec32a561e60d1256177))
+
+
 ## v1.0.0-dev.13 (2026-03-13)
 
 ### Bug Fixes
