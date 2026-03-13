@@ -1,0 +1,80 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-dag-processor
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-dag-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pricepoint.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: airflow-dag-processor
+  template:
+    metadata:
+      labels:
+        {{- include "pricepoint.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: airflow-dag-processor
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: dag-processor
+          image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          args: ["dag-processor"]
+          env:
+            - name: AIRFLOW__API_SERVER__API_URL
+              value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}"
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-app-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
+          volumeMounts:
+            - name: airflow-logs
+              mountPath: /opt/airflow/logs
+            {{- if .Values.airflow.dagSync.enabled }}
+            - name: airflow-dags
+              mountPath: /opt/airflow/dags
+            {{- end }}
+          resources:
+            {{- toYaml .Values.airflow.dagProcessor.resources | nindent 12 }}
+      {{- if .Values.airflow.dagSync.enabled }}
+        - name: git-sync
+          image: "{{ .Values.airflow.dagSync.image.repository }}:{{ .Values.airflow.dagSync.image.tag }}"
+          env:
+            - name: GITSYNC_REPO
+              value: {{ .Values.airflow.dagSync.repo | quote }}
+            - name: GITSYNC_REF
+              value: {{ .Values.airflow.dagSync.branch | quote }}
+            - name: GITSYNC_ROOT
+              value: /git
+            - name: GITSYNC_LINK
+              value: /opt/airflow/dags
+            - name: GITSYNC_SUBPATH
+              value: {{ .Values.airflow.dagSync.subPath | quote }}
+            - name: GITSYNC_PERIOD
+              value: "60s"
+            {{- if and .Values.airflow.dagSync.credentials .Values.airflow.dagSync.credentials.username }}
+            - name: GITSYNC_USERNAME
+              value: {{ .Values.airflow.dagSync.credentials.username | quote }}
+            - name: GITSYNC_PASSWORD
+              value: {{ .Values.airflow.dagSync.credentials.password | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: airflow-dags
+              mountPath: /opt/airflow/dags
+          resources:
+            {{- toYaml .Values.airflow.dagSync.resources | nindent 12 }}
+      {{- end }}
+      volumes:
+        - name: airflow-logs
+          emptyDir: {}
+        {{- if .Values.airflow.dagSync.enabled }}
+        - name: airflow-dags
+          emptyDir: {}
+        {{- end }}
+{{- end }}

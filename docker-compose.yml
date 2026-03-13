@@ -301,6 +301,41 @@ services:
     networks:
       - pricepoint
 
+  airflow-dag-processor:
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
+    profiles: [airflow]
+    command: airflow dag-processor
+    env_file: .env
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:-postgresql://postgres:postgres@postgres:5432/airflow}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      - AIRFLOW__API_SERVER__API_URL=http://airflow-api-server:8080
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW__WEBSERVER__SECRET_KEY:-6SQ8tDPcn97CW3dCzYXt2ihp0AWue-H89v7b3XusxEQo-vKfauvLT_6FOCZMGQBRotlnnyCCLXeuTOo6DyeCBQ}
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET:-insecure-local-dev-jwt-secret==}
+      - AIRFLOW__LOGGING__BASE_LOG_FOLDER=/opt/airflow/logs
+      - AIRFLOW__LOGGING__LOGGING_LEVEL=INFO
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/pricepoint}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:-minioadmin}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:-minioadmin}
+      - S3_BUCKET=${S3_BUCKET:-pricepoint-data}
+      - AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${S3_SECRET_KEY:-minioadmin}
+      - MLFLOW_S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://minio:9000}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-api-server:
+        condition: service_healthy
+    volumes:
+      - airflow-logs:/opt/airflow/logs
+    networks:
+      - pricepoint
+
   # ---------------------------------------------------------------------------
   # Optional operations services (use with: docker compose --profile ops up)
   # ---------------------------------------------------------------------------
