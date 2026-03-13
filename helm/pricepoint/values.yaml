@@ -311,6 +311,7 @@ config:
   geocodeTimeout: "5.0"
   osrmRateLimitSeconds: "0.1"
   tigerYear: "2025"
+  redfinHtmlDir: "/opt/airflow/redfin-data"
   mlflowArtifactRoot: "s3://mlflow-artifacts"
   ollamaBaseUrl: ""
   ollamaModel: ""

@@ -45,6 +45,8 @@ data:
   NTFY_SERVER_URL: {{ .Values.config.ntfyServerUrl | quote }}
   NTFY_TOPIC: {{ .Values.config.ntfyTopic | quote }}
   {{- end }}
+  # Redfin
+  REDFIN_HTML_DIR: {{ .Values.config.redfinHtmlDir | quote }}
   # Airflow
   AIRFLOW_BASE_URL: {{ include "pricepoint.airflowBaseUrl" . | quote }}
   {{- if .Values.airflow.enabled }}
