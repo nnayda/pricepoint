@@ -15,4 +15,22 @@ spec:
   selector:
     {{- include "pricepoint.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: airflow-webserver
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-scheduler
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-scheduler
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8793
+      targetPort: 8793
+      protocol: TCP
+      name: logs
+  selector:
+    {{- include "pricepoint.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow-scheduler
 {{- end }}
