@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.20 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Set scheduler pod hostname for log server DNS resolution
+  ([`05221b7`](https://github.com/nnayda/pricepoint/-/commit/05221b77b745a96fdc7b6733cc8de3bc4e7eb98a))
+
+
 ## v1.0.0-dev.19 (2026-03-13)
 
 ### Bug Fixes
