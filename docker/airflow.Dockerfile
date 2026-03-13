@@ -1,4 +1,4 @@
-FROM apache/airflow:3.1.7-python3.12
+FROM apache/airflow:3.1.8-python3.12
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 USER airflow
 
-ARG AIRFLOW_CONSTRAINTS=https://raw.githubusercontent.com/apache/airflow/constraints-3.1.7/constraints-3.12.txt
+ARG AIRFLOW_CONSTRAINTS=https://raw.githubusercontent.com/apache/airflow/constraints-3.1.8/constraints-3.12.txt
 RUN pip install --no-cache-dir "apache-airflow-providers-fab" --constraint "${AIRFLOW_CONSTRAINTS}"
 
 # Install pricepoint dependencies (excluding packages that conflict with Airflow's pinned versions)
