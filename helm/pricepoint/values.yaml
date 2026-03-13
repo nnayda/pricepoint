@@ -376,6 +376,7 @@ airflow:
         cpu: 100m
         memory: 128Mi
   redfin:
+    fsGroup: 50000
     storage:
       size: 5Gi
       storageClass: ""

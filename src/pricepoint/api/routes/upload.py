@@ -1,6 +1,7 @@
 """File upload endpoint for Redfin HTML listings."""
 
 import logging
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, UploadFile
@@ -36,6 +37,8 @@ async def upload_redfin_html(files: list[UploadFile]) -> JSONResponse:
         try:
             content = await f.read()
             dest.write_bytes(content)
+            # Ensure group read/write for Airflow (UID 50000) + NFS
+            os.chmod(dest, 0o664)
             saved.append(f.filename)
             logger.info("Saved Redfin HTML: %s", dest)
         except Exception as exc:

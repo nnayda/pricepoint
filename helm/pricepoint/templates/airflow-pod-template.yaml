@@ -17,6 +17,9 @@ data:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: airflow-worker
     spec:
+      securityContext:
+        fsGroup: {{ .Values.airflow.redfin.fsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
       serviceAccountName: {{ include "pricepoint.fullname" . }}-airflow
       containers:
         - name: base
