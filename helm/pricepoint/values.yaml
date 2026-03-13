@@ -78,7 +78,7 @@ martin:
   replicaCount: 1
   image:
     repository: ghcr.io/maplibre/martin
-    tag: v1.3.1
+    tag: nightly
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -224,6 +224,7 @@ osrm:
   image:
     backend: osrm/osrm-backend:v5.25.0
     nginx: nginx:1.29-alpine
+    download: alpine:3.23
   extractUrl: "https://download.geofabrik.de/north-america/us/north-carolina-latest.osm.pbf"
   storage:
     size: 20Gi
