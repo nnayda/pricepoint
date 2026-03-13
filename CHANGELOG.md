@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.18 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Add scheduler log service for task log viewing
+  ([`69b45e3`](https://github.com/nnayda/pricepoint/-/commit/69b45e3c8b0f6538e2694f3cfa1cad5e949cc88b))
+
+
 ## v1.0.0-dev.17 (2026-03-13)
 
 ### Bug Fixes
