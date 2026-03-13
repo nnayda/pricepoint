@@ -21,7 +21,24 @@ spec:
         app.kubernetes.io/component: osrm
     spec:
       initContainers:
-        - name: download-and-process
+        - name: download
+          image: {{ .Values.osrm.image.download }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              PBF_FILE="/data/region.osm.pbf"
+              if [ -f "/data/car/region.osrm.cell_metrics" ] && [ -f "/data/foot/region.osrm.cell_metrics" ]; then
+                echo "Data already prepared, skipping download."
+                exit 0
+              fi
+              echo "Downloading OSM data..."
+              wget -O "$PBF_FILE" "{{ .Values.osrm.extractUrl }}"
+              echo "Download complete."
+          volumeMounts:
+            - name: osrm-data
+              mountPath: /data
+        - name: process
           image: {{ .Values.osrm.image.backend }}
           command: ["/bin/sh", "-c"]
           args:
@@ -29,16 +46,6 @@ spec:
               set -e
               DATA_DIR=/data
               PBF_FILE="$DATA_DIR/region.osm.pbf"
-
-              if [ -f "$DATA_DIR/car/region.osrm.cell_metrics" ] && [ -f "$DATA_DIR/foot/region.osrm.cell_metrics" ]; then
-                echo "Data already prepared, skipping."
-                exit 0
-              fi
-
-              echo "Downloading OSM data..."
-              apt-get update && apt-get install -y wget
-              wget -O "$PBF_FILE" "{{ .Values.osrm.extractUrl }}"
-              echo "Download complete."
 
               for PROFILE in car foot; do
                 WORK_DIR="$DATA_DIR/$PROFILE"
@@ -50,12 +57,16 @@ spec:
                 fi
 
                 cp "$PBF_FILE" "$WORK_DIR/region.osm.pbf"
+
                 echo "Extracting $PROFILE..."
                 osrm-extract -p /opt/$PROFILE.lua "$WORK_DIR/region.osm.pbf"
+
                 echo "Partitioning $PROFILE..."
                 osrm-partition "$WORK_DIR/region.osrm"
+
                 echo "Customizing $PROFILE..."
                 osrm-customize "$WORK_DIR/region.osrm"
+
                 rm -f "$WORK_DIR/region.osm.pbf"
               done
 
