@@ -36,6 +36,14 @@ spec:
                 secretKeyRef:
                   name: {{ include "pricepoint.fullname" . }}-secret
                   key: DATABASE_URL
+        - name: migrate
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.image.tag }}"
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "pricepoint.fullname" . }}-app-config
+            - secretRef:
+                name: {{ include "pricepoint.fullname" . }}-secret
       containers:
         - name: api
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.image.tag }}"
