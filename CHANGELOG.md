@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.11 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Make redfin PVC access mode configurable
+  ([`1c16aaa`](https://github.com/nnayda/pricepoint/-/commit/1c16aaa02438f1e8956666129ba5e5329281122c))
+
+- **helm**: Only mount dags emptyDir when git-sync is enabled
+  ([`8420c38`](https://github.com/nnayda/pricepoint/-/commit/8420c38d974148cb501644760c1cc80196ab72c2))
+
+
 ## v1.0.0-dev.10 (2026-03-13)
 
 ### Bug Fixes
