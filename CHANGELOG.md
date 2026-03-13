@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.10 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Use uv run for alembic migration init container
+  ([`405ae22`](https://github.com/nnayda/pricepoint/-/commit/405ae2225faf65652d5ac3c06bd6c187dc4acf02))
+
+
 ## v1.0.0-dev.9 (2026-03-13)
 
 ### Bug Fixes
