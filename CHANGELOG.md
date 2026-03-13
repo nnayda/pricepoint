@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.22 (2026-03-13)
+
+### Bug Fixes
+
+- **dag**: Add ST_MakeValid to ST_Intersects JOIN predicates in greenspace metrics
+  ([`4a7f616`](https://github.com/nnayda/pricepoint/-/commit/4a7f616212e384b9a4e28b849e75224aeb0bfb19))
+
+
 ## v1.0.0-dev.21 (2026-03-13)
 
 ### Bug Fixes
