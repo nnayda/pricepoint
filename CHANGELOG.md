@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.6 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Update martin image tag to nightly
+  ([`dce0cf5`](https://github.com/nnayda/pricepoint/-/commit/dce0cf55ebd0c3bb2ae79e5a188f4ba639df4ec7))
+
+- **osrm**: Split init container to fix wget not found on EOL Debian Stretch
+  ([`81cd93c`](https://github.com/nnayda/pricepoint/-/commit/81cd93c1cb52341e56ab61a7bf38bab9eb14e556))
+
+
 ## v1.0.0-dev.5 (2026-03-13)
 
 ### Bug Fixes
