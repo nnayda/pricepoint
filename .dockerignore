@@ -1,0 +1,49 @@
+# Version control
+.git
+.gitignore
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.cache
+
+# Test & coverage
+tests/
+coverage/
+htmlcov/
+coverage.xml
+.coverage
+
+# Frontend build artifacts (built inside Docker)
+frontend/node_modules
+frontend/coverage
+frontend/dist
+
+# Node (root level)
+node_modules
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.vscode
+.idea
+*.swp
+*.swo
+
+# CI/CD
+.gitlab-ci.yml
+
+# Documentation (not needed in images)
+docs/
+*.md
+!README.md
+
+# Helm chart (not needed in app images)
+helm/
