@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.13 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Mount redfin PVC on API pod for file uploads
+  ([`9abb7e7`](https://github.com/nnayda/pricepoint/-/commit/9abb7e76dda3ab07b1ce717045167edd568aedcf))
+
+
 ## v1.0.0-dev.12 (2026-03-13)
 
 ### Bug Fixes
