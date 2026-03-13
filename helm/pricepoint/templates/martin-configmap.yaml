@@ -11,9 +11,6 @@ data:
     listen_addresses: '0.0.0.0:3000'
     postgres:
       - connection_string: ${DATABASE_URL}
-        auto_publish:
-          from_schemas: true
-          tables:
-            source:
-              srid: 4326
+        default_srid: 4326
+        auto_publish: true
 {{- end }}
