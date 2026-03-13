@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.7 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Update martin config format for v1.x
+  ([`d6c4d94`](https://github.com/nnayda/pricepoint/-/commit/d6c4d94f87fbae01d4b07973d46ca8ce7f8140cd))
+
+
 ## v1.0.0-dev.6 (2026-03-13)
 
 ### Bug Fixes
