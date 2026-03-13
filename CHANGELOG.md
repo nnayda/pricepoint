@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.15 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Add fsGroup to redfin PVC pods for shared file access
+  ([`2a37e15`](https://github.com/nnayda/pricepoint/-/commit/2a37e15635b58a60a09970db1a8ab6116e790a92))
+
+
 ## v1.0.0-dev.14 (2026-03-13)
 
 ### Bug Fixes
