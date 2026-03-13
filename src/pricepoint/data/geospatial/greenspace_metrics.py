@@ -90,7 +90,8 @@ def compute_base_metrics(
                     )::geography) / 4046.8564224
                 ), 0) AS total_park_acres
             FROM {tiger_table} t
-            LEFT JOIN greenspaces g ON ST_Intersects(t.{geom_col}, g.geom)
+            LEFT JOIN greenspaces g
+                ON ST_Intersects(ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom))
             GROUP BY t.{geoid_col}
         ),
         trail_metrics AS (
@@ -103,7 +104,8 @@ def compute_base_metrics(
                     )::geography) / 1609.344
                 ), 0) AS total_trail_miles
             FROM {tiger_table} t
-            LEFT JOIN trails tr ON ST_Intersects(t.{geom_col}, tr.geom)
+            LEFT JOIN trails tr
+                ON ST_Intersects(ST_MakeValid(t.{geom_col}), ST_MakeValid(tr.geom))
             GROUP BY t.{geoid_col}
         )
         SELECT
