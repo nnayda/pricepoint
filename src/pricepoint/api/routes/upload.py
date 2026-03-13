@@ -37,8 +37,8 @@ async def upload_redfin_html(files: list[UploadFile]) -> JSONResponse:
         try:
             content = await f.read()
             dest.write_bytes(content)
-            # Ensure group read/write for Airflow (UID 50000) + NFS
-            os.chmod(dest, 0o664)
+            # Ensure group + other read/write for Airflow (UID 50000) + NFS clients
+            os.chmod(dest, 0o666)
             saved.append(f.filename)
             logger.info("Saved Redfin HTML: %s", dest)
         except Exception as exc:
