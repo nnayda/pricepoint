@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.21 (2026-03-13)
+
+### Bug Fixes
+
+- **dag**: Use ST_MakeValid in greenspace metrics to handle invalid geometries
+  ([`e7a3de4`](https://github.com/nnayda/pricepoint/-/commit/e7a3de40bac377f0f1d481400562eae3c14490bb))
+
+
 ## v1.0.0-dev.20 (2026-03-13)
 
 ### Bug Fixes

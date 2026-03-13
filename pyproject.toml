@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pricepoint"
-version = "1.0.0-dev.20"
+version = "1.0.0-dev.21"
 description = "Forecasting home values using geospatial, housing, and economic data"
 requires-python = ">=3.11"
 dependencies = [
