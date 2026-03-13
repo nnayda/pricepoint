@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.19 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Use world-writable perms on redfin PVC for NFS client access
+  ([`0b66c49`](https://github.com/nnayda/pricepoint/-/commit/0b66c4903c2becc80bfec87e923fcd40b3058d00))
+
+
 ## v1.0.0-dev.18 (2026-03-13)
 
 ### Bug Fixes
