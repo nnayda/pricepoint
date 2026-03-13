@@ -80,10 +80,14 @@ def compute_base_metrics(
                 t.{geoid_col} AS geoid,
                 COUNT(DISTINCT g.id) AS park_count,
                 COALESCE(SUM(
-                    ST_Area(ST_Intersection(t.{geom_col}, g.geom)::geography)
+                    ST_Area(ST_Intersection(
+                        ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom)
+                    )::geography)
                 ), 0) AS greenspace_area_sqm,
                 COALESCE(SUM(
-                    ST_Area(ST_Intersection(t.{geom_col}, g.geom)::geography) / 4046.8564224
+                    ST_Area(ST_Intersection(
+                        ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom)
+                    )::geography) / 4046.8564224
                 ), 0) AS total_park_acres
             FROM {tiger_table} t
             LEFT JOIN greenspaces g ON ST_Intersects(t.{geom_col}, g.geom)
@@ -94,7 +98,9 @@ def compute_base_metrics(
                 t.{geoid_col} AS geoid,
                 COUNT(DISTINCT tr.id) AS trail_count,
                 COALESCE(SUM(
-                    ST_Length(ST_Intersection(t.{geom_col}, tr.geom)::geography) / 1609.344
+                    ST_Length(ST_Intersection(
+                        ST_MakeValid(t.{geom_col}), ST_MakeValid(tr.geom)
+                    )::geography) / 1609.344
                 ), 0) AS total_trail_miles
             FROM {tiger_table} t
             LEFT JOIN trails tr ON ST_Intersects(t.{geom_col}, tr.geom)
