@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.12 (2026-03-13)
+
+### Bug Fixes
+
+- **airflow**: Add dag-processor deployment for Airflow 3.x
+  ([`7464122`](https://github.com/nnayda/pricepoint/-/commit/7464122ed027d1a30e150f16e9ba79bc428542c1))
+
+
 ## v1.0.0-dev.11 (2026-03-13)
 
 ### Bug Fixes
