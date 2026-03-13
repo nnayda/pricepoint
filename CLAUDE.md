@@ -98,6 +98,57 @@ Copy `.env.example` to `.env`. Key variables:
 - `MLFLOW_TRACKING_URI` — MLflow server
 - `VALKEY_URL` — Redis-compatible cache (optional)
 
+## Production Deployment
+
+The app is deployed to Kubernetes via Flux + Helm. Manifests live in `/workspace/infra/kubernetes/apps/pricepoint/`.
+
+### Deployment Structure
+
+- **Helm chart:** `helm/pricepoint/` (chart v0.2.0)
+- **Kustomize base:** `../infra/kubernetes/apps/pricepoint/base/` — Flux `HelmRelease` pointing to OCI chart registry (`pricepoint-oci`)
+- **Kustomize overlay:** `../infra/kubernetes/apps/pricepoint/overlays/nndesigns/` — production config, ingresses, SOPS-encrypted secrets
+- **Namespace:** `pricepoint`
+
+### Accessing Pods & Debugging
+
+```sh
+# List all pods
+kubectl get pods -n pricepoint
+
+# Get pod details / events (useful for crash loops, scheduling failures)
+kubectl describe pod <pod-name> -n pricepoint
+
+# Logs
+kubectl logs <pod-name> -n pricepoint                    # Main container
+kubectl logs <pod-name> -n pricepoint -c migrate         # Init container (API migration)
+kubectl logs <pod-name> -n pricepoint -c wait-for-db     # Init container (DB wait)
+kubectl logs <pod-name> -n pricepoint -c db-migrate      # Init container (Airflow DB migration)
+kubectl logs <pod-name> -n pricepoint --previous         # Previous crashed container
+kubectl logs <pod-name> -n pricepoint -f                 # Stream logs
+
+# Port-forward for local debugging (bypasses ingress)
+kubectl port-forward svc/pricepoint-api 8000:8000 -n pricepoint
+kubectl port-forward svc/pricepoint-postgres 5432:5432 -n pricepoint
+kubectl port-forward svc/pricepoint-airflow 8080:8080 -n pricepoint
+
+# Check Helm release status (via Flux)
+kubectl get helmrelease -n pricepoint
+kubectl describe helmrelease pricepoint -n pricepoint
+
+# View resource usage
+kubectl top pods -n pricepoint
+
+# Check PVCs
+kubectl get pvc -n pricepoint
+
+# Run a one-off database query
+kubectl exec -it <postgres-pod> -n pricepoint -- psql -U pricepoint -d pricepoint
+
+# Check Airflow DAG runs
+kubectl exec -it <airflow-webserver-pod> -n pricepoint -- airflow dags list
+kubectl exec -it <airflow-scheduler-pod> -n pricepoint -- airflow tasks list <dag_id>
+```
+
 ## Gotchas
 
 - **Airflow deps:** Airflow is installed separately in its Dockerfile to avoid SQLAlchemy version conflicts — don't add it to `pyproject.toml`

@@ -47,8 +47,10 @@ spec:
           volumeMounts:
             - name: airflow-logs
               mountPath: /opt/airflow/logs
+            {{- if .Values.airflow.dagSync.enabled }}
             - name: airflow-dags
               mountPath: /opt/airflow/dags
+            {{- end }}
             - name: redfin-data
               mountPath: /opt/airflow/redfin-data
             {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
@@ -88,8 +90,10 @@ spec:
       volumes:
         - name: airflow-logs
           emptyDir: {}
+        {{- if .Values.airflow.dagSync.enabled }}
         - name: airflow-dags
           emptyDir: {}
+        {{- end }}
         - name: redfin-data
           persistentVolumeClaim:
             claimName: {{ include "pricepoint.fullname" . }}-airflow-redfin
