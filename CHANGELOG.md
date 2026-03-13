@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.8 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Fix martin config to match v1.x schema
+  ([`3c357b2`](https://github.com/nnayda/pricepoint/-/commit/3c357b2082af8e787164080727bae6975a1a7950))
+
+
 ## v1.0.0-dev.7 (2026-03-13)
 
 ### Bug Fixes
