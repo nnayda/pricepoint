@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.17 (2026-03-13)
+
+### Bug Fixes
+
+- **helm**: Chown redfin PVC directory group to fsGroup for NFS access
+  ([`aedcb95`](https://github.com/nnayda/pricepoint/-/commit/aedcb95f1b84a210c6a3f4ec0c8df48907c72fe2))
+
+- **helm**: Remove /v1 from Airflow execution API server URL
+  ([`9f92ec7`](https://github.com/nnayda/pricepoint/-/commit/9f92ec75abb19af436127c9f62419b3ce4022bcf))
+
+
 ## v1.0.0-dev.16 (2026-03-13)
 
 ### Bug Fixes
