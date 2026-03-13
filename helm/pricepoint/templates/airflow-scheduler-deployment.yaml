@@ -24,6 +24,8 @@ spec:
       securityContext:
         fsGroup: {{ .Values.airflow.redfin.fsGroup }}
         fsGroupChangePolicy: OnRootMismatch
+      hostname: {{ include "pricepoint.fullname" . }}-airflow-scheduler
+      subdomain: {{ include "pricepoint.fullname" . }}-airflow-scheduler
       {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
       serviceAccountName: {{ include "pricepoint.fullname" . }}-airflow
       {{- end }}
@@ -45,8 +47,6 @@ spec:
               value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}"
             - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
               value: "http://{{ include "pricepoint.fullname" . }}-airflow:{{ include "pricepoint.airflowPort" . }}/execution/"
-            - name: AIRFLOW__LOGGING__WORKER_LOG_SERVER_HOST
-              value: "{{ include "pricepoint.fullname" . }}-airflow-scheduler"
             {{- if eq (.Values.airflow.executor | default "LocalExecutor") "KubernetesExecutor" }}
             - name: AIRFLOW__KUBERNETES_EXECUTOR__POD_TEMPLATE_FILE
               value: /opt/airflow/pod-template/pod-template.yaml
