@@ -1,0 +1,18 @@
+{{- if .Values.airflow.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-airflow-logs
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: airflow
+spec:
+  accessModes:
+    - {{ .Values.airflow.logs.storage.accessMode }}
+  {{- if .Values.airflow.logs.storage.storageClass }}
+  storageClassName: {{ .Values.airflow.logs.storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.airflow.logs.storage.size }}
+{{- end }}

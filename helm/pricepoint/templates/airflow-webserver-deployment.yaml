@@ -74,5 +74,6 @@ spec:
             {{- toYaml .Values.airflow.webserver.resources | nindent 12 }}
       volumes:
         - name: airflow-logs
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-airflow-logs
 {{- end }}

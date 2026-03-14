@@ -72,7 +72,8 @@ spec:
       {{- end }}
       volumes:
         - name: airflow-logs
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-airflow-logs
         {{- if .Values.airflow.dagSync.enabled }}
         - name: airflow-dags
           emptyDir: {}

@@ -77,7 +77,8 @@ data:
       {{- end }}
       volumes:
         - name: airflow-logs
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: {{ include "pricepoint.fullname" . }}-airflow-logs
         - name: airflow-dags
           emptyDir: {}
         - name: redfin-data

@@ -375,6 +375,11 @@ airflow:
       limits:
         cpu: 100m
         memory: 128Mi
+  logs:
+    storage:
+      size: 5Gi
+      storageClass: ""
+      accessMode: ReadWriteMany
   redfin:
     fsGroup: 50000
     storage:
