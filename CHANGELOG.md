@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.23 (2026-03-14)
+
+### Bug Fixes
+
+- **helm**: Add shared PVC for Airflow logs so webserver can read task logs
+  ([`35e3280`](https://github.com/nnayda/pricepoint/-/commit/35e3280c403d1ffe8e58f2d5349cbc5aec38ac47))
+
+
 ## v1.0.0-dev.22 (2026-03-13)
 
 ### Bug Fixes
