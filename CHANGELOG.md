@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.24 (2026-03-14)
+
+### Bug Fixes
+
+- **helm**: Add fsGroup to dag-processor and webserver for shared logs PVC
+  ([`5b2bbbb`](https://github.com/nnayda/pricepoint/-/commit/5b2bbbb7a025f30d374c61f55a2ab0844fff4544))
+
+
 ## v1.0.0-dev.23 (2026-03-14)
 
 ### Bug Fixes
