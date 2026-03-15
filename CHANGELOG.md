@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.30 (2026-03-15)
+
+### Bug Fixes
+
+- **dag**: Wrap ST_MakeValid with ST_CollectionExtract to preserve column type
+  ([`85786dc`](https://github.com/nnayda/pricepoint/-/commit/85786dc6ffa3ab4bab178acc0fece54e919bae94))
+
+
 ## v1.0.0-dev.29 (2026-03-15)
 
 ### Bug Fixes
