@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.29 (2026-03-15)
+
+### Bug Fixes
+
+- **dag**: Batch greenspace_region_metrics queries and validate geometries upfront
+  ([`b798739`](https://github.com/nnayda/pricepoint/-/commit/b798739e971f68573260d88115ca973e71669668))
+
+
 ## v1.0.0-dev.28 (2026-03-15)
 
 ### Bug Fixes
