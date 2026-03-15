@@ -44,7 +44,7 @@ class TestValidateGeometries:
 
         assert len(results) == 6
         assert session.execute.call_count == 6
-        for table in _VALIDATE_TABLES:
+        for table, _dim in _VALIDATE_TABLES:
             assert table in results
 
     def test_commits_after_each_table(self):
@@ -78,8 +78,8 @@ class TestValidateGeometries:
         assert results["townships"] == 1
         assert results["counties"] == 0
 
-    def test_sql_does_not_contain_st_make_valid_in_join(self):
-        """SQL should only use ST_MakeValid in SET, not in a JOIN condition."""
+    def test_sql_wraps_with_collection_extract_and_multi(self):
+        """SQL should wrap ST_MakeValid with ST_CollectionExtract+ST_Multi."""
         session = MagicMock()
         mock_result = MagicMock()
         mock_result.rowcount = 0
@@ -89,7 +89,7 @@ class TestValidateGeometries:
 
         for c in session.execute.call_args_list:
             sql_text = str(c[0][0].text)
-            assert "ST_MakeValid(geom)" in sql_text
+            assert "ST_Multi(ST_CollectionExtract(ST_MakeValid(geom)" in sql_text
             assert "ST_IsValid(geom)" in sql_text
 
 
@@ -491,10 +491,17 @@ class TestConstants:
         assert BATCH_PREFIX_LEN == ZSCORE_PARENT_PREFIX
 
     def test_validate_tables_list(self):
-        """Should validate all 6 source tables."""
+        """Should validate all 6 source tables with correct geometry dimensions."""
         assert len(_VALIDATE_TABLES) == 6
-        assert "greenspaces" in _VALIDATE_TABLES
-        assert "trails" in _VALIDATE_TABLES
+        table_names = [t for t, _d in _VALIDATE_TABLES]
+        assert "greenspaces" in table_names
+        assert "trails" in table_names
+        # trails are linestrings (dim 2), everything else is polygons (dim 3)
+        for table, dim in _VALIDATE_TABLES:
+            if table == "trails":
+                assert dim == 2
+            else:
+                assert dim == 3
 
     def test_commit_interval_is_positive(self):
         """Commit interval should be a positive integer."""

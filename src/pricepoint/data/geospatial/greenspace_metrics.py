@@ -68,30 +68,32 @@ BATCH_PREFIX_LEN: dict[str, int] = {
 # How many batches between commits
 _COMMIT_INTERVAL = 5
 
-# Tables to validate geometries for
-_VALIDATE_TABLES = [
-    "greenspaces",
-    "trails",
-    "block_groups",
-    "tracts",
-    "townships",
-    "counties",
+# Tables to validate geometries for → (table, ST_CollectionExtract dimension)
+# 3 = polygon/multipolygon, 2 = linestring/multilinestring
+_VALIDATE_TABLES: list[tuple[str, int]] = [
+    ("greenspaces", 3),
+    ("trails", 2),
+    ("block_groups", 3),
+    ("tracts", 3),
+    ("townships", 3),
+    ("counties", 3),
 ]
 
 
 def validate_geometries(session: Session) -> dict[str, int]:
     """Fix invalid geometries in source tables using ST_MakeValid.
 
-    Updates geometries in-place so that spatial joins can use GiST indexes
-    without wrapping columns in ST_MakeValid() at query time.
+    Wraps ST_MakeValid output with ST_Multi(ST_CollectionExtract(...))
+    to ensure the result matches the column's Multi* geometry type, since
+    ST_MakeValid can produce GeometryCollections.
 
     Returns a dict of {table_name: rows_fixed}.
     """
     results: dict[str, int] = {}
-    for table in _VALIDATE_TABLES:
+    for table, dimension in _VALIDATE_TABLES:
         sql = text(f"""
             UPDATE {table}
-            SET geom = ST_MakeValid(geom)
+            SET geom = ST_Multi(ST_CollectionExtract(ST_MakeValid(geom), {dimension}))
             WHERE NOT ST_IsValid(geom)
         """)
         result = session.execute(sql)
