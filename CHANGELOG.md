@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.25 (2026-03-15)
+
+### Bug Fixes
+
+- **dag**: Handle overlapping school districts in gold builder
+  ([`75f21ec`](https://github.com/nnayda/pricepoint/-/commit/75f21ec5d53f9b6e0a91ea55b781d97d8b5ab46f))
+
+
 ## v1.0.0-dev.24 (2026-03-14)
 
 ### Bug Fixes
