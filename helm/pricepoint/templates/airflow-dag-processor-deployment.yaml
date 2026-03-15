@@ -27,6 +27,7 @@ spec:
       containers:
         - name: dag-processor
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           args: ["dag-processor"]
           env:
             - name: AIRFLOW__API_SERVER__API_URL

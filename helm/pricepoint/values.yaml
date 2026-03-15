@@ -13,7 +13,7 @@ api:
   image:
     repository: pricepoint/api
     tag: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 8000
@@ -36,7 +36,7 @@ frontend:
   image:
     repository: pricepoint/frontend
     tag: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 80
@@ -59,7 +59,7 @@ mlflow:
   image:
     repository: pricepoint/mlflow
     tag: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 5000
@@ -328,6 +328,7 @@ airflow:
   image:
     repository: apache/airflow
     tag: "3.0.2-python3.12"
+    pullPolicy: Always
   webserver:
     service:
       type: ClusterIP

@@ -41,6 +41,7 @@ spec:
       containers:
         - name: scheduler
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           args: ["scheduler"]
           env:
             - name: AIRFLOW__API_SERVER__API_URL

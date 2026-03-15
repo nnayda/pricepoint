@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @dag(
     dag_id="property_history_metrics",
     description="Build rolling market metrics by township from sold listings",
-    schedule=[Asset("redfin_listings")],
+    schedule=[Asset("redfin_listings"), Asset("property_geo_lookups")],
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args={

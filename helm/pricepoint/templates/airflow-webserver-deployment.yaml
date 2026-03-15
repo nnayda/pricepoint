@@ -30,6 +30,7 @@ spec:
       initContainers:
         - name: db-migrate
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           command: ["bash", "-c"]
           args:
             - |
@@ -49,6 +50,7 @@ spec:
       containers:
         - name: webserver
           image: "{{ .Values.airflow.image.repository }}:{{ .Values.airflow.image.tag }}"
+          imagePullPolicy: {{ .Values.airflow.image.pullPolicy }}
           args: ["api-server"]
           ports:
             - containerPort: 8080
