@@ -314,6 +314,8 @@ class SchoolDistrict(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
+    __table_args__ = (Index("ix_school_districts_geom", "geom", postgresql_using="gist"),)
+
 
 class County(Base):
     """US Census TIGER/Line county boundaries (COUNTY)."""
@@ -877,6 +879,7 @@ class RedfinListing(Base):
             "zip_code",
             unique=True,
         ),
+        Index("ix_redfin_listings_location", "location", postgresql_using="gist"),
     )
 
 
@@ -977,6 +980,8 @@ class School(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    __table_args__ = (Index("ix_schools_location", "location", postgresql_using="gist"),)
 
 
 class PropertySchool(Base):
@@ -1084,6 +1089,8 @@ class NcesSchool(Base):
     loaded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    __table_args__ = (Index("ix_nces_schools_location", "location", postgresql_using="gist"),)
 
 
 class WakeSubdivision(Base):
