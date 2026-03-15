@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.27 (2026-03-15)
+
+### Performance Improvements
+
+- **dag**: Optimize school gold builder with bulk queries and spatial indexes
+  ([`f996413`](https://github.com/nnayda/pricepoint/-/commit/f996413de6451618bb124180c86e8bb4ca6673a8))
+
+
 ## v1.0.0-dev.26 (2026-03-15)
 
 ### Bug Fixes
