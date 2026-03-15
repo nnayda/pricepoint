@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.26 (2026-03-15)
+
+### Bug Fixes
+
+- **helm,dag**: Add imagePullPolicy Always and missing DAG dependency
+  ([`f8fca13`](https://github.com/nnayda/pricepoint/-/commit/f8fca1358080abdadd5214d9b6e52f1bb41d6ed4))
+
+
 ## v1.0.0-dev.25 (2026-03-15)
 
 ### Bug Fixes
