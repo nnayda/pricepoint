@@ -4,12 +4,15 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 from pricepoint.data.housing.school_gold_builder import (
+    _COMMIT_BATCH_SIZE,
+    _PROPERTY_CHUNK_SIZE,
     _build_grades_string,
     _extract_nces_extras,
     _find_district_id,
     _get_dirty_properties,
     _match_redfin_rating,
     _match_redfin_to_gold,
+    _preload_redfin_data,
     build_schools_gold,
 )
 
@@ -472,3 +475,100 @@ class TestGetDirtyProperties:
 
         result = _get_dirty_properties(session)
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# _preload_redfin_data
+# ---------------------------------------------------------------------------
+class TestPreloadRedfinData:
+    def test_loads_links_and_schools(self):
+        """Pre-loads property-school links and referenced RedfinSchool records."""
+        link1 = MagicMock()
+        link1.property_id = 1
+        link1.redfin_school_id = 10
+
+        link2 = MagicMock()
+        link2.property_id = 1
+        link2.redfin_school_id = 20
+
+        link3 = MagicMock()
+        link3.property_id = 2
+        link3.redfin_school_id = 10
+
+        redfin_school_10 = MagicMock()
+        redfin_school_10.id = 10
+        redfin_school_20 = MagicMock()
+        redfin_school_20.id = 20
+
+        session = MagicMock()
+        call_count = [0]
+
+        def mock_execute(stmt):
+            result = MagicMock()
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # RedfinPropertySchool links
+                result.scalars.return_value.all.return_value = [link1, link2, link3]
+            elif call_count[0] == 2:
+                # RedfinSchool records
+                result.scalars.return_value.all.return_value = [
+                    redfin_school_10,
+                    redfin_school_20,
+                ]
+            return result
+
+        session.execute.side_effect = mock_execute
+
+        links_by_prop, schools_by_id = _preload_redfin_data(session, [1, 2])
+
+        assert len(links_by_prop[1]) == 2
+        assert len(links_by_prop[2]) == 1
+        assert schools_by_id[10] is redfin_school_10
+        assert schools_by_id[20] is redfin_school_20
+
+    def test_empty_properties(self):
+        """Returns empty dicts for empty property list."""
+        session = MagicMock()
+        call_count = [0]
+
+        def mock_execute(stmt):
+            result = MagicMock()
+            call_count[0] += 1
+            if call_count[0] == 1:
+                result.scalars.return_value.all.return_value = []
+            return result
+
+        session.execute.side_effect = mock_execute
+
+        links_by_prop, schools_by_id = _preload_redfin_data(session, [])
+        assert links_by_prop == {}
+        assert schools_by_id == {}
+
+    def test_no_redfin_schools_referenced(self):
+        """When no links exist, schools dict is empty."""
+        session = MagicMock()
+        call_count = [0]
+
+        def mock_execute(stmt):
+            result = MagicMock()
+            call_count[0] += 1
+            if call_count[0] == 1:
+                result.scalars.return_value.all.return_value = []
+            return result
+
+        session.execute.side_effect = mock_execute
+
+        links_by_prop, schools_by_id = _preload_redfin_data(session, [1, 2])
+        assert links_by_prop == {1: [], 2: []}
+        assert schools_by_id == {}
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+class TestConstants:
+    def test_chunk_size_is_reasonable(self):
+        assert _PROPERTY_CHUNK_SIZE == 500
+
+    def test_commit_batch_size(self):
+        assert _COMMIT_BATCH_SIZE == 50

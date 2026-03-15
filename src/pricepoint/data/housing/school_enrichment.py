@@ -227,6 +227,7 @@ def _get_travel_times_chunk(
     origin_lon: float,
     destinations: list[tuple[float, float]],
     profile: str,
+    client: httpx.Client | None = None,
 ) -> list[dict[str, float | None]]:
     """Single OSRM Table API call for a chunk of destinations."""
     settings = get_settings()
@@ -241,7 +242,8 @@ def _get_travel_times_chunk(
     url = f"{settings.osrm_base_url}/table/v1/{profile}/{coords}"
 
     try:
-        resp = httpx.get(
+        http = client or httpx
+        resp = http.get(
             url,
             params={"sources": "0", "annotations": "duration,distance"},
             timeout=30,
@@ -291,6 +293,7 @@ def get_travel_times_batch(
     origin_lon: float,
     destinations: list[tuple[float, float]],
     profile: str = "driving",
+    client: httpx.Client | None = None,
 ) -> list[dict[str, float | None]]:
     """1-to-N travel times/distances via OSRM Table API.
 
@@ -303,6 +306,7 @@ def get_travel_times_batch(
         destinations: List of (lat, lon) tuples for each destination.
         profile: OSRM routing profile ("driving" or "walking"). The self-hosted
             setup uses an nginx proxy to route each profile to its own OSRM backend.
+        client: Optional shared httpx.Client for connection reuse across calls.
 
     Returns:
         List of {"duration_minutes": float | None, "distance_miles": float | None}
@@ -323,7 +327,9 @@ def get_travel_times_batch(
     results: list[dict[str, float | None]] = []
     for start in range(0, len(destinations), _OSRM_CHUNK_SIZE):
         chunk = destinations[start : start + _OSRM_CHUNK_SIZE]
-        chunk_results = _get_travel_times_chunk(origin_lat, origin_lon, chunk, profile)
+        chunk_results = _get_travel_times_chunk(
+            origin_lat, origin_lon, chunk, profile, client=client
+        )
         results.extend(chunk_results)
         # Stop early if profile was just marked unavailable
         if profile in _unavailable_profiles:

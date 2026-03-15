@@ -58,8 +58,10 @@ class Settings(BaseSettings):
 
     # OSRM routing — self-hosted setup uses nginx proxy to route "driving"
     # and "walking" profiles to separate OSRM backend instances.
+    # Set OSRM_RATE_LIMIT_SECONDS=0 for self-hosted OSRM (no rate limit needed).
     osrm_base_url: str = "https://router.project-osrm.org"
     osrm_rate_limit_seconds: float = 1.0
+    osrm_max_parallel_properties: int = 4
 
     # Wake County Subdivisions (ArcGIS MapServer)
     wake_subdivisions_base_url: str = (

@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
 
+import httpx
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
 from geoalchemy2.types import Geography
@@ -44,6 +45,12 @@ _MINIMUM_EXPECTED_SCHOOLS = 100
 
 # Meters per mile for ST_DWithin conversion
 _METERS_PER_MILE = 1609.344
+
+# Number of properties to process per chunk for bulk operations
+_PROPERTY_CHUNK_SIZE = 500
+
+# Number of properties to commit per batch
+_COMMIT_BATCH_SIZE = 50
 
 
 def _to_wkt_element(location: object) -> WKTElement:
@@ -251,6 +258,84 @@ def _get_nearby_gold_schools(
 
 
 # ---------------------------------------------------------------------------
+# Bulk spatial helpers
+# ---------------------------------------------------------------------------
+
+
+def _bulk_nearby_schools_with_distances(
+    session: Session,
+    property_ids: list[int],
+    radius_miles: float = 15.0,
+) -> dict[int, list[tuple[int, float]]]:
+    """Bulk query: for each property, find all schools within radius_miles.
+
+    Returns dict mapping property_id -> list of (school_id, distance_miles).
+    Uses a single cross-join query with ST_DWithin for the entire chunk.
+    """
+    if not property_ids:
+        return {}
+
+    radius_m = radius_miles * _METERS_PER_MILE
+
+    stmt = select(
+        RedfinListing.id.label("property_id"),
+        School.id.label("school_id"),
+        func.ST_Distance(
+            cast(School.location, Geography),
+            cast(RedfinListing.location, Geography),
+        ).label("dist_m"),
+    ).where(
+        RedfinListing.id.in_(property_ids),
+        RedfinListing.location.isnot(None),
+        School.location.isnot(None),
+        func.ST_DWithin(
+            cast(School.location, Geography),
+            cast(RedfinListing.location, Geography),
+            radius_m,
+        ),
+    )
+
+    rows = session.execute(stmt).all()
+
+    result: dict[int, list[tuple[int, float]]] = {pid: [] for pid in property_ids}
+    for row in rows:
+        dist_miles = round(row.dist_m / _METERS_PER_MILE, 1) if row.dist_m is not None else 0.0
+        result[row.property_id].append((row.school_id, dist_miles))
+
+    return result
+
+
+def _bulk_district_containment(
+    session: Session,
+    property_ids: list[int],
+) -> dict[int, list[int]]:
+    """Bulk query: for each property, find all containing school districts.
+
+    Returns dict mapping property_id -> list of district_ids.
+    Uses a single cross-join query with ST_Contains for the entire chunk.
+    """
+    if not property_ids:
+        return {}
+
+    stmt = select(
+        RedfinListing.id.label("property_id"),
+        SchoolDistrict.id.label("district_id"),
+    ).where(
+        RedfinListing.id.in_(property_ids),
+        RedfinListing.location.isnot(None),
+        func.ST_Contains(SchoolDistrict.geom, RedfinListing.location),
+    )
+
+    rows = session.execute(stmt).all()
+
+    result: dict[int, list[int]] = {pid: [] for pid in property_ids}
+    for row in rows:
+        result[row.property_id].append(row.district_id)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Gold builders
 # ---------------------------------------------------------------------------
 
@@ -409,16 +494,79 @@ def _get_dirty_properties(session: Session) -> list[RedfinListing]:
     )
 
 
+def _preload_redfin_data(
+    session: Session, property_ids: list[int]
+) -> tuple[dict[int, list[RedfinPropertySchool]], dict[int, RedfinSchool]]:
+    """Pre-load all Redfin school linkage data for a set of properties.
+
+    Returns:
+        (links_by_property_id, redfin_schools_by_id)
+    """
+    # Load all property-school links for these properties
+    links = (
+        session.execute(
+            select(RedfinPropertySchool).where(RedfinPropertySchool.property_id.in_(property_ids))
+        )
+        .scalars()
+        .all()
+    )
+    links_by_prop: dict[int, list[RedfinPropertySchool]] = {pid: [] for pid in property_ids}
+    referenced_school_ids: set[int] = set()
+    for link in links:
+        links_by_prop[link.property_id].append(link)
+        referenced_school_ids.add(link.redfin_school_id)
+
+    # Load all referenced RedfinSchool records
+    redfin_schools_by_id: dict[int, RedfinSchool] = {}
+    if referenced_school_ids:
+        redfin_schools = (
+            session.execute(select(RedfinSchool).where(RedfinSchool.id.in_(referenced_school_ids)))
+            .scalars()
+            .all()
+        )
+        redfin_schools_by_id = {rs.id: rs for rs in redfin_schools}
+
+    return links_by_prop, redfin_schools_by_id
+
+
+def _process_property_osrm(
+    prop_lat: float,
+    prop_lon: float,
+    dest_coords: list[tuple[float, float]],
+    client: httpx.Client | None = None,
+) -> tuple[list[dict[str, float | None]], list[dict[str, float | None]]]:
+    """Compute OSRM travel times for a single property (driving + walking in parallel)."""
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        car_future = pool.submit(
+            get_travel_times_batch,
+            prop_lat,
+            prop_lon,
+            dest_coords,
+            profile="driving",
+            client=client,
+        )
+        foot_future = pool.submit(
+            get_travel_times_batch,
+            prop_lat,
+            prop_lon,
+            dest_coords,
+            profile="walking",
+            client=client,
+        )
+        return car_future.result(), foot_future.result()
+
+
 def build_property_schools_gold(session: Session) -> dict[str, int]:
     """Build the gold ``property_schools`` table incrementally.
 
     Only processes dirty properties (new or re-transformed since last gold build).
-    Uses OSRM Table API for batch travel times instead of per-pair route calls.
+    Uses bulk spatial queries and batch commits for performance.
 
     Returns stats dict with 'assigned', 'district', 'total', 'skipped', 'errors' counts.
     """
     # Load all gold schools for matching
     gold_schools = session.execute(select(School)).scalars().all()
+    gold_by_id: dict[int, School] = {gs.id: gs for gs in gold_schools}  # type: ignore[misc]
     gold_by_district: dict[int, list[School]] = {}
     for gs in gold_schools:
         if gs.district_id is not None:
@@ -446,172 +594,184 @@ def build_property_schools_gold(session: Session) -> dict[str, int]:
     start_time = time.monotonic()
     total_dirty = len(dirty_listings)
     last_log_time = start_time
+    processed_count = 0
 
-    for idx, prop in enumerate(dirty_listings, 1):
-        try:
-            prop_point = to_shape(prop.location)  # type: ignore[arg-type]
-            prop_lat, prop_lon = prop_point.y, prop_point.x
+    # Build lookup of dirty properties by id
+    dirty_by_id: dict[int, RedfinListing] = {p.id: p for p in dirty_listings}
+    all_dirty_ids = list(dirty_by_id.keys())
 
-            # Convert WKBElement to WKTElement for use as bind parameter
-            prop_wkt = _to_wkt_element(prop.location)
+    # Pre-load all Redfin data in bulk
+    logger.info("Pre-loading Redfin school data for %d properties", total_dirty)
+    redfin_links_by_prop, redfin_schools_by_id = _preload_redfin_data(session, all_dirty_ids)
 
-            # Delete existing links for this property (rebuild them)
-            session.execute(delete(PropertySchool).where(PropertySchool.property_id == prop.id))
+    # Use shared httpx client for OSRM connection reuse
+    with httpx.Client(timeout=30) as osrm_client:
+        # Process in chunks for bulk spatial queries
+        for chunk_start in range(0, len(all_dirty_ids), _PROPERTY_CHUNK_SIZE):
+            chunk_ids = all_dirty_ids[chunk_start : chunk_start + _PROPERTY_CHUNK_SIZE]
 
-            linked_gold_ids: set[int] = set()
+            # Bulk spatial queries for this chunk
+            nearby_schools = _bulk_nearby_schools_with_distances(session, chunk_ids)
+            district_containment = _bulk_district_containment(session, chunk_ids)
 
-            # Pre-filter gold schools by proximity to the property (15 mi)
-            nearby_gold = _get_nearby_gold_schools(session, prop.location, list(gold_schools))
+            # Bulk delete existing PropertySchool records for this chunk
+            session.execute(delete(PropertySchool).where(PropertySchool.property_id.in_(chunk_ids)))
 
-            # 1. Match Redfin-assigned schools
-            redfin_links = (
-                session.execute(
-                    select(RedfinPropertySchool).where(RedfinPropertySchool.property_id == prop.id)
-                )
-                .scalars()
-                .all()
-            )
+            # Process each property in the chunk
+            batch_count = 0
+            for prop_id in chunk_ids:
+                prop = dirty_by_id[prop_id]
+                try:
+                    # Use SAVEPOINT for per-property error isolation
+                    nested = session.begin_nested()
 
-            assigned_pairs: list[tuple[School, bool]] = []
-            for link in redfin_links:
-                redfin_school = session.get(RedfinSchool, link.redfin_school_id)
-                if not redfin_school:
-                    continue
+                    prop_point = to_shape(prop.location)  # type: ignore[arg-type]
+                    prop_lat, prop_lon = prop_point.y, prop_point.x
 
-                gold_match = _match_redfin_to_gold(redfin_school, nearby_gold)
-                if gold_match and gold_match.id not in linked_gold_ids:
-                    assigned_pairs.append((gold_match, True))
-                    linked_gold_ids.add(gold_match.id)  # type: ignore[arg-type]
-                    stats["assigned"] += 1
+                    linked_gold_ids: set[int] = set()
 
-            # 2. Add district schools not already linked
-            district_ids = (
-                session.execute(
-                    select(SchoolDistrict.id).where(func.ST_Contains(SchoolDistrict.geom, prop_wkt))
-                )
-                .scalars()
-                .all()
-            )
+                    # Build set of nearby school IDs for this property
+                    nearby_for_prop = nearby_schools.get(prop_id, [])
+                    nearby_school_ids = {sid for sid, _ in nearby_for_prop}
+                    dist_by_school_id = {sid: dist for sid, dist in nearby_for_prop}
 
-            district_pairs: list[tuple[School, bool]] = []
-            for did in district_ids:
-                for gs in gold_by_district.get(did, []):
-                    if gs.id in linked_gold_ids:
-                        continue
-                    district_pairs.append((gs, False))
-                    linked_gold_ids.add(gs.id)  # type: ignore[arg-type]
-                    stats["district"] += 1
+                    # Filter gold schools to nearby ones
+                    nearby_gold = [
+                        gold_by_id[sid] for sid in nearby_school_ids if sid in gold_by_id
+                    ]
 
-            # 3. Batch compute travel times via OSRM Table API
-            all_pairs = assigned_pairs + district_pairs
-            schools_with_location = [
-                (i, s) for i, (s, _) in enumerate(all_pairs) if s.location is not None
-            ]
-            dest_coords = [
-                (to_shape(s.location).y, to_shape(s.location).x)  # type: ignore[arg-type]
-                for _, s in schools_with_location
-            ]
+                    # 1. Match Redfin-assigned schools (dict lookups, no SQL)
+                    assigned_pairs: list[tuple[School, bool]] = []
+                    for link in redfin_links_by_prop.get(prop_id, []):
+                        redfin_school = redfin_schools_by_id.get(link.redfin_school_id)
+                        if not redfin_school:
+                            continue
 
-            # Compute distances via PostGIS (single query for all schools)
-            distances_miles: dict[int, float] = {}
-            if schools_with_location:
-                school_ids_for_dist = [s.id for _, s in schools_with_location]
-                dist_rows = session.execute(
-                    select(
-                        School.id,
-                        func.ST_Distance(
-                            cast(School.location, Geography),
-                            cast(prop_wkt, Geography),
-                        ).label("dist_m"),
-                    ).where(School.id.in_(school_ids_for_dist))
-                ).all()
-                dist_by_school_id = {row.id: row.dist_m for row in dist_rows}
-                for pair_idx, school in schools_with_location:
-                    dist_m = dist_by_school_id.get(school.id)
-                    if dist_m is not None:
-                        distances_miles[pair_idx] = round(dist_m / _METERS_PER_MILE, 1)
+                        gold_match = _match_redfin_to_gold(redfin_school, nearby_gold)
+                        if gold_match and gold_match.id not in linked_gold_ids:
+                            assigned_pairs.append((gold_match, True))
+                            linked_gold_ids.add(gold_match.id)  # type: ignore[arg-type]
+                            stats["assigned"] += 1
 
-            # OSRM calls: car + foot in parallel (independent HTTP requests)
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                car_future = pool.submit(
-                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="driving"
-                )
-                foot_future = pool.submit(
-                    get_travel_times_batch, prop_lat, prop_lon, dest_coords, profile="walking"
-                )
-                car_times = car_future.result()
-                foot_times = foot_future.result()
+                    # 2. Add district schools not already linked (dict lookups, no SQL)
+                    district_pairs: list[tuple[School, bool]] = []
+                    for did in district_containment.get(prop_id, []):
+                        for gs in gold_by_district.get(did, []):
+                            if gs.id in linked_gold_ids:
+                                continue
+                            district_pairs.append((gs, False))
+                            linked_gold_ids.add(gs.id)  # type: ignore[arg-type]
+                            stats["district"] += 1
 
-            # Map batch results back to school indices
-            drive_map: dict[int, int | None] = {}
-            walk_map: dict[int, int | None] = {}
-            for batch_idx, (pair_idx, _school) in enumerate(schools_with_location):
-                car_dur = (
-                    car_times[batch_idx]["duration_minutes"] if batch_idx < len(car_times) else None
-                )
-                foot_dur = (
-                    foot_times[batch_idx]["duration_minutes"]
-                    if batch_idx < len(foot_times)
-                    else None
-                )
-                drive_map[pair_idx] = int(round(car_dur)) if car_dur is not None else None
-                walk_map[pair_idx] = int(round(foot_dur)) if foot_dur is not None else None
+                    # 3. Batch compute travel times via OSRM Table API
+                    all_pairs = assigned_pairs + district_pairs
+                    schools_with_location = [
+                        (i, s) for i, (s, _) in enumerate(all_pairs) if s.location is not None
+                    ]
+                    dest_coords = [
+                        (to_shape(s.location).y, to_shape(s.location).x)  # type: ignore[arg-type]
+                        for _, s in schools_with_location
+                    ]
 
-            # If schools have locations but OSRM returned no travel times at all,
-            # leave the property dirty so it can be reprocessed later.
-            if (
-                schools_with_location
-                and not any(v is not None for v in drive_map.values())
-                and not any(v is not None for v in walk_map.values())
-            ):
-                session.rollback()
-                stats["errors"] += 1
-                logger.warning(
-                    "OSRM returned no travel times for property %s — leaving dirty for retry",
-                    prop.id,
-                )
-                continue
+                    # Use pre-computed distances from bulk query
+                    distances_miles: dict[int, float] = {}
+                    for pair_idx, school in schools_with_location:
+                        dist = dist_by_school_id.get(school.id)  # type: ignore[arg-type]
+                        if dist is not None:
+                            distances_miles[pair_idx] = dist
 
-            # Create PropertySchool records
-            for i, (school, assigned) in enumerate(all_pairs):
-                session.add(
-                    PropertySchool(
-                        property_id=prop.id,
-                        school_id=school.id,
-                        assigned=assigned,
-                        distance_miles=distances_miles.get(i),
-                        drive_minutes=drive_map.get(i),
-                        walk_minutes=walk_map.get(i),
+                    # OSRM calls
+                    car_times, foot_times = _process_property_osrm(
+                        prop_lat, prop_lon, dest_coords, client=osrm_client
                     )
-                )
 
-            stats["total"] += len(all_pairs)
+                    # Map batch results back to school indices
+                    drive_map: dict[int, int | None] = {}
+                    walk_map: dict[int, int | None] = {}
+                    for batch_idx, (pair_idx, _school) in enumerate(schools_with_location):
+                        car_dur = (
+                            car_times[batch_idx]["duration_minutes"]
+                            if batch_idx < len(car_times)
+                            else None
+                        )
+                        foot_dur = (
+                            foot_times[batch_idx]["duration_minutes"]
+                            if batch_idx < len(foot_times)
+                            else None
+                        )
+                        drive_map[pair_idx] = int(round(car_dur)) if car_dur is not None else None
+                        walk_map[pair_idx] = int(round(foot_dur)) if foot_dur is not None else None
 
-            # Stamp schools_built_at so this property won't be reprocessed
-            prop.schools_built_at = datetime.now(UTC)  # type: ignore[assignment]
+                    # If schools have locations but OSRM returned no travel times at all,
+                    # leave the property dirty so it can be reprocessed later.
+                    if (
+                        schools_with_location
+                        and not any(v is not None for v in drive_map.values())
+                        and not any(v is not None for v in walk_map.values())
+                    ):
+                        nested.rollback()
+                        stats["errors"] += 1
+                        logger.warning(
+                            "OSRM returned no travel times for property %s "
+                            "— leaving dirty for retry",
+                            prop.id,
+                        )
+                        processed_count += 1
+                        batch_count += 1
+                        continue
 
-            # Commit per-property so progress is durable
-            session.commit()
+                    # Create PropertySchool records
+                    for i, (school, assigned) in enumerate(all_pairs):
+                        session.add(
+                            PropertySchool(
+                                property_id=prop.id,
+                                school_id=school.id,
+                                assigned=assigned,
+                                distance_miles=distances_miles.get(i),
+                                drive_minutes=drive_map.get(i),
+                                walk_minutes=walk_map.get(i),
+                            )
+                        )
 
-            now = time.monotonic()
-            if now - last_log_time >= 30 or idx == total_dirty:
-                last_log_time = now
-                elapsed = now - start_time
-                rate = idx / elapsed if elapsed > 0 else 0
-                remaining = (total_dirty - idx) / rate if rate > 0 else 0
-                logger.info(
-                    "Progress: %d/%d properties (%.0f%%) | %.1f props/sec | ETA: %.1f min",
-                    idx,
-                    total_dirty,
-                    idx / total_dirty * 100,
-                    rate,
-                    remaining / 60,
-                )
+                    stats["total"] += len(all_pairs)
 
-        except Exception:
-            session.rollback()
-            logger.error("Error building gold schools for property %s", prop.id, exc_info=True)
-            stats["errors"] += 1
+                    # Stamp schools_built_at so this property won't be reprocessed
+                    prop.schools_built_at = datetime.now(UTC)  # type: ignore[assignment]
+
+                except Exception:
+                    nested.rollback()
+                    logger.error(
+                        "Error building gold schools for property %s", prop.id, exc_info=True
+                    )
+                    stats["errors"] += 1
+
+                processed_count += 1
+                batch_count += 1
+
+                # Commit every _COMMIT_BATCH_SIZE properties
+                if batch_count >= _COMMIT_BATCH_SIZE:
+                    session.commit()
+                    batch_count = 0
+
+                now = time.monotonic()
+                if now - last_log_time >= 30 or processed_count == total_dirty:
+                    last_log_time = now
+                    elapsed = now - start_time
+                    rate = processed_count / elapsed if elapsed > 0 else 0
+                    remaining = (total_dirty - processed_count) / rate if rate > 0 else 0
+                    logger.info(
+                        "Progress: %d/%d properties (%.0f%%) | %.1f props/sec | ETA: %.1f min",
+                        processed_count,
+                        total_dirty,
+                        processed_count / total_dirty * 100,
+                        rate,
+                        remaining / 60,
+                    )
+
+            # Commit any remaining properties in this chunk
+            if batch_count > 0:
+                session.commit()
+
     logger.info(
         "Built gold property_schools: %d assigned, %d district, %d total, %d skipped, %d errors",
         stats["assigned"],
