@@ -111,16 +111,46 @@ def _extract_nces_extras(extras: dict | None) -> dict:
     return result
 
 
-def _find_district_id(session: Session, location: object) -> int | None:
-    """Spatial join: find school district containing the given point."""
+_LEVEL_TO_DISTRICT_TYPE: dict[str, str] = {
+    "Elementary": "elementary",
+    "Middle": "secondary",
+    "High": "secondary",
+    "Secondary": "secondary",
+}
+
+
+def _find_district_id(
+    session: Session, location: object, school_level: str | None = None
+) -> int | None:
+    """Spatial join: find school district containing the given point.
+
+    When multiple districts contain the point (e.g. overlapping elementary and
+    secondary boundaries), the school's level is used to pick the best match.
+    Falls back to unified, then to the first result.
+    """
     if location is None:
         return None
 
-    result = session.execute(
-        select(SchoolDistrict.id).where(func.ST_Contains(SchoolDistrict.geom, location))
-    ).scalar_one_or_none()
+    rows = session.execute(
+        select(SchoolDistrict.id, SchoolDistrict.district_type).where(
+            func.ST_Contains(SchoolDistrict.geom, location)
+        )
+    ).all()
 
-    return result
+    if not rows:
+        return None
+    if len(rows) == 1:
+        return rows[0][0]
+
+    # Multiple containing districts — pick the best match for the school level
+    preferred = _LEVEL_TO_DISTRICT_TYPE.get(school_level or "")
+    by_type = {dtype: did for did, dtype in rows}
+
+    if preferred and preferred in by_type:
+        return by_type[preferred]
+    if "unified" in by_type:
+        return by_type["unified"]
+    return rows[0][0]
 
 
 def _match_redfin_rating(
@@ -264,7 +294,7 @@ def build_schools_gold(session: Session) -> int:
             pct_frl = round(total_frl / enrollment * 100, 1)
 
         # Spatial join for district
-        district_id = _find_district_id(session, nces.location)
+        district_id = _find_district_id(session, nces.location, nces.school_level)
 
         # Fuzzy match for Redfin rating (name-only, no spatial filter)
         rating = _match_redfin_rating(

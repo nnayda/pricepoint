@@ -99,15 +99,60 @@ class TestFindDistrictId:
 
     def test_returns_district_id(self):
         session = MagicMock()
-        session.execute.return_value.scalar_one_or_none.return_value = 42
+        session.execute.return_value.all.return_value = [(42, "unified")]
         result = _find_district_id(session, "mock_geom")
         assert result == 42
 
     def test_returns_none_when_not_found(self):
         session = MagicMock()
-        session.execute.return_value.scalar_one_or_none.return_value = None
+        session.execute.return_value.all.return_value = []
         result = _find_district_id(session, "mock_geom")
         assert result is None
+
+    def test_prefers_elementary_for_elementary_school(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (10, "elementary"),
+            (20, "secondary"),
+        ]
+        result = _find_district_id(session, "mock_geom", "Elementary")
+        assert result == 10
+
+    def test_prefers_secondary_for_high_school(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (10, "elementary"),
+            (20, "secondary"),
+        ]
+        result = _find_district_id(session, "mock_geom", "High")
+        assert result == 20
+
+    def test_prefers_secondary_for_middle_school(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (10, "elementary"),
+            (20, "secondary"),
+        ]
+        result = _find_district_id(session, "mock_geom", "Middle")
+        assert result == 20
+
+    def test_falls_back_to_unified_when_no_level_match(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (10, "elementary"),
+            (30, "unified"),
+        ]
+        result = _find_district_id(session, "mock_geom", "High")
+        assert result == 30
+
+    def test_falls_back_to_first_when_no_preferred_match(self):
+        session = MagicMock()
+        session.execute.return_value.all.return_value = [
+            (10, "elementary"),
+            (20, "secondary"),
+        ]
+        result = _find_district_id(session, "mock_geom", None)
+        assert result == 10
 
 
 # ---------------------------------------------------------------------------
