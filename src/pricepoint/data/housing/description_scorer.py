@@ -506,9 +506,14 @@ def _get_model_version(model_name: str, *, base_url: str | None = None) -> str:
 def score_all_descriptions(
     batch_size: int = 50,
     *,
+    include_failed: bool = False,
     ollama_fn: Callable[..., Any] | None = None,
 ) -> dict[str, int]:
     """Score all Redfin listing descriptions that need scoring.
+
+    Args:
+        include_failed: If True, reprocess listings that previously failed scoring.
+            By default, failed records are skipped like successful ones.
 
     Returns dict with keys: scored, skipped, errors.
     """
@@ -518,13 +523,14 @@ def score_all_descriptions(
 
     session = SessionLocal()
     try:
-        # Load existing hashes for this model
+        # Load existing hashes and raw_response for this model
         existing_rows = session.execute(
             select(
                 LlmQualityScore.listing_id,
                 LlmQualityScore.model_name,
                 LlmQualityScore.model_version,
                 LlmQualityScore.description_hash,
+                LlmQualityScore.raw_response,
             ).where(
                 LlmQualityScore.model_name == model_name,
                 LlmQualityScore.model_version == model_version,
@@ -535,6 +541,20 @@ def score_all_descriptions(
             (row.listing_id, row.model_name, row.model_version): row.description_hash
             for row in existing_rows
         }
+
+        # Identify failed records (those with error in raw_response)
+        failed_keys: set[tuple[int, str, str]] = {
+            (row.listing_id, row.model_name, row.model_version)
+            for row in existing_rows
+            if isinstance(row.raw_response, dict) and row.raw_response.get("error")
+        }
+
+        if failed_keys:
+            logger.info("Found %d previously failed description scoring records", len(failed_keys))
+
+        if include_failed:
+            for key in failed_keys:
+                existing_hashes.pop(key, None)
 
         # Load listings with descriptions
         all_listings = session.execute(
@@ -579,11 +599,7 @@ def score_all_descriptions(
             batch_scored = 0
             batch_errors = 0
             for result in results:
-                if result["raw_response"].get("error"):
-                    errors += 1
-                    batch_errors += 1
-                    continue
-
+                # Upsert both success and error results
                 stmt = pg_insert(LlmQualityScore).values(result)
                 stmt = stmt.on_conflict_do_update(
                     constraint="uq_llm_score_listing_model",
@@ -599,16 +615,17 @@ def score_all_descriptions(
                 )
                 session.execute(stmt)
 
-                scored += 1
-                batch_scored += 1
+                key = (result["listing_id"], result["model_name"], result["model_version"])
+                existing_hashes[key] = result["description_hash"]
+
+                if result["raw_response"].get("error"):
+                    batch_errors += 1
+                    errors += 1
+                else:
+                    batch_scored += 1
+                    scored += 1
 
             session.commit()
-
-            # Update existing_hashes with newly scored
-            for result in results:
-                if not result["raw_response"].get("error"):
-                    key = (result["listing_id"], result["model_name"], result["model_version"])
-                    existing_hashes[key] = result["description_hash"]
 
             # Progress logging with ETA
             batch_elapsed = time.monotonic() - batch_start
@@ -616,11 +633,16 @@ def score_all_descriptions(
             processed = i + len(batch)
             batch_skipped = len(batch) - batch_scored - batch_errors
 
-            if processed < total_listings:
-                avg_per_listing = total_elapsed / processed
-                remaining = (total_listings - processed) * avg_per_listing
+            processed_count = scored + errors
+            if processed_count > 0 and processed < total_listings:
+                avg_per_scored = total_elapsed / processed_count
+                process_rate = processed_count / processed
+                remaining_to_score = (total_listings - processed) * process_rate
+                remaining = remaining_to_score * avg_per_scored
                 eta_min, eta_sec = divmod(int(remaining), 60)
                 eta_str = f"{eta_min}m{eta_sec:02d}s"
+            elif processed < total_listings:
+                eta_str = "calculating..."
             else:
                 eta_str = "done"
 

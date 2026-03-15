@@ -27,17 +27,19 @@ PHOTO_SCORING_DATASET = Asset("photo_scores")
         "retries": 1,
         "retry_delay": timedelta(minutes=10),
     },
+    params={"include_failed": False},
     tags=["data", "transform", "housing", "llm", "quality", "photos", "vision"],
 )
 def photo_quality_scoring():
     """Score Redfin listing photos using LLM vision analysis."""
 
     @task()
-    def score_photos():
+    def score_photos(**context):
         """Run LLM photo scoring on all listing photos."""
         from pricepoint.data.housing.photo_scorer import score_all_photos
 
-        result = score_all_photos()
+        include_failed = context.get("params", {}).get("include_failed", False)
+        result = score_all_photos(include_failed=include_failed)
         logger.info(
             "Photo scoring complete: %d scored, %d skipped, %d errors",
             result["scored"],

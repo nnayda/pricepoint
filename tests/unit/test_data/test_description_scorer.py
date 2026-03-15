@@ -396,6 +396,7 @@ class TestScoreAllDescriptions:
         existing_row.model_name = "qwen2.5:32b"
         existing_row.model_version = "abc123456789"
         existing_row.description_hash = desc_hash
+        existing_row.raw_response = {"quality_score": 50}
 
         # Mock listing
         listing_row = MagicMock()
@@ -410,6 +411,149 @@ class TestScoreAllDescriptions:
         result = score_all_descriptions(batch_size=10)
         assert result["skipped"] == 1
         assert result["scored"] == 0
+
+    @patch(f"{_SCORER}.SessionLocal")
+    @patch(f"{_SCORER}._get_model_version")
+    def test_failed_records_are_persisted(self, mock_version, mock_session_cls):
+        """Error results from Ollama are upserted to the DB."""
+        mock_version.return_value = "abc123456789"
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        listing_row = MagicMock()
+        listing_row.id = 1
+        listing_row.description = "A nice home"
+
+        mock_session.execute.return_value.all.side_effect = [
+            [],  # no existing rows
+            [listing_row],
+        ]
+
+        async def mock_ollama(desc, **kwargs):
+            return None  # simulate failure
+
+        result = score_all_descriptions(batch_size=10, ollama_fn=mock_ollama)
+        assert result["errors"] == 1
+        assert result["scored"] == 0
+        # Verify upsert was called (execute for existing query + listings query + upsert)
+        assert mock_session.execute.call_count == 3
+        mock_session.commit.assert_called()
+
+    @patch(f"{_SCORER}.SessionLocal")
+    @patch(f"{_SCORER}._get_model_version")
+    def test_failed_records_skipped_by_default(self, mock_version, mock_session_cls):
+        """Failed records with matching hash are skipped by default."""
+        mock_version.return_value = "abc123456789"
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        desc = "A nice home"
+        desc_hash = compute_description_hash(desc)
+
+        existing_row = MagicMock()
+        existing_row.listing_id = 1
+        existing_row.model_name = "qwen2.5:32b"
+        existing_row.model_version = "abc123456789"
+        existing_row.description_hash = desc_hash
+        existing_row.raw_response = {"error": "ollama_call_failed"}
+
+        listing_row = MagicMock()
+        listing_row.id = 1
+        listing_row.description = desc
+
+        mock_session.execute.return_value.all.side_effect = [
+            [existing_row],
+            [listing_row],
+        ]
+
+        ollama_called = False
+
+        async def mock_ollama(desc, **kwargs):
+            nonlocal ollama_called
+            ollama_called = True
+            return _make_raw()
+
+        result = score_all_descriptions(batch_size=10, ollama_fn=mock_ollama)
+        assert result["skipped"] == 1
+        assert result["scored"] == 0
+        assert not ollama_called
+
+    @patch(f"{_SCORER}.SessionLocal")
+    @patch(f"{_SCORER}._get_model_version")
+    def test_include_failed_reprocesses_errors(self, mock_version, mock_session_cls):
+        """include_failed=True causes failed records to be re-scored."""
+        mock_version.return_value = "abc123456789"
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        desc = "A nice home"
+        desc_hash = compute_description_hash(desc)
+
+        existing_row = MagicMock()
+        existing_row.listing_id = 1
+        existing_row.model_name = "qwen2.5:32b"
+        existing_row.model_version = "abc123456789"
+        existing_row.description_hash = desc_hash
+        existing_row.raw_response = {"error": "ollama_call_failed"}
+
+        listing_row = MagicMock()
+        listing_row.id = 1
+        listing_row.description = desc
+
+        mock_session.execute.return_value.all.side_effect = [
+            [existing_row],
+            [listing_row],
+        ]
+
+        async def mock_ollama(desc, **kwargs):
+            return _make_raw(score=70)
+
+        result = score_all_descriptions(batch_size=10, include_failed=True, ollama_fn=mock_ollama)
+        assert result["scored"] == 1
+        assert result["errors"] == 0
+
+    @patch(f"{_SCORER}.SessionLocal")
+    @patch(f"{_SCORER}._get_model_version")
+    def test_include_failed_still_skips_successes(self, mock_version, mock_session_cls):
+        """include_failed=True still skips successful existing records."""
+        mock_version.return_value = "abc123456789"
+
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        desc = "A nice home"
+        desc_hash = compute_description_hash(desc)
+
+        existing_row = MagicMock()
+        existing_row.listing_id = 1
+        existing_row.model_name = "qwen2.5:32b"
+        existing_row.model_version = "abc123456789"
+        existing_row.description_hash = desc_hash
+        existing_row.raw_response = {"quality_score": 65}
+
+        listing_row = MagicMock()
+        listing_row.id = 1
+        listing_row.description = desc
+
+        mock_session.execute.return_value.all.side_effect = [
+            [existing_row],
+            [listing_row],
+        ]
+
+        ollama_called = False
+
+        async def mock_ollama(desc, **kwargs):
+            nonlocal ollama_called
+            ollama_called = True
+            return _make_raw()
+
+        result = score_all_descriptions(batch_size=10, include_failed=True, ollama_fn=mock_ollama)
+        assert result["skipped"] == 1
+        assert result["scored"] == 0
+        assert not ollama_called
 
 
 # ---------------------------------------------------------------------------

@@ -511,6 +511,7 @@ def _score_single_listing(
 def score_all_photos(
     log_interval: int = 50,
     *,
+    include_failed: bool = False,
     ollama_fn: Callable[..., Any] | None = None,
     s3_fn: Callable[..., Any] | None = None,
 ) -> dict[str, int]:
@@ -518,6 +519,10 @@ def score_all_photos(
 
     Each listing is scored and committed individually so progress is
     never lost on failure.
+
+    Args:
+        include_failed: If True, reprocess listings that previously failed scoring.
+            By default, failed records are skipped like successful ones.
 
     Returns dict with keys: scored, skipped, errors.
     """
@@ -529,13 +534,14 @@ def score_all_photos(
 
     session = SessionLocal()
     try:
-        # Load existing hashes for this model
+        # Load existing hashes and raw_response for this model
         existing_rows = session.execute(
             select(
                 LlmPhotoScore.listing_id,
                 LlmPhotoScore.model_name,
                 LlmPhotoScore.model_version,
                 LlmPhotoScore.photos_hash,
+                LlmPhotoScore.raw_response,
             ).where(
                 LlmPhotoScore.model_name == model_name,
                 LlmPhotoScore.model_version == model_version,
@@ -546,6 +552,20 @@ def score_all_photos(
             (row.listing_id, row.model_name, row.model_version): row.photos_hash
             for row in existing_rows
         }
+
+        # Identify failed records (those with error in raw_response)
+        failed_keys: set[tuple[int, str, str]] = {
+            (row.listing_id, row.model_name, row.model_version)
+            for row in existing_rows
+            if isinstance(row.raw_response, dict) and row.raw_response.get("error")
+        }
+
+        if failed_keys:
+            logger.info("Found %d previously failed photo scoring records", len(failed_keys))
+
+        if include_failed:
+            for key in failed_keys:
+                existing_hashes.pop(key, None)
 
         # Load listings with photos
         all_listings = session.execute(
@@ -591,11 +611,7 @@ def score_all_photos(
                 skipped += 1
                 continue
 
-            if result["raw_response"].get("error"):
-                errors += 1
-                continue
-
-            # Upsert and commit immediately
+            # Upsert and commit immediately (both success and error)
             stmt = pg_insert(LlmPhotoScore).values(result)
             stmt = stmt.on_conflict_do_update(
                 constraint="uq_llm_photo_score_listing_model",
@@ -610,20 +626,28 @@ def score_all_photos(
                 },
             )
             session.execute(stmt)
-
             session.commit()
             key = (result["listing_id"], result["model_name"], result["model_version"])
             existing_hashes[key] = result["photos_hash"]
-            scored += 1
+
+            if result["raw_response"].get("error"):
+                errors += 1
+            else:
+                scored += 1
 
             # Progress logging
             if idx % log_interval == 0 or idx == total_listings:
                 total_elapsed = time.monotonic() - run_start
-                if idx < total_listings:
-                    avg_per_listing = total_elapsed / idx
-                    remaining = (total_listings - idx) * avg_per_listing
+                processed_count = scored + errors
+                if processed_count > 0 and idx < total_listings:
+                    avg_per_scored = total_elapsed / processed_count
+                    process_rate = processed_count / idx
+                    remaining_to_score = (total_listings - idx) * process_rate
+                    remaining = remaining_to_score * avg_per_scored
                     eta_min, eta_sec = divmod(int(remaining), 60)
                     eta_str = f"{eta_min}m{eta_sec:02d}s"
+                elif idx < total_listings:
+                    eta_str = "calculating..."
                 else:
                     eta_str = "done"
 

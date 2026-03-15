@@ -26,17 +26,19 @@ DESCRIPTION_SCORING_DATASET = Asset("description_scores")
         "retries": 1,
         "retry_delay": timedelta(minutes=10),
     },
+    params={"include_failed": False},
     tags=["data", "transform", "housing", "llm", "quality", "description"],
 )
 def description_quality_scoring():
     """Score Redfin listing descriptions using LLM quality analysis."""
 
     @task()
-    def score_descriptions():
+    def score_descriptions(**context):
         """Run LLM quality scoring on all listing descriptions."""
         from pricepoint.data.housing.description_scorer import score_all_descriptions
 
-        result = score_all_descriptions()
+        include_failed = context.get("params", {}).get("include_failed", False)
+        result = score_all_descriptions(include_failed=include_failed)
         logger.info(
             "Scoring complete: %d scored, %d skipped, %d errors",
             result["scored"],
