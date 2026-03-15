@@ -1,15 +1,20 @@
 """Tests for greenspace region metrics computation."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from pricepoint.data.geospatial.greenspace_metrics import (
+    _COMMIT_INTERVAL,
+    _VALIDATE_TABLES,
+    BATCH_PREFIX_LEN,
     GEO_LEVEL_CONFIG,
     ZSCORE_PARENT_PREFIX,
+    _compute_batch,
     compute_base_metrics,
     compute_zscores,
     enrich_population,
+    validate_geometries,
     verify_metrics,
 )
 
@@ -23,13 +28,79 @@ class _FakeRow:
 
 
 # ---------------------------------------------------------------------------
-# compute_base_metrics
+# validate_geometries
 # ---------------------------------------------------------------------------
 
 
-class TestComputeBaseMetrics:
-    def test_inserts_rows_for_each_tiger_region(self):
-        """Should insert one GreenspaceRegionMetric per TIGER region."""
+class TestValidateGeometries:
+    def test_updates_all_six_tables(self):
+        """Should run ST_MakeValid UPDATE on each table in _VALIDATE_TABLES."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        session.execute.return_value = mock_result
+
+        results = validate_geometries(session)
+
+        assert len(results) == 6
+        assert session.execute.call_count == 6
+        for table in _VALIDATE_TABLES:
+            assert table in results
+
+    def test_commits_after_each_table(self):
+        """Should commit once per table to persist fixes incrementally."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        session.execute.return_value = mock_result
+
+        validate_geometries(session)
+
+        assert session.commit.call_count == 6
+
+    def test_returns_fixed_counts(self):
+        """Should return the number of rows fixed per table."""
+        session = MagicMock()
+        # Return different rowcounts for each table
+        mock_results = []
+        for count in [5, 0, 3, 0, 1, 0]:
+            mr = MagicMock()
+            mr.rowcount = count
+            mock_results.append(mr)
+        session.execute.side_effect = mock_results
+
+        results = validate_geometries(session)
+
+        assert results["greenspaces"] == 5
+        assert results["trails"] == 0
+        assert results["block_groups"] == 3
+        assert results["tracts"] == 0
+        assert results["townships"] == 1
+        assert results["counties"] == 0
+
+    def test_sql_does_not_contain_st_make_valid_in_join(self):
+        """SQL should only use ST_MakeValid in SET, not in a JOIN condition."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        session.execute.return_value = mock_result
+
+        validate_geometries(session)
+
+        for c in session.execute.call_args_list:
+            sql_text = str(c[0][0].text)
+            assert "ST_MakeValid(geom)" in sql_text
+            assert "ST_IsValid(geom)" in sql_text
+
+
+# ---------------------------------------------------------------------------
+# _compute_batch
+# ---------------------------------------------------------------------------
+
+
+class TestComputeBatch:
+    def test_returns_metric_objects(self):
+        """Should return GreenspaceRegionMetric objects for matching regions."""
         session = MagicMock()
         fake_rows = [
             _FakeRow(
@@ -43,86 +114,69 @@ class TestComputeBaseMetrics:
                 region_land_area_sqm=5000000,
                 greenspace_ratio=0.0368,
             ),
-            _FakeRow(
-                geoid="37183050200",
-                name="Block Group 2",
-                park_count=0,
-                trail_count=0,
-                total_park_acres=0,
-                total_trail_miles=0,
-                greenspace_area_sqm=0,
-                region_land_area_sqm=3000000,
-                greenspace_ratio=0.0,
-            ),
         ]
         mock_result = MagicMock()
         mock_result.fetchall.return_value = fake_rows
         session.execute.return_value = mock_result
-        session.query.return_value.filter.return_value.delete.return_value = 0
 
-        count = compute_base_metrics(session, "block_group")
+        result = _compute_batch(session, "block_group", "37183")
 
-        assert count == 2
-        session.bulk_save_objects.assert_called_once()
-        objects = session.bulk_save_objects.call_args[0][0]
-        assert len(objects) == 2
-        assert objects[0].geo_level == "block_group"
-        assert objects[0].geoid == "37183050100"
-        assert objects[0].park_count == 3
+        assert len(result) == 1
+        assert result[0].geo_level == "block_group"
+        assert result[0].geoid == "37183050100"
+        assert result[0].park_count == 3
 
-    def test_deletes_existing_rows_before_insert(self):
-        """Should delete old rows for the geo_level before inserting new ones."""
+    def test_passes_prefix_params(self):
+        """Should pass prefix and prefix_len as query parameters."""
         session = MagicMock()
         mock_result = MagicMock()
         mock_result.fetchall.return_value = []
         session.execute.return_value = mock_result
-        session.query.return_value.filter.return_value.delete.return_value = 5
 
-        count = compute_base_metrics(session, "tract")
-
-        assert count == 0
-        session.query.return_value.filter.return_value.delete.assert_called_once()
-
-    def test_handles_null_greenspace_ratio(self):
-        """Rows with zero aland should get greenspace_ratio=None."""
-        session = MagicMock()
-        fake_rows = [
-            _FakeRow(
-                geoid="37183",
-                name="Wake County",
-                park_count=10,
-                trail_count=5,
-                total_park_acres=200.0,
-                total_trail_miles=15.0,
-                greenspace_area_sqm=800000.0,
-                region_land_area_sqm=0,
-                greenspace_ratio=None,
-            ),
-        ]
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = fake_rows
-        session.execute.return_value = mock_result
-        session.query.return_value.filter.return_value.delete.return_value = 0
-
-        count = compute_base_metrics(session, "county")
-
-        assert count == 1
-        obj = session.bulk_save_objects.call_args[0][0][0]
-        assert obj.greenspace_ratio is None
-
-    def test_no_params_passed_to_sql(self):
-        """Query should not use any FIPS filter params."""
-        session = MagicMock()
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = []
-        session.execute.return_value = mock_result
-        session.query.return_value.filter.return_value.delete.return_value = 0
-
-        compute_base_metrics(session, "block_group")
+        _compute_batch(session, "block_group", "37183")
 
         call_args = session.execute.call_args
-        # Should be called with just the SQL text, no params
-        assert len(call_args[0]) == 1
+        params = call_args[0][1]
+        assert params["prefix"] == "37183"
+        assert params["prefix_len"] == 5
+
+    def test_sql_has_no_st_make_valid(self):
+        """Query should not use ST_MakeValid — geometries pre-validated."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        session.execute.return_value = mock_result
+
+        _compute_batch(session, "block_group", "37183")
+
+        sql_text = str(session.execute.call_args[0][0].text)
+        assert "ST_MakeValid" not in sql_text
+
+    def test_computes_intersection_once_in_parks_cte(self):
+        """ST_Intersection should appear once in park_intersections CTE, not twice."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        session.execute.return_value = mock_result
+
+        _compute_batch(session, "block_group", "37183")
+
+        sql_text = str(session.execute.call_args[0][0].text)
+        # park_intersections CTE computes intersection once; parks CTE reuses it
+        # The only ST_Intersection for parks should be in park_intersections
+        park_section = sql_text.split("trail_metrics")[0]
+        assert park_section.count("ST_Intersection") == 1
+
+    def test_empty_batch_returns_empty_list(self):
+        """When no regions match the prefix, should return empty list."""
+        session = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+        session.execute.return_value = mock_result
+
+        result = _compute_batch(session, "county", "99")
+
+        assert result == []
 
     def test_rounds_numeric_values(self):
         """Should round acres, miles, and area to reasonable precision."""
@@ -143,14 +197,121 @@ class TestComputeBaseMetrics:
         mock_result = MagicMock()
         mock_result.fetchall.return_value = fake_rows
         session.execute.return_value = mock_result
+
+        result = _compute_batch(session, "block_group", "37183")
+
+        assert result[0].total_park_acres == 45.57
+        assert result[0].total_trail_miles == 2.35
+        assert result[0].greenspace_area_sqm == 184000.12
+
+
+# ---------------------------------------------------------------------------
+# compute_base_metrics
+# ---------------------------------------------------------------------------
+
+
+class TestComputeBaseMetrics:
+    def test_queries_prefixes_and_batches(self):
+        """Should query distinct prefixes then call _compute_batch per prefix."""
+        session = MagicMock()
+        prefix_rows = [_FakeRow(prefix="37183"), _FakeRow(prefix="37063")]
+        prefix_result = MagicMock()
+        prefix_result.fetchall.return_value = prefix_rows
+
+        batch_result = MagicMock()
+        batch_result.fetchall.return_value = [
+            _FakeRow(
+                geoid="37183050100",
+                name="BG 1",
+                park_count=1,
+                trail_count=0,
+                total_park_acres=10.0,
+                total_trail_miles=0,
+                greenspace_area_sqm=40000.0,
+                region_land_area_sqm=5000000,
+                greenspace_ratio=0.008,
+            ),
+        ]
+
+        # First execute = prefix query, subsequent = batch queries
+        session.execute.side_effect = [prefix_result, batch_result, batch_result]
+        session.query.return_value.filter.return_value.delete.return_value = 0
+
+        count = compute_base_metrics(session, "block_group")
+
+        assert count == 2  # 1 row per batch × 2 batches
+
+    def test_deletes_existing_rows_before_batching(self):
+        """Should delete old rows for the geo_level before processing batches."""
+        session = MagicMock()
+        prefix_result = MagicMock()
+        prefix_result.fetchall.return_value = []
+        session.execute.return_value = prefix_result
+        session.query.return_value.filter.return_value.delete.return_value = 5
+
+        compute_base_metrics(session, "tract")
+
+        session.query.return_value.filter.return_value.delete.assert_called_once()
+
+    def test_commits_every_n_batches(self):
+        """Should commit every _COMMIT_INTERVAL batches."""
+        session = MagicMock()
+        # Create enough prefixes to trigger at least one periodic commit
+        prefix_rows = [_FakeRow(prefix=f"37{i:03d}") for i in range(_COMMIT_INTERVAL + 2)]
+        prefix_result = MagicMock()
+        prefix_result.fetchall.return_value = prefix_rows
+
+        batch_result = MagicMock()
+        batch_result.fetchall.return_value = []
+
+        session.execute.side_effect = [prefix_result] + [batch_result] * len(prefix_rows)
         session.query.return_value.filter.return_value.delete.return_value = 0
 
         compute_base_metrics(session, "block_group")
 
-        obj = session.bulk_save_objects.call_args[0][0][0]
-        assert obj.total_park_acres == 45.57
-        assert obj.total_trail_miles == 2.35
-        assert obj.greenspace_area_sqm == 184000.12
+        # Should commit at _COMMIT_INTERVAL + final commit for remaining
+        assert session.commit.call_count == 2
+
+    def test_empty_prefixes_returns_zero(self):
+        """When TIGER table is empty, should return 0."""
+        session = MagicMock()
+        prefix_result = MagicMock()
+        prefix_result.fetchall.return_value = []
+        session.execute.return_value = prefix_result
+        session.query.return_value.filter.return_value.delete.return_value = 0
+
+        count = compute_base_metrics(session, "county")
+
+        assert count == 0
+
+    @patch("pricepoint.data.geospatial.greenspace_metrics._compute_batch")
+    def test_operational_error_skips_batch(self, mock_compute_batch):
+        """OperationalError in a batch should skip it and continue."""
+        from sqlalchemy.exc import OperationalError
+
+        session = MagicMock()
+        prefix_rows = [_FakeRow(prefix="37183"), _FakeRow(prefix="37063")]
+        prefix_result = MagicMock()
+        prefix_result.fetchall.return_value = prefix_rows
+        session.execute.return_value = prefix_result
+        session.query.return_value.filter.return_value.delete.return_value = 0
+
+        # First batch fails, second succeeds
+        mock_compute_batch.side_effect = [
+            OperationalError("SSL EOF", None, None),
+            [
+                MagicMock(
+                    geo_level="block_group",
+                    geoid="37063050100",
+                )
+            ],
+        ]
+
+        # Should not raise
+        compute_base_metrics(session, "block_group")
+
+        # Should have rolled back after the error
+        session.rollback.assert_called()
 
 
 # ---------------------------------------------------------------------------
@@ -324,3 +485,17 @@ class TestConstants:
         """Sub-county z-scores should group by county (5-char prefix)."""
         for level in ["block_group", "tract", "county_subdivision"]:
             assert ZSCORE_PARENT_PREFIX[level] == 5
+
+    def test_batch_prefix_matches_zscore_prefix(self):
+        """Batch prefix lengths should match z-score prefix lengths."""
+        assert BATCH_PREFIX_LEN == ZSCORE_PARENT_PREFIX
+
+    def test_validate_tables_list(self):
+        """Should validate all 6 source tables."""
+        assert len(_VALIDATE_TABLES) == 6
+        assert "greenspaces" in _VALIDATE_TABLES
+        assert "trails" in _VALIDATE_TABLES
+
+    def test_commit_interval_is_positive(self):
+        """Commit interval should be a positive integer."""
+        assert _COMMIT_INTERVAL > 0

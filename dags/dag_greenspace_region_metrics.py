@@ -2,7 +2,8 @@
 
 Computes park/trail counts, area ratios, population-normalised metrics,
 and z-scores at four TIGER geographic levels (block_group, tract,
-county_subdivision, county).  Manual trigger only.
+county_subdivision, county).  Validates geometries first, then processes
+geo levels sequentially to reduce DB contention.
 """
 
 import logging
@@ -32,6 +33,23 @@ logger = logging.getLogger(__name__)
     tags=["data", "greenspace", "metrics"],
 )
 def greenspace_region_metrics():
+    @task()
+    def validate():
+        """Fix invalid geometries in source tables before spatial joins."""
+        from pricepoint.data.geospatial.greenspace_metrics import validate_geometries
+        from pricepoint.db.engine import SessionLocal
+
+        session = SessionLocal()
+        try:
+            results = validate_geometries(session)
+            total = sum(results.values())
+            logger.info("Geometry validation complete: %d total fixes", total)
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     @task()
     def compute_block_groups():
         """Compute base metrics + population for block groups."""
@@ -149,13 +167,16 @@ def greenspace_region_metrics():
         finally:
             session.close()
 
-    base_tasks = [
-        compute_block_groups(),
-        compute_tracts(),
-        compute_subdivisions(),
-        compute_counties(),
-    ]
-    base_tasks >> compute_all_zscores() >> verify()
+    # Sequential: validate → geo levels (one at a time) → z-scores → verify
+    (
+        validate()
+        >> compute_block_groups()
+        >> compute_tracts()
+        >> compute_subdivisions()
+        >> compute_counties()
+        >> compute_all_zscores()
+        >> verify()
+    )
 
 
 greenspace_region_metrics()

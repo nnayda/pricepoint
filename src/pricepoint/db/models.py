@@ -264,6 +264,8 @@ class BlockGroup(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
+    __table_args__ = (Index("ix_block_groups_geom", "geom", postgresql_using="gist"),)
+
 
 class Tract(Base):
     """US Census TIGER/Line census tract boundaries (TRACT)."""
@@ -287,6 +289,8 @@ class Tract(Base):
     loaded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    __table_args__ = (Index("ix_tracts_geom", "geom", postgresql_using="gist"),)
 
 
 class SchoolDistrict(Base):
@@ -345,6 +349,8 @@ class County(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
+    __table_args__ = (Index("ix_counties_geom", "geom", postgresql_using="gist"),)
+
 
 class Township(Base):
     """US Census TIGER/Line county subdivision boundaries (COUSUB)."""
@@ -373,6 +379,8 @@ class Township(Base):
     loaded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+    __table_args__ = (Index("ix_townships_geom", "geom", postgresql_using="gist"),)
 
 
 class Road(Base):

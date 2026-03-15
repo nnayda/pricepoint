@@ -6,8 +6,10 @@ county_subdivision, and county.
 """
 
 import logging
+import time
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from pricepoint.db.models import GreenspaceRegionMetric
@@ -54,18 +56,63 @@ ZSCORE_PARENT_PREFIX: dict[str, int] = {
     "county": 2,  # state prefix
 }
 
+# Prefix length for batching — sub-county levels batch by county (5-char),
+# counties batch by state (2-char)
+BATCH_PREFIX_LEN: dict[str, int] = {
+    "block_group": 5,
+    "tract": 5,
+    "county_subdivision": 5,
+    "county": 2,
+}
 
-def compute_base_metrics(
+# How many batches between commits
+_COMMIT_INTERVAL = 5
+
+# Tables to validate geometries for
+_VALIDATE_TABLES = [
+    "greenspaces",
+    "trails",
+    "block_groups",
+    "tracts",
+    "townships",
+    "counties",
+]
+
+
+def validate_geometries(session: Session) -> dict[str, int]:
+    """Fix invalid geometries in source tables using ST_MakeValid.
+
+    Updates geometries in-place so that spatial joins can use GiST indexes
+    without wrapping columns in ST_MakeValid() at query time.
+
+    Returns a dict of {table_name: rows_fixed}.
+    """
+    results: dict[str, int] = {}
+    for table in _VALIDATE_TABLES:
+        sql = text(f"""
+            UPDATE {table}
+            SET geom = ST_MakeValid(geom)
+            WHERE NOT ST_IsValid(geom)
+        """)
+        result = session.execute(sql)
+        fixed = result.rowcount  # type: ignore[attr-defined]
+        results[table] = fixed
+        session.commit()
+        if fixed > 0:
+            logger.info("Fixed %d invalid geometries in %s", fixed, table)
+        else:
+            logger.info("All geometries valid in %s", table)
+    return results
+
+
+def _compute_batch(
     session: Session,
     geo_level: str,
-) -> int:
-    """Compute raw greenspace metrics for a geographic level.
+    prefix: str,
+) -> list[GreenspaceRegionMetric]:
+    """Compute greenspace metrics for TIGER regions matching a geoid prefix.
 
-    Joins TIGER regions with greenspaces/trails via ST_Intersects, computes
-    clipped areas/lengths, and upserts rows into greenspace_region_metrics.
-    Processes all boundaries present in the database.
-
-    Returns the number of rows inserted.
+    Returns a list of GreenspaceRegionMetric objects (not yet persisted).
     """
     cfg = GEO_LEVEL_CONFIG[geo_level]
     tiger_table = cfg["table"]
@@ -73,26 +120,29 @@ def compute_base_metrics(
     name_col = cfg["name"]
     aland_col = cfg["aland"]
     geom_col = cfg["geom"]
+    prefix_len = len(prefix)
 
     sql = text(f"""
-        WITH parks AS (
+        WITH park_intersections AS (
             SELECT
                 t.{geoid_col} AS geoid,
-                COUNT(DISTINCT g.id) AS park_count,
-                COALESCE(SUM(
-                    ST_Area(ST_Intersection(
-                        ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom)
-                    )::geography)
-                ), 0) AS greenspace_area_sqm,
-                COALESCE(SUM(
-                    ST_Area(ST_Intersection(
-                        ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom)
-                    )::geography) / 4046.8564224
-                ), 0) AS total_park_acres
+                g.id AS greenspace_id,
+                ST_Area(
+                    ST_Intersection(t.{geom_col}, g.geom)::geography
+                ) AS intersection_sqm
             FROM {tiger_table} t
-            LEFT JOIN greenspaces g
-                ON ST_Intersects(ST_MakeValid(t.{geom_col}), ST_MakeValid(g.geom))
-            GROUP BY t.{geoid_col}
+            JOIN greenspaces g
+                ON ST_Intersects(t.{geom_col}, g.geom)
+            WHERE LEFT(t.{geoid_col}, :prefix_len) = :prefix
+        ),
+        parks AS (
+            SELECT
+                geoid,
+                COUNT(DISTINCT greenspace_id) AS park_count,
+                COALESCE(SUM(intersection_sqm), 0) AS greenspace_area_sqm,
+                COALESCE(SUM(intersection_sqm) / 4046.8564224, 0) AS total_park_acres
+            FROM park_intersections
+            GROUP BY geoid
         ),
         trail_metrics AS (
             SELECT
@@ -100,12 +150,13 @@ def compute_base_metrics(
                 COUNT(DISTINCT tr.id) AS trail_count,
                 COALESCE(SUM(
                     ST_Length(ST_Intersection(
-                        ST_MakeValid(t.{geom_col}), ST_MakeValid(tr.geom)
+                        t.{geom_col}, tr.geom
                     )::geography) / 1609.344
                 ), 0) AS total_trail_miles
             FROM {tiger_table} t
-            LEFT JOIN trails tr
-                ON ST_Intersects(ST_MakeValid(t.{geom_col}), ST_MakeValid(tr.geom))
+            JOIN trails tr
+                ON ST_Intersects(t.{geom_col}, tr.geom)
+            WHERE LEFT(t.{geoid_col}, :prefix_len) = :prefix
             GROUP BY t.{geoid_col}
         )
         SELECT
@@ -125,15 +176,10 @@ def compute_base_metrics(
         FROM {tiger_table} t
         LEFT JOIN parks p ON p.geoid = t.{geoid_col}
         LEFT JOIN trail_metrics tm ON tm.geoid = t.{geoid_col}
+        WHERE LEFT(t.{geoid_col}, :prefix_len) = :prefix
     """)
 
-    rows = session.execute(sql).fetchall()
-    logger.info("Computed %d %s rows from TIGER/greenspace join", len(rows), geo_level)
-
-    # Delete existing rows for this geo_level, then bulk insert
-    session.query(GreenspaceRegionMetric).filter(
-        GreenspaceRegionMetric.geo_level == geo_level
-    ).delete()
+    rows = session.execute(sql, {"prefix": prefix, "prefix_len": prefix_len}).fetchall()
 
     new_rows = []
     for r in rows:
@@ -151,9 +197,98 @@ def compute_base_metrics(
                 greenspace_ratio=round(r.greenspace_ratio, 6) if r.greenspace_ratio else None,
             )
         )
-    session.bulk_save_objects(new_rows)
+    return new_rows
+
+
+def compute_base_metrics(
+    session: Session,
+    geo_level: str,
+) -> int:
+    """Compute raw greenspace metrics for a geographic level.
+
+    Batches by geoid prefix to keep queries manageable and avoid
+    connection timeouts. Validates geometries should be run first so
+    ST_MakeValid() is not needed at query time.
+
+    Returns the number of rows inserted.
+    """
+    cfg = GEO_LEVEL_CONFIG[geo_level]
+    tiger_table = cfg["table"]
+    geoid_col = cfg["geoid"]
+    prefix_len = BATCH_PREFIX_LEN[geo_level]
+
+    # Get distinct prefixes to batch over
+    prefix_sql = text(f"""
+        SELECT DISTINCT LEFT({geoid_col}, :prefix_len) AS prefix
+        FROM {tiger_table}
+        ORDER BY prefix
+    """)
+    prefixes = [
+        r.prefix for r in session.execute(prefix_sql, {"prefix_len": prefix_len}).fetchall()
+    ]
+    logger.info(
+        "Computing %s metrics in %d batches (prefix_len=%d)",
+        geo_level,
+        len(prefixes),
+        prefix_len,
+    )
+
+    # Delete existing rows for this geo_level
+    session.query(GreenspaceRegionMetric).filter(
+        GreenspaceRegionMetric.geo_level == geo_level
+    ).delete()
     session.flush()
-    return len(new_rows)
+
+    total_rows = 0
+    batch_count = 0
+    last_log_time = time.monotonic()
+
+    for i, prefix in enumerate(prefixes):
+        try:
+            with session.begin_nested():
+                batch_rows = _compute_batch(session, geo_level, prefix)
+                if batch_rows:
+                    session.bulk_save_objects(batch_rows)
+                    session.flush()
+                    total_rows += len(batch_rows)
+        except OperationalError:
+            logger.warning(
+                "Database error processing %s prefix=%s, skipping batch",
+                geo_level,
+                prefix,
+                exc_info=True,
+            )
+            session.rollback()
+            # Re-delete and re-insert what we had — start fresh for remaining
+            session.query(GreenspaceRegionMetric).filter(
+                GreenspaceRegionMetric.geo_level == geo_level
+            ).delete()
+            total_rows = 0
+            batch_count = 0
+            continue
+
+        batch_count += 1
+        if batch_count >= _COMMIT_INTERVAL:
+            session.commit()
+            batch_count = 0
+
+        now = time.monotonic()
+        if now - last_log_time >= 30:
+            logger.info(
+                "%s progress: %d/%d prefixes, %d rows so far",
+                geo_level,
+                i + 1,
+                len(prefixes),
+                total_rows,
+            )
+            last_log_time = now
+
+    # Final commit for remaining batches
+    if batch_count > 0:
+        session.commit()
+
+    logger.info("Computed %d %s rows from TIGER/greenspace join", total_rows, geo_level)
+    return total_rows
 
 
 def enrich_population(session: Session, geo_level: str) -> int:
