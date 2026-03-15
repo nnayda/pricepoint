@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.28 (2026-03-15)
+
+### Bug Fixes
+
+- **dag**: Handle DB connection loss in school gold builder and add model indexes
+  ([`ee05925`](https://github.com/nnayda/pricepoint/-/commit/ee05925e5b5c07954b970eca5d1c2758035a32e5))
+
+
 ## v1.0.0-dev.27 (2026-03-15)
 
 ### Performance Improvements
