@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.32 (2026-03-16)
+
+### Bug Fixes
+
+- **training**: Retain boolean/object features and fix MLflow DNS rebinding
+  ([`95b3a41`](https://github.com/nnayda/pricepoint/-/commit/95b3a41f53f2d19824b3de3257a31737155d5a9c))
+
+
 ## v1.0.0-dev.31 (2026-03-16)
 
 ### Bug Fixes
