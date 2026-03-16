@@ -1,0 +1,53 @@
+{{- if and .Values.ingress.enabled .Values.martin.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-martin-tiles
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: martin
+  annotations:
+    {{- /* Traefik: use StripPrefix middleware to remove /tiles before forwarding */}}
+    {{- if hasPrefix "traefik" (.Values.ingress.className | default "") }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "pricepoint.fullname" . }}-strip-tiles@kubernetescrd
+    {{- end }}
+    {{- /* nginx-ingress: rewrite /tiles/(.*) to /$1 */}}
+    {{- if hasPrefix "nginx" (.Values.ingress.className | default "") }}
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+      hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- if hasPrefix "nginx" ($.Values.ingress.className | default "") }}
+          - path: /tiles/(.*)
+          {{- else }}
+          - path: /tiles
+          {{- end }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "pricepoint.fullname" $ }}-martin
+                port:
+                  number: {{ $.Values.martin.service.port }}
+    {{- end }}
+{{- end }}
