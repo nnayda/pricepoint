@@ -95,27 +95,6 @@ function DashboardNav() {
           </svg>
         </Link>
 
-        {/* Comparison mode toggle */}
-        <button
-          type="button"
-          aria-label="Comparison mode"
-          className="relative rounded-[var(--radius-db-sm)] p-2 text-[var(--color-db-text-tertiary)] transition-colors hover:bg-[var(--color-db-surface-hover)] hover:text-[var(--color-db-text-secondary)]"
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 4.5v15m6-15v15M4.5 4.5h15c.828 0 1.5.672 1.5 1.5v12c0 .828-.672 1.5-1.5 1.5h-15A1.5 1.5 0 013 18V6c0-.828.672-1.5 1.5-1.5z"
-            />
-          </svg>
-        </button>
-
         {/* Saved listings */}
         <Link
           to="/saved"

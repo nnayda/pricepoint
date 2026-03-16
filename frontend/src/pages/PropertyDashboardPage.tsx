@@ -78,7 +78,11 @@ function PropertyDashboardPage() {
       result = { ...result, price_history: merged };
     }
     if (neighborhoodProps && neighborhoodProps.properties.length > 0) {
-      result = { ...result, neighborhood_properties: neighborhoodProps.properties };
+      result = {
+        ...result,
+        neighborhood_properties: neighborhoodProps.properties,
+        tract_boundary: neighborhoodProps.tract_boundary ?? null,
+      };
     }
     if (shapData && shapData.length > 0) {
       result = {

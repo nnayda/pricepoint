@@ -26,16 +26,7 @@ function ComparablesPage() {
 
   const [criteria, setCriteria] = useState<ComparablesSearchCriteria>(DEFAULT_CRITERIA);
 
-  const criteriaKey = JSON.stringify(criteria);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableCriteria = useMemo(() => criteria, [criteriaKey]);
-
-  const { data, loading, error, search } = useComparables(
-    lat,
-    lon,
-    address ?? null,
-    stableCriteria,
-  );
+  const { data, loading, error, search } = useComparables(lat, lon, address ?? null, criteria);
 
   // --- Synced expand/collapse state across all columns ---
   // Collect all unique categories from every property
@@ -114,7 +105,7 @@ function ComparablesPage() {
     <div className="min-h-screen bg-[var(--th-bg-base)] font-db-sans">
       <DashboardNav />
 
-      <div className="mx-auto max-w-[1680px] px-4 py-6">
+      <div className="mx-auto max-w-[1680px] px-4 pt-20 pb-6">
         {/* Page header */}
         <div className="mb-4">
           <h1 className="text-lg font-bold text-[var(--color-db-text)]">Comparable Properties</h1>

@@ -29,9 +29,11 @@ class NeighborhoodPropertyPoint(BaseModel):
     lon: float
     effective_price: float
     listing_status: str
+    sold_date: str | None = None
 
 
 class NeighborhoodPropertiesResponse(BaseModel):
     tract_geoid: str
     sample_size: int
     properties: list[NeighborhoodPropertyPoint]
+    tract_boundary: dict | None = None

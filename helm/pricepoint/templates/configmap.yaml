@@ -14,6 +14,7 @@ data:
   # S3/MinIO
   S3_ENDPOINT_URL: {{ include "pricepoint.s3Endpoint" . | quote }}
   S3_BUCKET: {{ if .Values.minio.enabled }}pricepoint-data{{ else }}{{ .Values.externalS3.bucket }}{{ end }}
+  MLFLOW_S3_ENDPOINT_URL: {{ include "pricepoint.s3Endpoint" . | quote }}
   # MLflow
   MLFLOW_TRACKING_URI: "http://{{ include "pricepoint.fullname" . }}-mlflow:{{ .Values.mlflow.service.port }}"
   # Geocoding

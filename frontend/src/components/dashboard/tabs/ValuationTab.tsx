@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Source, Layer } from "react-map-gl/maplibre";
 import type { DashboardData, MortgageBreakdown } from "../../../types";
 import type { MapMarker } from "../maps/DashboardMap";
 import DashboardCard from "../DashboardCard";
@@ -84,8 +86,20 @@ function fmtPrice(n: number): string {
   return `$${n.toLocaleString("en-US")}`;
 }
 
+function fmtSoldDate(isoDate: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function statusLabel(listing_status: string, sold_date?: string | null): string {
+  if (listing_status === "Sold" && sold_date) {
+    return `Sold ${fmtSoldDate(sold_date)}`;
+  }
+  return listing_status;
+}
+
 function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
-  const { property, neighborhood_properties } = data;
+  const { property, neighborhood_properties, tract_boundary } = data;
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const markers: MapMarker[] = useMemo(() => {
@@ -119,6 +133,15 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
     return [subjectMarker, ...propMarkers];
   }, [property, neighborhood_properties]);
 
+  const tractGeojson = useMemo(() => {
+    if (!tract_boundary) return null;
+    return {
+      type: "Feature" as const,
+      geometry: tract_boundary,
+      properties: {},
+    };
+  }, [tract_boundary]);
+
   const renderPopup = useCallback(
     (marker: MapMarker) => {
       if (marker.id === "subject") {
@@ -132,6 +155,7 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
       const idx = marker.id ? parseInt(marker.id.replace("np-", ""), 10) : -1;
       const np = neighborhood_properties?.[idx];
       if (!np) return <span>{marker.label}</span>;
+      const status = statusLabel(np.listing_status, np.sold_date);
       return (
         <div style={{ fontFamily: "var(--font-db-sans)", minWidth: 160 }}>
           <div style={{ fontWeight: 600, fontSize: 13 }}>{fmtPrice(np.effective_price)}</div>
@@ -143,8 +167,35 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
               color: np.listing_status === "Sold" ? "#94A3B8" : "#34D399",
             }}
           >
-            {np.listing_status}
+            {status}
           </div>
+          <Link
+            to={`/property/${encodeURIComponent(np.address)}?lat=${np.lat}&lon=${np.lon}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              marginTop: 4,
+              fontSize: 11,
+              fontWeight: 500,
+              color: "var(--color-db-accent, #818CF8)",
+              textDecoration: "none",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.textDecoration = "underline";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.textDecoration = "none";
+            }}
+          >
+            View property
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="12" height="12">
+              <path
+                fill="currentColor"
+                d="M4.5 2A.5.5 0 004 2.5v1a.5.5 0 001 0V3h7.3L4.15 11.15a.5.5 0 10.7.7L13 3.71V11a.5.5 0 001 0V2.5a.5.5 0 00-.5-.5h-9z"
+              />
+            </svg>
+          </Link>
         </div>
       );
     },
@@ -165,7 +216,30 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
           onMarkerSelect={setSelectedId}
           onMarkerDeselect={() => setSelectedId(null)}
           renderPopup={renderPopup}
-        />
+        >
+          {tractGeojson && (
+            <Source id="tract-boundary" type="geojson" data={tractGeojson}>
+              <Layer
+                id="tract-boundary-fill"
+                type="fill"
+                paint={{
+                  "fill-color": "#6366F1",
+                  "fill-opacity": 0.06,
+                }}
+              />
+              <Layer
+                id="tract-boundary-line"
+                type="line"
+                paint={{
+                  "line-color": "#6366F1",
+                  "line-width": 2,
+                  "line-opacity": 0.5,
+                  "line-dasharray": [4, 3],
+                }}
+              />
+            </Source>
+          )}
+        </DashboardMap>
       </div>
       {neighborhood_properties && neighborhood_properties.length > 0 && (
         <div className="mt-2 flex items-center gap-4 text-[10px] text-[var(--color-db-text-muted)]">
@@ -180,6 +254,13 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-2 rounded-full bg-[#A78BFA]" />
             Estimated
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ border: "1.5px dashed #6366F1", opacity: 0.6 }}
+            />
+            Census Tract
           </span>
           <span className="ml-auto">{neighborhood_properties.length} properties</span>
         </div>

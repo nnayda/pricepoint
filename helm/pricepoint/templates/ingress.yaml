@@ -30,15 +30,7 @@ spec:
         paths:
           {{- range .paths }}
           {{- if eq .service "martin" }}
-          {{- if $.Values.martin.enabled }}
-          - path: {{ .path }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "pricepoint.fullname" $ }}-{{ .service }}
-                port:
-                  number: {{ .port }}
-          {{- end }}
+          {{- /* Martin tiles are served via a dedicated ingress with path rewriting — see martin-ingress.yaml */}}
           {{- else if eq .service "airflow" }}
           {{- if $.Values.airflow.enabled }}
           - path: {{ .path }}

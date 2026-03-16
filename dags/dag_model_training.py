@@ -238,6 +238,14 @@ def model_training():
 
         input_example = pd.DataFrame(train_output.get("input_example", {}))
 
+        # Restore category dtype lost during XCom serialization so XGBoost
+        # and MLflow signature inference see the same types used in training.
+        from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+        for col in CATEGORICAL_COLUMNS:
+            if col in input_example.columns:
+                input_example[col] = input_example[col].astype("category")
+
         # Reconstruct cleaned feature matrix for EDA plot generation
         eda_data = None
         try:

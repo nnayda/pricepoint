@@ -19,6 +19,8 @@ export function useComparables(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const criteriaRef = useRef(criteria);
+  criteriaRef.current = criteria;
 
   const search = useCallback(() => {
     if (!lat || !lon || !address) return;
@@ -30,7 +32,7 @@ export function useComparables(
     setLoading(true);
     setError(null);
 
-    getComparables(lat, lon, address, criteria)
+    getComparables(lat, lon, address, criteriaRef.current)
       .then((result) => {
         if (!controller.signal.aborted) {
           setData(result);
@@ -47,7 +49,7 @@ export function useComparables(
           setLoading(false);
         }
       });
-  }, [lat, lon, address, criteria]);
+  }, [lat, lon, address]);
 
   // Initial search on mount
   useEffect(() => {
