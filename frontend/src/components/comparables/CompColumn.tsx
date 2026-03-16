@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { CompPropertyDetail, CompFeatureGroup } from "../../types";
 import CompFeatureSection from "./CompFeatureSection";
 
@@ -134,6 +135,26 @@ function CompColumn({
         <p className="text-xs text-[var(--color-db-text-secondary)]">
           {prop.city}, {prop.state} {prop.zip_code}
         </p>
+        {!isSubject && (
+          <Link
+            to={`/property/${encodeURIComponent(prop.address)}?lat=${prop.lat}&lon=${prop.lon}`}
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-db-accent)] hover:underline"
+          >
+            View property
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              className="h-3 w-3"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </Link>
+        )}
       </div>
 
       {/* Key Facts — fixed rows so columns align */}
