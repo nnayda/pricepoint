@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
@@ -10,17 +11,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from geoalchemy2.functions import (
+    ST_X,
+    ST_Y,
     ST_AsGeoJSON,
     ST_Contains,
     ST_DWithin,
     ST_MakePoint,
     ST_SetSRID,
     ST_Simplify,
-    ST_X,
-    ST_Y,
 )
-import json
-
 from sqlalchemy import Date, Float, case, cast, func, literal_column, select
 from sqlalchemy.orm import Session
 
