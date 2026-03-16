@@ -48,6 +48,23 @@ class TestPrepareFeatures:
         with pytest.raises(ValueError, match="Target column"):
             prepare_features(synthetic_df, "nonexistent")
 
+    def test_keeps_boolean_columns(
+        self, synthetic_df_with_bools: pd.DataFrame
+    ) -> None:
+        x, _y = prepare_features(synthetic_df_with_bools, "sold_price")
+        assert "has_garage" in x.columns
+        assert "is_renovated" in x.columns
+        assert "no_heating" in x.columns
+
+    def test_coerces_all_none_object_columns(
+        self, synthetic_df_with_object_numerics: pd.DataFrame
+    ) -> None:
+        x, _y = prepare_features(synthetic_df_with_object_numerics, "sold_price")
+        # All-None columns should be coerced to numeric (then dropped by >95% NaN filter)
+        # but they should NOT appear in the "non-numeric" drop log
+        assert "dist_nearest_elementary_m" not in x.columns  # dropped by NaN filter
+        assert "median_sale_price_1m" not in x.columns
+
     def test_categoricals_have_category_dtype(self, synthetic_df: pd.DataFrame) -> None:
         x, _y = prepare_features(synthetic_df, "sold_price")
         assert "parking_type" in x.columns

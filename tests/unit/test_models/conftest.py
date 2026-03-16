@@ -62,6 +62,30 @@ def synthetic_df_with_nan(synthetic_df: pd.DataFrame) -> pd.DataFrame:
 
 
 @pytest.fixture()
+def synthetic_df_with_bools(synthetic_df: pd.DataFrame) -> pd.DataFrame:
+    """Synthetic DataFrame with boolean feature columns."""
+    df = synthetic_df.copy()
+    rng = np.random.RandomState(55)
+    df["has_garage"] = rng.choice([True, False], len(df))
+    df["is_renovated"] = rng.choice([True, False], len(df))
+    df["no_heating"] = rng.choice([True, False], len(df))
+    return df
+
+
+@pytest.fixture()
+def synthetic_df_with_object_numerics(synthetic_df: pd.DataFrame) -> pd.DataFrame:
+    """Synthetic DataFrame with all-None columns that have object dtype.
+
+    Simulates numeric columns loaded from JSONB where all values were NULL,
+    causing pandas to infer object dtype instead of float64.
+    """
+    df = synthetic_df.copy()
+    df["dist_nearest_elementary_m"] = None  # all-None → object dtype
+    df["median_sale_price_1m"] = None
+    return df
+
+
+@pytest.fixture()
 def synthetic_df_with_strings(synthetic_df: pd.DataFrame) -> pd.DataFrame:
     """Synthetic DataFrame with a raw string column that should be dropped.
 

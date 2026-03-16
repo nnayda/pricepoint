@@ -29,6 +29,9 @@ spec:
                 name: {{ include "pricepoint.fullname" . }}-app-config
             - secretRef:
                 name: {{ include "pricepoint.fullname" . }}-secret
+          env:
+            - name: MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE
+              value: "true"
           command: ["mlflow"]
           args:
             - "server"

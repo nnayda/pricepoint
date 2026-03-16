@@ -91,10 +91,16 @@ def prepare_features(
     y = features[target_col].copy()
     x = features.drop(columns=[target_col])
 
-    # Keep numeric and category columns; drop everything else
+    # Coerce object columns to numeric where possible (e.g. all-None columns
+    # loaded from JSONB that pandas inferred as object instead of float)
     from pricepoint.features.housing import CATEGORICAL_COLUMNS
 
-    kept_cols = x.select_dtypes(include=["number", "category"]).columns.tolist()
+    for col in x.select_dtypes(include=["object"]).columns:
+        if col not in CATEGORICAL_COLUMNS:
+            x[col] = pd.to_numeric(x[col], errors="coerce")
+
+    # Keep numeric, boolean, and category columns; drop everything else
+    kept_cols = x.select_dtypes(include=["number", "bool", "category"]).columns.tolist()
     dropped = set(x.columns) - set(kept_cols)
     if dropped:
         logger.info("Dropping non-numeric/non-category columns: %s", dropped)
