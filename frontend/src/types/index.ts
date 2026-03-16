@@ -520,12 +520,14 @@ export interface NeighborhoodProperty {
   lon: number;
   effective_price: number;
   listing_status: string;
+  sold_date?: string | null;
 }
 
 export interface NeighborhoodPropertiesResponse {
   tract_geoid: string;
   sample_size: number;
   properties: NeighborhoodProperty[];
+  tract_boundary?: GeoJSON.Geometry | null;
 }
 
 export interface RiskCategory {
@@ -921,6 +923,7 @@ export interface DashboardData {
   property_details: PropertyDetailSection[];
   model_features: ModelFeature[];
   neighborhood_properties?: NeighborhoodProperty[];
+  tract_boundary?: GeoJSON.Geometry | null;
   /** True when the property was not found in the database */
   notFound?: boolean;
 }

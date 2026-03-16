@@ -9,8 +9,19 @@ from statistics import median
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from geoalchemy2.functions import ST_X, ST_Y, ST_Contains, ST_DWithin, ST_MakePoint, ST_SetSRID
-from sqlalchemy import Float, case, cast, func, literal_column, select
+from geoalchemy2.functions import (
+    ST_AsGeoJSON,
+    ST_Contains,
+    ST_DWithin,
+    ST_MakePoint,
+    ST_SetSRID,
+    ST_Simplify,
+    ST_X,
+    ST_Y,
+)
+import json
+
+from sqlalchemy import Date, Float, case, cast, func, literal_column, select
 from sqlalchemy.orm import Session
 
 from pricepoint.api.dependencies import get_db
@@ -396,7 +407,17 @@ async def get_neighborhood_valuation_properties(
     if not tract_geoid:
         return NeighborhoodPropertiesResponse(tract_geoid="unknown", sample_size=0, properties=[])
 
-    # 2. Build effective price expression (same logic as valuation endpoint)
+    # 2. Fetch tract boundary as GeoJSON for the frontend map overlay
+    tract_boundary: dict | None = None
+    tract_geojson_row = db.execute(
+        select(ST_AsGeoJSON(ST_Simplify(Tract.geom, 0.0001)).label("geojson"))
+        .where(Tract.geoid == tract_geoid)
+        .limit(1)
+    ).scalar_one_or_none()
+    if tract_geojson_row:
+        tract_boundary = json.loads(tract_geojson_row)
+
+    # 3. Build effective price expression (same logic as valuation endpoint)
     two_years_ago = datetime.now(tz=UTC) - timedelta(days=730)
 
     ml_value = (
@@ -435,7 +456,7 @@ async def get_neighborhood_valuation_properties(
         else_=literal_column("'Estimated'"),
     )
 
-    # 3. Query individual listings in tract
+    # 4. Query individual listings in tract
     rows = db.execute(
         select(
             RedfinListing.street_address,
@@ -443,6 +464,7 @@ async def get_neighborhood_valuation_properties(
             ST_X(RedfinListing.location).label("lon"),
             cast(effective_price, Float).label("effective_price"),
             listing_status_label.label("listing_status"),
+            cast(RedfinListing.sold_date, Date).label("sold_date"),
         )
         .join(PropertyGeoLookup, PropertyGeoLookup.property_id == RedfinListing.id)
         .where(
@@ -458,6 +480,7 @@ async def get_neighborhood_valuation_properties(
             lon=float(row.lon),
             effective_price=round(float(row.effective_price), 2),
             listing_status=row.listing_status or "Unknown",
+            sold_date=row.sold_date.isoformat() if row.sold_date else None,
         )
         for row in rows
         if row.effective_price is not None
@@ -467,4 +490,5 @@ async def get_neighborhood_valuation_properties(
         tract_geoid=tract_geoid,
         sample_size=len(properties),
         properties=properties,
+        tract_boundary=tract_boundary,
     )
