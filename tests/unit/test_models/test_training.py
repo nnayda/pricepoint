@@ -48,9 +48,7 @@ class TestPrepareFeatures:
         with pytest.raises(ValueError, match="Target column"):
             prepare_features(synthetic_df, "nonexistent")
 
-    def test_keeps_boolean_columns(
-        self, synthetic_df_with_bools: pd.DataFrame
-    ) -> None:
+    def test_keeps_boolean_columns(self, synthetic_df_with_bools: pd.DataFrame) -> None:
         x, _y = prepare_features(synthetic_df_with_bools, "sold_price")
         assert "has_garage" in x.columns
         assert "is_renovated" in x.columns
