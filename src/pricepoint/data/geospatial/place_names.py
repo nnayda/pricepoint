@@ -135,6 +135,7 @@ def _atomic_swap() -> None:
                     TO uq_place_name_type_value;
                 ALTER INDEX ix_place_names_staging_value_trgm
                     RENAME TO ix_place_names_value_trgm;
+                ALTER TABLE place_names SET LOGGED;
             """)
         )
         session.commit()
