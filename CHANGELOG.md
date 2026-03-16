@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.31 (2026-03-16)
+
+### Bug Fixes
+
+- **scoring**: Persist failed scoring records to DB and fix ETA calculation
+  ([`e49fd74`](https://github.com/nnayda/pricepoint/-/commit/e49fd74c39b5346f18e2f165b0058e96cb57c686))
+
+
 ## v1.0.0-dev.30 (2026-03-15)
 
 ### Bug Fixes
