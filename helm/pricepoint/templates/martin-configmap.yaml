@@ -12,9 +12,86 @@ data:
     postgres:
       - connection_string: ${DATABASE_URL}
         default_srid: 4326
-        auto_publish:
-          from_schemas:
-            - public
-          tables: true
-          functions: false
+        auto_bounds: skip
+        tables:
+          greenspaces:
+            schema: public
+            table: greenspaces
+            geometry_column: geom
+            srid: 4326
+          trails:
+            schema: public
+            table: trails
+            geometry_column: geom
+            srid: 4326
+          noises:
+            schema: public
+            table: noises
+            geometry_column: geom
+            srid: 4326
+          risk_boundaries:
+            schema: public
+            table: risk_boundaries
+            geometry_column: geom
+            srid: 4326
+          school_districts:
+            schema: public
+            table: school_districts
+            geometry_column: geom
+            srid: 4326
+          v_infrastructure:
+            schema: public
+            table: v_infrastructure
+            geometry_column: geom
+            srid: 4326
+          v_block_group_demographics:
+            schema: public
+            table: v_block_group_demographics
+            geometry_column: geom
+            srid: 4326
+          v_block_group_labels:
+            schema: public
+            table: v_block_group_labels
+            geometry_column: geom
+            srid: 4326
+          v_county_demographics:
+            schema: public
+            table: v_county_demographics
+            geometry_column: geom
+            srid: 4326
+          v_county_labels:
+            schema: public
+            table: v_county_labels
+            geometry_column: geom
+            srid: 4326
+          v_subdivision_demographics:
+            schema: public
+            table: v_subdivision_demographics
+            geometry_column: geom
+            srid: 4326
+          v_subdivision_labels:
+            schema: public
+            table: v_subdivision_labels
+            geometry_column: geom
+            srid: 4326
+          v_township_demographics:
+            schema: public
+            table: v_township_demographics
+            geometry_column: geom
+            srid: 4326
+          v_township_labels:
+            schema: public
+            table: v_township_labels
+            geometry_column: geom
+            srid: 4326
+          v_tract_demographics:
+            schema: public
+            table: v_tract_demographics
+            geometry_column: geom
+            srid: 4326
+          v_tract_labels:
+            schema: public
+            table: v_tract_labels
+            geometry_column: geom
+            srid: 4326
 {{- end }}
