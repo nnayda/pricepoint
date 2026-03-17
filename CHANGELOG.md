@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.37 (2026-03-17)
+
+### Bug Fixes
+
+- **helm**: Specify public schema in Martin auto_publish config
+  ([`65523aa`](https://github.com/nnayda/pricepoint/-/commit/65523aad9b0d03ef9239bbf2ca2253aab59a5497))
+
+
 ## v1.0.0-dev.36 (2026-03-17)
 
 ### Bug Fixes
