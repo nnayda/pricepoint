@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.33 (2026-03-17)
+
+### Bug Fixes
+
+- Convert place_names table to LOGGED after atomic swap
+  ([`5a590c7`](https://github.com/nnayda/pricepoint/-/commit/5a590c7cd12b486453d9800a95e5937f594b5d59))
+
+- **api**: Regenerate TypeScript types for neighborhood schema changes
+  ([`afee24d`](https://github.com/nnayda/pricepoint/-/commit/afee24dacfb9969d36e2fade7ebe15d3743c7c31))
+
+- **comparables**: Fix navbar overlap and remove auto-search on criteria change
+  ([`ae0afc8`](https://github.com/nnayda/pricepoint/-/commit/ae0afc8ba0682a51f1451d8b983ce5f55bd7d022))
+
+- **helm**: Add path rewriting for Martin tile ingress
+  ([`9f19454`](https://github.com/nnayda/pricepoint/-/commit/9f194540aa37f60e30f037c42b77af3b0eba515d))
+
+- **training**: Add AWS credentials to Helm chart and restore categorical dtypes in MLflow logging
+  ([`9b4607e`](https://github.com/nnayda/pricepoint/-/commit/9b4607e86a609dc67e0911a8fd25bc7d256ca42b))
+
+### Features
+
+- **comparables**: Add "View property" link to navigate to dashboard from comp columns
+  ([`5f1d692`](https://github.com/nnayda/pricepoint/-/commit/5f1d6922b40bb4fb3508cdde44ba40daa55231fd))
+
+- **neighborhood**: Add sold date, property link, and census tract boundary to price map
+  ([`926be2c`](https://github.com/nnayda/pricepoint/-/commit/926be2c1ce6124353c8dd596a31de9bad8ca7484))
+
+
 ## v1.0.0-dev.32 (2026-03-16)
 
 ### Bug Fixes
