@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from pricepoint.db.models import RedfinListing
+from pricepoint.features.comparables import build_comparable_features
 from pricepoint.features.economic import build_economic_features
 from pricepoint.features.geospatial import build_geospatial_features
 from pricepoint.features.housing import build_housing_features
@@ -77,45 +78,56 @@ def assemble_features(
     logger.info("Starting feature assembly for %s", id_desc)
     overall_start = time.monotonic()
 
-    logger.info("[1/3] Building geospatial features...")
+    logger.info("[1/4] Building geospatial features...")
     t0 = time.monotonic()
     geo = build_geospatial_features(db, property_ids=property_ids)
     logger.info(
-        "[1/3] Geospatial features complete: %s rows × %s cols in %.1fs",
+        "[1/4] Geospatial features complete: %s rows × %s cols in %.1fs",
         geo.shape[0],
         geo.shape[1],
         time.monotonic() - t0,
     )
 
-    logger.info("[2/3] Building housing features...")
+    logger.info("[2/4] Building housing features...")
     t0 = time.monotonic()
     housing = build_housing_features(db, property_ids=property_ids)
     logger.info(
-        "[2/3] Housing features complete: %s rows × %s cols in %.1fs",
+        "[2/4] Housing features complete: %s rows × %s cols in %.1fs",
         housing.shape[0],
         housing.shape[1],
         time.monotonic() - t0,
     )
 
-    logger.info("[3/3] Building economic features...")
+    logger.info("[3/4] Building economic features...")
     t0 = time.monotonic()
     econ = build_economic_features(db, property_ids=property_ids)
     logger.info(
-        "[3/3] Economic features complete: %s rows × %s cols in %.1fs",
+        "[3/4] Economic features complete: %s rows × %s cols in %.1fs",
         econ.shape[0],
         econ.shape[1],
         time.monotonic() - t0,
     )
 
+    logger.info("[4/4] Building comparable sales features...")
+    t0 = time.monotonic()
+    comp = build_comparable_features(db, property_ids=property_ids)
     logger.info(
-        "Feature shapes — geo: %s, housing: %s, econ: %s",
+        "[4/4] Comparable features complete: %s rows × %s cols in %.1fs",
+        comp.shape[0],
+        comp.shape[1],
+        time.monotonic() - t0,
+    )
+
+    logger.info(
+        "Feature shapes — geo: %s, housing: %s, econ: %s, comp: %s",
         geo.shape,
         housing.shape,
         econ.shape,
+        comp.shape,
     )
 
     t0 = time.monotonic()
-    combined = pd.concat([geo, housing, econ], axis=1)
+    combined = pd.concat([geo, housing, econ, comp], axis=1)
 
     # Drop rows where every column is NaN
     before_drop = len(combined)

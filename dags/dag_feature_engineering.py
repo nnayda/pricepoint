@@ -144,6 +144,23 @@ def feature_engineering():
             db.close()
 
     @task()
+    def build_comparables(property_ids: list[int]):
+        """Compute comparable sales features for stale properties."""
+        if not property_ids:
+            logger.info("No properties to process; skipping comparables")
+            return
+
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.comparables import build_comparable_features
+
+        db = SessionLocal()
+        try:
+            df = build_comparable_features(db, property_ids=property_ids)
+            logger.info("Comparable features shape: %s", df.shape)
+        finally:
+            db.close()
+
+    @task()
     def assemble_feature_matrix(property_ids: list[int]):
         """Join all feature sets into a single training matrix and persist."""
         if not property_ids:
@@ -187,11 +204,12 @@ def feature_engineering():
     geo = build_geospatial(stale_ids)
     housing = build_housing(stale_ids)
     econ = build_economic(stale_ids)
+    comps = build_comparables(stale_ids)
     assembly = assemble_feature_matrix(stale_ids)
     verify = verify_matrix()
 
     reset >> stale_ids
-    [geo, housing, econ] >> assembly >> verify
+    [geo, housing, econ, comps] >> assembly >> verify
 
 
 feature_engineering()

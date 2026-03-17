@@ -331,6 +331,35 @@ Direct copies from staging record fields.
 
 ---
 
+## 18. Comparable Sales Features
+
+Derived at feature-engineering time from spatially similar sold properties. Computed in `src/pricepoint/features/comparables.py` using a PostgreSQL LATERAL JOIN against `redfin_listings`. Comp selection: 2-mile radius, ±1 bed/bath, ±20% sqft, top 10 by distance, sold before subject's `sold_date` (temporal leakage guard).
+
+### Price Signal (4)
+
+| Column | SQL Type | Derivation | Example | Default |
+|--------|----------|------------|---------|---------|
+| `comp_median_ppsf` | `Float` | Median price-per-sqft of top 10 comps | `205.50` | `NULL` (no comps) |
+| `comp_mean_adjusted_price` | `Float` | Mean of comp prices adjusted for sqft diff: `comp_price + (subject_sqft - comp_sqft) * comp_ppsf` | `412000.0` | `NULL` (no comps) |
+| `comp_nearest_price` | `Float` | Sold price of spatially nearest comp | `385000.0` | `NULL` (no comps) |
+| `comp_ppsf_ratio` | `Float` | `subject_price_per_sqft / comp_median_ppsf` — over/under-priced relative to peers | `1.05` | `NULL` (no comps or no subject ppsf) |
+
+### Market Context (2)
+
+| Column | SQL Type | Derivation | Example | Default |
+|--------|----------|------------|---------|---------|
+| `comp_count` | `Integer` | Number of comps found (0–10) — market liquidity proxy | `7` | `0` |
+| `comp_price_spread` | `Float` | IQR of comp sold prices (≥4 comps) or stddev (2–3 comps) | `48500.0` | `NULL` (<2 comps) |
+
+### Proximity & Freshness (2)
+
+| Column | SQL Type | Derivation | Example | Default |
+|--------|----------|------------|---------|---------|
+| `comp_avg_days_ago` | `Float` | Mean days between subject's sold date and comp sold dates | `95.3` | `NULL` (no comps) |
+| `comp_nearest_distance_m` | `Float` | Meters to spatially nearest comp | `312.5` | `NULL` (no comps) |
+
+---
+
 ## Internal Columns (Exclude from ML)
 
 These columns are for system bookkeeping and should be excluded from ML feature sets:

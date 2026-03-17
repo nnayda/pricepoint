@@ -49,6 +49,10 @@ STRUCTURAL_NULL_FEATURES: list[str] = [
     "appliances_included_count",  # NULL = not reported
     "llm_description_score",  # NULL = no LLM analysis run
     "llm_photo_score",  # NULL = no LLM analysis run
+    "comp_median_ppsf",  # NULL = no comps found
+    "comp_mean_adjusted_price",  # NULL = no comps found
+    "comp_nearest_price",  # NULL = no comps found
+    "comp_ppsf_ratio",  # NULL = no comps or no subject ppsf
 ]
 
 
