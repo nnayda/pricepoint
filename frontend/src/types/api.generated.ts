@@ -1440,6 +1440,10 @@ export interface components {
       sample_size: number;
       /** Properties */
       properties: components["schemas"]["NeighborhoodPropertyPoint"][];
+      /** Tract Boundary */
+      tract_boundary?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** NeighborhoodPropertyPoint */
     NeighborhoodPropertyPoint: {
@@ -1453,6 +1457,8 @@ export interface components {
       effective_price: number;
       /** Listing Status */
       listing_status: string;
+      /** Sold Date */
+      sold_date?: string | null;
     };
     /** NeighborhoodValuationHistoryResponse */
     NeighborhoodValuationHistoryResponse: {
