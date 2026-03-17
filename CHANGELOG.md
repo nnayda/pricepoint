@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.39 (2026-03-17)
+
+### Bug Fixes
+
+- **helm**: Add geometry_type to Martin explicit table config
+  ([`7499821`](https://github.com/nnayda/pricepoint/-/commit/74998218825a5b54880ba7b7a42243364e71edb3))
+
+
 ## v1.0.0-dev.38 (2026-03-17)
 
 ### Features
