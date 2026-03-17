@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.40 (2026-03-17)
+
+### Bug Fixes
+
+- **helm**: Revert to auto_publish so Martin includes property columns
+  ([`9477f8b`](https://github.com/nnayda/pricepoint/-/commit/9477f8b8f5ff5ccdad7fab8f1fcc23c81cc0f16a))
+
+### Features
+
+- Add comparable sales features for XGBoost model
+  ([`e870df6`](https://github.com/nnayda/pricepoint/-/commit/e870df6722bda0a9a4009e7f7e0ba4afbd2f72c4))
+
+
 ## v1.0.0-dev.39 (2026-03-17)
 
 ### Bug Fixes
