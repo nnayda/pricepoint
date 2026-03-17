@@ -99,20 +99,26 @@ def _build_response_from_db(
     lon: float,
 ) -> PropertyResponse:
     """Build a PropertyResponse from database records."""
-    # Get Redfin valuation
+    # Get Redfin valuation (most recent)
     redfin_val = db.execute(
-        select(PropertyValuation).where(
+        select(PropertyValuation)
+        .where(
             PropertyValuation.property_id == prop.id,
             PropertyValuation.source == "redfin",
         )
+        .order_by(PropertyValuation.estimated_at.desc())
+        .limit(1)
     ).scalar_one_or_none()
 
-    # Get ML valuation
+    # Get ML valuation (most recent)
     ml_val = db.execute(
-        select(PropertyValuation).where(
+        select(PropertyValuation)
+        .where(
             PropertyValuation.property_id == prop.id,
             PropertyValuation.source == "ml_model",
         )
+        .order_by(PropertyValuation.estimated_at.desc())
+        .limit(1)
     ).scalar_one_or_none()
 
     # Get schools via linkage

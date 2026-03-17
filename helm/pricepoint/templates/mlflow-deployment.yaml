@@ -38,6 +38,7 @@ spec:
             - "--host=0.0.0.0"
             - "--port={{ .Values.mlflow.service.port }}"
             - "--default-artifact-root={{ .Values.config.mlflowArtifactRoot }}"
+            - "--static-prefix=/mlflow"
           readinessProbe:
             httpGet:
               path: /health
