@@ -95,11 +95,26 @@ def log_model(
         mlflow.log_params(params_to_log)
         mlflow.log_metrics(scalar_metrics)
 
+        # Build an explicit signature so MLflow doesn't try to infer one
+        # by running model.predict() on a re-serialized input example.
+        # The JSON round-trip loses pandas category dtypes, causing XGBoost
+        # to reject the object-typed columns with a ValueError.
+        signature = None
+        if input_example is not None:
+            try:
+                from mlflow.models import infer_signature
+
+                predictions = model.predict(input_example)
+                signature = infer_signature(input_example, predictions)
+            except Exception:
+                logger.warning("Failed to infer model signature", exc_info=True)
+
         mlflow.sklearn.log_model(
             model,
             artifact_path="model",
             registered_model_name=model_name,
             input_example=input_example,
+            signature=signature,
         )
 
         # Generate and log evaluation plots
