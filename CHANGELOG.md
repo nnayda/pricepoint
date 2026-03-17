@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.38 (2026-03-17)
+
+### Features
+
+- Add ANALYZE DAG for tile-serving tables after data loads
+  ([`b65866a`](https://github.com/nnayda/pricepoint/-/commit/b65866a9e01497fe1146bb0f5ca159bc1c3cad59))
+
+### Performance Improvements
+
+- **helm**: Restrict Martin to only frontend-needed tile sources
+  ([`330ed64`](https://github.com/nnayda/pricepoint/-/commit/330ed642ad9303ca75c4a1d899793c1fad4b195f))
+
+
 ## v1.0.0-dev.37 (2026-03-17)
 
 ### Bug Fixes
