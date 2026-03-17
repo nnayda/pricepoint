@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.34 (2026-03-17)
+
+### Bug Fixes
+
+- **training**: Provide explicit MLflow signature to avoid categorical dtype errors
+  ([`330d6b3`](https://github.com/nnayda/pricepoint/-/commit/330d6b33c229adef3098d3735988698ef5d66dcb))
+
+
 ## v1.0.0-dev.33 (2026-03-17)
 
 ### Bug Fixes
