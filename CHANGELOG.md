@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.35 (2026-03-17)
+
+### Bug Fixes
+
+- **helm**: Add MLflow static prefix and use latest valuations
+  ([`c994069`](https://github.com/nnayda/pricepoint/-/commit/c994069ed2595174154d4bf9df1fd0f6586b6e06))
+
+
 ## v1.0.0-dev.34 (2026-03-17)
 
 ### Bug Fixes
