@@ -280,6 +280,23 @@ class TestPropertyHistoryMetricsDag:
         assert not _has_external_task_sensor(tree)
 
 
+class TestAnalyzeTileTablesDag:
+    """Validate the analyze_tile_tables DAG structure."""
+
+    def test_dag_id(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_analyze_tile_tables.py")
+        kwargs = _find_dag_decorator_kwargs(tree)
+        assert kwargs["dag_id"] == "analyze_tile_tables"
+
+    def test_task_count(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_analyze_tile_tables.py")
+        assert _count_task_decorators(tree) == 1
+
+    def test_no_sensor(self, dags_dir):
+        tree = _parse_dag(dags_dir, "dag_analyze_tile_tables.py")
+        assert not _has_external_task_sensor(tree)
+
+
 class TestSubdivisionCollectionDag:
     """Validate the subdivision_collection DAG structure."""
 

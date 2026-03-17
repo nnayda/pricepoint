@@ -47,4 +47,5 @@ def test_expected_dag_files_exist(dag_files):
     assert "dag_place_names_refresh.py" in names
     assert "dag_census_detailed_race_collection.py" in names
     assert "dag_police_gold_tables.py" in names
-    assert len(dag_files) == 32
+    assert "dag_analyze_tile_tables.py" in names
+    assert len(dag_files) == 33
