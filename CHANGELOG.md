@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.36 (2026-03-17)
+
+### Bug Fixes
+
+- **helm**: Update MLflow health probes for static prefix
+  ([`63f0b39`](https://github.com/nnayda/pricepoint/-/commit/63f0b396e9b38965f8a4fe7461267e0e91188617))
+
+
 ## v1.0.0-dev.35 (2026-03-17)
 
 ### Bug Fixes
