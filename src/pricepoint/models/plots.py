@@ -79,6 +79,11 @@ def generate_evaluation_plots(
             _plot_price_tier_errors,
             {"y_true": y_true, "y_pred": y_pred, "price_tier_metrics": price_tier_metrics},
         ),
+        (
+            "model_tree.png",
+            _plot_model_tree,
+            {"model": model},
+        ),
     ]
 
     for filename, func, kwargs in generators:
@@ -699,5 +704,36 @@ def _plot_price_tier_errors(
 
     path = output_dir / filename
     fig.savefig(path, dpi=_DPI)
+    plt.close(fig)
+    return path
+
+
+def _plot_model_tree(
+    *,
+    model: Any,
+    output_dir: Path,
+    filename: str,
+) -> Path | None:
+    """Render the first tree from an XGBoost model."""
+    try:
+        import xgboost
+    except ImportError:
+        logger.info("xgboost not installed, skipping model tree plot")
+        return None
+
+    if not isinstance(model, xgboost.XGBRegressor):
+        return None
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(24, 14))
+    xgboost.plot_tree(model, num_trees=0, ax=ax)
+    ax.set_title("XGBoost — First Tree (tree 0)")
+
+    path = output_dir / filename
+    fig.savefig(path, dpi=200)
     plt.close(fig)
     return path

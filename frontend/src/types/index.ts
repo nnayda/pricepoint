@@ -898,6 +898,66 @@ export interface ComparablesSearchCriteria {
   year_built_diff: number;
 }
 
+// ── Model Methodology Types ──
+
+export interface ModelMetadata {
+  model_name: string;
+  model_version: string;
+  run_id: string;
+  training_date: string;
+  n_features: number;
+  n_training_samples: number;
+  algorithm: string;
+  hyperparameters: Record<string, string | number | null>;
+}
+
+export interface ModelMetrics {
+  mae: number | null;
+  rmse: number | null;
+  mape: number | null;
+  r2: number | null;
+  median_ae: number | null;
+  mae_mean: number | null;
+  mae_std: number | null;
+  rmse_mean: number | null;
+  rmse_std: number | null;
+  r2_mean: number | null;
+  r2_std: number | null;
+  data_n_rows: number | null;
+  data_n_features: number | null;
+  data_target_mean: number | null;
+  data_target_median: number | null;
+  data_target_std: number | null;
+}
+
+export interface FeatureImportanceItem {
+  feature: string;
+  gain: number;
+}
+
+export interface ModelMethodologyResponse {
+  metadata: ModelMetadata;
+  metrics: ModelMetrics;
+  feature_importance: FeatureImportanceItem[];
+  available_plots: string[];
+  available_eda_plots: string[];
+}
+
+export interface FeatureCatalogEntry {
+  name: string;
+  category: string;
+  sql_type: string;
+  source: string;
+  derivation: string;
+  example: string;
+  default: string;
+}
+
+export interface FeatureCatalogResponse {
+  features: FeatureCatalogEntry[];
+  categories: string[];
+}
+
 export interface DashboardData {
   listing_id?: number | null;
   property: DashboardProperty;

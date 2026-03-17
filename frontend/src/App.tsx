@@ -14,6 +14,7 @@ const UserSettingsPage = lazy(() => import("./pages/UserSettingsPage"));
 const UploadPage = lazy(() => import("./pages/UploadPage"));
 const SavedPropertiesPage = lazy(() => import("./pages/SavedPropertiesPage"));
 const ComparablesPage = lazy(() => import("./pages/ComparablesPage"));
+const ModelMethodologyPage = lazy(() => import("./pages/ModelMethodologyPage"));
 
 function PageLoader() {
   return (
@@ -44,6 +45,7 @@ function App() {
                 <Route path="/saved" element={<SavedPropertiesPage />} />
                 <Route path="/property/:address" element={<PropertyDashboardPage />} />
                 <Route path="/compare/:address" element={<ComparablesPage />} />
+                <Route path="/model-methodology" element={<ModelMethodologyPage />} />
                 <Route path="/results" element={<Navigate to="/" replace />} />
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />
                 <Route path="/test-dashboard-page" element={<Navigate to="/" replace />} />
