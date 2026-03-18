@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.43 (2026-03-18)
+
+### Bug Fixes
+
+- **helm**: Add standard Ingress fallback for Martin tile routing
+  ([`08213c9`](https://github.com/nnayda/pricepoint/-/commit/08213c9a82181fb9783a29ad2316153423ba3774))
+
+
 ## v1.0.0-dev.42 (2026-03-18)
 
 ### Bug Fixes
