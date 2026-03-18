@@ -270,7 +270,8 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
 }
 
 function ValuationTab({ data }: ValuationTabProps) {
-  const { valuation, shap_features, shapLoading, price_history, mortgage_defaults, notFound } = data;
+  const { valuation, shap_features, shapLoading, price_history, mortgage_defaults, notFound } =
+    data;
   const hasEstimate = valuation.predicted_value != null;
   const outcome = hasEstimate ? getOutcome(valuation) : null;
 
