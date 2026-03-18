@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.44 (2026-03-18)
+
+### Bug Fixes
+
+- Copy FEATURE_CATALOG.md into API container image
+  ([`650eeaf`](https://github.com/nnayda/pricepoint/-/commit/650eeafc59004876442dd5a705be45c327049c2b))
+
+- Dashboard bugs — schools assigned filter, tract boundary, SHAP loading, tax assessment
+  ([`41e4ff4`](https://github.com/nnayda/pricepoint/-/commit/41e4ff4fd215a9f23b3d86d6fd66f79f1e1d827f))
+
+### Features
+
+- Show listings, photos analyzed, and data sources on landing page
+  ([`929d3ca`](https://github.com/nnayda/pricepoint/-/commit/929d3cab6f555fee943053fc91d45d21594af5d9))
+
+
 ## v1.0.0-dev.43 (2026-03-18)
 
 ### Bug Fixes
