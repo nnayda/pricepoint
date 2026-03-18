@@ -12,6 +12,7 @@ import hashlib
 import logging
 import math
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pandas as pd
 from sqlalchemy import delete
@@ -34,7 +35,9 @@ def _feature_hash(feature_names: list[str]) -> str:
 
 
 def _sanitize_value(v: object) -> object:
-    """Convert NaN/inf floats to None for JSON storage."""
+    """Convert NaN/inf floats and Decimal to JSON-serializable types."""
+    if isinstance(v, Decimal):
+        v = float(v)
     if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
         return None
     return v

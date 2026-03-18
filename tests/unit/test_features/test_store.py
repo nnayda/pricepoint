@@ -64,6 +64,29 @@ class TestSanitizeValue:
         assert _sanitize_value(42) == 42
         assert _sanitize_value("hello") == "hello"
 
+    def test_decimal_converted_to_float(self) -> None:
+        from decimal import Decimal
+
+        from pricepoint.features.store import _sanitize_value
+
+        assert _sanitize_value(Decimal("42.5")) == 42.5
+        assert isinstance(_sanitize_value(Decimal("42.5")), float)
+
+    def test_decimal_nan_becomes_none(self) -> None:
+        from decimal import Decimal
+
+        from pricepoint.features.store import _sanitize_value
+
+        assert _sanitize_value(Decimal("NaN")) is None
+
+    def test_decimal_inf_becomes_none(self) -> None:
+        from decimal import Decimal
+
+        from pricepoint.features.store import _sanitize_value
+
+        assert _sanitize_value(Decimal("Infinity")) is None
+        assert _sanitize_value(Decimal("-Infinity")) is None
+
 
 class TestSaveFeatureMatrix:
     """Tests for save_feature_matrix."""
