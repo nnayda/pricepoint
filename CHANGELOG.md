@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.46 (2026-03-18)
+
+### Bug Fixes
+
+- Convert Decimal to float in feature store to fix JSON serialization
+  ([`eca6c14`](https://github.com/nnayda/pricepoint/-/commit/eca6c14306231aebe62a64f8e9ff6cd6e6b3222e))
+
+
 ## v1.0.0-dev.45 (2026-03-18)
 
 ### Bug Fixes
