@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.47 (2026-03-18)
+
+### Bug Fixes
+
+- Add chart-version annotation to force pod restarts on releases
+  ([`8914eac`](https://github.com/nnayda/pricepoint/-/commit/8914eacf1a1a423b868a9b6f3820ff387ab2e2a5))
+
+
 ## v1.0.0-dev.46 (2026-03-18)
 
 ### Bug Fixes
