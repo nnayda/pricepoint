@@ -85,7 +85,7 @@ LEFT JOIN LATERAL (
     ORDER BY ST_Distance(c.location::geography, s.location::geography)
     LIMIT 10
 ) comp ON TRUE
-GROUP BY s.id, s.price_per_sqft
+GROUP BY s.id, s.location, s.sold_date, s.sqft, s.num_beds, s.price_per_sqft
 """
 
 FEATURE_COLUMNS = [
