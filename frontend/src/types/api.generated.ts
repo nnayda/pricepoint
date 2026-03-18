@@ -55,7 +55,7 @@ export interface paths {
     };
     /**
      * Stats
-     * @description Return aggregate statistics (listing count) with a 5-minute TTL cache.
+     * @description Return aggregate statistics with a 5-minute TTL cache.
      */
     get: operations["stats_api_stats_get"];
     put?: never;
