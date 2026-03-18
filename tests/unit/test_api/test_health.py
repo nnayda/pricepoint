@@ -50,13 +50,14 @@ def test_metrics_endpoint(client):
 
 
 def test_stats_endpoint(app):
-    """GET /api/stats should return listing count."""
+    """GET /api/stats should return listing count, photos analyzed, and data source count."""
     from fastapi.testclient import TestClient
 
     from pricepoint.api.dependencies import get_db
 
     mock_session = MagicMock()
-    mock_session.execute.return_value.scalar.return_value = 42
+    # Two calls to execute().scalar(): listing_count then photos_analyzed
+    mock_session.execute.return_value.scalar.side_effect = [42, 150]
 
     def _mock_db():
         yield mock_session
@@ -67,29 +68,32 @@ def test_stats_endpoint(app):
     import pricepoint.api.routes.health as health_mod
 
     health_mod._stats_cache["ts"] = 0.0
+    health_mod._stats_cache.pop("listing_count", None)
 
     test_client = TestClient(app)
     response = test_client.get("/api/stats")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"listing_count": 42}
+    assert data == {"listing_count": 42, "photos_analyzed": 150, "data_source_count": 8}
 
 
 def test_stats_endpoint_uses_cache(app):
-    """GET /api/stats should use cached count within TTL."""
+    """GET /api/stats should use cached values within TTL."""
     import time
 
     from fastapi.testclient import TestClient
 
     import pricepoint.api.routes.health as health_mod
 
-    health_mod._stats_cache["count"] = 99
+    health_mod._stats_cache["listing_count"] = 99
+    health_mod._stats_cache["photos_analyzed"] = 500
+    health_mod._stats_cache["data_source_count"] = 8
     health_mod._stats_cache["ts"] = time.monotonic()
 
     test_client = TestClient(app)
     response = test_client.get("/api/stats")
     assert response.status_code == 200
-    assert response.json() == {"listing_count": 99}
+    assert response.json() == {"listing_count": 99, "photos_analyzed": 500, "data_source_count": 8}
 
 
 def test_forecast_endpoint_stub(client):

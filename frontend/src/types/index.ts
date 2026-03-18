@@ -19,6 +19,8 @@ export interface HealthResponse {
 
 export interface StatsResponse {
   listing_count: number;
+  photos_analyzed: number;
+  data_source_count: number;
 }
 
 export interface GeocodeResult {

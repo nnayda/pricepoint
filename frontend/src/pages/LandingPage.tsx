@@ -358,12 +358,24 @@ function formatListingCount(count: number): string {
   return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M+`;
 }
 
+interface HeroStats {
+  listings: string;
+  photos: string;
+  dataSources: number;
+}
+
 function HeroSection({ onSelect }: { onSelect: (r: GeocodeResult) => void }) {
-  const [listingCount, setListingCount] = useState<string | null>(null);
+  const [stats, setStats] = useState<HeroStats | null>(null);
 
   useEffect(() => {
     getStats()
-      .then((res) => setListingCount(formatListingCount(res.listing_count)))
+      .then((res) =>
+        setStats({
+          listings: formatListingCount(res.listing_count),
+          photos: formatListingCount(res.photos_analyzed),
+          dataSources: res.data_source_count,
+        }),
+      )
       .catch(() => {});
   }, []);
 
@@ -406,9 +418,13 @@ function HeroSection({ onSelect }: { onSelect: (r: GeocodeResult) => void }) {
           <SearchBar onSelect={onSelect} placeholder="Search any address..." variant="landing" />
         </div>
 
-        <p className="text-sm text-[var(--color-db-text-tertiary)]">
-          Analyzing properties across 48 states &middot; {listingCount ?? "\u2014"} listings indexed
-        </p>
+        <div className="flex items-center gap-6 text-sm text-[var(--color-db-text-tertiary)]">
+          <span>{stats?.listings ?? "\u2014"} listings indexed</span>
+          <span className="text-[var(--color-db-border)]">|</span>
+          <span>{stats?.photos ?? "\u2014"} photos analyzed</span>
+          <span className="text-[var(--color-db-border)]">|</span>
+          <span>{stats?.dataSources ?? "\u2014"} data sources</span>
+        </div>
       </div>
     </section>
   );

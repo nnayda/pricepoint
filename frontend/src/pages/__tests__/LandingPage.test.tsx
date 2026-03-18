@@ -5,7 +5,9 @@ import { axe } from "vitest-axe";
 import LandingPage from "../LandingPage";
 
 vi.mock("../../services/api", () => ({
-  getStats: vi.fn().mockResolvedValue({ listing_count: 3800 }),
+  getStats: vi
+    .fn()
+    .mockResolvedValue({ listing_count: 3800, photos_analyzed: 12500, data_source_count: 8 }),
 }));
 
 vi.mock("../../contexts/AuthContext", () => ({
@@ -94,11 +96,12 @@ describe("LandingPage", () => {
     expect(screen.getByPlaceholderText("Search any address...")).toBeInTheDocument();
   });
 
-  it("renders the social proof line with dynamic listing count", async () => {
+  it("renders the stats line with listings, photos, and data sources", async () => {
     renderLandingPage();
-    expect(screen.getByText(/48 states/i)).toBeInTheDocument();
-    const el = await screen.findByText(/3\.8K\+ listings indexed/i);
-    expect(el).toBeInTheDocument();
+    const listings = await screen.findByText(/3\.8K\+ listings indexed/i);
+    expect(listings).toBeInTheDocument();
+    expect(screen.getByText(/12\.5K\+ photos analyzed/i)).toBeInTheDocument();
+    expect(screen.getByText(/8 data sources/i)).toBeInTheDocument();
   });
 
   it("search bar wrapper has elevated z-index to keep dropdown above surrounding text", () => {
