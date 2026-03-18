@@ -12,6 +12,7 @@ RUN uv sync --frozen --no-dev
 # Copy source code and config (changes here won't invalidate dependency cache)
 COPY src/ src/
 COPY alembic.ini ./
+COPY docs/FEATURE_CATALOG.md docs/FEATURE_CATALOG.md
 
 EXPOSE 8000
 
