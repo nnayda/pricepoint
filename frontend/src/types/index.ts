@@ -965,6 +965,7 @@ export interface DashboardData {
   property: DashboardProperty;
   valuation: DashboardValuation;
   shap_features: ShapFeature[];
+  shapLoading?: boolean;
   price_history: PriceHistoryPoint[];
   risks: { overall_score: number; categories: RiskCategory[] };
   crime: {

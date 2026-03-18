@@ -33,11 +33,14 @@ from pricepoint.api.schemas.property import (
 from pricepoint.config.settings import get_settings
 from pricepoint.db.models import (
     LlmQualityScore,
+    PropertyGeoLookup,
     PropertySchool,
     PropertyValuation,
     RedfinListing,
     SaleHistoryRecord,
     School,
+    SchoolDistrict,
+    StagingWakeCountyPropertyData,
     TaxHistoryRecord,
 )
 
@@ -92,6 +95,33 @@ def _build_utilities(prop: RedfinListing) -> UtilityDetails | None:
     return UtilityDetails(water=water, sewer=sewer, electric=electric)
 
 
+def _get_wake_county_assessment(db: Session, prop: RedfinListing) -> float | None:
+    """Look up assessed value from Wake County staging data by address match."""
+    if not prop.street_address or not prop.zip_code:
+        return None
+    parts = prop.street_address.split()
+    if len(parts) < 2:
+        return None
+    house_num = parts[0]
+    # Match on street_num + zip + street name keyword
+    street_keyword = parts[1].upper()
+    row = db.execute(
+        select(StagingWakeCountyPropertyData)
+        .where(
+            StagingWakeCountyPropertyData.street_num == house_num,
+            StagingWakeCountyPropertyData.physical_zip_code == prop.zip_code,
+            func.upper(StagingWakeCountyPropertyData.street_name).contains(street_keyword),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+    if not row:
+        return None
+    building = row.assessed_building_value or 0.0
+    land = row.assessed_land_value or 0.0
+    total = building + land
+    return total if total > 0 else None
+
+
 def _build_response_from_db(
     prop: RedfinListing,
     db: Session,
@@ -128,6 +158,18 @@ def _build_response_from_db(
         .where(PropertySchool.property_id == prop.id)
     ).all()
 
+    # Determine the property's home school district for in_district flag
+    home_district_id: int | None = None
+    geo_lookup = db.execute(
+        select(PropertyGeoLookup.school_district_geoid)
+        .where(PropertyGeoLookup.property_id == prop.id)
+        .limit(1)
+    ).scalar_one_or_none()
+    if geo_lookup:
+        home_district_id = db.execute(
+            select(SchoolDistrict.id).where(SchoolDistrict.geoid == geo_lookup).limit(1)
+        ).scalar_one_or_none()
+
     schools = []
     for link, school in school_links:
         # Build address from components
@@ -163,6 +205,12 @@ def _build_response_from_db(
                 assigned=link.assigned or False,
                 lat=school_lat,
                 lon=school_lon,
+                pct_frl_eligible=school.pct_frl_eligible,
+                in_district=bool(
+                    home_district_id
+                    and school.district_id
+                    and school.district_id == home_district_id
+                ),
             )
         )
 
@@ -215,6 +263,14 @@ def _build_response_from_db(
         .order_by(LlmQualityScore.extracted_at.desc())
         .limit(1)
     ).scalar_one_or_none()
+
+    # Compute assessed value: prefer Redfin tax history, fall back to Wake County data
+    redfin_assessed = tax_history[0].assessed_value if tax_history else 0.0
+    assessed_value = redfin_assessed
+    if not assessed_value:
+        wake_assessed = _get_wake_county_assessment(db, prop)
+        if wake_assessed:
+            assessed_value = wake_assessed
 
     # Build images from S3 paths — prefix with /api/photos/ for browser access
     images = []
@@ -279,7 +335,7 @@ def _build_response_from_db(
             hoa_monthly=(prop.association_fee / 12) if prop.association_fee else None,
             tax_annual=tax_history[0].tax_amount if tax_history else 0.0,
             tax_year=tax_history[0].year if tax_history else 0,
-            assessed_value=tax_history[0].assessed_value if tax_history else 0.0,
+            assessed_value=assessed_value,
         ),
         schools=schools,
         sale_history=sale_history,

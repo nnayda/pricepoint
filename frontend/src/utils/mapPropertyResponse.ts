@@ -107,7 +107,7 @@ export function mapPropertyResponse(resp: PropertyResponse): DashboardData {
             impact_dollars: fa.impact_dollars,
             group: fa.group ?? "Other",
           }))
-        : mockDashboardData.shap_features,
+        : [],
     price_history:
       resp.sale_history.length > 0 || resp.tax_history.length > 0
         ? buildPriceHistory(resp.sale_history, resp.tax_history, [])

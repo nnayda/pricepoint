@@ -270,7 +270,7 @@ function NeighborhoodPricesCard({ data }: { data: DashboardData }) {
 }
 
 function ValuationTab({ data }: ValuationTabProps) {
-  const { valuation, shap_features, price_history, mortgage_defaults, notFound } = data;
+  const { valuation, shap_features, shapLoading, price_history, mortgage_defaults, notFound } = data;
   const hasEstimate = valuation.predicted_value != null;
   const outcome = hasEstimate ? getOutcome(valuation) : null;
 
@@ -359,13 +359,30 @@ function ValuationTab({ data }: ValuationTabProps) {
 
         <DashboardCard className="relative overflow-hidden" expandable title="Value Drivers (SHAP)">
           {notFound && <NoDataOverlay message="Value drivers not available." />}
-          {!notFound && !hasEstimate && <NoDataOverlay message="Value drivers not available." />}
+          {!notFound && !hasEstimate && !shapLoading && (
+            <NoDataOverlay message="Value drivers not available." />
+          )}
           <div className="mb-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-db-text-primary)]">
               Value Drivers (SHAP)
             </h3>
           </div>
-          <ShapWaterfall features={shap_features} />
+          {shapLoading && shap_features.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <div
+                className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-db-accent)] border-t-transparent"
+                role="status"
+              >
+                <span className="sr-only">Loading value drivers...</span>
+              </div>
+            </div>
+          ) : !notFound && hasEstimate && shap_features.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--color-db-text-muted)]">
+              No value driver data available.
+            </p>
+          ) : (
+            <ShapWaterfall features={shap_features} />
+          )}
         </DashboardCard>
       </div>
 

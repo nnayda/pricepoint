@@ -26,7 +26,7 @@ function PropertyDashboardPage() {
   const decodedAddress = address ? decodeURIComponent(address) : null;
 
   const { data, loading, notFound, error } = usePropertyLookup(lat, lon, decodedAddress);
-  const { data: shapData } = useFeatureAttributions(data?.listing_id ?? null);
+  const { data: shapData, loading: shapLoading } = useFeatureAttributions(data?.listing_id ?? null);
   const { data: demoApi } = useDemographics(lat, lon);
   const { data: neighborhoodVal } = useNeighborhoodValuation(lat, lon);
   const { data: neighborhoodHistory } = useNeighborhoodValuationHistory(lat, lon);
@@ -77,12 +77,13 @@ function PropertyDashboardPage() {
       merged.sort((a, b) => a.date.localeCompare(b.date));
       result = { ...result, price_history: merged };
     }
-    if (neighborhoodProps && neighborhoodProps.properties.length > 0) {
-      result = {
-        ...result,
-        neighborhood_properties: neighborhoodProps.properties,
-        tract_boundary: neighborhoodProps.tract_boundary ?? null,
-      };
+    if (neighborhoodProps) {
+      if (neighborhoodProps.properties.length > 0) {
+        result = { ...result, neighborhood_properties: neighborhoodProps.properties };
+      }
+      if (neighborhoodProps.tract_boundary) {
+        result = { ...result, tract_boundary: neighborhoodProps.tract_boundary };
+      }
     }
     if (shapData && shapData.length > 0) {
       result = {
@@ -94,6 +95,9 @@ function PropertyDashboardPage() {
           group: fa.group ?? "Other",
         })),
       };
+    }
+    if (shapLoading && result.shap_features.length === 0) {
+      result = { ...result, shapLoading: true };
     }
     // Map saved POI nearby matches into the pois list
     if (savedPoiGroups.length > 0) {
@@ -129,6 +133,7 @@ function PropertyDashboardPage() {
     neighborhoodHistory,
     neighborhoodProps,
     shapData,
+    shapLoading,
     savedPoiGroups,
   ]);
 

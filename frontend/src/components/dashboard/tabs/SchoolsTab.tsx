@@ -248,8 +248,8 @@ function SchoolsTab({ data }: SchoolsTabProps) {
   }, [apiSchools, data.schools]);
 
   const cardSchools = useMemo(() => {
-    const inDistrict = allSchools.filter((s) => s.in_district);
-    const base = inDistrict.length > 0 ? inDistrict : allSchools;
+    const preferred = allSchools.filter((s) => s.in_district || s.assigned);
+    const base = preferred.length > 0 ? preferred : allSchools;
     return [...base].sort((a, b) => {
       if (a.assigned !== b.assigned) return a.assigned ? -1 : 1;
       return a.distance_miles - b.distance_miles;

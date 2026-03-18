@@ -91,11 +91,11 @@ def test_methodology_returns_response(client):
 
 def test_methodology_404_no_champion(client):
     """Returns 404 when no champion model exists."""
-    import mlflow.exceptions
+    from mlflow.exceptions import RestException
 
     mock_client = MagicMock()
-    mock_client.get_model_version_by_alias.side_effect = mlflow.exceptions.MlflowException(
-        "not found"
+    mock_client.get_model_version_by_alias.side_effect = RestException(
+        {"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "not found"}
     )
 
     with patch(
@@ -106,6 +106,42 @@ def test_methodology_404_no_champion(client):
 
     assert resp.status_code == 404
     assert "champion" in resp.json()["detail"].lower()
+
+
+def test_methodology_503_mlflow_rest_error(client):
+    """Returns 503 when MLflow returns a non-404 REST error."""
+    from mlflow.exceptions import RestException
+
+    mock_client = MagicMock()
+    mock_client.get_model_version_by_alias.side_effect = RestException(
+        {"error_code": "INTERNAL_ERROR", "message": "server error"}
+    )
+
+    with patch(
+        "pricepoint.api.routes.model_methodology._get_mlflow_client",
+        return_value=mock_client,
+    ):
+        resp = client.get("/api/model/methodology")
+
+    assert resp.status_code == 503
+
+
+def test_methodology_503_mlflow_connection_error(client):
+    """Returns 503 when MLflow raises a generic MlflowException (e.g. connection)."""
+    from mlflow.exceptions import MlflowException
+
+    mock_client = MagicMock()
+    mock_client.get_model_version_by_alias.side_effect = MlflowException(
+        "API request to endpoint /api/2.0/mlflow/registered-models/alias failed"
+    )
+
+    with patch(
+        "pricepoint.api.routes.model_methodology._get_mlflow_client",
+        return_value=mock_client,
+    ):
+        resp = client.get("/api/model/methodology")
+
+    assert resp.status_code == 503
 
 
 def test_methodology_503_mlflow_unreachable(client):

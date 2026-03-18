@@ -43,14 +43,27 @@ def _get_mlflow_client() -> Any:
 def _get_champion_info(client: Any) -> tuple[str, str]:
     """Return (run_id, version) for the champion model.
 
-    Raises HTTPException(404) when no champion exists.
+    Raises HTTPException(404) when no champion exists,
+    or HTTPException(503) for connection/server errors.
     """
-    import mlflow.exceptions
+    from mlflow.exceptions import MlflowException, RestException
 
     try:
         mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
-    except mlflow.exceptions.MlflowException:
-        raise HTTPException(status_code=404, detail="No champion model registered") from None
+    except RestException as exc:
+        if exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+            raise HTTPException(
+                status_code=404, detail="No champion model registered"
+            ) from None
+        logger.exception("MLflow REST error fetching champion model")
+        raise HTTPException(
+            status_code=503, detail="MLflow service error"
+        ) from None
+    except MlflowException:
+        logger.exception("MLflow error fetching champion model")
+        raise HTTPException(
+            status_code=503, detail="MLflow service unavailable"
+        ) from None
     return mv.run_id, mv.version
 
 
