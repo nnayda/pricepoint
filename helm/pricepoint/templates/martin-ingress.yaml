@@ -9,7 +9,7 @@ metadata:
   annotations:
     {{- /* Traefik: use StripPrefix middleware to remove /tiles before forwarding */}}
     {{- if hasPrefix "traefik" (.Values.ingress.className | default "") }}
-    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "pricepoint.fullname" . }}-strip-tiles@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "pricepoint.fullname" . }}-strip-tiles@kubernetescrd,{{ .Release.Namespace }}-{{ include "pricepoint.fullname" . }}-tile-headers@kubernetescrd
     {{- end }}
     {{- /* nginx-ingress: rewrite /tiles/(.*) to /$1 */}}
     {{- if hasPrefix "nginx" (.Values.ingress.className | default "") }}

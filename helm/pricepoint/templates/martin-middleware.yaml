@@ -11,5 +11,17 @@ spec:
   stripPrefix:
     prefixes:
       - /tiles
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "pricepoint.fullname" . }}-tile-headers
+  labels:
+    {{- include "pricepoint.labels" . | nindent 4 }}
+    app.kubernetes.io/component: martin
+spec:
+  headers:
+    customResponseHeaders:
+      Cache-Control: "public, max-age=300, stale-while-revalidate=60"
 {{- end }}
 {{- end }}
