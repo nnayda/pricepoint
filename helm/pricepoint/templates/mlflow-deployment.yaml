@@ -16,6 +16,8 @@ spec:
       labels:
         {{- include "pricepoint.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: mlflow
+      annotations:
+        chart-version: {{ .Chart.Version }}
     spec:
       containers:
         - name: mlflow
