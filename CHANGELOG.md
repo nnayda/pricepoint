@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.41 (2026-03-18)
+
+### Bug Fixes
+
+- Regenerate API types for model methodology endpoints
+  ([`bcac2ce`](https://github.com/nnayda/pricepoint/-/commit/bcac2ce6a0a9329515b6966199ed0b2aabbb7f98))
+
+### Features
+
+- Add model methodology page with MLflow proxy endpoints (NND-24)
+  ([`a7e3d95`](https://github.com/nnayda/pricepoint/-/commit/a7e3d9508b0d430ed091d96ecaf673def18a7dd7))
+
+
 ## v1.0.0-dev.40 (2026-03-17)
 
 ### Bug Fixes
