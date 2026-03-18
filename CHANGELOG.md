@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.45 (2026-03-18)
+
+### Bug Fixes
+
+- Allow FEATURE_CATALOG.md through .dockerignore
+  ([`ae440e5`](https://github.com/nnayda/pricepoint/-/commit/ae440e5356d31e29ee36777ce6cb6886f6f6a211))
+
+
 ## v1.0.0-dev.44 (2026-03-18)
 
 ### Bug Fixes
