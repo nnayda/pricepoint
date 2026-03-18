@@ -779,6 +779,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/model/methodology": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Methodology
+     * @description Return model metadata, metrics, feature importance, and available plots.
+     */
+    get: operations["get_methodology_api_model_methodology_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/model/artifact/{artifact_path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Artifact
+     * @description Stream an MLflow artifact (plot image) to the frontend.
+     */
+    get: operations["get_artifact_api_model_artifact__artifact_path__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/model/features": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Features
+     * @description Parse and return the feature catalog from FEATURE_CATALOG.md.
+     */
+    get: operations["get_features_api_model_features_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/cache/{prefix}": {
     parameters: {
       query?: never;
@@ -1206,6 +1266,36 @@ export interface components {
       group: string;
     };
     /**
+     * FeatureCatalogEntry
+     * @description A single feature from the feature catalog.
+     */
+    FeatureCatalogEntry: {
+      /** Name */
+      name: string;
+      /** Category */
+      category: string;
+      /** Sql Type */
+      sql_type: string;
+      /** Source */
+      source: string;
+      /** Derivation */
+      derivation: string;
+      /** Example */
+      example: string;
+      /** Default */
+      default: string;
+    };
+    /**
+     * FeatureCatalogResponse
+     * @description Parsed feature catalog response.
+     */
+    FeatureCatalogResponse: {
+      /** Features */
+      features: components["schemas"]["FeatureCatalogEntry"][];
+      /** Categories */
+      categories: string[];
+    };
+    /**
      * FeatureGroup
      * @description A group of ML features under one category.
      */
@@ -1216,6 +1306,16 @@ export interface components {
       features: {
         [key: string]: number | string | boolean | null;
       };
+    };
+    /**
+     * FeatureImportanceItem
+     * @description A single feature's importance score.
+     */
+    FeatureImportanceItem: {
+      /** Feature */
+      feature: string;
+      /** Gain */
+      gain: number;
     };
     /**
      * FinancialDetails
@@ -1424,6 +1524,82 @@ export interface components {
       year: number;
       /** Median Age */
       median_age: number;
+    };
+    /**
+     * ModelMetadata
+     * @description Core metadata about the production model.
+     */
+    ModelMetadata: {
+      /** Model Name */
+      model_name: string;
+      /** Model Version */
+      model_version: string;
+      /** Run Id */
+      run_id: string;
+      /** Training Date */
+      training_date: string;
+      /** N Features */
+      n_features: number;
+      /** N Training Samples */
+      n_training_samples: number;
+      /** Algorithm */
+      algorithm: string;
+      /** Hyperparameters */
+      hyperparameters: {
+        [key: string]: string | number | null;
+      };
+    };
+    /**
+     * ModelMethodologyResponse
+     * @description Full model methodology response.
+     */
+    ModelMethodologyResponse: {
+      metadata: components["schemas"]["ModelMetadata"];
+      metrics: components["schemas"]["ModelMetrics"];
+      /** Feature Importance */
+      feature_importance: components["schemas"]["FeatureImportanceItem"][];
+      /** Available Plots */
+      available_plots: string[];
+      /** Available Eda Plots */
+      available_eda_plots: string[];
+    };
+    /**
+     * ModelMetrics
+     * @description Performance metrics from the production model.
+     */
+    ModelMetrics: {
+      /** Mae */
+      mae?: number | null;
+      /** Rmse */
+      rmse?: number | null;
+      /** Mape */
+      mape?: number | null;
+      /** R2 */
+      r2?: number | null;
+      /** Median Ae */
+      median_ae?: number | null;
+      /** Mae Mean */
+      mae_mean?: number | null;
+      /** Mae Std */
+      mae_std?: number | null;
+      /** Rmse Mean */
+      rmse_mean?: number | null;
+      /** Rmse Std */
+      rmse_std?: number | null;
+      /** R2 Mean */
+      r2_mean?: number | null;
+      /** R2 Std */
+      r2_std?: number | null;
+      /** Data N Rows */
+      data_n_rows?: number | null;
+      /** Data N Features */
+      data_n_features?: number | null;
+      /** Data Target Mean */
+      data_target_mean?: number | null;
+      /** Data Target Median */
+      data_target_median?: number | null;
+      /** Data Target Std */
+      data_target_std?: number | null;
     };
     /** NeighborhoodMedianPoint */
     NeighborhoodMedianPoint: {
@@ -3455,6 +3631,77 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_methodology_api_model_methodology_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelMethodologyResponse"];
+        };
+      };
+    };
+  };
+  get_artifact_api_model_artifact__artifact_path__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artifact_path: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_features_api_model_features_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FeatureCatalogResponse"];
         };
       };
     };
