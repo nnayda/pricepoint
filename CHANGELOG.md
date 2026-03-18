@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.42 (2026-03-18)
+
+### Bug Fixes
+
+- Add missing GROUP BY columns for correlated subquery in comparables SQL
+  ([`caebf4c`](https://github.com/nnayda/pricepoint/-/commit/caebf4cb5c44284c147d88ea8e492d3251054ef4))
+
+- **helm**: Add Cache-Control headers to Martin tile responses
+  ([`75dd39a`](https://github.com/nnayda/pricepoint/-/commit/75dd39a8ed0c35697d980d448cdb246ab8666487))
+
+- **helm**: Use Traefik IngressRoute CRD for Martin tile routing
+  ([`3e7daf8`](https://github.com/nnayda/pricepoint/-/commit/3e7daf88e82869c35d210bd3322626cd708f26a1))
+
+
 ## v1.0.0-dev.41 (2026-03-18)
 
 ### Bug Fixes
