@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.48 (2026-03-19)
+
+### Features
+
+- Expand training dataset with multi-sale records per property
+  ([`dcc513f`](https://github.com/nnayda/pricepoint/-/commit/dcc513f212a8465734fdf7e4456599a90331f0bb))
+
+
 ## v1.0.0-dev.47 (2026-03-18)
 
 ### Bug Fixes
