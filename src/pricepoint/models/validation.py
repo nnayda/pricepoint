@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 from xgboost import XGBRegressor
 
 from pricepoint.models.training import DEFAULT_PARAMS, prepare_features
@@ -54,6 +54,11 @@ def cross_validate(
     from scipy.stats import spearmanr
     from sklearn.model_selection import TimeSeriesSplit
 
+    # Extract grouping column before prepare_features drops it
+    groups = None
+    if "property_id" in features.columns:
+        groups = features.loc[features[target_col].notna(), "property_id"]
+
     x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
     # For temporal CV, sort by sold_date then drop it
@@ -65,10 +70,18 @@ def cross_validate(
     elif "sold_date" in x.columns:
         x = x.drop(columns=["sold_date"])
 
+    # Align groups with the cleaned X/y (rows may have been dropped)
+    if groups is not None:
+        groups = groups.reindex(x.index)
+
     model_params = {**DEFAULT_PARAMS, **(params or {})}
 
-    if temporal:
-        splitter: KFold | TimeSeriesSplit = TimeSeriesSplit(n_splits=n_splits)
+    # Use GroupKFold when multi-sale records are present to prevent
+    # the same property appearing in different folds
+    if groups is not None and not temporal:
+        splitter: KFold | TimeSeriesSplit | GroupKFold = GroupKFold(n_splits=n_splits)
+    elif temporal:
+        splitter = TimeSeriesSplit(n_splits=n_splits)
     else:
         splitter = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
@@ -77,7 +90,8 @@ def cross_validate(
     r2_scores: list[float] = []
     fold_importances: list[np.ndarray] = []
 
-    for fold, (train_idx, test_idx) in enumerate(splitter.split(x), 1):
+    split_args = (x,) if groups is None else (x, y, groups)
+    for fold, (train_idx, test_idx) in enumerate(splitter.split(*split_args), 1):
         x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 

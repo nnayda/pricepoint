@@ -213,3 +213,165 @@ def _run_query(
 def _empty_frame() -> pd.DataFrame:
     """Return an empty DataFrame with the expected feature columns."""
     return pd.DataFrame(columns=FEATURE_COLUMNS)
+
+
+# SQL for computing comp features for a single sale event.  Parameterized
+# by subject property location + attributes + sale date so we can call it
+# once per historical sale event.
+_TRAINING_COMP_SQL = """
+WITH subject AS (
+    SELECT
+        location, sqft, num_beds, num_baths,
+        :sale_price / NULLIF(:sqft, 0) AS price_per_sqft
+    FROM redfin_listings
+    WHERE id = :property_id
+)
+SELECT
+    COUNT(comp.id) AS comp_count,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (
+        ORDER BY comp.sold_price / NULLIF(comp.sqft, 0)
+    ) AS comp_median_ppsf,
+    AVG(
+        comp.sold_price
+        + (:sqft - comp.sqft) * (comp.sold_price / NULLIF(comp.sqft, 0))
+    ) AS comp_mean_adjusted_price,
+    (
+        SELECT c2.sold_price
+        FROM redfin_listings c2
+        WHERE c2.id != :property_id
+          AND c2.listing_status = 'SOLD'
+          AND c2.sold_price IS NOT NULL
+          AND c2.sqft IS NOT NULL
+          AND c2.num_beds IS NOT NULL
+          AND c2.sold_date < :sale_date
+          AND ST_DWithin(
+              c2.location::geography,
+              (SELECT location::geography FROM subject),
+              3218
+          )
+          AND c2.num_beds BETWEEN :num_beds - 1 AND :num_beds + 1
+          AND c2.sqft BETWEEN :sqft * 0.8 AND :sqft * 1.2
+        ORDER BY ST_Distance(
+            c2.location::geography,
+            (SELECT location::geography FROM subject)
+        )
+        LIMIT 1
+    ) AS comp_nearest_price,
+    (SELECT price_per_sqft FROM subject) AS subject_ppsf,
+    CASE
+        WHEN COUNT(comp.id) >= 4 THEN
+            PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY comp.sold_price)
+            - PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY comp.sold_price)
+        WHEN COUNT(comp.id) >= 2 THEN
+            STDDEV(comp.sold_price)
+        ELSE NULL
+    END AS comp_price_spread,
+    AVG(
+        EXTRACT(EPOCH FROM (:sale_date - comp.sold_date)) / 86400.0
+    ) AS comp_avg_days_ago,
+    MIN(
+        ST_Distance(
+            comp.location::geography,
+            (SELECT location::geography FROM subject)
+        )
+    ) AS comp_nearest_distance_m
+FROM subject s
+LEFT JOIN LATERAL (
+    SELECT c.id, c.sold_price, c.sqft, c.sold_date, c.location
+    FROM redfin_listings c
+    WHERE c.id != :property_id
+      AND c.listing_status = 'SOLD'
+      AND c.sold_price IS NOT NULL
+      AND c.sqft IS NOT NULL
+      AND c.num_beds IS NOT NULL
+      AND c.sold_date < :sale_date
+      AND ST_DWithin(
+          c.location::geography, s.location::geography, 3218
+      )
+      AND c.num_beds BETWEEN :num_beds - 1 AND :num_beds + 1
+      AND c.sqft BETWEEN :sqft * 0.8 AND :sqft * 1.2
+    ORDER BY ST_Distance(c.location::geography, s.location::geography)
+    LIMIT 10
+) comp ON TRUE
+"""
+
+
+def build_training_comparable_features(
+    db: Session,
+    sale_events: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute comparable-sales features for each historical sale event.
+
+    Uses each sale event's date as the temporal boundary (comps must have
+    sold before the subject's sale date).
+
+    Parameters
+    ----------
+    db:
+        SQLAlchemy session.
+    sale_events:
+        DataFrame with columns ``sale_event_id``, ``property_id``,
+        ``sale_date``, ``sqft``, ``num_beds``, ``num_baths``, ``sold_price``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexed by ``sale_event_id`` with 8 comp feature columns.
+    """
+    if sale_events.empty:
+        return pd.DataFrame(columns=["sale_event_id"] + FEATURE_COLUMNS).set_index("sale_event_id")
+
+    logger.info("Building training comp features for %d sale events...", len(sale_events))
+    t0 = time.monotonic()
+
+    all_rows: list[dict] = []
+    for _, event in sale_events.iterrows():
+        sale_event_id = event["sale_event_id"]
+        property_id = int(event["property_id"])
+        sale_date = event["sale_date"]
+        sqft = event.get("sqft")
+        num_beds = event.get("num_beds")
+        sold_price = event["sold_price"]
+
+        if sqft is None or num_beds is None:
+            row = {"sale_event_id": sale_event_id}
+            for col in FEATURE_COLUMNS:
+                row[col] = None
+            row["comp_count"] = 0
+            all_rows.append(row)
+            continue
+
+        params = {
+            "property_id": property_id,
+            "sale_date": sale_date,
+            "sqft": sqft,
+            "num_beds": num_beds,
+            "sale_price": sold_price,
+        }
+
+        result = db.execute(text(_TRAINING_COMP_SQL), params)
+        row_data = result.fetchone()
+
+        row = {"sale_event_id": sale_event_id}
+        if row_data is not None:
+            columns = list(result.keys())
+            for col_name, val in zip(columns, row_data, strict=True):
+                row[col_name] = val
+        else:
+            for col in FEATURE_COLUMNS:
+                row[col] = None
+            row["comp_count"] = 0
+
+        all_rows.append(row)
+
+    df = pd.DataFrame(all_rows)
+    df = _compute_derived(df)
+    df = df.set_index("sale_event_id")
+    df = df.reindex(columns=FEATURE_COLUMNS)
+
+    logger.info(
+        "Training comp features: %d rows in %.1fs",
+        len(df),
+        time.monotonic() - t0,
+    )
+    return df

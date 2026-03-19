@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from xgboost import XGBRegressor
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,14 @@ TEST_SIZE = 0.2
 MAX_NAN_FRACTION = 0.95
 OUTLIER_PERCENTILE_LOW = 0.01
 OUTLIER_PERCENTILE_HIGH = 0.99
+
+# Columns that exist in the training matrix for grouping/metadata but are
+# not model features.  Dropped before fitting.
+TRAINING_METADATA_COLUMNS: list[str] = [
+    "property_id",
+    "sale_event_id",
+    "sale_date",
+]
 
 # Features where NULL encodes a real-world state (not just "missing data").
 # Missingness indicators let XGBoost learn from presence/absence explicitly.
@@ -94,6 +102,13 @@ def prepare_features(
 
     y = features[target_col].copy()
     x = features.drop(columns=[target_col])
+
+    # Strip training metadata columns (property_id, sale_event_id, sale_date)
+    # but preserve is_historical and record_age_years as real features
+    meta_to_drop = [c for c in TRAINING_METADATA_COLUMNS if c in x.columns]
+    if meta_to_drop:
+        logger.info("Dropping training metadata columns: %s", meta_to_drop)
+        x = x.drop(columns=meta_to_drop)
 
     # Coerce object columns to numeric where possible (e.g. all-None columns
     # loaded from JSONB that pandas inferred as object instead of float)
@@ -195,6 +210,11 @@ def train_model(
         The fitted model and the index values of the held-out test set
         (used downstream to evaluate on unseen data only).
     """
+    # Extract grouping column before prepare_features drops it
+    groups = None
+    if "property_id" in features.columns:
+        groups = features.loc[features[target_col].notna(), "property_id"]
+
     x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
     # Correlation-based feature selection
@@ -202,7 +222,26 @@ def train_model(
 
     x = select_features(x)
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=TEST_SIZE, random_state=42)
+    # Align groups with the cleaned X/y (rows may have been dropped)
+    if groups is not None:
+        groups = groups.reindex(x.index)
+
+    # Use GroupShuffleSplit when multi-sale records are present to prevent
+    # the same property appearing in both train and test sets
+    if groups is not None:
+        gss = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=42)
+        train_idx, test_idx = next(gss.split(x, y, groups=groups))
+        x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+        logger.info(
+            "Using GroupShuffleSplit: %d unique properties in train, %d in test",
+            groups.iloc[train_idx].nunique(),
+            groups.iloc[test_idx].nunique(),
+        )
+    else:
+        x_train, x_test, y_train, y_test = train_test_split(
+            x, y, test_size=TEST_SIZE, random_state=42
+        )
 
     model_params = {**DEFAULT_PARAMS, **(params or {})}
     model = XGBRegressor(

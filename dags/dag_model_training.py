@@ -63,21 +63,110 @@ def model_training():
         }
 
     @task()
-    def train(tune_output: dict) -> dict:
-        """Train the forecasting model."""
+    def load_training_matrix() -> dict:
+        """Load the expanded multi-sale training matrix from S3.
+
+        Falls back to the single-record feature store if the parquet
+        file does not exist (e.g. first run before feature engineering
+        produces the training matrix).
+        """
+        import io
+        import logging
+
+        import boto3
+        import pandas as pd
+        from botocore.exceptions import ClientError
+
+        from pricepoint.config.settings import get_settings
+
+        log = logging.getLogger(__name__)
+        settings = get_settings()
+
+        key = "training/feature_matrix.parquet"
+        try:
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint_url,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+            )
+            obj = s3.get_object(Bucket=settings.s3_bucket, Key=key)
+            buf = io.BytesIO(obj["Body"].read())
+            df = pd.read_parquet(buf, engine="pyarrow")
+
+            n_properties = df["property_id"].nunique() if "property_id" in df.columns else len(df)
+            expansion = len(df) / n_properties if n_properties > 0 else 1.0
+            log.info(
+                "Loaded training matrix from S3: %d rows, %d properties (%.1fx expansion)",
+                len(df),
+                n_properties,
+                expansion,
+            )
+            return {
+                "source": "s3",
+                "n_rows": len(df),
+                "n_properties": n_properties,
+                "expansion_ratio": expansion,
+            }
+        except ClientError:
+            log.warning("Training matrix not found in S3; will use feature store")
+            return {
+                "source": "feature_store",
+                "n_rows": 0,
+                "n_properties": 0,
+                "expansion_ratio": 1.0,
+            }
+
+    @task()
+    def train(tune_output: dict, matrix_info: dict) -> dict:
+        """Train the forecasting model on the expanded training matrix."""
+        import io
         import pickle
 
+        import boto3
         import pandas as pd
+        from botocore.exceptions import ClientError
 
+        from pricepoint.config.settings import get_settings
         from pricepoint.db.engine import SessionLocal
         from pricepoint.features.store import load_feature_matrix
         from pricepoint.models.training import train_model
 
-        db = SessionLocal()
-        try:
-            features: pd.DataFrame = load_feature_matrix(db)
-        finally:
-            db.close()
+        settings = get_settings()
+
+        # Load features from S3 training matrix or fall back to feature store
+        if matrix_info.get("source") == "s3":
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint_url,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+            )
+            key = "training/feature_matrix.parquet"
+            try:
+                obj = s3.get_object(Bucket=settings.s3_bucket, Key=key)
+                buf = io.BytesIO(obj["Body"].read())
+                features: pd.DataFrame = pd.read_parquet(buf, engine="pyarrow")
+
+                # Restore categorical dtypes
+                from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+                for col in CATEGORICAL_COLUMNS:
+                    if col in features.columns:
+                        features[col] = features[col].astype("category")
+            except ClientError:
+                # Fallback to feature store
+                db = SessionLocal()
+                try:
+                    features = load_feature_matrix(db)
+                finally:
+                    db.close()
+        else:
+            db = SessionLocal()
+            try:
+                features = load_feature_matrix(db)
+            finally:
+                db.close()
 
         best_params = tune_output.get("best_params")
         model, test_indices = train_model(features=features, params=best_params)
@@ -85,7 +174,11 @@ def model_training():
 
         # Build a small input example for MLflow signature inference
         target_col = "sold_price"
-        feature_cols = [c for c in features.columns if c != target_col]
+        from pricepoint.models.training import TRAINING_METADATA_COLUMNS
+
+        feature_cols = [
+            c for c in features.columns if c != target_col and c not in TRAINING_METADATA_COLUMNS
+        ]
         sample_df = features[feature_cols].head(3).copy()
         # Fill NaN: "unknown" for categoricals, 0 for numerics
         for col in sample_df.columns:
@@ -109,6 +202,9 @@ def model_training():
             "feature_columns": feature_cols,
             "input_example": input_sample,
             "n_samples": len(features),
+            "n_properties": matrix_info.get("n_properties", len(features)),
+            "expansion_ratio": matrix_info.get("expansion_ratio", 1.0),
+            "training_source": matrix_info.get("source", "feature_store"),
             "test_indices": test_indices,
             "eda_metrics": eda_metrics,
         }
@@ -224,6 +320,14 @@ def model_training():
                 metrics["tuning_best_mae"] = tune_output["best_score"]
             if tune_output.get("n_trials") is not None:
                 metrics["tuning_n_trials"] = tune_output["n_trials"]
+
+        # Log multi-sale training expansion metrics
+        if train_output.get("expansion_ratio") is not None:
+            metrics["training_expansion_ratio"] = train_output["expansion_ratio"]
+        if train_output.get("n_properties") is not None:
+            metrics["training_n_properties"] = train_output["n_properties"]
+        if train_output.get("training_source"):
+            metrics["training_source"] = train_output["training_source"]
 
         # Reconstruct prediction arrays for plot generation
         if "_y_true" in evaluate_output:
@@ -385,7 +489,8 @@ def model_training():
         }
 
     tune_step = tune()
-    train_step = train(tune_step)
+    matrix_step = load_training_matrix()
+    train_step = train(tune_step, matrix_step)
     validate_step = validate(train_step, tune_step)
     evaluate_step = evaluate(train_step)
     register_step = register_model(validate_step, evaluate_step, train_step, tune_step)
@@ -393,7 +498,7 @@ def model_training():
     notify_step = notify_and_trigger(promote_step)
 
     (
-        tune_step
+        [tune_step, matrix_step]
         >> train_step
         >> [validate_step, evaluate_step]
         >> register_step

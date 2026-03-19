@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from airflow.sdk import Asset, AssetAll, dag, task
 
 FEATURES_READY = Asset("feature_matrix")
+TRAINING_MATRIX_READY = Asset("training_feature_matrix")
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,55 @@ def feature_engineering():
         finally:
             db.close()
 
+    @task(outlets=[TRAINING_MATRIX_READY])
+    def assemble_training_matrix():
+        """Build expanded training matrix (multi-sale records) and save as parquet to S3."""
+        import io
+
+        import boto3
+
+        from pricepoint.config.settings import get_settings
+        from pricepoint.db.engine import SessionLocal
+        from pricepoint.features.assembly import assemble_training_features
+
+        settings = get_settings()
+        db = SessionLocal()
+        try:
+            df = assemble_training_features(db)
+            if df.empty:
+                logger.warning("Training matrix is empty; skipping S3 upload")
+                return
+
+            n_properties = df["property_id"].nunique()
+            expansion = len(df) / n_properties if n_properties > 0 else 0
+            logger.info(
+                "Training matrix: %d rows, %d properties (%.1fx expansion)",
+                len(df),
+                n_properties,
+                expansion,
+            )
+
+            # Save as parquet to MinIO/S3
+            buf = io.BytesIO()
+            df.to_parquet(buf, index=True, engine="pyarrow")
+            buf.seek(0)
+
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint_url,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+            )
+            key = "training/feature_matrix.parquet"
+            s3.put_object(
+                Bucket=settings.s3_bucket,
+                Key=key,
+                Body=buf.getvalue(),
+            )
+            logger.info("Saved training matrix to s3://%s/%s", settings.s3_bucket, key)
+        finally:
+            db.close()
+
     reset = reset_stale_flags()
     stale_ids = detect_stale()
     geo = build_geospatial(stale_ids)
@@ -207,9 +257,12 @@ def feature_engineering():
     comps = build_comparables(stale_ids)
     assembly = assemble_feature_matrix(stale_ids)
     verify = verify_matrix()
+    training = assemble_training_matrix()
 
     reset >> stale_ids
     [geo, housing, econ, comps] >> assembly >> verify
+    # Training matrix assembly runs after per-property features are built
+    verify >> training
 
 
 feature_engineering()

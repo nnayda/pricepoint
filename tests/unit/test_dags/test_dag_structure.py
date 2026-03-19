@@ -73,7 +73,7 @@ class TestFeatureEngineeringDag:
 
     def test_task_count(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_feature_engineering.py")
-        assert _count_task_decorators(tree) == 8
+        assert _count_task_decorators(tree) == 9
 
     def test_no_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_feature_engineering.py")
@@ -90,7 +90,7 @@ class TestModelTrainingDag:
 
     def test_task_count(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_model_training.py")
-        assert _count_task_decorators(tree) == 7
+        assert _count_task_decorators(tree) == 8
 
     def test_uses_dataset_schedule_not_sensor(self, dags_dir):
         tree = _parse_dag(dags_dir, "dag_model_training.py")

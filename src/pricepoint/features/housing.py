@@ -263,6 +263,240 @@ def _compute_sale_features(sale_records: list[SaleHistoryRecord], now: datetime)
     return result
 
 
+def _compute_property_features_as_of(
+    listing: RedfinListing,
+    sale_date: datetime,
+    sale_price: float,
+    prior_sale_date: datetime | None,
+    prior_sale_price: float | None,
+    is_most_recent: bool,
+    now: datetime,
+) -> dict:
+    """Compute property features for a specific historical sale event.
+
+    Recalculates time-sensitive features as-of ``sale_date`` instead of
+    ``now``.  Static features (sqft, beds, baths, amenities) are taken
+    from the current listing state — an accepted limitation.
+    """
+    sale_year = sale_date.year
+    result: dict = {"property_id": listing.id}
+
+    # Target column — the historical sale price
+    result["sold_price"] = sale_price
+
+    # property_age — as-of sale date
+    result["property_age"] = (
+        (sale_year - listing.year_built) if listing.year_built is not None else None
+    )
+
+    # Renovation features — null out if renovation happened after this sale
+    renovated_before_sale = (
+        listing.year_renovated is not None and listing.year_renovated <= sale_year
+    )
+    result["is_renovated"] = renovated_before_sale
+    result["years_since_renovation"] = (
+        (sale_year - listing.year_renovated)
+        if renovated_before_sale and listing.year_renovated is not None
+        else None
+    )
+
+    # bed_bath_ratio (static — current state)
+    beds = listing.num_beds
+    baths = listing.num_baths
+    if beds is not None and baths is not None and baths != 0:
+        result["bed_bath_ratio"] = beds / baths
+    else:
+        result["bed_bath_ratio"] = None
+
+    # sqft_per_bedroom (static)
+    sqft = listing.sqft
+    if sqft is not None and beds is not None and beds != 0:
+        result["sqft_per_bedroom"] = sqft / beds
+    else:
+        result["sqft_per_bedroom"] = None
+
+    # lot_to_building_ratio (static)
+    lot_sqft = listing.lot_size
+    building_sqft = listing.building_area
+    if lot_sqft is not None and building_sqft is not None and building_sqft != 0:
+        result["lot_to_building_ratio"] = lot_sqft / building_sqft
+    else:
+        result["lot_to_building_ratio"] = None
+
+    # luxury_feature_count (static)
+    luxury_count = 0
+    for col in LUXURY_COLUMNS:
+        if getattr(listing, col, False):
+            luxury_count += 1
+    result["luxury_feature_count"] = luxury_count
+
+    # amenity_score (static)
+    amenity_count = 0
+    for col in AMENITY_COLUMNS:
+        if getattr(listing, col, False):
+            amenity_count += 1
+    result["amenity_score"] = amenity_count
+
+    # Boolean feature columns (static)
+    for col in BOOLEAN_FEATURE_COLUMNS:
+        result[col] = bool(getattr(listing, col, False))
+
+    # Numeric listing columns (static)
+    for col in NUMERIC_LISTING_COLUMNS:
+        result[col] = getattr(listing, col, None)
+
+    # Categorical columns (static)
+    for col in CATEGORICAL_COLUMNS:
+        result[col] = getattr(listing, col, None)
+
+    # Sale-chain features — computed from the prior SOLD event
+    if prior_sale_date is not None:
+        if prior_sale_date.tzinfo is None and sale_date.tzinfo is not None:
+            prior_sale_date = prior_sale_date.replace(tzinfo=sale_date.tzinfo)
+        delta = sale_date - prior_sale_date
+        years_since = delta.days / 365.25
+        result["years_since_last_sale"] = years_since
+        if prior_sale_price is not None:
+            result["decayed_sale_signal"] = prior_sale_price * exp(-DECAY_LAMBDA * years_since)
+        else:
+            result["decayed_sale_signal"] = None
+    else:
+        result["years_since_last_sale"] = None
+        result["decayed_sale_signal"] = None
+
+    # Metadata columns for the training pipeline
+    sale_date_iso = sale_date.strftime("%Y-%m-%d")
+    result["sale_event_id"] = f"{listing.id}_{sale_date_iso}"
+    result["sale_date"] = sale_date
+    result["is_historical"] = not is_most_recent
+    delta_to_now = now - sale_date
+    result["record_age_years"] = delta_to_now.days / 365.25
+
+    return result
+
+
+def build_training_sale_events(
+    db: Session,
+    *,
+    property_ids: list[int] | None = None,
+    min_sale_price: float = 10_000,
+) -> pd.DataFrame:
+    """Build a multi-row training DataFrame with one row per historical SOLD event.
+
+    For each property, queries ``sale_history`` for SOLD events and produces
+    feature rows with time-sensitive features recalculated as-of each sale date.
+    Static features (sqft, beds, amenities) use the current listing state.
+
+    Parameters
+    ----------
+    db:
+        SQLAlchemy session.
+    property_ids:
+        Limit to these property IDs.  ``None`` means all.
+    min_sale_price:
+        Minimum sale price to include (filters out $0/nominal transfers).
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexed by ``sale_event_id`` with ``property_id`` as a regular column.
+    """
+    now = datetime.now(tz=UTC)
+
+    # Load listings
+    logger.info("Loading listings for training sale events...")
+    t0 = time.monotonic()
+    query = db.query(RedfinListing)
+    if property_ids is not None:
+        query = query.filter(RedfinListing.id.in_(property_ids))
+    listings: list[RedfinListing] = query.all()
+    logger.info("Loaded %d listings in %.1fs", len(listings), time.monotonic() - t0)
+
+    if not listings:
+        return pd.DataFrame()
+
+    listing_ids = [listing.id for listing in listings]
+
+    # Bulk load sale records
+    logger.info("Bulk-loading sale records for training...")
+    t0 = time.monotonic()
+    sale_records = (
+        db.query(SaleHistoryRecord).filter(SaleHistoryRecord.property_id.in_(listing_ids)).all()
+    )
+    logger.info("Loaded %d sale records in %.1fs", len(sale_records), time.monotonic() - t0)
+
+    # Group by property_id and filter to SOLD events with valid dates and prices
+    sale_by_prop: dict[int, list[SaleHistoryRecord]] = {}
+    for s in sale_records:
+        if (
+            s.event
+            and s.event.upper() == "SOLD"
+            and s.price is not None
+            and s.price >= min_sale_price
+            and s.date is not None
+        ):
+            sale_by_prop.setdefault(s.property_id, []).append(s)
+
+    # Sort each property's sales by date ascending
+    for pid in sale_by_prop:
+        sale_by_prop[pid].sort(key=lambda r: r.date or datetime.min)
+
+    # Build per-sale-event features
+    logger.info("Computing per-sale-event features...")
+    t0 = time.monotonic()
+    all_rows: list[dict] = []
+    listing_map = {listing.id: listing for listing in listings}
+
+    for pid, sold_events in sale_by_prop.items():
+        listing = listing_map.get(pid)
+        if listing is None:
+            continue
+
+        for i, sale in enumerate(sold_events):
+            # Prior sale in the chain (the one immediately before this)
+            prior_sale_date = sold_events[i - 1].date if i > 0 else None
+            prior_sale_price = sold_events[i - 1].price if i > 0 else None
+
+            is_most_recent = i == len(sold_events) - 1
+
+            sale_dt = sale.date
+            sale_price = sale.price
+            if sale_dt is None or sale_price is None:
+                continue  # Already filtered, but satisfies mypy
+            if sale_dt.tzinfo is None:
+                sale_dt = sale_dt.replace(tzinfo=UTC)
+
+            row = _compute_property_features_as_of(
+                listing=listing,
+                sale_date=sale_dt,
+                sale_price=sale_price,
+                prior_sale_date=prior_sale_date,
+                prior_sale_price=prior_sale_price,
+                is_most_recent=is_most_recent,
+                now=now,
+            )
+            all_rows.append(row)
+
+    if not all_rows:
+        logger.warning("No valid SOLD events found for training")
+        return pd.DataFrame()
+
+    df = pd.DataFrame(all_rows).set_index("sale_event_id")
+    logger.info(
+        "Built %d training sale events for %d properties in %.1fs",
+        len(df),
+        df["property_id"].nunique(),
+        time.monotonic() - t0,
+    )
+
+    # Cast categorical columns
+    for col in CATEGORICAL_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].astype("category")
+
+    return df
+
+
 def build_housing_features(
     db: Session,
     *,

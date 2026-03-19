@@ -213,3 +213,74 @@ def build_economic_features(
         num_properties / (time.monotonic() - t0) if (time.monotonic() - t0) > 0 else 0,
     )
     return df.set_index("property_id")
+
+
+def build_training_economic_features(
+    db: Session,
+    sale_events: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute economic features for each historical sale event.
+
+    Instead of looking up indicators as-of the property's most recent
+    ``sold_date``, this function uses each sale event's individual date.
+
+    Parameters
+    ----------
+    db:
+        SQLAlchemy session.
+    sale_events:
+        DataFrame with columns ``sale_event_id``, ``property_id``,
+        ``sale_date``.  Typically produced by
+        :func:`~pricepoint.features.housing.build_training_sale_events`.
+
+    Returns
+    -------
+    pd.DataFrame
+        Indexed by ``sale_event_id`` with economic feature columns.
+    """
+    if sale_events.empty:
+        cols = ["sale_event_id"] + list(SERIES_IDS.keys()) + list(YOY_FEATURES.values())
+        return pd.DataFrame(columns=cols).set_index("sale_event_id")
+
+    num_events = len(sale_events)
+    num_queries = num_events * (len(SERIES_IDS) + len(YOY_FEATURES))
+    logger.info(
+        "Building training economic features for %d sale events (~%d DB lookups)...",
+        num_events,
+        num_queries,
+    )
+
+    t0 = time.monotonic()
+    rows: list[dict] = []
+    log_interval = max(1, num_events // 10)
+
+    for i, (_, r) in enumerate(sale_events.iterrows()):
+        sale_event_id = r["sale_event_id"]
+        ref_date = r["sale_date"]
+        if hasattr(ref_date, "date"):
+            ref_date = ref_date.date()
+
+        row = _build_row(db, int(r["property_id"]), ref_date)
+        # Replace property_id key with sale_event_id
+        row.pop("property_id", None)
+        row["sale_event_id"] = sale_event_id
+        rows.append(row)
+
+        if (i + 1) % log_interval == 0 or (i + 1) == num_events:
+            elapsed = time.monotonic() - t0
+            rate = (i + 1) / elapsed if elapsed > 0 else 0
+            remaining = (num_events - i - 1) / rate if rate > 0 else 0
+            logger.info(
+                "  Training economic features: %d/%d events (%.1f/s, ~%.0fs remaining)",
+                i + 1,
+                num_events,
+                rate,
+                remaining,
+            )
+
+    df = pd.DataFrame(rows)
+    logger.info(
+        "Training economic features built in %.1fs",
+        time.monotonic() - t0,
+    )
+    return df.set_index("sale_event_id")
