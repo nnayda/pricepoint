@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.50 (2026-03-20)
+
+### Bug Fixes
+
+- Handle leap year dates in YoY economic indicator lookup
+  ([`1793bd2`](https://github.com/nnayda/pricepoint/-/commit/1793bd25ec8dc09a8b3f8befc2290a0e17217567))
+
+
 ## v1.0.0-dev.49 (2026-03-20)
 
 ### Bug Fixes
