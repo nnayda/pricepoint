@@ -215,49 +215,26 @@ def _empty_frame() -> pd.DataFrame:
     return pd.DataFrame(columns=FEATURE_COLUMNS)
 
 
-# SQL for computing comp features for a single sale event.  Parameterized
-# by subject property location + attributes + sale date so we can call it
-# once per historical sale event.
-_TRAINING_COMP_SQL = """
-WITH subject AS (
-    SELECT
-        location, sqft, num_beds, num_baths,
-        :sale_price / NULLIF(:sqft, 0) AS price_per_sqft
-    FROM redfin_listings
-    WHERE id = :property_id
-)
+_TRAINING_COMP_CHUNK_SIZE = 2000
+
+# Bulk SQL: processes a chunk of sale events from the _comp_events temp table.
+# Replaces the per-row correlated subquery for comp_nearest_price with
+# ARRAY_AGG over the LATERAL result (comps are already distance-ordered).
+_TRAINING_COMP_BULK_SQL = text("""
 SELECT
+    e.sale_event_id,
     COUNT(comp.id) AS comp_count,
     PERCENTILE_CONT(0.5) WITHIN GROUP (
         ORDER BY comp.sold_price / NULLIF(comp.sqft, 0)
     ) AS comp_median_ppsf,
     AVG(
         comp.sold_price
-        + (:sqft - comp.sqft) * (comp.sold_price / NULLIF(comp.sqft, 0))
+        + (e.sqft - comp.sqft) * (comp.sold_price / NULLIF(comp.sqft, 0))
     ) AS comp_mean_adjusted_price,
-    (
-        SELECT c2.sold_price
-        FROM redfin_listings c2
-        WHERE c2.id != :property_id
-          AND c2.listing_status = 'SOLD'
-          AND c2.sold_price IS NOT NULL
-          AND c2.sqft IS NOT NULL
-          AND c2.num_beds IS NOT NULL
-          AND c2.sold_date < :sale_date
-          AND ST_DWithin(
-              c2.location::geography,
-              (SELECT location::geography FROM subject),
-              3218
-          )
-          AND c2.num_beds BETWEEN :num_beds - 1 AND :num_beds + 1
-          AND c2.sqft BETWEEN :sqft * 0.8 AND :sqft * 1.2
-        ORDER BY ST_Distance(
-            c2.location::geography,
-            (SELECT location::geography FROM subject)
-        )
-        LIMIT 1
-    ) AS comp_nearest_price,
-    (SELECT price_per_sqft FROM subject) AS subject_ppsf,
+    (ARRAY_AGG(comp.sold_price ORDER BY comp.dist_m)
+        FILTER (WHERE comp.id IS NOT NULL)
+    )[1] AS comp_nearest_price,
+    e.sold_price / NULLIF(e.sqft, 0) AS subject_ppsf,
     CASE
         WHEN COUNT(comp.id) >= 4 THEN
             PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY comp.sold_price)
@@ -267,33 +244,31 @@ SELECT
         ELSE NULL
     END AS comp_price_spread,
     AVG(
-        EXTRACT(EPOCH FROM (:sale_date - comp.sold_date)) / 86400.0
+        EXTRACT(EPOCH FROM (e.sale_date - comp.sold_date)) / 86400.0
     ) AS comp_avg_days_ago,
-    MIN(
-        ST_Distance(
-            comp.location::geography,
-            (SELECT location::geography FROM subject)
-        )
-    ) AS comp_nearest_distance_m
-FROM subject s
+    MIN(comp.dist_m) AS comp_nearest_distance_m
+FROM _comp_events e
+JOIN redfin_listings l ON l.id = e.property_id AND l.location IS NOT NULL
 LEFT JOIN LATERAL (
-    SELECT c.id, c.sold_price, c.sqft, c.sold_date, c.location
+    SELECT c.id, c.sold_price, c.sqft, c.sold_date,
+           ST_Distance(c.location::geography, l.location::geography) AS dist_m
     FROM redfin_listings c
-    WHERE c.id != :property_id
+    WHERE c.id != e.property_id
       AND c.listing_status = 'SOLD'
       AND c.sold_price IS NOT NULL
       AND c.sqft IS NOT NULL
       AND c.num_beds IS NOT NULL
-      AND c.sold_date < :sale_date
-      AND ST_DWithin(
-          c.location::geography, s.location::geography, 3218
-      )
-      AND c.num_beds BETWEEN :num_beds - 1 AND :num_beds + 1
-      AND c.sqft BETWEEN :sqft * 0.8 AND :sqft * 1.2
-    ORDER BY ST_Distance(c.location::geography, s.location::geography)
+      AND c.sold_date < e.sale_date
+      AND ST_DWithin(c.location::geography, l.location::geography, 3218)
+      AND c.num_beds BETWEEN e.num_beds - 1 AND e.num_beds + 1
+      AND c.sqft BETWEEN e.sqft * 0.8 AND e.sqft * 1.2
+    ORDER BY dist_m
     LIMIT 10
 ) comp ON TRUE
-"""
+WHERE e.chunk_id = :chunk_id
+GROUP BY e.sale_event_id, e.property_id, e.sale_date, e.sqft,
+         e.num_beds, e.sold_price, l.location
+""")
 
 
 def build_training_comparable_features(
@@ -302,8 +277,8 @@ def build_training_comparable_features(
 ) -> pd.DataFrame:
     """Compute comparable-sales features for each historical sale event.
 
-    Uses each sale event's date as the temporal boundary (comps must have
-    sold before the subject's sale date).
+    Uses a temp table and chunked bulk queries instead of per-row queries
+    to eliminate ~48K DB round-trips.
 
     Parameters
     ----------
@@ -324,48 +299,112 @@ def build_training_comparable_features(
     logger.info("Building training comp features for %d sale events...", len(sale_events))
     t0 = time.monotonic()
 
-    all_rows: list[dict] = []
-    for _, event in sale_events.iterrows():
-        sale_event_id = event["sale_event_id"]
-        property_id = int(event["property_id"])
-        sale_date = event["sale_date"]
-        sqft = event.get("sqft")
-        num_beds = event.get("num_beds")
-        sold_price = event["sold_price"]
+    # Separate events with/without required attributes
+    has_attrs = sale_events["sqft"].notna() & sale_events["num_beds"].notna()
+    valid_events = sale_events[has_attrs].copy()
+    invalid_event_ids = sale_events.loc[~has_attrs, "sale_event_id"].tolist()
 
-        if sqft is None or num_beds is None:
-            row = {"sale_event_id": sale_event_id}
-            for col in FEATURE_COLUMNS:
-                row[col] = None
-            row["comp_count"] = 0
-            all_rows.append(row)
-            continue
+    result_chunks: list[pd.DataFrame] = []
 
-        params = {
-            "property_id": property_id,
-            "sale_date": sale_date,
-            "sqft": sqft,
-            "num_beds": num_beds,
-            "sale_price": sold_price,
-        }
+    if not valid_events.empty:
+        # Assign chunk IDs for batched processing
+        valid_events["chunk_id"] = [
+            i // _TRAINING_COMP_CHUNK_SIZE for i in range(len(valid_events))
+        ]
+        num_chunks = int(valid_events["chunk_id"].max()) + 1
 
-        result = db.execute(text(_TRAINING_COMP_SQL), params)
-        row_data = result.fetchone()
+        # Create temp table
+        db.execute(text("DROP TABLE IF EXISTS _comp_events"))
+        db.execute(
+            text("""
+            CREATE TEMP TABLE _comp_events (
+                sale_event_id TEXT NOT NULL,
+                property_id INTEGER NOT NULL,
+                sale_date DATE NOT NULL,
+                sqft DOUBLE PRECISION NOT NULL,
+                num_beds INTEGER NOT NULL,
+                sold_price DOUBLE PRECISION,
+                chunk_id INTEGER NOT NULL
+            )
+        """)
+        )
 
-        row = {"sale_event_id": sale_event_id}
-        if row_data is not None:
-            columns = list(result.keys())
-            for col_name, val in zip(columns, row_data, strict=True):
-                row[col_name] = val
-        else:
-            for col in FEATURE_COLUMNS:
-                row[col] = None
-            row["comp_count"] = 0
+        # Prepare and bulk insert
+        _cols = [
+            "sale_event_id",
+            "property_id",
+            "sale_date",
+            "sqft",
+            "num_beds",
+            "sold_price",
+            "chunk_id",
+        ]
+        insert_df = valid_events[_cols].copy()
+        insert_df["sale_event_id"] = insert_df["sale_event_id"].astype(str)
+        insert_df["property_id"] = insert_df["property_id"].astype(int)
+        insert_df["num_beds"] = insert_df["num_beds"].astype(int)
+        insert_df["chunk_id"] = insert_df["chunk_id"].astype(int)
+        if pd.api.types.is_datetime64_any_dtype(insert_df["sale_date"]):
+            insert_df["sale_date"] = insert_df["sale_date"].dt.date
+        # Replace NaN with None for DB compatibility
+        insert_df = insert_df.where(pd.notna(insert_df), None)
 
-        all_rows.append(row)
+        db.execute(
+            text(
+                "INSERT INTO _comp_events"
+                " (sale_event_id, property_id, sale_date,"
+                " sqft, num_beds, sold_price, chunk_id)"
+                " VALUES (:sale_event_id, :property_id, :sale_date,"
+                " :sqft, :num_beds, :sold_price, :chunk_id)"
+            ),
+            insert_df.to_dict("records"),
+        )
+        # Index for chunk filtering
+        db.execute(text("CREATE INDEX ON _comp_events (chunk_id)"))
 
-    df = pd.DataFrame(all_rows)
-    df = _compute_derived(df)
+        logger.info(
+            "  Inserted %d events into temp table (%d chunks of %d)",
+            len(valid_events),
+            num_chunks,
+            _TRAINING_COMP_CHUNK_SIZE,
+        )
+
+        # Process each chunk
+        for chunk_id in range(num_chunks):
+            result = db.execute(_TRAINING_COMP_BULK_SQL, {"chunk_id": chunk_id})
+            rows = result.fetchall()
+            if rows:
+                columns = list(result.keys())
+                result_chunks.append(pd.DataFrame(rows, columns=columns))
+            elapsed = time.monotonic() - t0
+            done = min((chunk_id + 1) * _TRAINING_COMP_CHUNK_SIZE, len(valid_events))
+            logger.info(
+                "  Training comp features: %d/%d events, chunk %d/%d (%.1fs elapsed)",
+                done,
+                len(valid_events),
+                chunk_id + 1,
+                num_chunks,
+                elapsed,
+            )
+
+        db.execute(text("DROP TABLE IF EXISTS _comp_events"))
+
+    # Combine SQL results
+    if result_chunks:
+        df = pd.concat(result_chunks, ignore_index=True)
+        df = _compute_derived(df)
+    else:
+        df = _empty_frame()
+        df["sale_event_id"] = pd.Series(dtype=str)
+
+    # Add null rows for events that lacked sqft/num_beds
+    if invalid_event_ids:
+        null_rows = {"sale_event_id": invalid_event_ids, "comp_count": [0] * len(invalid_event_ids)}
+        for col in FEATURE_COLUMNS:
+            if col != "comp_count":
+                null_rows[col] = [None] * len(invalid_event_ids)
+        df = pd.concat([df, pd.DataFrame(null_rows)], ignore_index=True)
+
     df = df.set_index("sale_event_id")
     df = df.reindex(columns=FEATURE_COLUMNS)
 
