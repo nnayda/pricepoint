@@ -137,6 +137,9 @@ def _compute_derived(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     # comp_ppsf_ratio = subject_ppsf / comp_median_ppsf (NULL if either missing)
+    # Cast to float — PostgreSQL returns NUMERIC aggregates as decimal.Decimal
+    df["subject_ppsf"] = pd.to_numeric(df["subject_ppsf"], errors="coerce")
+    df["comp_median_ppsf"] = pd.to_numeric(df["comp_median_ppsf"], errors="coerce")
     df["comp_ppsf_ratio"] = df["subject_ppsf"] / df["comp_median_ppsf"]
 
     # Set comp_count to 0 (not NULL) when LEFT JOIN produced no comps
