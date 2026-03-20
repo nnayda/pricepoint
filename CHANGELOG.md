@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.49 (2026-03-20)
+
+### Bug Fixes
+
+- Use expanded training matrix for hyperparameter tuning
+  ([`570c154`](https://github.com/nnayda/pricepoint/-/commit/570c15467a117aca8a6ef55c2d448304323a0dc5))
+
+
 ## v1.0.0-dev.48 (2026-03-19)
 
 ### Features
