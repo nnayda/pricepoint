@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 from xgboost import XGBRegressor
 
 from pricepoint.models.training import EARLY_STOPPING_ROUNDS, prepare_features
@@ -91,10 +91,25 @@ def tune_hyperparameters(
     """
     import optuna
 
+    # Extract grouping column before prepare_features drops it
+    groups = None
+    if "property_id" in features.columns:
+        groups = features.loc[features[target_col].notna(), "property_id"]
+
     x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
-    kf = KFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
-    fold_splits = list(kf.split(x))
+    # Align groups with cleaned X/y (rows may have been dropped)
+    if groups is not None:
+        groups = groups.reindex(x.index)
+
+    # Use GroupKFold when multi-sale records are present
+    if groups is not None:
+        gkf = GroupKFold(n_splits=n_cv_folds)
+        fold_splits = list(gkf.split(x, y, groups=groups))
+        logger.info("Using GroupKFold for tuning (%d unique properties)", groups.nunique())
+    else:
+        kf = KFold(n_splits=n_cv_folds, shuffle=True, random_state=42)
+        fold_splits = list(kf.split(x))
 
     mlflow_parent_run = None
     if log_to_mlflow:

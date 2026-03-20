@@ -24,9 +24,13 @@ from airflow.sdk import Asset, dag, task
 def model_training():
 
     @task()
-    def tune() -> dict:
+    def tune(matrix_info: dict) -> dict:
         """Run Bayesian hyperparameter tuning with Optuna."""
+        import io
+
+        import boto3
         import pandas as pd
+        from botocore.exceptions import ClientError
 
         from pricepoint.config.settings import get_settings
         from pricepoint.db.engine import SessionLocal
@@ -37,11 +41,37 @@ def model_training():
         if not settings.tuning_enabled:
             return {"best_params": None, "skipped": True}
 
-        db = SessionLocal()
-        try:
-            features: pd.DataFrame = load_feature_matrix(db)
-        finally:
-            db.close()
+        # Load features from S3 training matrix or fall back to feature store
+        if matrix_info.get("source") == "s3":
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.s3_endpoint_url,
+                aws_access_key_id=settings.s3_access_key,
+                aws_secret_access_key=settings.s3_secret_key,
+            )
+            key = "training/feature_matrix.parquet"
+            try:
+                obj = s3.get_object(Bucket=settings.s3_bucket, Key=key)
+                buf = io.BytesIO(obj["Body"].read())
+                features: pd.DataFrame = pd.read_parquet(buf, engine="pyarrow")
+
+                from pricepoint.features.housing import CATEGORICAL_COLUMNS
+
+                for col in CATEGORICAL_COLUMNS:
+                    if col in features.columns:
+                        features[col] = features[col].astype("category")
+            except ClientError:
+                db = SessionLocal()
+                try:
+                    features = load_feature_matrix(db)
+                finally:
+                    db.close()
+        else:
+            db = SessionLocal()
+            try:
+                features = load_feature_matrix(db)
+            finally:
+                db.close()
 
         from pricepoint.models.tuning import tune_hyperparameters
 
@@ -488,8 +518,8 @@ def model_training():
             "reason": reason,
         }
 
-    tune_step = tune()
     matrix_step = load_training_matrix()
+    tune_step = tune(matrix_step)
     train_step = train(tune_step, matrix_step)
     validate_step = validate(train_step, tune_step)
     evaluate_step = evaluate(train_step)
@@ -498,7 +528,8 @@ def model_training():
     notify_step = notify_and_trigger(promote_step)
 
     (
-        [tune_step, matrix_step]
+        matrix_step
+        >> tune_step
         >> train_step
         >> [validate_step, evaluate_step]
         >> register_step
