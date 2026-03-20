@@ -100,7 +100,11 @@ def _lookup_yoy_value(
     ref_date: date,
 ) -> float | None:
     """Get the observation value roughly 12 months before *ref_date*."""
-    yoy_date = date(ref_date.year - 1, ref_date.month, ref_date.day)
+    import calendar
+
+    prev_year = ref_date.year - 1
+    max_day = calendar.monthrange(prev_year, ref_date.month)[1]
+    yoy_date = date(prev_year, ref_date.month, min(ref_date.day, max_day))
     row = db.execute(
         _YOY_VALUE_SQL,
         {"series_id": series_id, "yoy_date": yoy_date},
