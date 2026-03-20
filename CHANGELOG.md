@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.51 (2026-03-20)
+
+### Bug Fixes
+
+- Add SOURCE_HASH build-arg to bust Docker layer cache for source copies
+  ([`1ec3834`](https://github.com/nnayda/pricepoint/-/commit/1ec3834fcaf0104a1d6e8d181e153a4609b14141))
+
+
 ## v1.0.0-dev.50 (2026-03-20)
 
 ### Bug Fixes
