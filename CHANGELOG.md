@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.52 (2026-03-21)
+
+### Bug Fixes
+
+- Convert Decimal to float in comp feature derivation
+  ([`0aa9d40`](https://github.com/nnayda/pricepoint/-/commit/0aa9d4095c475887102f5392748509c0da89596a))
+
+### Performance Improvements
+
+- Batch training comp features via temp table instead of 48K queries
+  ([`739b091`](https://github.com/nnayda/pricepoint/-/commit/739b091d835ebc5d83a37204b492e811b15e2b90))
+
+
 ## v1.0.0-dev.51 (2026-03-20)
 
 ### Bug Fixes
