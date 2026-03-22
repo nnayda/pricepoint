@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.54 (2026-03-22)
+
+### Bug Fixes
+
+- Sum photo array lengths directly from redfin_listings for stats
+  ([`d83c5dc`](https://github.com/nnayda/pricepoint/-/commit/d83c5dc24655095fb1456f5f09afafdd1a1f9854))
+
+
 ## v1.0.0-dev.53 (2026-03-22)
 
 ### Bug Fixes
