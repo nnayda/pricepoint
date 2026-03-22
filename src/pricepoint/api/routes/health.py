@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from pricepoint.api.dependencies import get_db
 from pricepoint.api.rate_limit import limiter
 from pricepoint.config.settings import get_settings
-from pricepoint.db.models import LlmPhotoScore, RedfinListing
+from pricepoint.db.models import RedfinListing
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +60,7 @@ def stats(db: Annotated[Session, Depends(get_db)]) -> dict:
     photo_sum = func.sum(func.json_array_length(RedfinListing.property_photos))
     photos_analyzed = (
         db.execute(
-            select(func.coalesce(photo_sum, 0)).join(
-                LlmPhotoScore, LlmPhotoScore.listing_id == RedfinListing.id
-            )
+            select(func.coalesce(photo_sum, 0)).where(RedfinListing.property_photos.isnot(None))
         ).scalar()
         or 0
     )
