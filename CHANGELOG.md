@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.53 (2026-03-22)
+
+### Bug Fixes
+
+- Count actual photos not listings for photos_analyzed stat
+  ([`9fb6fa7`](https://github.com/nnayda/pricepoint/-/commit/9fb6fa7b905f88935b99bb6e85537c27a8986242))
+
+
 ## v1.0.0-dev.52 (2026-03-21)
 
 ### Bug Fixes
