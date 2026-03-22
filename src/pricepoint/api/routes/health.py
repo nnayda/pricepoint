@@ -57,7 +57,15 @@ def stats(db: Annotated[Session, Depends(get_db)]) -> dict:
         }
 
     listing_count = db.execute(select(func.count(RedfinListing.id))).scalar() or 0
-    photos_analyzed = db.execute(select(func.count(LlmPhotoScore.id))).scalar() or 0
+    photo_sum = func.sum(func.json_array_length(RedfinListing.property_photos))
+    photos_analyzed = (
+        db.execute(
+            select(func.coalesce(photo_sum, 0)).join(
+                LlmPhotoScore, LlmPhotoScore.listing_id == RedfinListing.id
+            )
+        ).scalar()
+        or 0
+    )
 
     _stats_cache["listing_count"] = listing_count
     _stats_cache["photos_analyzed"] = photos_analyzed
