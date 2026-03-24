@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.55 (2026-03-24)
+
+### Performance Improvements
+
+- Prefetch economic series + fix Decimal coercion in comp features
+  ([`10a51d4`](https://github.com/nnayda/pricepoint/-/commit/10a51d429d68c164289d9d3e7c928145e1df997c))
+
+
 ## v1.0.0-dev.54 (2026-03-22)
 
 ### Bug Fixes
