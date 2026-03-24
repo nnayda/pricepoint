@@ -2271,7 +2271,7 @@ wheels = [
 
 [[package]]
 name = "pricepoint"
-version = "1.0.0.dev46"
+version = "1.0.0.dev53"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

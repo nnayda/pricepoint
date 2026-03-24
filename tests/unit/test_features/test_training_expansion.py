@@ -450,7 +450,10 @@ class TestTrainingEconomicFeatures:
     """Tests for build_training_economic_features."""
 
     def test_looks_up_by_sale_date(self):
-        from pricepoint.features.economic import build_training_economic_features
+        from pricepoint.features.economic import (
+            SERIES_IDS,
+            build_training_economic_features,
+        )
 
         sale_events = pd.DataFrame(
             {
@@ -464,23 +467,24 @@ class TestTrainingEconomicFeatures:
         )
 
         db = MagicMock()
-        # Track ref_dates passed to _build_row
-        call_dates = []
+        # Build a cache with different values for 2015 vs 2020
+        from datetime import date
 
-        def mock_build_row(db, property_id, ref_date):
-            call_dates.append(ref_date)
-            return {"property_id": property_id, "mortgage_rate_30yr": 3.5}
+        cache: dict[str, tuple[list[date], list[float]]] = {}
+        for series_id in SERIES_IDS.values():
+            cache[series_id] = (
+                [date(2014, 1, 1), date(2015, 1, 1), date(2020, 1, 1)],
+                [2.0, 3.5, 4.5],
+            )
 
-        with patch("pricepoint.features.economic._build_row", side_effect=mock_build_row):
+        with patch("pricepoint.features.economic._prefetch_series", return_value=cache):
             df = build_training_economic_features(db, sale_events)
 
         assert len(df) == 2
         assert df.index.name == "sale_event_id"
-        # Verify each event got its own date lookup
-        from datetime import date
-
-        assert call_dates[0] == date(2015, 6, 1)
-        assert call_dates[1] == date(2020, 6, 1)
+        # 2015-06-01 should get the 2015 value (3.5), 2020-06-01 should get 2020 value (4.5)
+        assert df.loc["1_2015-06-01", "mortgage_rate_30yr"] == pytest.approx(3.5)
+        assert df.loc["1_2020-06-01", "mortgage_rate_30yr"] == pytest.approx(4.5)
 
     def test_empty_input_returns_empty(self):
         from pricepoint.features.economic import build_training_economic_features

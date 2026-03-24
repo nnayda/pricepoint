@@ -1,5 +1,6 @@
 """Tests for comparable sales feature engineering."""
 
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -120,6 +121,46 @@ class TestComputeDerived:
         result = _compute_derived(df)
 
         assert result.loc[0, "comp_ppsf_ratio"] == pytest.approx(1.05)
+
+    def test_handles_decimal_types(self):
+        """PostgreSQL NUMERIC columns return decimal.Decimal — must not raise TypeError."""
+        df = pd.DataFrame(
+            {
+                "property_id": [1],
+                "comp_count": [Decimal("5")],
+                "comp_median_ppsf": [Decimal("200.50")],
+                "comp_mean_adjusted_price": [Decimal("400000.00")],
+                "comp_nearest_price": [Decimal("380000.00")],
+                "subject_ppsf": [210.0],  # float from temp table
+                "comp_price_spread": [Decimal("50000.00")],
+                "comp_avg_days_ago": [Decimal("90.0")],
+                "comp_nearest_distance_m": [Decimal("500.0")],
+            }
+        )
+        result = _compute_derived(df)
+
+        assert result.loc[0, "comp_ppsf_ratio"] == pytest.approx(210.0 / 200.50)
+        assert result.loc[0, "comp_count"] == 5
+        assert result.loc[0, "comp_median_ppsf"] == pytest.approx(200.50)
+
+    def test_handles_all_decimal_columns(self):
+        """Both subject_ppsf and comp_median_ppsf as Decimal — the exact failure case."""
+        df = pd.DataFrame(
+            {
+                "property_id": [1],
+                "comp_count": [Decimal("3")],
+                "comp_median_ppsf": [Decimal("195.25")],
+                "comp_mean_adjusted_price": [Decimal("390000")],
+                "comp_nearest_price": [Decimal("385000")],
+                "subject_ppsf": [Decimal("210.75")],
+                "comp_price_spread": [Decimal("45000")],
+                "comp_avg_days_ago": [Decimal("85.5")],
+                "comp_nearest_distance_m": [Decimal("450.0")],
+            }
+        )
+        result = _compute_derived(df)
+
+        assert result.loc[0, "comp_ppsf_ratio"] == pytest.approx(210.75 / 195.25)
 
     def test_ppsf_ratio_null_when_no_comps(self):
         """comp_ppsf_ratio is NULL when comp_median_ppsf is NULL."""

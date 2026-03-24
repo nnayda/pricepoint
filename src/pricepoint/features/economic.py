@@ -6,6 +6,8 @@ current mortgage rate, YoY CPI change, local unemployment rate, etc.
 
 from __future__ import annotations
 
+import bisect
+import calendar
 import logging
 import time
 from datetime import date
@@ -49,6 +51,14 @@ _PROPERTY_DATES_SQL = text(
     "SELECT id, sold_date, processed_at FROM redfin_listings"
     " WHERE (:filter_ids = false OR id = ANY(:property_ids))"
 )
+
+_ALL_SERIES_SQL = text(
+    "SELECT series_id, observation_date, value FROM economic_indicators "
+    "ORDER BY series_id, observation_date"
+)
+
+# Type alias for the prefetched series cache: series_id -> (sorted_dates, values)
+_SeriesCache = dict[str, tuple[list[date], list[float]]]
 
 
 def _get_property_dates(
@@ -100,8 +110,6 @@ def _lookup_yoy_value(
     ref_date: date,
 ) -> float | None:
     """Get the observation value roughly 12 months before *ref_date*."""
-    import calendar
-
     prev_year = ref_date.year - 1
     max_day = calendar.monthrange(prev_year, ref_date.month)[1]
     yoy_date = date(prev_year, ref_date.month, min(ref_date.day, max_day))
@@ -127,7 +135,7 @@ def _build_row(
     property_id: int,
     ref_date: date,
 ) -> dict:
-    """Build a single feature row for one property."""
+    """Build a single feature row for one property (individual DB queries)."""
     row: dict = {"property_id": property_id}
 
     for feature_name, series_id in SERIES_IDS.items():
@@ -140,6 +148,79 @@ def _build_row(
             row[yoy_col] = _compute_yoy_pct(current_val, previous_val)
 
     return row
+
+
+# ---------------------------------------------------------------------------
+# Batch / cached helpers — prefetch all series data, then use binary search
+# ---------------------------------------------------------------------------
+
+
+def _prefetch_series(db: Session) -> _SeriesCache:
+    """Load all economic indicator observations into memory, keyed by series_id.
+
+    Returns a dict mapping series_id -> (sorted_dates, values).
+    Binary-search lookups against this cache replace per-row DB queries.
+    """
+    rows = db.execute(_ALL_SERIES_SQL).fetchall()
+    cache: _SeriesCache = {}
+    for row in rows:
+        series_id, obs_date, value = row[0], row[1], row[2]
+        if series_id not in cache:
+            cache[series_id] = ([], [])
+        dates, values = cache[series_id]
+        d = obs_date.date() if hasattr(obs_date, "date") else obs_date
+        dates.append(d)
+        values.append(float(value))
+    return cache
+
+
+def _cache_lookup(
+    cache: _SeriesCache,
+    series_id: str,
+    ref_date: date,
+) -> float | None:
+    """Find the latest observation on or before *ref_date* using binary search."""
+    entry = cache.get(series_id)
+    if not entry:
+        return None
+    dates, values = entry
+    idx = bisect.bisect_right(dates, ref_date) - 1
+    if idx < 0:
+        return None
+    return values[idx]
+
+
+def _yoy_date(ref_date: date) -> date:
+    """Compute the year-over-year reference date (~12 months prior)."""
+    prev_year = ref_date.year - 1
+    max_day = calendar.monthrange(prev_year, ref_date.month)[1]
+    return date(prev_year, ref_date.month, min(ref_date.day, max_day))
+
+
+def _build_row_from_cache(
+    cache: _SeriesCache,
+    key_name: str,
+    key_value: int | str,
+    ref_date: date,
+) -> dict:
+    """Build a single feature row using the in-memory series cache."""
+    row: dict = {key_name: key_value}
+
+    for feature_name, series_id in SERIES_IDS.items():
+        current_val = _cache_lookup(cache, series_id, ref_date)
+        row[feature_name] = current_val
+
+        if feature_name in YOY_FEATURES:
+            yoy_col = YOY_FEATURES[feature_name]
+            previous_val = _cache_lookup(cache, series_id, _yoy_date(ref_date))
+            row[yoy_col] = _compute_yoy_pct(current_val, previous_val)
+
+    return row
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def build_economic_features(
@@ -184,37 +265,25 @@ def build_economic_features(
         prop_dates["ref_date"] = as_of_date
 
     num_properties = len(prop_dates)
-    num_queries = num_properties * (len(SERIES_IDS) + len(YOY_FEATURES))
-    logger.info(
-        "Building economic features for %d properties (%d series + %d YoY = ~%d DB lookups)...",
-        num_properties,
-        len(SERIES_IDS),
-        len(YOY_FEATURES),
-        num_queries,
-    )
+
+    logger.info("Prefetching economic indicator series...")
+    t0 = time.monotonic()
+    cache = _prefetch_series(db)
+    logger.info("Prefetched %d series in %.1fs", len(cache), time.monotonic() - t0)
 
     t0 = time.monotonic()
     rows: list[dict] = []
-    log_interval = max(1, num_properties // 10)  # Log every ~10%
-    for i, (_, r) in enumerate(prop_dates.iterrows()):
-        rows.append(_build_row(db, int(r["property_id"]), r["ref_date"]))
-        if (i + 1) % log_interval == 0 or (i + 1) == num_properties:
-            elapsed = time.monotonic() - t0
-            rate = (i + 1) / elapsed if elapsed > 0 else 0
-            remaining = (num_properties - i - 1) / rate if rate > 0 else 0
-            logger.info(
-                "  Economic features: %d/%d properties (%.1f/s, ~%.0fs remaining)",
-                i + 1,
-                num_properties,
-                rate,
-                remaining,
-            )
+    for _, r in prop_dates.iterrows():
+        rows.append(
+            _build_row_from_cache(cache, "property_id", int(r["property_id"]), r["ref_date"])
+        )
 
     df = pd.DataFrame(rows)
+    elapsed = time.monotonic() - t0
     logger.info(
-        "Economic features built in %.1fs (%.1f properties/s)",
-        time.monotonic() - t0,
-        num_properties / (time.monotonic() - t0) if (time.monotonic() - t0) > 0 else 0,
+        "Economic features built in %.1fs (%d properties)",
+        elapsed,
+        num_properties,
     )
     return df.set_index("property_id")
 
@@ -227,6 +296,9 @@ def build_training_economic_features(
 
     Instead of looking up indicators as-of the property's most recent
     ``sold_date``, this function uses each sale event's individual date.
+
+    Prefetches all series data into memory and uses binary search for lookups,
+    eliminating per-row DB round-trips.
 
     Parameters
     ----------
@@ -247,44 +319,28 @@ def build_training_economic_features(
         return pd.DataFrame(columns=cols).set_index("sale_event_id")
 
     num_events = len(sale_events)
-    num_queries = num_events * (len(SERIES_IDS) + len(YOY_FEATURES))
-    logger.info(
-        "Building training economic features for %d sale events (~%d DB lookups)...",
-        num_events,
-        num_queries,
-    )
+
+    logger.info("Prefetching economic indicator series for %d sale events...", num_events)
+    t0 = time.monotonic()
+    cache = _prefetch_series(db)
+    logger.info("Prefetched %d series in %.1fs", len(cache), time.monotonic() - t0)
 
     t0 = time.monotonic()
     rows: list[dict] = []
-    log_interval = max(1, num_events // 10)
 
-    for i, (_, r) in enumerate(sale_events.iterrows()):
-        sale_event_id = r["sale_event_id"]
+    for _, r in sale_events.iterrows():
         ref_date = r["sale_date"]
         if hasattr(ref_date, "date"):
             ref_date = ref_date.date()
 
-        row = _build_row(db, int(r["property_id"]), ref_date)
-        # Replace property_id key with sale_event_id
-        row.pop("property_id", None)
-        row["sale_event_id"] = sale_event_id
-        rows.append(row)
-
-        if (i + 1) % log_interval == 0 or (i + 1) == num_events:
-            elapsed = time.monotonic() - t0
-            rate = (i + 1) / elapsed if elapsed > 0 else 0
-            remaining = (num_events - i - 1) / rate if rate > 0 else 0
-            logger.info(
-                "  Training economic features: %d/%d events (%.1f/s, ~%.0fs remaining)",
-                i + 1,
-                num_events,
-                rate,
-                remaining,
-            )
+        rows.append(_build_row_from_cache(cache, "sale_event_id", r["sale_event_id"], ref_date))
 
     df = pd.DataFrame(rows)
+    elapsed = time.monotonic() - t0
     logger.info(
-        "Training economic features built in %.1fs",
-        time.monotonic() - t0,
+        "Training economic features built in %.1fs (%d events, %.0f/s)",
+        elapsed,
+        num_events,
+        num_events / elapsed if elapsed > 0 else 0,
     )
     return df.set_index("sale_event_id")
