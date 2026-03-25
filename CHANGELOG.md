@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.57 (2026-03-25)
+
+### Bug Fixes
+
+- Remove Docker inline cache to fix stale COPY src/ layers
+  ([`2b653b7`](https://github.com/nnayda/pricepoint/-/commit/2b653b7b65f351515c6be150c18897e253f8f2da))
+
+
 ## v1.0.0-dev.56 (2026-03-25)
 
 ### Bug Fixes
