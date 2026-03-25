@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.59 (2026-03-25)
+
+### Bug Fixes
+
+- Use loc[] instead of reindex() for duplicate index labels
+  ([`d4e0185`](https://github.com/nnayda/pricepoint/-/commit/d4e0185a2aa1eb00776a523718c9d1f0eb11d428))
+
+
 ## v1.0.0-dev.58 (2026-03-25)
 
 ### Bug Fixes
