@@ -2363,20 +2363,32 @@ def upgrade() -> None:
 
     # Spatial indexes for schools, school_districts, nces_schools, redfin_listings
     op.create_index(
-        "ix_schools_location", "schools", ["location"],
-        unique=False, postgresql_using="gist",
+        "ix_schools_location",
+        "schools",
+        ["location"],
+        unique=False,
+        postgresql_using="gist",
     )
     op.create_index(
-        "ix_school_districts_geom", "school_districts", ["geom"],
-        unique=False, postgresql_using="gist",
+        "ix_school_districts_geom",
+        "school_districts",
+        ["geom"],
+        unique=False,
+        postgresql_using="gist",
     )
     op.create_index(
-        "ix_nces_schools_location", "nces_schools", ["location"],
-        unique=False, postgresql_using="gist",
+        "ix_nces_schools_location",
+        "nces_schools",
+        ["location"],
+        unique=False,
+        postgresql_using="gist",
     )
     op.create_index(
-        "ix_redfin_listings_location", "redfin_listings", ["location"],
-        unique=False, postgresql_using="gist",
+        "ix_redfin_listings_location",
+        "redfin_listings",
+        ["location"],
+        unique=False,
+        postgresql_using="gist",
     )
 
 
