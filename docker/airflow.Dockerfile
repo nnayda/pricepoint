@@ -37,9 +37,7 @@ RUN pip install --no-cache-dir \
     "shap>=0.43,<1" \
     "matplotlib>=3.8,<4"
 
-# Invalidate cache when source changes (--build-arg SOURCE_HASH=$CI_COMMIT_SHA)
-ARG SOURCE_HASH
-RUN echo "Build: ${SOURCE_HASH}" > /opt/airflow/.build-hash
+# Copy application source code and DAG definitions
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/
 
