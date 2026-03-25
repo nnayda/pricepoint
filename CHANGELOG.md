@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.56 (2026-03-25)
+
+### Bug Fixes
+
+- Add debug output to migration init container
+  ([`4ceeb0a`](https://github.com/nnayda/pricepoint/-/commit/4ceeb0adf1673aaed495ea43f9aa0663a3b37748))
+
+- Use SOURCE_HASH arg in RUN to ensure Docker cache invalidation
+  ([`6667535`](https://github.com/nnayda/pricepoint/-/commit/6667535b7c216b7490bf4a2922ed1a34ac0418d5))
+
+
 ## v1.0.0-dev.55 (2026-03-24)
 
 ### Performance Improvements
