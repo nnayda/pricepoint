@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v1.0.0-dev.58 (2026-03-25)
+
+### Bug Fixes
+
+- Apply ruff formatting to initial schema migration
+  ([`987aedf`](https://github.com/nnayda/pricepoint/-/commit/987aedf039fe5b17699a7cd252672e021dd27dfc))
+
+- Consolidate migrations into single initial schema
+  ([`97bcb1f`](https://github.com/nnayda/pricepoint/-/commit/97bcb1f7eaab1a434b523e5eb922bc5cdc9a919a))
+
+- Wrap long lines in initial schema migration to satisfy ruff
+  ([`36cdade`](https://github.com/nnayda/pricepoint/-/commit/36cdade911e00d4ae4c7049c1f2704f74012e1b9))
+
+
 ## v1.0.0-dev.57 (2026-03-25)
 
 ### Bug Fixes
