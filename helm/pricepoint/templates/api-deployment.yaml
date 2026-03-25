@@ -48,7 +48,19 @@ spec:
                   key: DATABASE_URL
         - name: migrate
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.image.tag }}"
-          command: ["uv", "run", "alembic", "upgrade", "head"]
+          command: ["bash", "-c"]
+          args:
+            - |
+              echo "=== Migration debug ==="
+              echo "PWD: $(pwd)"
+              echo "Migration files:"
+              ls -la src/pricepoint/db/migrations/versions/
+              echo "Alembic heads:"
+              uv run alembic heads || true
+              echo "Alembic history:"
+              uv run alembic history || true
+              echo "=== Running upgrade ==="
+              uv run alembic upgrade head
           envFrom:
             - configMapRef:
                 name: {{ include "pricepoint.fullname" . }}-app-config
