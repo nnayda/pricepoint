@@ -51,14 +51,10 @@ spec:
           command: ["bash", "-c"]
           args:
             - |
-              echo "=== Migration debug ==="
-              echo "PWD: $(pwd)"
-              echo "Migration files:"
+              echo "=== Build hash ==="
+              cat /app/.build-hash 2>/dev/null || echo "no build hash"
+              echo "=== Migration files ==="
               ls -la src/pricepoint/db/migrations/versions/
-              echo "Alembic heads:"
-              uv run alembic heads || true
-              echo "Alembic history:"
-              uv run alembic history || true
               echo "=== Running upgrade ==="
               uv run alembic upgrade head
           envFrom:

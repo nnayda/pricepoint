@@ -39,6 +39,7 @@ RUN pip install --no-cache-dir \
 
 # Invalidate cache when source changes (--build-arg SOURCE_HASH=$CI_COMMIT_SHA)
 ARG SOURCE_HASH
+RUN echo "Build: ${SOURCE_HASH}" > /opt/airflow/.build-hash
 COPY src/ /opt/airflow/src/
 COPY dags/ /opt/airflow/dags/
 

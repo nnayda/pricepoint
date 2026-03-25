@@ -11,6 +11,7 @@ RUN uv sync --frozen --no-dev
 
 # Copy source code and config (changes here won't invalidate dependency cache)
 ARG SOURCE_HASH
+RUN echo "Build: ${SOURCE_HASH}" > /app/.build-hash
 COPY src/ src/
 COPY alembic.ini ./
 COPY docs/FEATURE_CATALOG.md docs/FEATURE_CATALOG.md
