@@ -94,13 +94,16 @@ def tune_hyperparameters(
     # Extract grouping column before prepare_features drops it
     groups = None
     if "property_id" in features.columns:
-        groups = features.loc[features[target_col].notna(), "property_id"]
+        pid = features["property_id"].copy()
 
     x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
-    # Align groups with cleaned X/y (rows may have been dropped)
-    if groups is not None:
-        groups = groups.reindex(x.index)
+    # Align groups with cleaned X/y (rows may have been dropped by
+    # prepare_features).  Use loc[] instead of reindex() because the
+    # training DataFrame may carry duplicate index labels from the
+    # multi-sale expansion join.
+    if "property_id" in features.columns:
+        groups = pid.loc[x.index]
 
     # Use GroupKFold when multi-sale records are present
     if groups is not None:

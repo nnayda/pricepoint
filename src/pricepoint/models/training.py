@@ -211,9 +211,9 @@ def train_model(
         (used downstream to evaluate on unseen data only).
     """
     # Extract grouping column before prepare_features drops it
-    groups = None
+    pid = None
     if "property_id" in features.columns:
-        groups = features.loc[features[target_col].notna(), "property_id"]
+        pid = features["property_id"].copy()
 
     x, y = prepare_features(features, target_col, log_transform_target=log_transform_target)
 
@@ -222,9 +222,13 @@ def train_model(
 
     x = select_features(x)
 
-    # Align groups with the cleaned X/y (rows may have been dropped)
-    if groups is not None:
-        groups = groups.reindex(x.index)
+    # Align groups with the cleaned X/y (rows may have been dropped by
+    # prepare_features).  Use loc[] instead of reindex() because the
+    # training DataFrame may carry duplicate index labels from the
+    # multi-sale expansion join.
+    groups = None
+    if pid is not None:
+        groups = pid.loc[x.index]
 
     # Use GroupShuffleSplit when multi-sale records are present to prevent
     # the same property appearing in both train and test sets
