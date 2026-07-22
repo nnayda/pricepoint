@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-slim AS build
+FROM node:26-slim AS build
 
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
