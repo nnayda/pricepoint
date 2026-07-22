@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +38,7 @@ def generate_evaluation_plots(
     paths: list[Path] = []
 
     preds = {"y_true": y_true, "y_pred": y_pred}
-    generators = [
+    generators: list[tuple[str, Callable[..., Path | None], dict[str, Any]]] = [
         (
             "feature_importance.png",
             _plot_feature_importance,
@@ -88,7 +89,7 @@ def generate_evaluation_plots(
 
     for filename, func, kwargs in generators:
         try:
-            path = func(output_dir=output_dir, filename=filename, **kwargs)  # type: ignore[operator]
+            path = func(output_dir=output_dir, filename=filename, **kwargs)
             if path is not None:
                 paths.append(path)
         except Exception:
