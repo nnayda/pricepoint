@@ -12,7 +12,7 @@ Residential home search tool system. Allows for viewing property data and import
 | ML             | MLflow 2.14+ (tracking, model registry)                         |
 | Orchestration  | Apache Airflow 2.9 (3 DAGs: collection -> features -> training) |
 | Storage        | MinIO (S3-compatible), Valkey (Redis-compatible cache)           |
-| Infra          | Docker Compose, Kubernetes/Helm, GitLab CI/CD                   |
+| Infra          | Docker Compose, Kubernetes/Helm, GitHub Actions                 |
 | Dev Tools      | uv (packages), Ruff (lint/format), mypy, pytest                 |
 
 ## Architecture
@@ -100,13 +100,12 @@ Copy `.env.example` to `.env`. Key variables:
 
 ## Production Deployment
 
-The app is deployed to Kubernetes via Flux + Helm. Manifests live in `/workspace/infra/kubernetes/apps/pricepoint/`.
+The app is deployed to Kubernetes via Helm (GitOps-friendly; works with Flux/Argo `HelmRelease` pointing at the OCI chart).
 
 ### Deployment Structure
 
-- **Helm chart:** `helm/pricepoint/` (chart v0.2.0)
-- **Kustomize base:** `../infra/kubernetes/apps/pricepoint/base/` — Flux `HelmRelease` pointing to OCI chart registry (`pricepoint-oci`)
-- **Kustomize overlay:** `../infra/kubernetes/apps/pricepoint/overlays/nndesigns/` — production config, ingresses, SOPS-encrypted secrets
+- **Helm chart:** `helm/pricepoint/`, published to `oci://ghcr.io/nnayda/pricepoint/charts/pricepoint` on each release
+- **Images:** `ghcr.io/nnayda/pricepoint/{api,frontend,mlflow,airflow}:<version>`, published by the release workflow
 - **Namespace:** `pricepoint`
 
 ### Accessing Pods & Debugging
