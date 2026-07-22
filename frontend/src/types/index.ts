@@ -796,11 +796,7 @@ export interface ModelFeature {
 
 // Risk types
 export type InfrastructureType =
-  | "cell_tower"
-  | "transmission_line"
-  | "power_plant"
-  | "nat_gas_pipeline"
-  | "petroleum_pipeline";
+  "cell_tower" | "transmission_line" | "power_plant" | "nat_gas_pipeline" | "petroleum_pipeline";
 
 export interface RiskFeature {
   id: string;

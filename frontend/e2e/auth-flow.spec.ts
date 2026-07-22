@@ -62,9 +62,9 @@ test.describe("Auth flow", () => {
 
     // The modal will either close on success or show an error
     // (depends on whether the API is available)
-    await expect(
-      authDialog.getByRole("alert").or(page.getByText(/test user/i)),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(authDialog.getByRole("alert").or(page.getByText(/test user/i))).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("should show error for mismatched passwords", async ({ page }) => {

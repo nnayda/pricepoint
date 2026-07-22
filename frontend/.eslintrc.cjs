@@ -10,9 +10,14 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   plugins: ["react-refresh"],
   rules: {
-    "react-refresh/only-export-components": [
-      "warn",
-      { allowConstantExport: true },
-    ],
+    "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+    // eslint-plugin-react-hooks v7 added React Compiler lint rules. These
+    // three flag ~29 existing sites (fetch-hook setState-in-effect, the
+    // latest-ref pattern, memoization the compiler can't preserve) that
+    // need real refactors, tracked separately — the core rules-of-hooks
+    // and exhaustive-deps checks remain enforced.
+    "react-hooks/set-state-in-effect": "off",
+    "react-hooks/preserve-manual-memoization": "off",
+    "react-hooks/refs": "off",
   },
 };
