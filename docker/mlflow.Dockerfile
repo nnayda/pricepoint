@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Split heavy installs into separate layers to reduce peak memory during commit
 RUN pip install --no-cache-dir psycopg2-binary boto3
