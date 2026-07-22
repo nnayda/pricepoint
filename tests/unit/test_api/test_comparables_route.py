@@ -65,21 +65,23 @@ class TestComparablesEndpoint:
 
     def test_404_when_no_subject(self, client):
         """Should return 404 when subject property is not found."""
-        with patch("pricepoint.api.routes.comparables.get_db") as mock_get_db:
-            mock_db = MagicMock()
-            mock_db.execute.return_value.scalar_one_or_none.return_value = None
-            mock_get_db.return_value = iter([mock_db])
+        from pricepoint.api.dependencies import get_db
 
-            app.dependency_overrides[
-                __import__("pricepoint.api.dependencies", fromlist=["get_db"]).get_db
-            ] = lambda: mock_db
+        mock_db = MagicMock()
+        mock_db.execute.return_value.scalar_one_or_none.return_value = None
 
+        # Override via dependency_overrides only. Patching the module-level
+        # get_db corrupts FastAPI's lazily-built (and cached) dependency
+        # graph: the MagicMock's (*args, **kwargs) signature gets read as
+        # required query params, turning every later request into a 422.
+        app.dependency_overrides[get_db] = lambda: mock_db
+        try:
             resp = client.get(
                 "/api/comparables/search",
                 params={"lat": 35.7, "lon": -78.8, "address": "123 Fake St"},
             )
             assert resp.status_code == 404
-
+        finally:
             app.dependency_overrides.clear()
 
     def test_schema_validation(self):
