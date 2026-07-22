@@ -41,7 +41,7 @@ dependencies = [
     "shap>=0.43,<1",
     "matplotlib>=3.8,<4",
     "optuna>=4.0,<5",
-    "setuptools>=75,<82",
+    "setuptools>=83.0.0,<84",
     "ydata-profiling>=4.6,<5",
 ]
 
