@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pricepoint"
-version = "1.0.0-dev.59"
+version = "1.0.0"
 description = "Forecasting home values using geospatial, housing, and economic data"
 requires-python = ">=3.11"
 dependencies = [
@@ -95,38 +95,6 @@ plugins = ["sqlalchemy.ext.mypy.plugin"]
 [[tool.mypy.overrides]]
 module = "odsclient.*"
 follow_imports = "skip"
-
-[tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
-commit_author = "CI Bot <ci@example.com>"
-commit_message = "chore(release): {version}"
-
-[tool.semantic_release.branches.main]
-match = "main"
-
-[tool.semantic_release.branches.dev]
-match = "dev"
-prerelease = true
-prerelease_token = "dev"
-
-[tool.semantic_release.changelog]
-output_format = "md"
-exclude_commit_patterns = [
-    '''chore(?:\([^)]*?\))?: .+''',
-    '''ci(?:\([^)]*?\))?: .+''',
-    '''refactor(?:\([^)]*?\))?: .+''',
-    '''style(?:\([^)]*?\))?: .+''',
-    '''test(?:\([^)]*?\))?: .+''',
-    '''build\((?!deps\): .+)''',
-    '''Initial [Cc]ommit.*''',
-]
-
-[tool.semantic_release.remote]
-type = "gitlab"
-domain = "gitlab.example.com"
-
-[tool.semantic_release.publish]
-upload_to_vcs_release = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pricepoint"]
