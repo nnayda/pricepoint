@@ -1,13 +1,13 @@
 #!/bin/bash
 # Resilient rsync to NFS — remounts and retries on disconnect
-# Usage: sudo ./rsync_redfin.sh
+# Usage: sudo SRC="/path/to/redfin_part_*" NFS_SERVER=nfs.example.com ./rsync_redfin.sh
 
 set -euo pipefail
 
-SRC="/Users/ntnayda/local/redfin1_part_*"
-MOUNT_POINT="/Volumes/redfin"
-NFS_SERVER="nfs.example.com"
-NFS_EXPORT="/redfin"
+SRC="${SRC:?set SRC to the local Redfin HTML glob to sync}"
+MOUNT_POINT="${MOUNT_POINT:-/Volumes/redfin}"
+NFS_SERVER="${NFS_SERVER:?set NFS_SERVER to the NFS host}"
+NFS_EXPORT="${NFS_EXPORT:-/redfin}"
 NFS_OPTS="vers=4.1,resvport"
 MAX_RETRIES=50
 RETRY_DELAY=5

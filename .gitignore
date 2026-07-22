@@ -74,3 +74,6 @@ reports/
 
 # Playwright MCP
 .playwright-mcp/
+# Local AI tooling
+.ralphy/
+.claude/
