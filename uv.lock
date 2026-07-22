@@ -2509,7 +2509,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.3,<3" },
     { name = "odsclient", specifier = ">=0.8,<1" },
     { name = "optuna", specifier = ">=4.0,<5" },
-    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7,<2" },
+    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4,<2" },
     { name = "pillow", specifier = ">=10.0,<12" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=7.1.0" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
