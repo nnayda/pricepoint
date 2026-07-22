@@ -55,7 +55,10 @@ test.describe("Settings persistence", () => {
     await page.goto("/settings");
 
     // Verify the preference was persisted
-    const persistedState = await poiSection.getByRole("switch").first().getAttribute("aria-checked");
+    const persistedState = await poiSection
+      .getByRole("switch")
+      .first()
+      .getAttribute("aria-checked");
     expect(persistedState).toBe(toggledState);
   });
 

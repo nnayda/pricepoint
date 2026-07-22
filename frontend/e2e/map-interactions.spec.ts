@@ -6,9 +6,9 @@ test.describe("Map interactions", () => {
 
     // Wait for the page to settle — either property map or error state
     await expect(
-      page.getByRole("region", { name: /property map/i }).or(
-        page.getByText(/something went wrong/i),
-      ),
+      page
+        .getByRole("region", { name: /property map/i })
+        .or(page.getByText(/something went wrong/i)),
     ).toBeVisible({ timeout: 15_000 });
   });
 

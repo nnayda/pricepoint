@@ -23,11 +23,7 @@ function mapSchool(s: SchoolNearby): DashboardSchool {
     name: s.name,
     address: s.address ?? "",
     school_type: (s.school_level ?? s.school_type ?? "Elementary") as
-      | "Elementary"
-      | "Middle"
-      | "High"
-      | "K-8"
-      | "Charter",
+      "Elementary" | "Middle" | "High" | "K-8" | "Charter",
     rating: s.rating != null && s.rating > 0 ? s.rating : null,
     grades: s.grades ?? "",
     distance_miles: s.distance_miles,
