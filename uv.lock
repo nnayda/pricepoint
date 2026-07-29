@@ -2529,7 +2529,7 @@ requires-dist = [
     { name = "slowapi", specifier = ">=0.1,<1" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
     { name = "testcontainers", extras = ["postgres", "minio"], marker = "extra == 'dev'", specifier = ">=4.4,<5" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.51.0,<1" },
     { name = "xgboost", specifier = ">=2.0,<3" },
     { name = "ydata-profiling", specifier = ">=4.6,<5" },
 ]
